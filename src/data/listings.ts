@@ -1,0 +1,48 @@
+import type { Publicacion } from '../types';
+
+export const publicacionesIniciales: Publicacion[] = [
+  {
+    id: 'pub-1',
+    entradaId: 'seed-entrada-1',
+    eventoId: 'ev-1',
+    sectorId: 'sec-1-1',
+    precioOriginal: 18000,
+    precio: 19500,
+    vendedorDni: '30111222',
+    estado: 'activa',
+    creadaISO: '2026-09-01T10:00:00',
+  },
+  {
+    id: 'pub-2',
+    entradaId: 'seed-entrada-2',
+    eventoId: 'ev-1',
+    sectorId: 'sec-1-4',
+    precioOriginal: 27500,
+    precio: 30000,
+    vendedorDni: '28555666',
+    estado: 'activa',
+    creadaISO: '2026-09-02T11:30:00',
+  },
+  {
+    id: 'pub-3',
+    entradaId: 'seed-entrada-3',
+    eventoId: 'ev-2',
+    sectorId: 'sec-2-1',
+    precioOriginal: 32000,
+    precio: 33900,
+    vendedorDni: '33222111',
+    estado: 'activa',
+    creadaISO: '2026-09-05T09:15:00',
+  },
+  {
+    id: 'pub-4',
+    entradaId: 'seed-entrada-4',
+    eventoId: 'ev-3',
+    sectorId: 'sec-3-1',
+    precioOriginal: 12000,
+    precio: 12400,
+    vendedorDni: '31888999',
+    estado: 'activa',
+    creadaISO: '2026-09-06T18:45:00',
+  },
+];

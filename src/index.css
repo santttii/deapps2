@@ -1,0 +1,69 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  border-radius: 0 !important;
+}
+
+.rounded-dot {
+  border-radius: 6px !important;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: theme('colors.paper');
+  color: theme('colors.ink');
+  font-family: 'Archivo', sans-serif;
+}
+
+.font-mono-label {
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+:focus-visible {
+  outline: 2px solid #2e5bff;
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #f2f0ea 25%, #e8e5de 50%, #f2f0ea 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+
+.image-placeholder {
+  background-color: #f2f0ea;
+  background-image: repeating-linear-gradient(45deg, #e4e1d9 0 1px, transparent 1px 12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
