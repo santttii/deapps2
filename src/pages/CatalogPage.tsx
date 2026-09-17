@@ -60,7 +60,11 @@ export default function CatalogPage() {
                 </Link>
               </div>
             </div>
-            <ImagePlaceholder etiqueta="foto del evento" className="min-h-[420px] w-full" />
+            <ImagePlaceholder
+              etiqueta="foto del evento"
+              className="min-h-[420px] w-full"
+              src={eventoDestacado.imagenUrl}
+            />
           </section>
         )}
 

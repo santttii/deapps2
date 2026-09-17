@@ -25,9 +25,4 @@ export const organizerMetrics = {
     { nombre: 'Platea B', vendidas: 1440, cupo: 2000 },
     { nombre: 'Palcos', vendidas: 90, cupo: 200 },
   ],
-  misEventos: [
-    { titulo: 'Atlético Norte vs. Racing del Sur', fecha: '12/09/2026', vendidas: 10330, cupo: 12200, estado: 'publicado' as const },
-    { titulo: 'Kiroshi — Tour Continental', fecha: '25/09/2026', vendidas: 6100, cupo: 8500, estado: 'publicado' as const },
-    { titulo: 'Festival de invierno 2027', fecha: 'sin definir', vendidas: 0, cupo: 0, estado: 'borrador' as const },
-  ],
 };

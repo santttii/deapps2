@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { organizerMetrics as m } from '../data/organizer';
-import { money } from '../lib/format';
+import { useApp } from '../store/AppContext';
+import { fecha as formatearFecha, money } from '../lib/format';
 import StatCard from '../components/StatCard';
 import ProgressBar from '../components/ProgressBar';
 import Button from '../components/Button';
 import PageTransition from '../components/PageTransition';
+import CreateEventModal from '../components/CreateEventModal';
 
 const ITEMS_SIDEBAR = ['Eventos', 'Ventas', 'Reventa', 'Accesos / staff', 'Facturación', 'Configuración'];
 
 export default function OrganizerPage() {
+  const { state } = useApp();
   const [seccionActiva, setSeccionActiva] = useState('Eventos');
+  const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
   const maxVentas = Math.max(...m.ventasUltimos10Dias);
   const indicesTop2 = [...m.ventasUltimos10Dias]
     .map((v, i) => [v, i] as const)
@@ -21,6 +25,17 @@ export default function OrganizerPage() {
   const totalOcupacion = m.ocupacionPorSector.reduce((acc, s) => acc + s.vendidas, 0);
   const totalCupoOcupacion = m.ocupacionPorSector.reduce((acc, s) => acc + s.cupo, 0);
   const porcentajeOcupacion = Math.round((totalOcupacion / totalCupoOcupacion) * 100);
+
+  const filasEventos = [
+    ...state.eventos.map((ev) => ({
+      titulo: ev.titulo,
+      fecha: formatearFecha(ev.fechaISO),
+      vendidas: ev.sectores.reduce((acc, s) => acc + s.vendidas, 0),
+      cupo: ev.sectores.reduce((acc, s) => acc + s.cupo, 0),
+      estado: 'publicado' as const,
+    })),
+    { titulo: 'Festival de invierno 2027', fecha: 'sin definir', vendidas: 0, cupo: 0, estado: 'borrador' as const },
+  ];
 
   return (
     <PageTransition>
@@ -47,7 +62,7 @@ export default function OrganizerPage() {
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">Eventos</h1>
-            <Button>+ Crear evento</Button>
+            <Button onClick={() => setModalCrearAbierto(true)}>+ Crear evento</Button>
           </div>
 
           <div className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
@@ -85,7 +100,7 @@ export default function OrganizerPage() {
                 </tr>
               </thead>
               <tbody>
-                {m.misEventos.map((e) => (
+                {filasEventos.map((e) => (
                   <tr key={e.titulo} className={`border-t border-wire ${e.estado === 'borrador' ? 'text-faint' : ''}`}>
                     <td className="px-4 py-3">{e.titulo}</td>
                     <td className="px-4 py-3">{e.fecha}</td>
@@ -210,6 +225,8 @@ export default function OrganizerPage() {
           </Button>
         </div>
       </div>
+
+      <CreateEventModal abierto={modalCrearAbierto} onCerrar={() => setModalCrearAbierto(false)} />
     </PageTransition>
   );
 }

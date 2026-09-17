@@ -47,6 +47,15 @@ export default function ResalePage() {
   const eventoCompra = publicacion ? state.eventos.find((e) => e.id === publicacion.eventoId) : undefined;
   const sectorCompra = publicacion && eventoCompra ? eventoCompra.sectores.find((s) => s.id === publicacion.sectorId) : undefined;
 
+  function intentarComprar(publicacionId: string) {
+    if (!usuarioActual) {
+      mostrarToast('Iniciá sesión para comprar en la reventa oficial.');
+      navigate('/ingresar?next=/reventa');
+      return;
+    }
+    setComprando(publicacionId);
+  }
+
   async function confirmarCompra() {
     if (!publicacion || !eventoCompra || !sectorCompra || !usuarioActual) return;
     setProcesandoCompra(true);
@@ -207,7 +216,7 @@ export default function ResalePage() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => setComprando(p.id)}
+                          onClick={() => intentarComprar(p.id)}
                           className="border border-wire px-3 py-1.5 text-xs"
                         >
                           Comprar
@@ -238,7 +247,7 @@ export default function ResalePage() {
                 {esPropia ? (
                   <span className="font-mono-label text-[10px] text-muted">tu publicación</span>
                 ) : (
-                  <Button variant="secondary" className="mt-2 w-full" onClick={() => setComprando(p.id)}>
+                  <Button variant="secondary" className="mt-2 w-full" onClick={() => intentarComprar(p.id)}>
                     Comprar
                   </Button>
                 )}

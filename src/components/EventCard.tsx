@@ -36,7 +36,7 @@ export default function EventCard({ evento, tieneReventa, index = 0 }: EventCard
     >
       <Link to={`/evento/${evento.slug}`} className="block">
         <div className="relative">
-          <ImagePlaceholder etiqueta="foto del evento" className="aspect-[16/10] w-full" />
+          <ImagePlaceholder etiqueta="foto del evento" className="aspect-[16/10] w-full" src={evento.imagenUrl} />
           <span className="font-mono-label absolute left-2 top-2 bg-paper px-2 py-1 text-[10px] text-muted">
             {evento.categoria}
           </span>

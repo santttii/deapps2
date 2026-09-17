@@ -19,6 +19,7 @@ export interface Evento {
   descripcion: string;
   sectores: Sector[];
   destacado?: boolean;
+  imagenUrl?: string;
 }
 
 export interface Asistente {

@@ -1,4 +1,4 @@
-import type { Entrada, Orden, Publicacion, Usuario } from '../types';
+import type { Entrada, Evento, Orden, Publicacion, Usuario } from '../types';
 
 export interface CarritoItem {
   sectorId: string;
@@ -26,4 +26,5 @@ export type Action =
   | { type: 'PUBLICAR_REVENTA'; payload: Publicacion }
   | { type: 'RETIRAR_PUBLICACION'; payload: { publicacionId: string } }
   | { type: 'COMPRAR_REVENTA'; payload: { publicacionId: string; entradaNueva: Entrada; compradorId: string } }
-  | { type: 'MARCAR_ENTRADA_USADA'; payload: { entradaId: string } };
+  | { type: 'MARCAR_ENTRADA_USADA'; payload: { entradaId: string } }
+  | { type: 'CREAR_EVENTO'; payload: Evento };

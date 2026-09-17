@@ -50,7 +50,7 @@ export default function EventPage() {
     <PageTransition>
       <div className="mx-auto grid max-w-[1240px] grid-cols-1 gap-10 px-7 py-10 pb-28 md:grid-cols-[1fr_360px] md:pb-10">
         <div>
-          <ImagePlaceholder etiqueta="foto del evento" className="min-h-[320px] w-full" />
+          <ImagePlaceholder etiqueta="foto del evento" className="min-h-[320px] w-full" src={evento.imagenUrl} />
           <h1 className="mt-6 text-[clamp(30px,4vw,44px)] font-bold tracking-[-0.03em] text-ink">
             {evento.titulo}
           </h1>

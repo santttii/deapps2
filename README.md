@@ -51,6 +51,9 @@ npm run dev
    estados de escaneo (válida / usada / inválida) y "Marcar ingreso".
 9. Entrar como `organizador@palco.test` y revisar `/organizador`: stats, ventas
    por día, ocupación por sector, monitor de reventa y liquidación.
+10. Desde `/organizador`, tocar "+ Crear evento": subir una imagen (drag & drop o
+    click), cargar título/venue/fecha/sectores y confirmar — el evento nuevo
+    aparece al toque en el catálogo y en "Mis eventos".
 
 ## Decisiones de diseño
 
@@ -72,3 +75,16 @@ npm run dev
 - **Tailwind 3 en vez de 4**: se fijó la versión 3.x para poder declarar los
   tokens de color en `tailwind.config.js` con la sintaxis clásica pedida en la
   consigna.
+- **Imágenes de eventos**: los 6 eventos semilla usan fotos determinísticas de
+  `picsum.photos/seed/<slug>` (mismo slug → misma foto siempre). Los eventos
+  creados desde el panel del organizador guardan la imagen subida como data
+  URL (base64) directamente en el objeto del evento — sin backend no hay
+  dónde más alojarla, así que queda embebida en `localStorage`.
+- **Crear evento con imagen**: el modal de "+ Crear evento" en `/organizador`
+  genera un `Evento` completo (slug único, sectores con cupo/precio, imagen)
+  y lo agrega a `state.eventos` — por eso aparece de inmediato en el catálogo
+  y en la tabla "Mis eventos" del panel, que ahora se computa en vivo desde
+  el store en lugar de datos mock fijos.
+- **Guard de sesión en reventa**: comprar una publicación sin estar logueado
+  ahora muestra un toast ("Iniciá sesión para comprar…") y redirige a
+  `/ingresar?next=/reventa`, en vez de fallar en silencio.

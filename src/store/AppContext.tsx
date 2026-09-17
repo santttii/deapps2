@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import type { Action, Carrito } from './actions';
 import type { Entrada, Evento, Orden, Publicacion, Usuario } from '../types';
-import { eventos as eventosIniciales } from '../data/events';
+import { eventos as eventosIniciales, imagenPorSemilla } from '../data/events';
 import { publicacionesIniciales } from '../data/listings';
 
 export interface EntradaConDueno extends Entrada {
@@ -79,7 +79,12 @@ function cargarEstado(): AppState {
       ...base,
       ...parsed,
       usuarios: parsed.usuarios?.length ? parsed.usuarios : base.usuarios,
-      eventos: parsed.eventos?.length ? parsed.eventos : base.eventos,
+      eventos: parsed.eventos?.length
+        ? parsed.eventos.map((ev) => ({
+            ...ev,
+            imagenUrl: ev.imagenUrl ?? base.eventos.find((b) => b.id === ev.id)?.imagenUrl ?? imagenPorSemilla(ev.slug),
+          }))
+        : base.eventos,
       publicaciones: parsed.publicaciones ?? base.publicaciones,
       entradas: parsed.entradas ?? [],
       ordenes: parsed.ordenes ?? [],
@@ -159,6 +164,8 @@ function reducer(state: AppState, action: Action): AppState {
       );
       return { ...state, entradas };
     }
+    case 'CREAR_EVENTO':
+      return { ...state, eventos: [...state.eventos, action.payload] };
     default:
       return state;
   }
