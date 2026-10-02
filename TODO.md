@@ -387,7 +387,7 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
 No dependen del backend.
 
 - [ ] Arreglar los 8 warnings de `npm run lint`.
-- [ ] `index.html`: `lang="es"` (hoy dice `en`).
+- [x] `index.html`: `lang="es"`.
 - [ ] `prefers-reduced-motion` también en framer-motion
       (`MotionConfig reducedMotion="user"`).
 - [ ] Pasada de accesibilidad y responsive.
