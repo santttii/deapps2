@@ -7,117 +7,175 @@ defecto; si se elige otra cosa, el resto de la lista sigue valiendo.
 
 Convención: `[ ]` pendiente · `[x]` hecho · `[~]` en curso.
 
-Contexto: el taller grupal "Escenario de mensajería (Palco)" define que el
-evento **pago confirmado** se resuelve con JMS (cola + tópico). Eso está en la
-[Fase 5](#fase-5--mensajería-jms-pago-confirmado) y condiciona el stack.
+## Contexto (documentos de la materia)
+
+Desarrollo de Aplicaciones II. Grupo: Deya, Frisoli, Loto, Molina, Zuchowicki.
+
+- **Entrega Parcial N.º 1 — Arquitectura general** (exposición 18/09):
+  arquitectura en tres capas, 8 componentes de negocio con una interfaz cada
+  uno, stack Jakarta EE sobre WildFly.
+- **Taller — Arquitectura de integración**: bus de integración (ESB
+  conceptual, sin producto dedicado) apoyado en el broker JMS y en clientes
+  SOAP/REST detrás de interfaces propias (`IPagos`, `IFacturacion`).
+  `ServicioDeUsuarios` es el servicio reutilizable (principio SOA).
+- **Taller — Escenario de mensajería**: el evento `PAGO_CONFIRMADO` se publica
+  en una cola (emisión de entradas) y en un tópico (notificaciones y
+  auditoría). Ver [Fase 6](#fase-6--mensajería-jms-pago-confirmado).
+
+### Stack definido
+
+| Capa | Tecnología |
+|---|---|
+| Presentación | React (SPA) consumiendo la API REST — es el front de este repo |
+| Negocio | Jakarta EE — EJB + CDI, Session Beans desplegados en WildFly |
+| Datos | JPA + Hibernate, un repositorio por entidad |
+| API REST propia | JAX-RS |
+| Integración | JAX-WS (AFIP/ARCA, SOAP) · cliente JAX-RS (Mercado Pago, REST) · JMS (ActiveMQ) |
+
+### Los 8 componentes
+
+| Componente | Interfaz | Tipo | Responsabilidad |
+|---|---|---|---|
+| `ServicioDeUsuarios` | `IUsuarios` | — | Registro, autenticación y roles (comprador, organizador, staff) |
+| `ServicioDeEventos` | `IEventos` | Stateless | Catálogo de eventos, tipos de entrada y cupos. **Ya implementado** (fuera de este repo) |
+| `ServicioDeVentas` | `IVentas` | **Stateful** | Orquesta el checkout de punta a punta y mantiene la compra en curso |
+| `ServicioDePagos` | `IPagos` | — | Procesa, confirma y reembolsa pagos contra Mercado Pago |
+| `ServicioDeValidación` | `IValidacion` | Stateless | Autenticidad y uso único de la entrada en puerta |
+| `ServicioDeReventa` | `IReventa` | — | Publicación y compra de reventa oficial con tope |
+| `ServicioDeNotificaciones` | `INotificaciones` | — | Confirmaciones, recordatorios y alertas, asincrónicas |
+| `ServicioDeFacturación` | `IFacturacion` | — | Factura electrónica contra AFIP/ARCA |
+
+Reglas de diseño: una responsabilidad por componente, los componentes se
+hablan solo por interfaz, nunca contra la implementación del otro.
 
 ---
 
 ## Fase 0 — Decisiones y setup
 
-- [ ] Definir stack del backend **(a confirmar)**. Como el taller usa JMS,
-      la propuesta es Java 21 + Spring Boot 3, con:
-  - Spring Web para la API REST.
-  - Spring Data JPA + PostgreSQL, migraciones con Flyway.
-  - Spring JMS + ActiveMQ Artemis como broker.
-  - Spring Security para autenticación y roles.
-  - Bean Validation para validar entradas.
-- [ ] Definir cómo se dividen los servicios **(a confirmar)**. Los del taller
-      son `ServicioDeVentas`, `ServicioDePagos`, `ServicioDeFacturación`,
-      módulo de emisión de entradas, `ServicioDeNotificaciones` y Auditoría.
-      Propuesta: empezar como un monolito modular (un módulo Maven por
-      servicio, un solo deploy) que se comunica por JMS entre módulos, y
-      separar en apps independientes solo si la materia lo pide.
-- [ ] Revisar qué existe ya de `ServicioDePagos` y `ServicioDeFacturación`
-      (el taller dice que ya usan `TextMessage` con JSON) para reutilizarlo.
-- [ ] Estructura del repo **(a confirmar)**. Propuesta: `frontend/` (el front
-      actual) y `backend/` (proyecto Maven multimódulo) en el mismo repo.
+- [ ] Traer al repo el código de `ServicioDeEventos` que ya está desplegado
+      en WildFly (presentado en la Entrega 1) y usarlo como base.
+- [ ] Confirmar versiones usadas en los laboratorios: Java (propuesta 21),
+      WildFly (propuesta 3x con Jakarta EE 10) **(a confirmar)**.
+- [ ] Elegir base de datos **(a confirmar)**: la que se use en los labs
+      (PostgreSQL o MySQL). Configurarla como datasource en WildFly.
+- [ ] Definir empaquetado **(a confirmar)**. Propuesta: proyecto Maven
+      multimódulo con un módulo por componente (interfaz + implementación),
+      empaquetado en un solo EAR/WAR sobre un WildFly. Los documentos
+      describen componentes dentro del mismo servidor de aplicaciones (no
+      microservicios separados), y `ServicioDeVentas` stateful necesita ese
+      modelo.
+- [ ] Estructura del repo. Propuesta: `frontend/` (el front actual) y
+      `backend/` (proyecto Maven).
 - [ ] Mover el front actual a `frontend/` sin romper `npm run dev` ni `build`.
-- [ ] Scaffold de `backend/`: app Spring Boot, healthcheck (Actuator), logs,
-      manejo centralizado de errores (`@ControllerAdvice`).
+- [ ] Scaffold de `backend/`: `pom.xml` padre, módulo por componente, módulo
+      `api` (recursos JAX-RS), módulo `common` (DTOs, mensajes, excepciones).
+- [ ] Healthcheck (`GET /api/health` o MicroProfile Health de WildFly) y
+      manejo centralizado de errores (`ExceptionMapper` de JAX-RS).
 - [ ] Pasar a Java las constantes de negocio de `src/types/index.ts`
       (`TOPE_REVENTA`, `TASA_SERVICIO`, `MAX_ENTRADAS_POR_ORDEN`,
       `HORAS_LIMITE_REVENTA`, `MINUTOS_RESERVA`). El servidor pasa a ser la
-      fuente de verdad; el front las puede leer de un endpoint de config.
-- [ ] Configuración por ambiente: `application.yml` + `.env.example`
-      (`DATABASE_URL`, `JWT_SECRET`, `ARTEMIS_URL`, `VITE_API_URL`,
-      credenciales de pagos, email y storage).
-- [ ] `docker-compose.yml` para desarrollo local: PostgreSQL, ActiveMQ
-      Artemis (con consola web) y MailHog para ver emails.
-- [ ] Un comando para levantar todo (front + backend + docker).
+      fuente de verdad.
+- [ ] `docker-compose.yml` para desarrollo local: WildFly con
+      `standalone-full.xml` (trae ActiveMQ Artemis embebido para JMS), base de
+      datos y MailHog para ver emails.
+- [ ] Configuración de WildFly versionada (script CLI `.cli` para datasource,
+      colas, tópicos, seguridad), para que todo el grupo tenga el mismo setup.
+- [ ] `.env.example` con lo que cambia por ambiente (base, credenciales de
+      Mercado Pago, certificados de AFIP, `VITE_API_URL`).
 
-## Fase 1 — Base de datos
+## Fase 1 — Base de datos y entidades
 
-- [ ] Esquema con tablas para: `usuarios`, `eventos`, `sectores`, `ventas`
-      (hoy `Orden` en el front), `venta_items`, `entradas`, `publicaciones`,
-      `reservas`, `escaneos`, `codigos_verificacion`, `auditoria`.
+- [ ] Entidades JPA: `Usuario`, `Evento`, `Sector` (tipo de entrada), `Venta`
+      (hoy `Orden` en el front), `VentaItem`, `Entrada`, `Publicacion`,
+      `Reserva`, `Escaneo`, `CodigoVerificacion`, `Auditoria`, `Factura`.
+- [ ] Repositorios: `UsuarioRepository`, `EventoRepository`,
+      `EntradaRepository`, `VentaRepository` (los de la Entrega 1) y los que
+      falten.
 - [ ] Restricciones en la base, no solo en código:
-  - [ ] `email` y `dni` únicos en `usuarios`.
-  - [ ] `slug` único en `eventos`.
-  - [ ] `vendidas <= cupo` en `sectores` (check constraint).
-  - [ ] DNI único por venta en `entradas` (índice único `venta_id + dni`).
-  - [ ] Una sola publicación `activa` por entrada (índice único parcial).
-- [ ] Estado de emisión en `entradas` (`pendiente_emision` → `valida`), porque
-      con mensajería la entrada se emite después del pago, no en el mismo
-      momento.
-- [ ] Montos en enteros (pesos o centavos), nunca en `double`.
+  - [ ] `email` y `dni` únicos en usuarios.
+  - [ ] `slug` único en eventos.
+  - [ ] `vendidas <= cupo` en sectores.
+  - [ ] DNI único por venta en entradas.
+  - [ ] Una sola publicación activa por entrada.
+- [ ] Estado de emisión en `Entrada` (`PENDIENTE_EMISION` → `VALIDA`), porque
+      con mensajería la entrada se emite después del pago.
+- [ ] Montos en enteros o `BigDecimal`, nunca en `double`.
 - [ ] Formato de ids: el taller usa `V-00231`, `U-00789`, `E-00042`,
       `T-000981`. Definir si son ids reales o códigos públicos aparte del id
       interno.
-- [ ] Migraciones Flyway versionadas.
-- [ ] Seed con los datos actuales de `src/data/` (6 eventos, 4 publicaciones)
-      y las 3 cuentas de prueba.
+- [ ] Migraciones **(a confirmar)**: Flyway, o `hibernate.hbm2ddl` solo en
+      desarrollo + scripts SQL versionados.
+- [ ] Datos iniciales con lo de `src/data/` (6 eventos, 4 publicaciones) y las
+      3 cuentas de prueba (`import.sql` o migración).
 
-## Fase 2 — Autenticación y usuarios
+## Fase 2 — `ServicioDeUsuarios` (servicio reutilizable)
 
-- [ ] `POST /auth/registro`: valida datos (mismas reglas que
-      `src/lib/validate.ts`), hashea la contraseña con BCrypt.
-- [ ] Verificación de email con código de 6 dígitos: generar, enviar, expirar,
-      limitar intentos, reenviar con espera.
-- [ ] `POST /auth/login` y `POST /auth/logout`.
-- [ ] Sesión con JWT (acceso corto + refresh en cookie `httpOnly`) o sesión en
-      cookie **(a confirmar)**.
-- [ ] `GET /auth/yo`: devuelve el usuario logueado.
-- [ ] Roles `user`, `organizer`, `staff` en Spring Security.
-- [ ] Verificación de identidad (`identidadVerificada`): definir qué se valida
-      y cómo se marca.
+- [ ] Interfaz `IUsuarios` y Session Bean.
+- [ ] `POST /api/auth/registro`: valida datos (mismas reglas que
+      `src/lib/validate.ts`) y hashea la contraseña (PBKDF2 o BCrypt).
+- [ ] Verificación de email con código de 6 dígitos: generar, enviar (vía
+      `ServicioDeNotificaciones`), expirar, limitar intentos, reenviar.
+- [ ] `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/yo`.
+- [ ] Seguridad declarativa del contenedor: Jakarta Security / Elytron con
+      `@RolesAllowed` para los roles `user`, `organizer`, `staff`.
+- [ ] Mecanismo de sesión **(a confirmar)**: sesión HTTP con cookie (encaja con
+      el bean stateful de Ventas) o JWT (MicroProfile JWT).
+- [ ] Operaciones que consumen los otros servicios: identificar al comprador y
+      a cada titular (Ventas), verificar que quien publica es el titular
+      (Reventa), contrastar identidad en puerta (Validación).
+- [ ] Verificación de identidad (`identidadVerificada`): definir qué se valida.
 - [ ] Recuperar contraseña (no existe hoy en el front).
 
-## Fase 3 — Eventos
+## Fase 3 — `ServicioDeEventos`
 
-- [ ] `GET /eventos` con filtros por categoría y búsqueda insensible a acentos
-      (hoy se hace en el front con `normalizar()`; en Postgres, `unaccent`).
-- [ ] `GET /eventos/{slug}` con sectores y cupo disponible.
-- [ ] `POST /eventos` (solo `organizer`): crea evento con sectores.
-- [ ] `PATCH /eventos/{id}` y cancelar evento (solo el organizador dueño).
-- [ ] Relación evento ↔ organizador (hoy no existe: todos los eventos se
-      muestran a cualquier organizador).
-- [ ] Subida de imágenes a un storage (S3, Cloudflare R2 o disco local en
-      desarrollo) **(a confirmar)**: validar tipo y tamaño, guardar solo la
-      URL. Reemplaza el base64 en `localStorage`.
+- [ ] Integrar el bean existente (`crearEvento`, `listarEventos`,
+      `obtenerDetalle`, `actualizarCupo`).
+- [ ] `GET /api/eventos` con filtros por categoría y búsqueda insensible a
+      acentos.
+- [ ] `GET /api/eventos/{slug}` con sectores y cupo disponible.
+- [ ] `POST /api/eventos` y `PUT /api/eventos/{id}` (solo `organizer`, el
+      organizador dueño).
+- [ ] Cancelar evento (dispara alertas de cancelación por Notificaciones).
+- [ ] Relación evento ↔ organizador (hoy no existe en el front).
+- [ ] Subida de imágenes **(a confirmar dónde)**: disco del servidor en
+      desarrollo o storage externo. Guardar solo la URL; reemplaza el base64 en
+      `localStorage`.
 
-## Fase 4 — Compra (`ServicioDeVentas` + `ServicioDePagos`)
+## Fase 4 — `ServicioDeVentas` (stateful) y `ServicioDePagos`
 
-- [ ] `POST /reservas`: bloquea cupo por `MINUTOS_RESERVA` dentro de una
-      transacción. Valida `MAX_ENTRADAS_POR_ORDEN` y cupo disponible.
-- [ ] Liberar reservas vencidas (`@Scheduled` o chequeo al consultar cupo).
-- [ ] `POST /ventas`: confirma la reserva, valida titulares (DNI válido, DNI
-      único por venta), calcula subtotal + `TASA_SERVICIO` en el servidor.
-- [ ] Integración con pasarela de pago **(a confirmar, propuesta: Mercado
-      Pago)**: crear el pago, recibir el webhook, idempotencia ante webhooks
-      repetidos.
-- [ ] Cuando el pago queda aprobado, `ServicioDeVentas` cierra el checkout y
-      publica el evento `PAGO_CONFIRMADO` (ver Fase 5). Ya no emite las
-      entradas ni manda el email directamente.
-- [ ] Manejar pago rechazado, pendiente (transferencia) y vencimiento.
-- [ ] Facturación: definir si `ServicioDeFacturación` también se suscribe al
-      tópico o se llama aparte.
-- [ ] "Asignar después por link": generar link para que otra persona complete
-      sus datos de titular.
-- [ ] `GET /ventas/{id}` (solo el dueño) para la pantalla de confirmación,
-      incluyendo el estado de emisión de cada entrada.
+- [ ] Interfaz `IVentas` como `@Stateful`: mantiene selección, titulares y
+      pago a lo largo de varias llamadas del mismo usuario. Se libera
+      (`@Remove`) al confirmar o cancelar.
+- [ ] Ligar la instancia stateful al usuario desde REST: guardarla en un bean
+      CDI `@SessionScoped` (requiere sesión HTTP). Definir timeout igual a
+      `MINUTOS_RESERVA`.
+- [ ] Reserva de cupo durante el checkout (llama a `IEventos`), con
+      liberación al vencer (`@Schedule` o timeout del bean).
+- [ ] Validar `MAX_ENTRADAS_POR_ORDEN`, cupo disponible, titulares (DNI válido
+      y único por venta) y calcular subtotal + `TASA_SERVICIO`.
+- [ ] `IPagos` con implementación `MercadoPagoPagos`: cliente JAX-RS contra la
+      API REST de Mercado Pago (credenciales de prueba / sandbox).
+- [ ] Webhook de Mercado Pago (`POST /api/pagos/webhook`) con idempotencia.
+- [ ] Reembolsos (`IPagos` los menciona; definir cuándo: evento cancelado).
+- [ ] Al aprobarse el pago, publicar `PAGO_CONFIRMADO` (Fase 6).
+- [ ] Manejar pago rechazado, pendiente y vencido.
+- [ ] "Asignar después por link" para que otro titular complete sus datos.
+- [ ] `GET /api/ventas/{id}` (solo el dueño), con el estado de emisión.
 
-## Fase 5 — Mensajería JMS: pago confirmado
+## Fase 5 — `ServicioDeFacturación` (AFIP/ARCA)
+
+- [ ] `IFacturacion` con implementación `AfipFacturacion`: cliente JAX-WS
+      generado desde los WSDL de AFIP (WSAA para autenticación, WSFEv1 para
+      factura electrónica).
+- [ ] Usar el ambiente de **homologación** de AFIP (requiere certificado de
+      prueba).
+- [ ] Implementación simulada `FacturacionFake` para desarrollo y tests,
+      elegible por configuración (es el desacoplamiento que plantea el ESB).
+- [ ] Disparar la facturación de forma asincrónica después del pago
+      (suscriptor del tópico o cola propia) y reintentar si AFIP no responde.
+- [ ] Guardar CAE y número de comprobante en `Factura`.
+
+## Fase 6 — Mensajería JMS: pago confirmado
 
 Según el taller: el mismo evento se publica en una **cola** y en un **tópico**.
 
@@ -127,207 +185,192 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
                                                └► Auditoría / Historial (durable)
 ```
 
+- [ ] **Resolver diferencia entre documentos**: en la Entrega 1 las entradas se
+      emiten de forma sincrónica (paso 4) y por la cola salen mail y factura;
+      en el taller de mensajería la emisión pasa a la cola. Definir cuál vale
+      (propuesta: el taller, que es posterior).
+
 ### Broker y contrato
-- [ ] Levantar ActiveMQ Artemis en `docker-compose.yml`.
-- [ ] Crear `cola.emision-entradas` (punto a punto) y
-      `topico.compra-confirmada` (pub/sub).
+- [ ] Usar el ActiveMQ Artemis embebido en WildFly (`standalone-full.xml`).
+- [ ] Crear `cola.emision-entradas` y `topico.compra-confirmada` por script
+      CLI de WildFly.
 - [ ] Mensaje `TextMessage` con JSON, mismo body en los dos canales:
       `ventaId`, `compradorId`, `eventoId`, `entradas[]` (`entradaId`,
       `sector`, `titular` con `nombre` y `dni`), `montoTotal`, `timestamp`.
 - [ ] Propiedad `tipoEvento=PAGO_CONFIRMADO` en cada mensaje.
-- [ ] Clase/record Java del mensaje compartida entre productor y consumidores,
-      y serialización con Jackson.
-- [ ] Documentar el contrato (campos, tipos, ejemplo) en `docs/`.
+- [ ] Clase del mensaje en el módulo `common`, serializada con JSON-B.
+- [ ] Documentar el contrato en `docs/`.
 
 ### Productor (`ServicioDeVentas`)
-- [ ] Publicar en la cola y en el tópico al confirmar el pago.
-- [ ] Que la venta y el envío no queden inconsistentes: si se guarda la venta
-      pero falla el envío al broker (o al revés). Opciones: transacción JMS +
-      base, o patrón outbox (tabla de mensajes pendientes que un job publica)
-      **(a confirmar)**.
+- [ ] Publicar en la cola y en el tópico al confirmar el pago, con
+      `JMSContext` inyectado.
+- [ ] Enviar dentro de la misma transacción JTA que guarda la venta, para que
+      no quede la venta guardada sin mensaje (o al revés). WildFly lo resuelve
+      con XA entre la base y el broker embebido.
 
 ### Consumidor de la cola: módulo de emisión
-- [ ] Escuchar `cola.emision-entradas`.
-- [ ] Generar el QR firmado de cada entrada (ver Fase 7) y marcar la venta como
+- [ ] Message-Driven Bean (MDB) escuchando `cola.emision-entradas`.
+- [ ] Generar el QR firmado de cada entrada (Fase 8) y marcar la venta como
       emitida.
-- [ ] Consumidor idempotente: si el broker reentrega el mensaje (por ejemplo,
-      después de una caída), no emitir dos veces. Chequear por `ventaId` /
-      `entradaId` antes de emitir.
-- [ ] Reintentos con espera y cola de mensajes fallidos (DLQ) para los que
-      fallan siempre.
+- [ ] Idempotente: si el broker reentrega el mensaje, no emitir dos veces.
+- [ ] Reintentos y cola de mensajes fallidos (DLQ) configurados en Artemis.
 
 ### Suscriptores del tópico
-- [ ] `ServicioDeNotificaciones`: email (y SMS si entra en alcance) al
-      comprador. Suscripción no durable, según el taller.
-- [ ] Auditoría / Historial: guarda el evento en la tabla `auditoria`.
-      Suscripción **durable**, porque no se puede perder ningún evento.
-- [ ] Usar `tipoEvento` como selector de mensajes, para que cada suscriptor
-      filtre solo lo que le interesa.
+- [ ] MDB de `ServicioDeNotificaciones`: email al comprador. Suscripción no
+      durable.
+- [ ] MDB de Auditoría / Historial: guarda el evento. Suscripción **durable**
+      (`subscriptionDurability=Durable`, `clientId`, `subscriptionName`).
+- [ ] `messageSelector = "tipoEvento = 'PAGO_CONFIRMADO'"` en cada MDB.
 
-### Próximos eventos candidatos (opcional)
-- [ ] Evaluar los mismos patrones para: reventa concretada, entrada escaneada,
-      evento cancelado, reserva vencida.
+### Otros procesos asincrónicos (de la Entrega 1)
+- [ ] Recordatorios antes del evento (`@Schedule` + Notificaciones).
+- [ ] Alertas de cancelación de evento.
+- [ ] Aviso al vendedor cuando se vende su entrada en reventa.
+- [ ] Reintentos de factura (Fase 5).
 
-## Fase 6 — Entradas y reventa
+## Fase 7 — `ServicioDeReventa`
 
-- [ ] `GET /entradas/mias`.
-- [ ] `POST /publicaciones`: valida que la entrada sea del usuario y esté
-      `valida`, precio entre 50% y `TOPE_REVENTA`, y que falten más de
-      `HORAS_LIMITE_REVENTA` para el evento.
-- [ ] `DELETE /publicaciones/{id}`: retirar, la entrada vuelve a `valida`.
-- [ ] `GET /publicaciones` con filtros (lo que hoy muestra `/reventa`).
-- [ ] `POST /publicaciones/{id}/compra`: en una transacción, marca la
-      publicación como `vendida`, la entrada original como `vendida` y emite
-      una entrada nueva a nombre del comprador. Pasa por la pasarela de pago
-      (y puede reutilizar el flujo de la Fase 5 para emitir y notificar).
+- [ ] `GET /api/entradas/mias`.
+- [ ] `POST /api/publicaciones`: valida (con `IUsuarios`) que quien publica sea
+      el titular verificado, que la entrada esté válida, precio entre 50% y
+      `TOPE_REVENTA`, y que falten más de `HORAS_LIMITE_REVENTA`.
+- [ ] `DELETE /api/publicaciones/{id}`: retirar, la entrada vuelve a válida.
+- [ ] `GET /api/publicaciones` con filtros.
+- [ ] Comprar una publicación: cobra por `IPagos`, marca publicación y entrada
+      original como vendidas, emite entrada nueva al comprador (invalida el QR
+      anterior vía `IValidacion`) y notifica al vendedor.
 - [ ] Bloquear que alguien compre su propia publicación.
-- [ ] Cerrar automáticamente las publicaciones activas cuando faltan
-      `HORAS_LIMITE_REVENTA` para el evento.
-- [ ] Liquidación al vendedor: registrar monto a pagar y estado.
+- [ ] Cerrar publicaciones automáticamente a `HORAS_LIMITE_REVENTA` del evento.
+- [ ] Liquidación al vendedor.
 
-## Fase 7 — Validación en puerta
+## Fase 8 — `ServicioDeValidación` (stateless)
 
-- [ ] QR firmado: el contenido es un token firmado (HMAC o JWT) con el id de la
-      entrada, para que no se pueda falsificar. Reemplaza el QR decorativo de
-      `src/components/QRCode.tsx` por uno escaneable.
-- [ ] Invalidar el QR anterior al revender la entrada.
-- [ ] `POST /puerta/escaneos` (solo `staff`): devuelve `valida`, `usada` o
-      `invalida` y marca la entrada como `usada` de forma atómica (dos escaneos
-      simultáneos no pueden pasar los dos).
+- [ ] QR firmado (HMAC o JWT con el id de la entrada) para que no se pueda
+      falsificar. Reemplaza el QR decorativo de `src/components/QRCode.tsx`.
+- [ ] `POST /api/validacion/escaneos` (solo `staff`): devuelve `valida`,
+      `usada` o `invalida` y marca la entrada como usada de forma atómica
+      (uso único aunque escaneen dos puertas a la vez).
+- [ ] Contrastar con el documento del titular (devuelve nombre y DNI para que
+      el staff lo compare).
 - [ ] Ingreso manual por código `PLC-XXXXXX`.
 - [ ] Contadores en vivo y últimos escaneos por evento.
-- [ ] Asignar staff a eventos (hoy cualquier staff valida cualquier evento).
-- [ ] Modo offline **(a confirmar si entra en alcance)**: descargar lista de
-      entradas válidas y sincronizar al volver la conexión.
+- [ ] Asignar staff a eventos.
+- [ ] Modo offline **(a confirmar si entra en alcance)**.
 
-## Fase 8 — Panel del organizador
+## Fase 9 — Panel del organizador
 
-- [ ] `GET /organizador/resumen`: stats reales (vendidas, recaudación,
-      ocupación) de sus eventos.
-- [ ] Ventas por día calculadas desde `ventas`.
-- [ ] Ocupación por sector.
-- [ ] Monitor de reventa con publicaciones reales.
-- [ ] Accesos en vivo desde `escaneos`.
-- [ ] Liquidación real del organizador.
+- [ ] `GET /api/organizador/resumen`: vendidas, recaudación y ocupación reales.
+- [ ] Ventas por día, ocupación por sector, monitor de reventa, accesos en
+      vivo y liquidación desde la base.
 - [ ] (Opcional) Dashboard de analytics como nuevo suscriptor de
-      `topico.compra-confirmada`, como plantea el taller.
+      `topico.compra-confirmada`.
 - [ ] Borrar `src/data/organizer.ts` cuando todo venga de la API.
 
-## Fase 9 — Conexión frontend ↔ backend
+## Fase 10 — Conexión frontend ↔ backend
 
 - [ ] Cliente HTTP en `src/lib/api.ts`: base URL desde `VITE_API_URL`, manejo
-      de errores, envío de credenciales, refresh de sesión.
-- [ ] Proxy de Vite al backend en desarrollo, o CORS configurado en Spring.
-- [ ] Decidir manejo de datos del servidor **(a confirmar)**. Propuesta:
-      TanStack Query para cache, loading y reintentos.
-- [ ] Generar los tipos del front desde la API (OpenAPI con springdoc +
-      generador de tipos TypeScript) para no mantenerlos a mano.
+      de errores, envío de cookies de sesión (`credentials: 'include'`).
+- [ ] CORS en JAX-RS (filtro) o proxy de Vite al WildFly en desarrollo.
+- [ ] Manejo de datos del servidor **(a confirmar)**: TanStack Query.
+- [ ] Tipos del front generados desde la API (MicroProfile OpenAPI de WildFly
+      + generador de tipos TypeScript).
 - [ ] Reemplazar cada `dispatch` del store por la llamada a la API:
-  - [ ] `LOGIN`, `LOGOUT`, `REGISTER` → `/auth/*`
-  - [ ] `CREAR_EVENTO` → `POST /eventos`
-  - [ ] `SET_CARRITO` + `CREAR_ORDEN` → `/reservas` + `/ventas` + pago
-  - [ ] `PUBLICAR_REVENTA`, `RETIRAR_PUBLICACION`, `COMPRAR_REVENTA` → `/publicaciones/*`
-  - [ ] `MARCAR_ENTRADA_USADA` → `/puerta/escaneos`
-- [ ] Conectar páginas a la API: catálogo, detalle, checkout, confirmación,
-      mis entradas, reventa, organizador, puerta.
-- [ ] Pantalla de confirmación con estado "emitiendo entradas…": como la
-      emisión es asíncrona, consultar `GET /ventas/{id}` hasta que las
-      entradas estén emitidas y recién ahí mostrar el QR.
-- [ ] Countdown del checkout sincronizado con el vencimiento real de la reserva.
-- [ ] Estados de carga, error y vacío en cada pantalla (hoy se simulan con
-      `sleep()`).
-- [ ] Mostrar los errores de validación que devuelve el servidor en los
-      formularios.
-- [ ] Sacar la persistencia de `palco.state` en `localStorage`; dejar solo lo
-      que sea preferencia local (por ejemplo, el carrito antes del login).
-- [ ] `ProtectedRoute` basado en la sesión real (`GET /auth/yo`).
-- [ ] Borrar `src/data/events.ts` y `src/data/listings.ts` del front (pasan al
-      seed de la base).
+  - [ ] `LOGIN`, `LOGOUT`, `REGISTER` → `/api/auth/*`
+  - [ ] `CREAR_EVENTO` → `POST /api/eventos`
+  - [ ] `SET_CARRITO` + `CREAR_ORDEN` → checkout de `ServicioDeVentas` + pago
+  - [ ] `PUBLICAR_REVENTA`, `RETIRAR_PUBLICACION`, `COMPRAR_REVENTA` → `/api/publicaciones/*`
+  - [ ] `MARCAR_ENTRADA_USADA` → `/api/validacion/escaneos`
+- [ ] Checkout por pasos contra el bean stateful (cada paso es una llamada).
+- [ ] Confirmación con estado "emitiendo entradas…" hasta que la emisión
+      asíncrona termine.
+- [ ] Countdown del checkout sincronizado con el vencimiento real.
+- [ ] Estados de carga, error y vacío en cada pantalla (hoy `sleep()`).
+- [ ] Errores de validación del servidor en los formularios.
+- [ ] Sacar la persistencia de `palco.state` en `localStorage`.
+- [ ] `ProtectedRoute` basado en la sesión real (`GET /api/auth/yo`).
+- [ ] Borrar `src/data/events.ts` y `src/data/listings.ts`.
 
-## Fase 10 — Pruebas
+## Fase 11 — Pruebas
 
 ### Backend
-- [ ] JUnit 5 + Testcontainers (PostgreSQL y Artemis reales en los tests).
-- [ ] Unitarias de reglas de negocio: tope de reventa, mínimo 50%, tasa de
-      servicio, máximo por venta, cierre de reventa a 3 horas, DNI único.
-- [ ] Integración por endpoint (MockMvc): caso feliz, validaciones, 401 sin
-      sesión, 403 con rol incorrecto.
-- [ ] Concurrencia: dos compras simultáneas del último lugar (no sobrevender),
-      dos compras de la misma publicación, dos escaneos de la misma entrada.
-- [ ] Webhooks de pago: aprobado, rechazado, duplicado (idempotencia).
-- [ ] Vencimiento de reservas libera cupo.
+- [ ] JUnit 5 + Mockito para la lógica de cada Session Bean (mockeando las
+      interfaces de los otros componentes).
+- [ ] Reglas de negocio: tope de reventa, mínimo 50%, tasa de servicio, máximo
+      por venta, cierre de reventa a 3 horas, DNI único.
+- [ ] Integración contra WildFly real **(a confirmar herramienta)**:
+      Arquillian, o REST Assured contra el contenedor levantado con Docker.
+- [ ] Endpoints: caso feliz, validaciones, 401 sin sesión, 403 con rol
+      incorrecto.
+- [ ] Concurrencia: último lugar comprado por dos a la vez, misma publicación
+      comprada por dos, misma entrada escaneada dos veces.
+- [ ] Ciclo de vida del bean stateful: se libera al confirmar, cancelar o
+      vencer.
+- [ ] Pagos y facturación con las implementaciones fake de `IPagos` e
+      `IFacturacion`; webhook duplicado no procesa dos veces.
 
 ### Mensajería
-- [ ] Al confirmar un pago se publica un mensaje en la cola y uno en el tópico,
-      con el body y la propiedad `tipoEvento` correctos.
-- [ ] La cola entrega a un solo consumidor aunque haya varias instancias del
-      módulo de emisión.
-- [ ] Mensaje duplicado (reentrega) → la entrada se emite una sola vez.
-- [ ] Caída del consumidor (el escenario del taller): con el módulo de emisión
-      detenido 5 minutos el mensaje espera en la cola y la entrada se emite al
-      volver.
-- [ ] Suscripción durable: con Auditoría caída, los eventos se registran al
-      volver. Con Notificaciones caída, se acepta perder el email.
-- [ ] Mensaje inválido termina en la DLQ y no bloquea la cola.
+- [ ] Al confirmar un pago se publica un mensaje en la cola y uno en el tópico
+      con body y `tipoEvento` correctos.
+- [ ] Con varias instancias del MDB de emisión, cada mensaje lo procesa una
+      sola.
+- [ ] Reentrega del mismo mensaje → la entrada se emite una sola vez.
+- [ ] Escenario del taller: con el consumidor de emisión detenido 5 minutos, el
+      mensaje espera y la entrada se emite al volver.
+- [ ] Auditoría durable: con el MDB detenido, al volver recibe los eventos
+      pendientes. Notificaciones no durable: se acepta perderlo.
+- [ ] Mensaje inválido termina en la DLQ.
 
 ### Frontend
-- [ ] Configurar Vitest + Testing Library.
+- [ ] Vitest + Testing Library.
 - [ ] Unitarias de `src/lib/validate.ts` y `src/lib/format.ts`.
-- [ ] Componentes: `Stepper`, `Input` con errores, `ProtectedRoute`,
-      selector de cantidades de `EventPage`.
-- [ ] Mock de la API con MSW para probar páginas sin backend.
+- [ ] Componentes: `Stepper`, `Input`, `ProtectedRoute`, selector de
+      cantidades de `EventPage`.
+- [ ] MSW para mockear la API.
 
 ### End to end
-- [ ] Configurar Playwright contra front + backend + docker de test.
-- [ ] Recorrido completo de la demo: catálogo → evento → checkout → confirmación
-      (con emisión asíncrona) → publicar en reventa → comprar con otra cuenta →
+- [ ] Playwright contra front + WildFly + base de test.
+- [ ] Recorrido completo: catálogo → evento → checkout → confirmación (con
+      emisión asíncrona) → publicar en reventa → comprar con otra cuenta →
       validar en puerta.
-- [ ] Registro con verificación de email (leyendo el código desde MailHog).
-- [ ] Organizador crea evento con imagen y aparece en el catálogo.
-- [ ] Accesos por rol (usuario común no entra a `/organizador` ni `/puerta`).
+- [ ] Registro con verificación de email (código leído desde MailHog).
+- [ ] Organizador crea evento y aparece en el catálogo.
+- [ ] Accesos por rol.
 
-## Fase 11 — Seguridad
+## Fase 12 — Seguridad
 
-- [ ] Validar todo input en el servidor (nunca confiar en el front).
-- [ ] Rate limiting en login, registro, verificación de email y escaneos.
-- [ ] Headers de seguridad y CORS restringido en Spring Security.
-- [ ] Cookies `httpOnly`, `secure`, `sameSite`.
-- [ ] Autorización por recurso: un usuario solo ve sus entradas y ventas; un
-      organizador solo sus eventos.
-- [ ] Broker con usuario y contraseña; que solo los servicios puedan publicar.
-- [ ] Datos personales (DNI) en los mensajes: viajan en el body del tópico, así
-      que cada suscriptor nuevo los recibe. Definir si se envían completos o
-      solo ids.
-- [ ] Secretos fuera del repo.
-- [ ] Definir retención de datos personales y quién puede verlos.
+- [ ] Bean Validation en todos los DTOs de entrada.
+- [ ] `@RolesAllowed` en cada operación según rol.
+- [ ] Autorización por recurso: cada usuario ve solo sus entradas y ventas;
+      cada organizador solo sus eventos.
+- [ ] Rate limiting en login, registro, verificación y escaneos.
+- [ ] Cookies `HttpOnly`, `Secure`, `SameSite`; CORS restringido.
+- [ ] Usuario y contraseña en el broker; solo los componentes publican.
+- [ ] DNI en los mensajes del tópico: definir si viaja completo o solo ids.
+- [ ] Certificados de AFIP y credenciales de Mercado Pago fuera del repo.
 
-## Fase 12 — Infraestructura y deploy
+## Fase 13 — Infraestructura y deploy
 
-- [ ] CI (GitHub Actions): lint, typecheck y build del front; build y tests
-      del backend (con Testcontainers) en cada PR.
-- [ ] Elegir hosting **(a confirmar)**: front (Vercel, Netlify), backend
-      (Railway, Render, Fly), base PostgreSQL gestionada, broker Artemis
-      (contenedor propio o servicio gestionado).
-- [ ] Ambientes `staging` y `producción` con bases y brokers separados.
-- [ ] Migraciones Flyway automáticas en deploy.
+- [ ] CI (GitHub Actions): lint y build del front; `mvn verify` del backend.
+- [ ] Hosting **(a confirmar)**: front estático (Vercel, Netlify) y WildFly en
+      contenedor (Railway, Render, Fly o VM), base gestionada.
+- [ ] Ambientes de prueba y producción separados.
 - [ ] Backups de la base.
-- [ ] Monitoreo: métricas de Actuator, tamaño de las colas y de la DLQ, errores
-      (Sentry o similar), logs centralizados.
+- [ ] Monitoreo: métricas de WildFly, tamaño de colas y DLQ, logs.
 - [ ] Dominio y HTTPS.
 
-## Fase 13 — Pendientes del frontend actual
+## Fase 14 — Pendientes del frontend actual
 
-Se pueden hacer en cualquier momento, no dependen del backend.
+No dependen del backend.
 
-- [ ] Arreglar los 8 warnings de `npm run lint` (`Date.now()` y
-      `Math.random()` en render en `MyTicketsPage` y `ResalePage`, `setState`
-      en effect en `CheckoutPage`, exports mixtos en `AppContext` y
-      `ToastProvider`).
+- [ ] Arreglar los 8 warnings de `npm run lint`.
 - [ ] `index.html`: `lang="es"` (hoy dice `en`).
-- [ ] Respetar `prefers-reduced-motion` también en las animaciones de
-      framer-motion (`MotionConfig reducedMotion="user"`).
-- [ ] Pasada de accesibilidad y responsive (paso 13 del spec, sin verificar).
+- [ ] `prefers-reduced-motion` también en framer-motion
+      (`MotionConfig reducedMotion="user"`).
+- [ ] Pasada de accesibilidad y responsive.
 - [ ] Code splitting por ruta (el bundle pesa 473 kB).
-- [ ] Actualizar `README.md` a medida que avanza el backend (limitaciones,
-      cómo levantar backend + docker, variables de entorno, arquitectura de
-      mensajería).
+- [ ] Actualizar `README.md` a medida que avanza el backend.
+
+## Entregas de la materia
+
+Según el taller de integración: Parcial N.º 2, Obligatoria N.º 2 y Final.
+- [ ] Anotar fechas y qué pide cada una, y mapear a estas fases.
