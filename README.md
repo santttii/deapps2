@@ -4,20 +4,30 @@ Plataforma de venta de entradas para eventos. Trabajo práctico académico: el
 diferencial de producto es el **anti-scalping** — entradas nominativas ligadas a un
 DNI y un canal de reventa oficial con tope de precio de +10% sobre lo pagado.
 
-Sin backend: todo el estado (sesión, entradas, publicaciones de reventa, órdenes)
-vive en `localStorage` bajo la clave `palco.state`. Los datos de eventos son mock,
-tipados en TypeScript. Todas las operaciones "async" simulan latencia con un
-`sleep()`.
+Es una aplicación **solo frontend**: no hay backend ni API. Todo el estado (sesión,
+usuarios, eventos, entradas, órdenes y publicaciones de reventa) vive en
+`localStorage` bajo la clave `palco.state`. Los datos semilla son mock tipados en
+TypeScript y las operaciones "async" simulan latencia con `sleep()`.
 
-## Stack
+## Índice
 
-- React 18 + TypeScript + Vite
-- React Router v6
-- Tailwind CSS 3 (tokens de diseño propios, `border-radius: 0` en todo salvo
-  indicadores de 6px)
-- Context + `useReducer` para estado global
-- `framer-motion` para animaciones
-- Validaciones de formulario escritas a mano
+- [Requisitos](#requisitos)
+- [Cómo correrlo](#cómo-correrlo)
+- [Scripts](#scripts)
+- [Usuarios de prueba](#usuarios-de-prueba)
+- [Funcionalidades](#funcionalidades)
+- [Reglas de negocio](#reglas-de-negocio)
+- [Recorrido sugerido de demo](#recorrido-sugerido-de-demo)
+- [Stack](#stack)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Arquitectura y estado](#arquitectura-y-estado)
+- [Decisiones de diseño](#decisiones-de-diseño)
+- [Limitaciones conocidas](#limitaciones-conocidas)
+
+## Requisitos
+
+- Node.js `^20.19.0` o `>=22.12.0` (lo exige Vite 8)
+- npm
 
 ## Cómo correrlo
 
@@ -26,13 +36,79 @@ npm install
 npm run dev
 ```
 
+La app queda en `http://localhost:5173`.
+
+Para volver al estado inicial (borrar compras, cuentas creadas, eventos nuevos,
+etc.), borrá la clave `palco.state` desde DevTools → Application → Local Storage, o
+ejecutá en la consola del navegador:
+
+```js
+localStorage.removeItem('palco.state'); location.reload();
+```
+
+## Scripts
+
+| Comando | Qué hace |
+|---|---|
+| `npm run dev` | Servidor de desarrollo con HMR |
+| `npm run build` | Chequeo de tipos (`tsc -b`) y build de producción en `dist/` |
+| `npm run preview` | Sirve el build de `dist/` localmente |
+| `npm run lint` | Lint con oxlint |
+
 ## Usuarios de prueba
 
-| Email | Contraseña | Rol |
+Todas las cuentas usan la contraseña `palco1234`.
+
+| Email | Rol | Acceso |
 |---|---|---|
-| `titular@palco.test` | `palco1234` | `user` (identidad verificada) |
-| `organizador@palco.test` | `palco1234` | `organizer` |
-| `puerta@palco.test` | `palco1234` | `staff` |
+| `titular@palco.test` | `user` (identidad verificada) | Compra, mis entradas, reventa |
+| `organizador@palco.test` | `organizer` | Todo lo anterior + `/organizador` |
+| `puerta@palco.test` | `staff` | Todo lo anterior + `/puerta` |
+
+También se pueden crear cuentas nuevas (rol `user`) desde `/registro`. En el paso
+de verificación de email se acepta cualquier código de 6 dígitos.
+
+## Funcionalidades
+
+| Ruta | Pantalla | Acceso |
+|---|---|---|
+| `/` | Catálogo: evento destacado, filtros por categoría, buscador con debounce e insensible a acentos, grilla de eventos, estado vacío y bloque de reventa oficial | Pública |
+| `/evento/:slug` | Detalle del evento: mapa de sectores, selección de cantidad por sector, resumen sticky con total | Pública |
+| `/checkout` | Checkout en 3 pasos: reserva con cuenta regresiva, datos de cada titular, medio de pago (pasarela, tarjeta o transferencia) | Logueado |
+| `/confirmacion/:ordenId` | Confirmación de compra: QR, comprobante, imprimir, agregar al calendario | Logueado |
+| `/mis-entradas` | Visor de entradas con QR, publicación en reventa con validación de tope, historial | Logueado |
+| `/ingresar` | Login (con las credenciales de prueba visibles en pantalla) | Pública |
+| `/registro` | Alta de cuenta en 3 pasos: datos, identidad, verificación de email | Pública |
+| `/reventa` | Reventa oficial: filtros, listado con tope, compra con confirmación | Pública (comprar requiere login) |
+| `/organizador` | Panel del organizador: stats, ventas por día, mis eventos, ocupación por sector, monitor de reventa, liquidación, **crear evento con imagen** | Rol `organizer` |
+| `/puerta` | Validación en puerta: visor de escaneo simulado, tres estados (válida / usada / inválida), contadores y últimos escaneos | Rol `staff` |
+
+Si no hay sesión, las rutas protegidas redirigen a `/ingresar?next=<ruta>` y
+vuelven a la ruta original después del login. Si la sesión no tiene el rol
+requerido, redirigen al catálogo.
+
+## Reglas de negocio
+
+Las constantes viven en [`src/types/index.ts`](src/types/index.ts):
+
+| Constante | Valor | Regla |
+|---|---|---|
+| `TOPE_REVENTA` | `0.10` | Una entrada se puede revender como máximo a lo pagado +10% (redondeado hacia abajo). El mínimo es el 50% de lo pagado. |
+| `TASA_SERVICIO` | `0.10` | Cargo de servicio sobre el subtotal en el checkout. |
+| `MAX_ENTRADAS_POR_ORDEN` | `6` | Máximo de entradas por compra, sumando todos los sectores. Tampoco se puede superar el cupo disponible de un sector. |
+| `HORAS_LIMITE_REVENTA` | `3` | La reventa de un evento cierra 3 horas antes de que empiece. |
+| `MINUTOS_RESERVA` | `10` | Tiempo de reserva de los lugares durante el checkout. Al vencer, se liberan. |
+
+Otras reglas:
+
+- **Entradas nominativas**: cada entrada lleva nombre, apellido y DNI del titular.
+- **DNI único por orden**: dos entradas de una misma compra no pueden tener el mismo DNI.
+- **DNI**: 7 u 8 dígitos. Tarjeta: 16 dígitos, vencimiento `MM/AA`, CVV de 3 dígitos.
+- **Reventa**: al comprar una publicación, la entrada original pasa a `vendida` y
+  se emite una entrada nueva para el comprador (origen `reventa`). Una publicación
+  se puede retirar y la entrada vuelve a `valida`.
+
+Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anulada`.
 
 ## Recorrido sugerido de demo
 
@@ -47,44 +123,111 @@ npm run dev
    del tope para ver el bloqueo).
 7. Cerrar sesión y volver a entrar con otra cuenta (o abrir `/registro` para crear
    una nueva), ir a `/reventa` y comprar esa publicación.
-8. Volver a entrar como `puerta@palco.test`, ir a `/puerta` y probar los tres
-   estados de escaneo (válida / usada / inválida) y "Marcar ingreso".
+8. Entrar como `puerta@palco.test`, ir a `/puerta` y probar los tres estados de
+   escaneo (válida / usada / inválida) y "Marcar ingreso".
 9. Entrar como `organizador@palco.test` y revisar `/organizador`: stats, ventas
    por día, ocupación por sector, monitor de reventa y liquidación.
 10. Desde `/organizador`, tocar "+ Crear evento": subir una imagen (drag & drop o
     click), cargar título/venue/fecha/sectores y confirmar — el evento nuevo
     aparece al toque en el catálogo y en "Mis eventos".
 
+## Stack
+
+- React 19 + TypeScript 6
+- Vite 8
+- React Router 7
+- Tailwind CSS 3, con tokens de diseño propios (`border-radius: 0` en todo salvo
+  indicadores de 6px)
+- Context + `useReducer` para el estado global (sin Redux ni Zustand)
+- `framer-motion` para animaciones (`index.css` reduce las transiciones CSS con
+  `prefers-reduced-motion`)
+- Validaciones de formulario escritas a mano (sin Formik ni React Hook Form)
+- oxlint para lint
+- Tipografías: Archivo (títulos y UI) e IBM Plex Mono (datos), desde Google Fonts
+
+## Estructura del proyecto
+
+```
+src/
+├── main.tsx              # Punto de entrada: Router, AppProvider, ToastProvider
+├── App.tsx               # Definición de rutas y rutas protegidas
+├── index.css             # Estilos base y fuentes
+├── types/index.ts        # Modelo de datos y constantes de negocio
+├── store/
+│   ├── AppContext.tsx    # Estado global, reducer y persistencia en localStorage
+│   └── actions.ts        # Tipos de acciones del reducer
+├── data/
+│   ├── events.ts         # 6 eventos semilla
+│   ├── listings.ts       # 4 publicaciones de reventa iniciales
+│   └── organizer.ts      # Métricas mock del panel del organizador
+├── lib/
+│   ├── format.ts         # Formato de moneda/fechas/DNI, cálculo de tope, sleep()
+│   ├── validate.ts       # Validaciones de formularios
+│   └── useAnimatedNumber.ts
+├── components/           # Componentes reutilizables (Button, Input, Modal, QRCode,
+│                         # Stepper, Toast, CreateEventModal, ProtectedRoute, etc.)
+└── pages/                # Una página por ruta
+docs/superpowers/specs/   # Spec de diseño original
+```
+
+## Arquitectura y estado
+
+- **Un solo store** en [`AppContext.tsx`](src/store/AppContext.tsx) con
+  `useReducer`. Guarda `usuarioActualId`, `usuarios`, `eventos`, `entradas`,
+  `ordenes`, `publicaciones` y el `carrito`.
+- **Persistencia**: cada cambio de estado se serializa completo en
+  `localStorage['palco.state']`. Al cargar, el estado guardado se combina con los
+  datos semilla, así que si falta alguna clave se usa el valor por defecto.
+- **Acciones del reducer**: `LOGIN`, `LOGOUT`, `REGISTER`, `SET_CARRITO`,
+  `CREAR_ORDEN`, `PUBLICAR_REVENTA`, `RETIRAR_PUBLICACION`, `COMPRAR_REVENTA`,
+  `MARCAR_ENTRADA_USADA` y `CREAR_EVENTO`.
+- **Validaciones**: las reglas de negocio (tope, cupo, máximo por orden, DNI
+  único, cierre de reventa) se validan en las páginas antes de despachar la
+  acción. El reducer solo aplica los cambios.
+
 ## Decisiones de diseño
 
-- **Sin backend real**: todo el negocio (stock, tope de reventa, unicidad de DNI
-  por orden) se valida en el cliente, dentro del reducer de `AppContext`, para
-  que el estado sea consistente incluso simulando múltiples cuentas en la misma
-  sesión de `localStorage`.
+- **Sin backend real**: como no hay servidor, todo el negocio (stock, tope de
+  reventa, unicidad de DNI por orden) se valida en el cliente. Como todas las
+  cuentas comparten el mismo `localStorage`, se pueden simular varios usuarios en
+  el mismo navegador (por ejemplo, publicar con una cuenta y comprar con otra).
 - **QR determinístico dibujado a mano**: en vez de una librería, el componente
   `QRCode` genera una grilla 21×21 a partir de un hash simple del id de la
-  entrada, con los tres cuadrados de orientación fijos en las esquinas — estable
-  para un mismo id, distinto entre entradas, sin pretender ser escaneable.
-- **Carrito efímero en el store**: la selección de sectores en el detalle de
-  evento se guarda en `state.carrito` (no en localStorage de forma persistente
-  entre sesiones distintas más que lo que ya persiste el store completo) y se
-  limpia automáticamente al crear la orden.
-- **Extensión interna `propietarioId`**: además de los campos del modelo de datos
-  pedido, cada entrada guarda internamente a qué cuenta pertenece, para poder
-  filtrar "Mis entradas" sin backend. No se expone en la UI como concepto nuevo.
+  entrada, con los tres cuadrados de orientación fijos en las esquinas. Es estable
+  para un mismo id y distinto entre entradas, pero no es escaneable.
+- **Carrito en el store**: la selección de sectores del detalle de evento se
+  guarda en `state.carrito` y se limpia automáticamente al crear la orden.
+- **Extensión interna `propietarioId`**: además de los campos del modelo de
+  datos, cada entrada guarda a qué cuenta pertenece, para poder filtrar "Mis
+  entradas" sin backend. No se muestra en la UI.
 - **Tailwind 3 en vez de 4**: se fijó la versión 3.x para poder declarar los
-  tokens de color en `tailwind.config.js` con la sintaxis clásica pedida en la
-  consigna.
+  tokens de color en `tailwind.config.js` con la sintaxis clásica.
 - **Imágenes de eventos**: los 6 eventos semilla usan fotos determinísticas de
-  `picsum.photos/seed/<slug>` (mismo slug → misma foto siempre). Los eventos
-  creados desde el panel del organizador guardan la imagen subida como data
-  URL (base64) directamente en el objeto del evento — sin backend no hay
-  dónde más alojarla, así que queda embebida en `localStorage`.
-- **Crear evento con imagen**: el modal de "+ Crear evento" en `/organizador`
-  genera un `Evento` completo (slug único, sectores con cupo/precio, imagen)
-  y lo agrega a `state.eventos` — por eso aparece de inmediato en el catálogo
-  y en la tabla "Mis eventos" del panel, que ahora se computa en vivo desde
-  el store en lugar de datos mock fijos.
-- **Guard de sesión en reventa**: comprar una publicación sin estar logueado
-  ahora muestra un toast ("Iniciá sesión para comprar…") y redirige a
-  `/ingresar?next=/reventa`, en vez de fallar en silencio.
+  `picsum.photos/seed/<slug>` (mismo slug, misma foto). Los eventos creados desde
+  el panel del organizador guardan la imagen subida como data URL (base64) dentro
+  del objeto del evento, porque sin backend no hay otro lugar donde alojarla.
+- **Crear evento**: el modal "+ Crear evento" en `/organizador` genera un `Evento`
+  completo (slug único, sectores con cupo y precio, imagen) y lo agrega a
+  `state.eventos`. Por eso aparece de inmediato en el catálogo y en "Mis eventos",
+  que se calcula en vivo desde el store.
+- **Login para comprar en reventa**: comprar una publicación sin sesión muestra
+  un toast ("Iniciá sesión para comprar…") y redirige a `/ingresar?next=/reventa`.
+
+## Limitaciones conocidas
+
+La mayoría se resuelven con el backend. El plan de trabajo está en
+[`TODO.md`](TODO.md).
+
+- **No hay seguridad real**: las contraseñas se guardan en texto plano en
+  `localStorage` y los roles se controlan solo en el cliente. Es una demo.
+- **`/puerta` es una simulación**: los estados de escaneo, los contadores y los
+  últimos escaneos son locales a la pantalla y no leen ni modifican las entradas
+  reales del store. La acción `MARCAR_ENTRADA_USADA` existe pero todavía no se usa.
+- **Métricas del organizador**: las ventas por día, el monitor de reventa y la
+  liquidación usan datos mock fijos. Solo "Mis eventos" se calcula desde el store.
+- **Tamaño de `localStorage`**: las imágenes subidas se guardan en base64 y el
+  navegador suele limitar `localStorage` a unos 5 MB, así que crear muchos
+  eventos con imágenes grandes puede llenar el almacenamiento.
+- **Pagos y emails simulados**: no se procesa ningún pago ni se envía ningún
+  email. El código de verificación del registro acepta cualquier valor de 6 dígitos.
+- **Sin tests automatizados**.
