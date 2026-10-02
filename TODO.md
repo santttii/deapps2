@@ -62,10 +62,10 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       (usar el *session pooler*, puerto 5432, que funciona por IPv4).
 - [ ] Crear cuenta de email de prueba **(a confirmar)**: Mailtrap (atrapa los
       emails en una bandeja web, reemplaza a MailHog).
-- [~] Empaquetado: por ahora un solo WAR (`app`) sobre un WildFly. Los
-      documentos describen componentes dentro del mismo servidor de
-      aplicaciones, y `ServicioDeVentas` stateful necesita ese modelo.
-      Confirmar con el grupo si la materia pide otra cosa.
+- [x] Empaquetado: **8 WAR independientes (uno por servicio) en un solo
+      WildFly**. Cada uno tiene su API en `/api/<servicio>` y su esquema de
+      base, y se comunican solo por REST o JMS. Se pueden repartir en varios
+      servidores más adelante sin cambiar código.
 - [ ] Hostear el backend temprano (Render o Railway **a confirmar**) para que
       el grupo use una sola instancia y no tenga que correrlo en cada
       máquina. Requiere un `Dockerfile` que la plataforma construye en la
@@ -73,30 +73,31 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 - [x] Estructura del repo: `frontend/` (el front actual) y `backend/`
       (proyecto Maven).
 - [x] Mover el front actual a `frontend/` sin romper `npm run dev` ni `build`.
-- [x] Scaffold de `backend/`: `pom.xml` padre, módulo `common` (reglas,
-      DTOs, mensajes) y módulo `app` (WAR con la API JAX-RS).
-- [ ] Un módulo Maven por componente de negocio, a medida que se implementan.
-- [x] Healthcheck `GET /api/health` (incluye estado del broker JMS) y
-      manejo centralizado de errores (`ExceptionMapper` de JAX-RS).
+- [x] Scaffold de `backend/`: `pom.xml` padre, `common` (lo compartido),
+      `servicios/` (8 WAR) y `servidor/` (arma WildFly y despliega los 8).
+- [x] Healthcheck `GET /api/<servicio>/health` (incluye la base) y manejo
+      centralizado de errores (`ExceptionMapper` de JAX-RS), todo en `common`.
+- [x] JSON con JSON-B en todos los servicios (`JsonProvider` en `common`).
 - [x] Filtro CORS configurable con `PALCO_CORS_ORIGENES`.
 - [x] Pasar a Java las constantes de negocio de `src/types/index.ts`
       → `ReglasDeNegocio` en `common`, con tests. El servidor pasa a ser la
       fuente de verdad.
-- [x] Levantar WildFly sin instalarlo a mano: `wildfly-maven-plugin`
-      arma WildFly 41 solo con las capas que usamos (`jaxrs-server`, `ejb`,
-      `embedded-activemq`). `backend/dev.sh` lo levanta con redespliegue
-      automático.
+- [x] WildFly sin instalarlo a mano: el módulo `servidor` lo arma con
+      `wildfly-maven-plugin` solo con las capas que usamos (`jaxrs-server`,
+      `ejb`, `embedded-activemq`, drivers H2 y PostgreSQL). `dev.sh` lo
+      levanta y `redesplegar.sh` actualiza un servicio sin reiniciar.
 - [x] Cola `cola.emision-entradas` y tópico `topico.compra-confirmada`
-      creados al desplegar (`@JMSDestinationDefinition` en `DestinosJms`).
-- [ ] Configuración de WildFly versionada para datasource y seguridad
-      (anotaciones o script CLI), para que todo el grupo tenga el mismo setup.
-- [~] `backend/.env.example` con lo que cambia por ambiente (conexión a Supabase,
-      credenciales de Mercado Pago y Mailtrap, certificados de AFIP,
+      creados por `servidor/src/main/wildfly/configurar.cli`.
+- [x] Configuración de WildFly versionada (`configurar.cli`): datasource
+      `PalcoDS` (H2 por defecto, PostgreSQL con variables `PALCO_DB_*`) y JMS.
+- [ ] Seguridad en `configurar.cli` (Fase 2).
+- [~] `backend/.env.example` con lo que cambia por ambiente (hecho: CORS y base;
+      falta credenciales de Mercado Pago y Mailtrap, certificados de AFIP,
       `VITE_API_URL`).
 
 ## Fase 1 — Base de datos y entidades
 
-- [ ] Entidades JPA: `Usuario`, `Evento`, `Sector` (tipo de entrada), `Venta`
+- [~] Entidades JPA (hechas: `Evento`, `Sector`): `Usuario`, `Venta`
       (hoy `Orden` en el front), `VentaItem`, `Entrada`, `Publicacion`,
       `Reserva`, `Escaneo`, `CodigoVerificacion`, `Auditoria`, `Factura`.
 - [ ] Repositorios: `UsuarioRepository`, `EventoRepository`,
@@ -104,20 +105,22 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       falten.
 - [ ] Restricciones en la base, no solo en código:
   - [ ] `email` y `dni` únicos en usuarios.
-  - [ ] `slug` único en eventos.
-  - [ ] `vendidas <= cupo` en sectores.
+  - [x] `slug` único en eventos.
+  - [x] `vendidas <= cupo` en sectores.
   - [ ] DNI único por venta en entradas.
   - [ ] Una sola publicación activa por entrada.
 - [ ] Estado de emisión en `Entrada` (`PENDIENTE_EMISION` → `VALIDA`), porque
       con mensajería la entrada se emite después del pago.
-- [ ] Montos en enteros o `BigDecimal`, nunca en `double`.
+- [~] Montos en pesos enteros (`long`), nunca en `double` (hecho en eventos).
 - [ ] Formato de ids: el taller usa `V-00231`, `U-00789`, `E-00042`,
       `T-000981`. Definir si son ids reales o códigos públicos aparte del id
       interno.
-- [ ] Migraciones **(a confirmar)**: Flyway, o `hibernate.hbm2ddl` solo en
-      desarrollo + scripts SQL versionados.
-- [ ] Datos iniciales con lo de `src/data/` (6 eventos, 4 publicaciones) y las
-      3 cuentas de prueba (`import.sql` o migración).
+- [x] Migraciones con Flyway: cada servicio corre al desplegar sus scripts de
+      `src/main/resources/db/migracion` en su propio esquema. SQL compatible
+      con PostgreSQL; en desarrollo corren sobre H2 en modo PostgreSQL.
+- [ ] Probar las migraciones contra un PostgreSQL real (Supabase) apenas esté.
+- [~] Datos iniciales como migración (hechos: los 6 eventos con sus
+      sectores). Faltan las 4 publicaciones y las 3 cuentas de prueba.
 
 ## Fase 2 — `ServicioDeUsuarios` (servicio reutilizable)
 
@@ -139,13 +142,20 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 
 ## Fase 3 — `ServicioDeEventos`
 
-- [ ] Session Bean con las operaciones de la Entrega 1 (`crearEvento`, `listarEventos`,
-      `obtenerDetalle`, `actualizarCupo`).
-- [ ] `GET /api/eventos` con filtros por categoría y búsqueda insensible a
+- [x] Interfaz `IEventos` y Session Bean `@Stateless` con las operaciones de
+      la Entrega 1 (`crearEvento`, `listarEventos`, `obtenerDetalle`,
+      `actualizarCupo`).
+- [x] `GET /api/eventos` con filtros por categoría y búsqueda insensible a
       acentos.
-- [ ] `GET /api/eventos/{slug}` con sectores y cupo disponible.
-- [ ] `POST /api/eventos` y `PUT /api/eventos/{id}` (solo `organizer`, el
-      organizador dueño).
+- [x] `GET /api/eventos/{slug}` con sectores y cupo disponible.
+- [x] `POST /api/eventos` con validaciones y slug único.
+- [x] `POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo`: suma o libera
+      vendidas en un solo UPDATE (dos compras simultáneas del último lugar:
+      pasa una sola, probado).
+- [ ] Proteger crear evento (rol `organizer`) y actualizar cupo (solo otros
+      servicios) cuando exista la Fase 2.
+- [ ] `PUT /api/eventos/{id}` (solo el organizador dueño).
+- [ ] Tests del Session Bean (Fase 11).
 - [ ] Cancelar evento (dispara alertas de cancelación por Notificaciones).
 - [ ] Relación evento ↔ organizador (hoy no existe en el front).
 - [ ] Subida de imágenes **(a confirmar dónde)**: disco del servidor en

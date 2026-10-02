@@ -1,4 +1,4 @@
-package com.palco.app.errores;
+package com.palco.common.rest;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,6 +12,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+
+import com.palco.common.ErroresDeNegocio;
 
 /** Convierte cualquier excepción en una {@link ErrorRespuesta} JSON. */
 public final class ManejadoresDeErrores {
@@ -31,9 +33,41 @@ public final class ManejadoresDeErrores {
             Map<String, String> campos = new LinkedHashMap<>();
             for (ConstraintViolation<?> v : e.getConstraintViolations()) {
                 String ruta = v.getPropertyPath().toString();
-                campos.put(ruta.substring(ruta.lastIndexOf('.') + 1), v.getMessage());
+                String campo = ruta.substring(ruta.lastIndexOf('.') + 1);
+                // Un parámetro entero nulo (sin cuerpo) llega como "arg0": no es un campo.
+                if (campo.matches("arg\\d+")) {
+                    return json(400, new ErrorRespuesta(400, v.getMessage()));
+                }
+                campos.put(campo, v.getMessage());
             }
             return json(400, new ErrorRespuesta(400, "Hay datos inválidos.", campos));
+        }
+    }
+
+    /** Recurso inexistente → 404. */
+    @Provider
+    public static class NoEncontrado implements ExceptionMapper<ErroresDeNegocio.NoEncontrado> {
+        @Override
+        public Response toResponse(ErroresDeNegocio.NoEncontrado e) {
+            return json(404, new ErrorRespuesta(404, e.getMessage()));
+        }
+    }
+
+    /** Choque con el estado actual → 409. */
+    @Provider
+    public static class Conflicto implements ExceptionMapper<ErroresDeNegocio.Conflicto> {
+        @Override
+        public Response toResponse(ErroresDeNegocio.Conflicto e) {
+            return json(409, new ErrorRespuesta(409, e.getMessage()));
+        }
+    }
+
+    /** Dato inválido detectado por el negocio → 400 con el campo. */
+    @Provider
+    public static class DatosInvalidos implements ExceptionMapper<ErroresDeNegocio.DatosInvalidos> {
+        @Override
+        public Response toResponse(ErroresDeNegocio.DatosInvalidos e) {
+            return json(400, new ErrorRespuesta(400, e.getMessage(), e.campos()));
         }
     }
 

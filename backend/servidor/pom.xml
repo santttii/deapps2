@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.palco</groupId>
+        <artifactId>palco-backend</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>palco-servidor</artifactId>
+    <packaging>pom</packaging>
+    <name>Palco — servidor</name>
+    <description>
+        Arma un WildFly con todo lo que necesitan los servicios (base de datos, broker JMS)
+        y despliega los 8 WAR. Resultado en target/server, listo para correr o hostear.
+    </description>
+
+    <properties>
+        <servidor.dir>${project.build.directory}/server</servidor.dir>
+    </properties>
+
+    <dependencies>
+        <dependency><groupId>com.palco</groupId><artifactId>palco-usuarios</artifactId><version>${project.version}</version><type>war</type></dependency>
+        <dependency><groupId>com.palco</groupId><artifactId>palco-eventos</artifactId><version>${project.version}</version><type>war</type></dependency>
+        <dependency><groupId>com.palco</groupId><artifactId>palco-ventas</artifactId><version>${project.version}</version><type>war</type></dependency>
+        <dependency><groupId>com.palco</groupId><artifactId>palco-pagos</artifactId><version>${project.version}</version><type>war</type></dependency>
+        <dependency><groupId>com.palco</groupId><artifactId>palco-validacion</artifactId><version>${project.version}</version><type>war</type></dependency>
+        <dependency><groupId>com.palco</groupId><artifactId>palco-reventa</artifactId><version>${project.version}</version><type>war</type></dependency>
+        <dependency><groupId>com.palco</groupId><artifactId>palco-notificaciones</artifactId><version>${project.version}</version><type>war</type></dependency>
+        <dependency><groupId>com.palco</groupId><artifactId>palco-facturacion</artifactId><version>${project.version}</version><type>war</type></dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <!-- 1. Descarga WildFly con solo las capas que usamos y aplica configurar.cli -->
+                <groupId>org.wildfly.plugins</groupId>
+                <artifactId>wildfly-maven-plugin</artifactId>
+                <configuration>
+                    <feature-packs>
+                        <feature-pack>
+                            <location>org.wildfly:wildfly-galleon-pack:${version.wildfly}</location>
+                        </feature-pack>
+                        <feature-pack>
+                            <location>org.wildfly:wildfly-datasources-galleon-pack:${version.wildfly.datasources}</location>
+                        </feature-pack>
+                    </feature-packs>
+                    <layers>
+                        <!-- REST + CDI + JPA + Bean Validation + transacciones -->
+                        <layer>jaxrs-server</layer>
+                        <!-- Session Beans completos: @Stateful, @Schedule, Message-Driven Beans -->
+                        <layer>ejb</layer>
+                        <!-- Broker JMS (ActiveMQ Artemis) dentro del mismo WildFly -->
+                        <layer>embedded-activemq</layer>
+                        <!-- Drivers de base: H2 en desarrollo, PostgreSQL para Supabase -->
+                        <layer>h2-driver</layer>
+                        <layer>postgresql-driver</layer>
+                    </layers>
+                    <packaging-scripts>
+                        <packaging-script>
+                            <scripts>
+                                <script>${project.basedir}/src/main/wildfly/configurar.cli</script>
+                            </scripts>
+                        </packaging-script>
+                    </packaging-scripts>
+                    <provisioning-dir>${servidor.dir}</provisioning-dir>
+                    <skip-deployment>true</skip-deployment>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>armar-servidor</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>package</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <!-- 2. Copia los 8 WAR a deployments/ (WildFly los despliega al arrancar) -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>desplegar-servicios</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeTypes>war</includeTypes>
+                            <outputDirectory>${servidor.dir}/standalone/deployments</outputDirectory>
+                            <stripVersion>true</stripVersion>
+                            <stripClassifier>true</stripClassifier>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

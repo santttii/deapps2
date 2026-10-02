@@ -1,4 +1,4 @@
-package com.palco.app.errores;
+package com.palco.common.rest;
 
 import java.util.Map;
 

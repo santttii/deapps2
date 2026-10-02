@@ -13,12 +13,33 @@
     <artifactId>palco-common</artifactId>
     <packaging>jar</packaging>
     <name>Palco — common</name>
-    <description>Constantes y reglas de negocio, DTOs y contratos de mensajes compartidos por todos los componentes.</description>
+    <description>Lo que comparten todos los servicios: reglas de negocio, contratos de mensajes, manejo de errores REST, CORS, healthcheck y migraciones.</description>
 
     <dependencies>
         <dependency>
             <groupId>jakarta.platform</groupId>
             <artifactId>jakarta.jakartaee-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <exclusions>
+                <!-- Si viaja dentro del WAR, RESTEasy usa Jackson en vez de JSON-B (el estándar). -->
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-annotations</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.flywaydb</groupId>
+                    <artifactId>flyway-database-cockroachdb</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

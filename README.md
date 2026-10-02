@@ -10,9 +10,10 @@ El repo tiene dos partes:
   usuarios, eventos, entradas, órdenes y publicaciones de reventa) vive en
   `localStorage` bajo la clave `palco.state`, con datos mock y latencia simulada
   con `sleep()`.
-- **`backend/`**: Jakarta EE sobre WildFly, en construcción. Por ahora expone
-  `GET /api/health` y tiene el broker JMS con la cola y el tópico del taller de
-  mensajería. El plan completo está en [`TODO.md`](TODO.md).
+- **`backend/`**: Jakarta EE sobre WildFly, en construcción. Son 8 servicios
+  independientes (un WAR cada uno) desplegados en el mismo WildFly, con el
+  broker JMS del taller de mensajería. `ServicioDeEventos` ya funciona; el resto
+  tiene solo el esqueleto. El plan completo está en [`TODO.md`](TODO.md).
 
 ## Índice
 
@@ -56,25 +57,32 @@ cp .env.example .env   # la primera vez
 ```
 
 La primera vez tarda unos minutos porque descarga WildFly 41. Queda en
-`http://localhost:8080` y se redespliega solo al guardar cambios en `app/`.
-Para comprobar que anda: `curl localhost:8080/api/health`.
+`http://localhost:8080`, con cada servicio en `/api/<servicio>`. Para comprobar
+que anda: `curl localhost:8080/api/eventos/health`.
 
-Otros comandos (desde `backend/`):
+Sin configurar nada usa **H2 en memoria**: la base se borra al reiniciar y las
+migraciones vuelven a cargar los datos de prueba. Para usar **Supabase**,
+completar las variables `PALCO_DB_*` del `.env` y volver a correr `./dev.sh`:
+las mismas migraciones crean las tablas allá.
 
-| Comando | Qué hace |
+| Comando (desde `backend/`) | Qué hace |
 |---|---|
-| `./dev.sh` | WildFly en modo desarrollo con redespliegue automático |
+| `./dev.sh` | Compila todo, arma WildFly con los 8 servicios y lo levanta |
+| `./redesplegar.sh eventos` | Recompila un servicio y lo redespliega sin reiniciar |
 | `mvn test` | Corre los tests |
-| `mvn clean package` | Arma el WAR y un WildFly completo en `app/target/server`, listo para hostear |
-| `app/target/server/bin/standalone.sh` | Levanta el server armado por `package` |
+| `mvn clean install` | Arma todo; el server queda en `servidor/target/server`, listo para hostear |
 
-Para volver al estado inicial (borrar compras, cuentas creadas, eventos nuevos,
-etc.), borrá la clave `palco.state` desde DevTools → Application → Local Storage, o
-ejecutá en la consola del navegador:
+### API disponible
 
-```js
-localStorage.removeItem('palco.state'); location.reload();
-```
+| Servicio | Endpoint | Qué hace |
+|---|---|---|
+| todos | `GET /api/<servicio>/health` | Estado del servicio y de la base |
+| eventos | `GET /api/eventos?categoria=Música&q=texto` | Catálogo (filtros opcionales, búsqueda sin acentos) |
+| eventos | `GET /api/eventos/{slug}` | Detalle con sectores |
+| eventos | `POST /api/eventos` | Crear evento con sectores |
+| eventos | `POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo` | Sumar (`{"cantidad": 2}`) o liberar (`-2`) entradas vendidas, sin pasarse del cupo |
+
+Los errores siempre vuelven como `{"estado": 400, "mensaje": "...", "campos": {...}}`.
 
 ## Scripts del frontend
 
@@ -170,8 +178,10 @@ Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anu
 - Java 25 + Jakarta EE 11 (EJB + CDI) sobre WildFly 41
 - JAX-RS para la API REST
 - JMS con el ActiveMQ Artemis embebido en WildFly
-- JPA + Hibernate contra PostgreSQL en Supabase (a partir de la Fase 1)
-- Maven multimódulo, JUnit para tests
+- JPA + Hibernate; H2 en desarrollo y PostgreSQL en Supabase
+- Flyway para las migraciones (un esquema por servicio)
+- JSON-B para el JSON de la API
+- Maven multimódulo (un WAR por servicio), JUnit para tests
 
 ### Frontend
 
@@ -194,10 +204,31 @@ frontend/                 # SPA React (Vite)
 docs/                     # Spec de diseño original
 backend/
 ├── pom.xml               # Proyecto Maven padre (versiones de Java, Jakarta EE y WildFly)
-├── dev.sh                # Levanta WildFly en modo desarrollo
-├── common/               # Reglas de negocio, DTOs y contratos de mensajes compartidos
-└── app/                  # WAR desplegable: API REST (JAX-RS) y componentes de negocio
+├── dev.sh                # Arma y levanta WildFly con los 8 servicios
+├── redesplegar.sh        # Redespliega un servicio sin reiniciar
+├── common/               # Lo compartido: reglas de negocio, errores, JSON, CORS, health, migraciones
+├── servicios/            # Un WAR por servicio, cada uno con su API en /api/<servicio>
+│   ├── usuarios/  eventos/  ventas/  pagos/
+│   └── validacion/  reventa/  notificaciones/  facturacion/
+└── servidor/             # Arma WildFly (base, broker JMS) y despliega los 8 WAR
 ```
+
+Cada servicio sigue las tres capas de la Entrega 1:
+
+```
+servicios/eventos/src/main/
+├── java/com/palco/eventos/
+│   ├── api/              # Presentación: recurso JAX-RS y DTOs
+│   ├── negocio/          # Negocio: interfaz IEventos + Session Bean
+│   └── dominio/          # Datos: entidades JPA
+└── resources/
+    ├── META-INF/persistence.xml
+    └── db/migracion/     # Scripts SQL de Flyway (V1__..., V2__...)
+```
+
+Reglas entre servicios: cada uno es dueño de su esquema de base (`eventos`,
+`usuarios`…) y nunca lee tablas de otro; si necesita datos de otro servicio, se
+los pide por REST o JMS.
 
 Dentro de `frontend/src/`:
 
