@@ -17,6 +17,14 @@ public final class ErroresDeNegocio {
     private ErroresDeNegocio() {
     }
 
+    /** Credenciales incorrectas o sesión inválida → 401. */
+    @ApplicationException(rollback = true)
+    public static class NoAutenticado extends RuntimeException {
+        public NoAutenticado(String mensaje) {
+            super(mensaje);
+        }
+    }
+
     /** No existe lo que se pidió → 404. */
     @ApplicationException(rollback = true)
     public static class NoEncontrado extends RuntimeException {

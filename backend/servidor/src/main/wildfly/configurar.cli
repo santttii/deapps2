@@ -22,3 +22,8 @@ jms-queue add --queue-address=cola.emision-entradas --entries=["java:/jms/queue/
 
 # Publicación/suscripción: Notificaciones y Auditoría reciben cada una su copia.
 jms-topic add --topic-address=topico.compra-confirmada --entries=["java:/jms/topic/compraConfirmada"]
+
+# --- Seguridad -------------------------------------------------------------------
+# Hace que @RolesAllowed / @PermitAll funcionen en los recursos REST de todos los
+# servicios. Los roles salen del token JWT (claim "groups").
+/subsystem=jaxrs:write-attribute(name=resteasy-role-based-security, value=true)

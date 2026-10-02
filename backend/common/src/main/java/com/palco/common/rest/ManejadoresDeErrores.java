@@ -8,8 +8,10 @@ import java.util.logging.Logger;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 
@@ -44,6 +46,15 @@ public final class ManejadoresDeErrores {
         }
     }
 
+    /** Sin sesión o credenciales incorrectas → 401. */
+    @Provider
+    public static class NoAutenticado implements ExceptionMapper<ErroresDeNegocio.NoAutenticado> {
+        @Override
+        public Response toResponse(ErroresDeNegocio.NoAutenticado e) {
+            return json(401, new ErrorRespuesta(401, e.getMessage()));
+        }
+    }
+
     /** Recurso inexistente → 404. */
     @Provider
     public static class NoEncontrado implements ExceptionMapper<ErroresDeNegocio.NoEncontrado> {
@@ -74,12 +85,27 @@ public final class ManejadoresDeErrores {
     /** Errores HTTP lanzados a propósito (404, 403, 409…) → se respeta el código. */
     @Provider
     public static class Http implements ExceptionMapper<WebApplicationException> {
+
+        @Context
+        SecurityContext seguridad;
+
         @Override
         public Response toResponse(WebApplicationException e) {
             int estado = e.getResponse().getStatus();
-            String mensaje = estado == 404
-                    ? "Recurso no encontrado."
-                    : e.getMessage() != null ? e.getMessage() : e.getResponse().getStatusInfo().getReasonPhrase();
+            // @RolesAllowed responde 403 también cuando no hay token: eso es "falta iniciar sesión" (401).
+            if (estado == 403 && (seguridad == null || seguridad.getUserPrincipal() == null)) {
+                return Response.status(401)
+                        .type(MediaType.APPLICATION_JSON)
+                        .header("WWW-Authenticate", "Bearer")
+                        .entity(new ErrorRespuesta(401, "Tenés que iniciar sesión."))
+                        .build();
+            }
+            String mensaje = switch (estado) {
+                case 401 -> "Tenés que iniciar sesión.";
+                case 403 -> "No tenés permiso para hacer esto.";
+                case 404 -> "Recurso no encontrado.";
+                default -> e.getMessage() != null ? e.getMessage() : e.getResponse().getStatusInfo().getReasonPhrase();
+            };
             return json(estado, new ErrorRespuesta(estado, mensaje));
         }
     }

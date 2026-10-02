@@ -12,8 +12,8 @@ El repo tiene dos partes:
   con `sleep()`.
 - **`backend/`**: Jakarta EE sobre WildFly, en construcción. Son 8 servicios
   independientes (un WAR cada uno) desplegados en el mismo WildFly, con el
-  broker JMS del taller de mensajería. `ServicioDeEventos` ya funciona; el resto
-  tiene solo el esqueleto. El plan completo está en [`TODO.md`](TODO.md).
+  broker JMS del taller de mensajería. `ServicioDeUsuarios` y
+  `ServicioDeEventos` ya funcionan; el resto tiene solo el esqueleto. El plan completo está en [`TODO.md`](TODO.md).
 
 ## Índice
 
@@ -77,12 +77,27 @@ las mismas migraciones crean las tablas allá.
 | Servicio | Endpoint | Qué hace |
 |---|---|---|
 | todos | `GET /api/<servicio>/health` | Estado del servicio y de la base |
+| usuarios | `POST /api/usuarios/registro` | Alta de cuenta; manda un código de 6 dígitos al email |
+| usuarios | `POST /api/usuarios/verificacion` | `{"email", "codigo"}` → activa la cuenta y devuelve la sesión |
+| usuarios | `POST /api/usuarios/verificacion/reenvio` | Código nuevo (uno cada 30 segundos) |
+| usuarios | `POST /api/usuarios/login` | `{"email", "password"}` → `{"token", "usuario", ...}` |
+| usuarios | `GET /api/usuarios/yo` | Usuario del token (requiere sesión) |
+| usuarios | `GET /api/usuarios/jwks` | Clave pública para validar tokens (la usan los otros servicios) |
 | eventos | `GET /api/eventos?categoria=Música&q=texto` | Catálogo (filtros opcionales, búsqueda sin acentos) |
 | eventos | `GET /api/eventos/{slug}` | Detalle con sectores |
-| eventos | `POST /api/eventos` | Crear evento con sectores |
-| eventos | `POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo` | Sumar (`{"cantidad": 2}`) o liberar (`-2`) entradas vendidas, sin pasarse del cupo |
+| eventos | `POST /api/eventos` | Crear evento con sectores (rol `organizer`) |
+| eventos | `POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo` | Sumar (`{"cantidad": 2}`) o liberar (`-2`) entradas vendidas, sin pasarse del cupo (solo para otros servicios) |
 
 Los errores siempre vuelven como `{"estado": 400, "mensaje": "...", "campos": {...}}`.
+
+**Sesión:** el login devuelve un token JWT que se manda en cada pedido como
+`Authorization: Bearer <token>` y dura 8 horas. Cerrar sesión es descartarlo.
+Sin token, los endpoints protegidos responden 401; con un rol que no
+corresponde, 403. Las cuentas de prueba son las mismas de la tabla de abajo.
+
+**Código de verificación:** hasta que exista `ServicioDeNotificaciones` no se
+manda por email; aparece en el log del servidor como
+`Código de verificación para <email>: 123456`.
 
 ## Scripts del frontend
 
@@ -178,6 +193,7 @@ Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anu
 - Java 25 + Jakarta EE 11 (EJB + CDI) sobre WildFly 41
 - JAX-RS para la API REST
 - JMS con el ActiveMQ Artemis embebido en WildFly
+- MicroProfile JWT para las sesiones y `@RolesAllowed` en todos los servicios
 - JPA + Hibernate; H2 en desarrollo y PostgreSQL en Supabase
 - Flyway para las migraciones (un esquema por servicio)
 - JSON-B para el JSON de la API

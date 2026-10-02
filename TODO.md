@@ -90,21 +90,22 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       creados por `servidor/src/main/wildfly/configurar.cli`.
 - [x] Configuración de WildFly versionada (`configurar.cli`): datasource
       `PalcoDS` (H2 por defecto, PostgreSQL con variables `PALCO_DB_*`) y JMS.
-- [ ] Seguridad en `configurar.cli` (Fase 2).
+- [x] Seguridad en `configurar.cli`: roles en los recursos REST.
 - [~] `backend/.env.example` con lo que cambia por ambiente (hecho: CORS y base;
       falta credenciales de Mercado Pago y Mailtrap, certificados de AFIP,
       `VITE_API_URL`).
 
 ## Fase 1 — Base de datos y entidades
 
-- [~] Entidades JPA (hechas: `Evento`, `Sector`): `Usuario`, `Venta`
+- [~] Entidades JPA (hechas: `Evento`, `Sector`, `Usuario`,
+      `CodigoVerificacion`): `Venta`
       (hoy `Orden` en el front), `VentaItem`, `Entrada`, `Publicacion`,
       `Reserva`, `Escaneo`, `CodigoVerificacion`, `Auditoria`, `Factura`.
 - [ ] Repositorios: `UsuarioRepository`, `EventoRepository`,
       `EntradaRepository`, `VentaRepository` (los de la Entrega 1) y los que
       falten.
 - [ ] Restricciones en la base, no solo en código:
-  - [ ] `email` y `dni` únicos en usuarios.
+  - [x] `email` y `dni` únicos en usuarios.
   - [x] `slug` único en eventos.
   - [x] `vendidas <= cupo` en sectores.
   - [ ] DNI único por venta en entradas.
@@ -119,26 +120,40 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       `src/main/resources/db/migracion` en su propio esquema. SQL compatible
       con PostgreSQL; en desarrollo corren sobre H2 en modo PostgreSQL.
 - [ ] Probar las migraciones contra un PostgreSQL real (Supabase) apenas esté.
-- [~] Datos iniciales como migración (hechos: los 6 eventos con sus
-      sectores). Faltan las 4 publicaciones y las 3 cuentas de prueba.
+- [~] Datos iniciales como migración (hechos: los 6 eventos con sus sectores
+      y las 3 cuentas de prueba). Faltan las 4 publicaciones de reventa.
 
 ## Fase 2 — `ServicioDeUsuarios` (servicio reutilizable)
 
-- [ ] Interfaz `IUsuarios` y Session Bean.
-- [ ] `POST /api/auth/registro`: valida datos (mismas reglas que
-      `src/lib/validate.ts`) y hashea la contraseña (PBKDF2 o BCrypt).
-- [ ] Verificación de email con código de 6 dígitos: generar, enviar (vía
-      `ServicioDeNotificaciones`), expirar, limitar intentos, reenviar.
-- [ ] `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/yo`.
-- [ ] Seguridad declarativa del contenedor: Jakarta Security / Elytron con
-      `@RolesAllowed` para los roles `user`, `organizer`, `staff`.
-- [ ] Mecanismo de sesión **(a confirmar)**: sesión HTTP con cookie (encaja con
-      el bean stateful de Ventas) o JWT (MicroProfile JWT).
+- [x] Interfaz `IUsuarios` y Session Bean `@Stateless`.
+- [x] `POST /api/usuarios/registro`: valida datos (mismas reglas que
+      `src/lib/validate.ts`, 16 años o más) y hashea la contraseña con
+      PBKDF2-SHA256.
+- [x] Verificación de email con código de 6 dígitos: se guarda solo el hash,
+      vence a los 15 minutos, máximo 5 intentos, reenvío cada 30 segundos.
+- [ ] Mandar el código por email con `ServicioDeNotificaciones` (hoy queda en
+      el log del servidor).
+- [x] `POST /api/usuarios/login` y `GET /api/usuarios/yo`. Logout = el front
+      descarta el token.
+- [x] Sesión con JWT (decidido: con 8 WAR separados una sesión HTTP no se
+      comparte entre servicios). Usuarios firma con RS256 y publica la clave en
+      `/api/usuarios/jwks`; los demás la usan vía MicroProfile JWT.
+- [x] Seguridad declarativa: `@RolesAllowed` / `@PermitAll` en todos los
+      servicios (`resteasy-role-based-security` en `configurar.cli`). 401 sin
+      token, 403 con rol incorrecto.
+- [x] Las 3 cuentas de prueba como migración.
+- [x] Tests de hash de contraseñas y firma de tokens.
+- [ ] `PALCO_JWT_CLAVE_PRIVADA` fija en el hosting (si no, cada reinicio
+      invalida las sesiones).
+- [ ] Tokens para llamadas entre servicios (rol `servicio`), necesarios para
+      que Ventas actualice cupos en Eventos (Fase 4).
 - [ ] Operaciones que consumen los otros servicios: identificar al comprador y
       a cada titular (Ventas), verificar que quien publica es el titular
       (Reventa), contrastar identidad en puerta (Validación).
-- [ ] Verificación de identidad (`identidadVerificada`): definir qué se valida.
+- [ ] Verificación de identidad (`identidadVerificada`): definir qué se valida
+      (el front pide foto del DNI de frente y dorso).
 - [ ] Recuperar contraseña (no existe hoy en el front).
+- [ ] Rate limiting en login, registro y verificación (Fase 12).
 
 ## Fase 3 — `ServicioDeEventos`
 
@@ -152,8 +167,8 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 - [x] `POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo`: suma o libera
       vendidas en un solo UPDATE (dos compras simultáneas del último lugar:
       pasa una sola, probado).
-- [ ] Proteger crear evento (rol `organizer`) y actualizar cupo (solo otros
-      servicios) cuando exista la Fase 2.
+- [x] Crear evento requiere rol `organizer` (queda a su nombre) y actualizar
+      cupo requiere rol `servicio`.
 - [ ] `PUT /api/eventos/{id}` (solo el organizador dueño).
 - [ ] Tests del Session Bean (Fase 11).
 - [ ] Cancelar evento (dispara alertas de cancelación por Notificaciones).

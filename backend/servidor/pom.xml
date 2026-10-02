@@ -55,6 +55,8 @@
                         <layer>ejb</layer>
                         <!-- Broker JMS (ActiveMQ Artemis) dentro del mismo WildFly -->
                         <layer>embedded-activemq</layer>
+                        <!-- Seguridad: tokens JWT firmados por ServicioDeUsuarios, @RolesAllowed en todos -->
+                        <layer>microprofile-jwt</layer>
                         <!-- Drivers de base: H2 en desarrollo, PostgreSQL para Supabase -->
                         <layer>h2-driver</layer>
                         <layer>postgresql-driver</layer>
