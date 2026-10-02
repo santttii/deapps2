@@ -37,7 +37,7 @@ Desarrollo de Aplicaciones II. Grupo: Deya, Frisoli, Loto, Molina, Zuchowicki.
 | Componente | Interfaz | Tipo | Responsabilidad |
 |---|---|---|---|
 | `ServicioDeUsuarios` | `IUsuarios` | — | Registro, autenticación y roles (comprador, organizador, staff) |
-| `ServicioDeEventos` | `IEventos` | Stateless | Catálogo de eventos, tipos de entrada y cupos. **Ya implementado** (fuera de este repo) |
+| `ServicioDeEventos` | `IEventos` | Stateless | Catálogo de eventos, tipos de entrada y cupos |
 | `ServicioDeVentas` | `IVentas` | **Stateful** | Orquesta el checkout de punta a punta y mantiene la compra en curso |
 | `ServicioDePagos` | `IPagos` | — | Procesa, confirma y reembolsa pagos contra Mercado Pago |
 | `ServicioDeValidación` | `IValidacion` | Stateless | Autenticidad y uso único de la entrada en puerta |
@@ -52,36 +52,47 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 
 ## Fase 0 — Decisiones y setup
 
-- [ ] Traer al repo el código de `ServicioDeEventos` que ya está desplegado
-      en WildFly (presentado en la Entrega 1) y usarlo como base.
-- [ ] Confirmar versiones usadas en los laboratorios: Java (propuesta 21),
-      WildFly (propuesta 3x con Jakarta EE 10) **(a confirmar)**.
-- [ ] Elegir base de datos **(a confirmar)**: la que se use en los labs
-      (PostgreSQL o MySQL). Configurarla como datasource en WildFly.
-- [ ] Definir empaquetado **(a confirmar)**. Propuesta: proyecto Maven
-      multimódulo con un módulo por componente (interfaz + implementación),
-      empaquetado en un solo EAR/WAR sobre un WildFly. Los documentos
-      describen componentes dentro del mismo servidor de aplicaciones (no
-      microservicios separados), y `ServicioDeVentas` stateful necesita ese
-      modelo.
-- [ ] Estructura del repo. Propuesta: `frontend/` (el front actual) y
-      `backend/` (proyecto Maven).
-- [ ] Mover el front actual a `frontend/` sin romper `npm run dev` ni `build`.
-- [ ] Scaffold de `backend/`: `pom.xml` padre, módulo por componente, módulo
-      `api` (recursos JAX-RS), módulo `common` (DTOs, mensajes, excepciones).
-- [ ] Healthcheck (`GET /api/health` o MicroProfile Health de WildFly) y
+- [x] `ServicioDeEventos`: no hay código previo, se arranca de cero.
+- [x] Versiones: **Java 25 (LTS)** y **WildFly 41** (Jakarta EE 11).
+- [x] Base de datos: **Supabase** (PostgreSQL gestionado). Se conecta desde
+      WildFly como datasource JDBC de PostgreSQL.
+- [x] Sin Docker: se usan servicios web para la infraestructura.
+- [~] Instalar JDK 25 y Maven en cada máquina del grupo (hecho en la de Julián).
+- [ ] Crear el proyecto en Supabase y compartir la cadena de conexión
+      (usar el *session pooler*, puerto 5432, que funciona por IPv4).
+- [ ] Crear cuenta de email de prueba **(a confirmar)**: Mailtrap (atrapa los
+      emails en una bandeja web, reemplaza a MailHog).
+- [~] Empaquetado: por ahora un solo WAR (`app`) sobre un WildFly. Los
+      documentos describen componentes dentro del mismo servidor de
+      aplicaciones, y `ServicioDeVentas` stateful necesita ese modelo.
+      Confirmar con el grupo si la materia pide otra cosa.
+- [ ] Hostear el backend temprano (Render o Railway **a confirmar**) para que
+      el grupo use una sola instancia y no tenga que correrlo en cada
+      máquina. Requiere un `Dockerfile` que la plataforma construye en la
+      nube a partir de `mvn package` (no hace falta Docker local).
+- [x] Estructura del repo: `frontend/` (el front actual) y `backend/`
+      (proyecto Maven).
+- [x] Mover el front actual a `frontend/` sin romper `npm run dev` ni `build`.
+- [x] Scaffold de `backend/`: `pom.xml` padre, módulo `common` (reglas,
+      DTOs, mensajes) y módulo `app` (WAR con la API JAX-RS).
+- [ ] Un módulo Maven por componente de negocio, a medida que se implementan.
+- [x] Healthcheck `GET /api/health` (incluye estado del broker JMS) y
       manejo centralizado de errores (`ExceptionMapper` de JAX-RS).
-- [ ] Pasar a Java las constantes de negocio de `src/types/index.ts`
-      (`TOPE_REVENTA`, `TASA_SERVICIO`, `MAX_ENTRADAS_POR_ORDEN`,
-      `HORAS_LIMITE_REVENTA`, `MINUTOS_RESERVA`). El servidor pasa a ser la
+- [x] Filtro CORS configurable con `PALCO_CORS_ORIGENES`.
+- [x] Pasar a Java las constantes de negocio de `src/types/index.ts`
+      → `ReglasDeNegocio` en `common`, con tests. El servidor pasa a ser la
       fuente de verdad.
-- [ ] `docker-compose.yml` para desarrollo local: WildFly con
-      `standalone-full.xml` (trae ActiveMQ Artemis embebido para JMS), base de
-      datos y MailHog para ver emails.
-- [ ] Configuración de WildFly versionada (script CLI `.cli` para datasource,
-      colas, tópicos, seguridad), para que todo el grupo tenga el mismo setup.
-- [ ] `.env.example` con lo que cambia por ambiente (base, credenciales de
-      Mercado Pago, certificados de AFIP, `VITE_API_URL`).
+- [x] Levantar WildFly sin instalarlo a mano: `wildfly-maven-plugin`
+      arma WildFly 41 solo con las capas que usamos (`jaxrs-server`, `ejb`,
+      `embedded-activemq`). `backend/dev.sh` lo levanta con redespliegue
+      automático.
+- [x] Cola `cola.emision-entradas` y tópico `topico.compra-confirmada`
+      creados al desplegar (`@JMSDestinationDefinition` en `DestinosJms`).
+- [ ] Configuración de WildFly versionada para datasource y seguridad
+      (anotaciones o script CLI), para que todo el grupo tenga el mismo setup.
+- [~] `backend/.env.example` con lo que cambia por ambiente (conexión a Supabase,
+      credenciales de Mercado Pago y Mailtrap, certificados de AFIP,
+      `VITE_API_URL`).
 
 ## Fase 1 — Base de datos y entidades
 
@@ -128,7 +139,7 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 
 ## Fase 3 — `ServicioDeEventos`
 
-- [ ] Integrar el bean existente (`crearEvento`, `listarEventos`,
+- [ ] Session Bean con las operaciones de la Entrega 1 (`crearEvento`, `listarEventos`,
       `obtenerDetalle`, `actualizarCupo`).
 - [ ] `GET /api/eventos` con filtros por categoría y búsqueda insensible a
       acentos.
@@ -298,7 +309,7 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
 - [ ] Reglas de negocio: tope de reventa, mínimo 50%, tasa de servicio, máximo
       por venta, cierre de reventa a 3 horas, DNI único.
 - [ ] Integración contra WildFly real **(a confirmar herramienta)**:
-      Arquillian, o REST Assured contra el contenedor levantado con Docker.
+      Arquillian, o REST Assured contra WildFly levantado con `wildfly-maven-plugin`.
 - [ ] Endpoints: caso feliz, validaciones, 401 sin sesión, 403 con rol
       incorrecto.
 - [ ] Concurrencia: último lugar comprado por dos a la vez, misma publicación
@@ -328,11 +339,13 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
 - [ ] MSW para mockear la API.
 
 ### End to end
-- [ ] Playwright contra front + WildFly + base de test.
+- [ ] Playwright contra front + WildFly + base de test (proyecto o schema
+      de Supabase aparte para tests).
 - [ ] Recorrido completo: catálogo → evento → checkout → confirmación (con
       emisión asíncrona) → publicar en reventa → comprar con otra cuenta →
       validar en puerta.
-- [ ] Registro con verificación de email (código leído desde MailHog).
+- [ ] Registro con verificación de email (código leído desde la API de
+      Mailtrap).
 - [ ] Organizador crea evento y aparece en el catálogo.
 - [ ] Accesos por rol.
 
@@ -352,7 +365,8 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
 
 - [ ] CI (GitHub Actions): lint y build del front; `mvn verify` del backend.
 - [ ] Hosting **(a confirmar)**: front estático (Vercel, Netlify) y WildFly en
-      contenedor (Railway, Render, Fly o VM), base gestionada.
+      Render o Railway (construyen la imagen en la nube, no hace falta Docker
+      local), base en Supabase.
 - [ ] Ambientes de prueba y producción separados.
 - [ ] Backups de la base.
 - [ ] Monitoreo: métricas de WildFly, tamaño de colas y DLQ, logs.

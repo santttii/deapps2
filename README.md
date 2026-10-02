@@ -4,16 +4,21 @@ Plataforma de venta de entradas para eventos. Trabajo práctico académico: el
 diferencial de producto es el **anti-scalping** — entradas nominativas ligadas a un
 DNI y un canal de reventa oficial con tope de precio de +10% sobre lo pagado.
 
-Es una aplicación **solo frontend**: no hay backend ni API. Todo el estado (sesión,
-usuarios, eventos, entradas, órdenes y publicaciones de reventa) vive en
-`localStorage` bajo la clave `palco.state`. Los datos semilla son mock tipados en
-TypeScript y las operaciones "async" simulan latencia con `sleep()`.
+El repo tiene dos partes:
+
+- **`frontend/`**: SPA en React. Hoy funciona sola: todo el estado (sesión,
+  usuarios, eventos, entradas, órdenes y publicaciones de reventa) vive en
+  `localStorage` bajo la clave `palco.state`, con datos mock y latencia simulada
+  con `sleep()`.
+- **`backend/`**: Jakarta EE sobre WildFly, en construcción. Por ahora expone
+  `GET /api/health` y tiene el broker JMS con la cola y el tópico del taller de
+  mensajería. El plan completo está en [`TODO.md`](TODO.md).
 
 ## Índice
 
 - [Requisitos](#requisitos)
 - [Cómo correrlo](#cómo-correrlo)
-- [Scripts](#scripts)
+- [Scripts del frontend](#scripts-del-frontend)
 - [Usuarios de prueba](#usuarios-de-prueba)
 - [Funcionalidades](#funcionalidades)
 - [Reglas de negocio](#reglas-de-negocio)
@@ -26,17 +31,42 @@ TypeScript y las operaciones "async" simulan latencia con `sleep()`.
 
 ## Requisitos
 
-- Node.js `^20.19.0` o `>=22.12.0` (lo exige Vite 8)
-- npm
+- Frontend: Node.js `^20.19.0` o `>=22.12.0` (lo exige Vite 8) y npm
+- Backend: Java 25 y Maven 3.9+ (en macOS: `brew install openjdk@25 maven`).
+  WildFly no se instala: lo descarga Maven.
 
 ## Cómo correrlo
 
+### Frontend
+
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
 
 La app queda en `http://localhost:5173`.
+
+### Backend
+
+```bash
+cd backend
+cp .env.example .env   # la primera vez
+./dev.sh
+```
+
+La primera vez tarda unos minutos porque descarga WildFly 41. Queda en
+`http://localhost:8080` y se redespliega solo al guardar cambios en `app/`.
+Para comprobar que anda: `curl localhost:8080/api/health`.
+
+Otros comandos (desde `backend/`):
+
+| Comando | Qué hace |
+|---|---|
+| `./dev.sh` | WildFly en modo desarrollo con redespliegue automático |
+| `mvn test` | Corre los tests |
+| `mvn clean package` | Arma el WAR y un WildFly completo en `app/target/server`, listo para hostear |
+| `app/target/server/bin/standalone.sh` | Levanta el server armado por `package` |
 
 Para volver al estado inicial (borrar compras, cuentas creadas, eventos nuevos,
 etc.), borrá la clave `palco.state` desde DevTools → Application → Local Storage, o
@@ -46,7 +76,9 @@ ejecutá en la consola del navegador:
 localStorage.removeItem('palco.state'); location.reload();
 ```
 
-## Scripts
+## Scripts del frontend
+
+Desde `frontend/`:
 
 | Comando | Qué hace |
 |---|---|
@@ -89,7 +121,7 @@ requerido, redirigen al catálogo.
 
 ## Reglas de negocio
 
-Las constantes viven en [`src/types/index.ts`](src/types/index.ts):
+Las constantes viven en [`frontend/src/types/index.ts`](frontend/src/types/index.ts) (y en el backend, en [`ReglasDeNegocio.java`](backend/common/src/main/java/com/palco/common/ReglasDeNegocio.java)):
 
 | Constante | Valor | Regla |
 |---|---|---|
@@ -133,6 +165,16 @@ Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anu
 
 ## Stack
 
+### Backend
+
+- Java 25 + Jakarta EE 11 (EJB + CDI) sobre WildFly 41
+- JAX-RS para la API REST
+- JMS con el ActiveMQ Artemis embebido en WildFly
+- JPA + Hibernate contra PostgreSQL en Supabase (a partir de la Fase 1)
+- Maven multimódulo, JUnit para tests
+
+### Frontend
+
 - React 19 + TypeScript 6
 - Vite 8
 - React Router 7
@@ -146,6 +188,18 @@ Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anu
 - Tipografías: Archivo (títulos y UI) e IBM Plex Mono (datos), desde Google Fonts
 
 ## Estructura del proyecto
+
+```
+frontend/                 # SPA React (Vite)
+docs/                     # Spec de diseño original
+backend/
+├── pom.xml               # Proyecto Maven padre (versiones de Java, Jakarta EE y WildFly)
+├── dev.sh                # Levanta WildFly en modo desarrollo
+├── common/               # Reglas de negocio, DTOs y contratos de mensajes compartidos
+└── app/                  # WAR desplegable: API REST (JAX-RS) y componentes de negocio
+```
+
+Dentro de `frontend/src/`:
 
 ```
 src/
@@ -167,12 +221,11 @@ src/
 ├── components/           # Componentes reutilizables (Button, Input, Modal, QRCode,
 │                         # Stepper, Toast, CreateEventModal, ProtectedRoute, etc.)
 └── pages/                # Una página por ruta
-docs/superpowers/specs/   # Spec de diseño original
 ```
 
 ## Arquitectura y estado
 
-- **Un solo store** en [`AppContext.tsx`](src/store/AppContext.tsx) con
+- **Un solo store** en [`AppContext.tsx`](frontend/src/store/AppContext.tsx) con
   `useReducer`. Guarda `usuarioActualId`, `usuarios`, `eventos`, `entradas`,
   `ordenes`, `publicaciones` y el `carrito`.
 - **Persistencia**: cada cambio de estado se serializa completo en

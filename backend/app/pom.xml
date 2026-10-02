@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.palco</groupId>
+        <artifactId>palco-backend</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>palco-app</artifactId>
+    <packaging>war</packaging>
+    <name>Palco — app</name>
+    <description>WAR desplegable en WildFly: API REST (JAX-RS) y ensamblado de los componentes de negocio.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>jakarta.platform</groupId>
+            <artifactId>jakarta.jakartaee-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.palco</groupId>
+            <artifactId>palco-common</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>ROOT</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <configuration>
+                    <failOnMissingWebXml>false</failOnMissingWebXml>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!--
+                    Descarga y arma un WildFly solo con lo que Palco usa (Galleon).
+                      mvn wildfly:dev      → levanta el server y redespliega al guardar
+                      mvn package          → deja un server listo en target/server (para hostear)
+                -->
+                <groupId>org.wildfly.plugins</groupId>
+                <artifactId>wildfly-maven-plugin</artifactId>
+                <configuration>
+                    <feature-packs>
+                        <feature-pack>
+                            <location>org.wildfly:wildfly-galleon-pack:${version.wildfly}</location>
+                        </feature-pack>
+                    </feature-packs>
+                    <layers>
+                        <!-- REST + CDI + JPA + Bean Validation + transacciones -->
+                        <layer>jaxrs-server</layer>
+                        <!-- Session Beans completos: @Stateful, @Schedule, Message-Driven Beans -->
+                        <layer>ejb</layer>
+                        <!-- Broker JMS (ActiveMQ Artemis) dentro del mismo WildFly -->
+                        <layer>embedded-activemq</layer>
+                    </layers>
+                    <name>ROOT.war</name>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>package</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
