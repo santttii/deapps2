@@ -15,6 +15,14 @@
     <name>Palco — ServicioDeVentas</name>
     <description>Orquesta el checkout de punta a punta (stateful). Interfaz: IVentas.</description>
 
+    <dependencies>
+        <dependency>
+            <!-- Dobles de prueba para testear el negocio sin servidor. La versión y el alcance (test) vienen del pom padre. -->
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+        </dependency>
+    </dependencies>
+
     <build>
         <finalName>ventas</finalName>
     </build>

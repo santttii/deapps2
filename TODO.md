@@ -304,27 +304,54 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
 
 ## Fase 10 — Conexión frontend ↔ backend
 
-- [ ] Cliente HTTP en `src/lib/api.ts`: base URL desde `VITE_API_URL`, manejo
-      de errores, envío de cookies de sesión (`credentials: 'include'`).
-- [ ] CORS en JAX-RS (filtro) o proxy de Vite al WildFly en desarrollo.
-- [ ] Manejo de datos del servidor **(a confirmar)**: TanStack Query.
+- [x] Cliente HTTP en `src/lib/api.ts`: base URL desde `VITE_API_URL`, manejo
+      de errores (Problem Details: `{type, title, status, detail, errores}`) y
+      token `Authorization: Bearer` (el backend usa JWT, no cookies de sesión).
+- [x] CORS: filtro en el backend (`PALCO_CORS_ORIGENES`); no hizo falta proxy
+      de Vite.
+- [ ] Backend: mandar las cabeceras CORS también en el 401 de un token
+      inválido (hoy llega sin ellas y el navegador avisa "blocked by CORS
+      policy"). Después, sacar de `api.ts` la consulta a `/health` que lo
+      compensa.
+- [ ] Manejo de datos del servidor: por ahora `fetch` con `useEffect` y
+      `useState`, sin librería. Revisar TanStack Query al conectar Ventas (el
+      estado "emitiendo entradas" necesita consultar repetidamente).
 - [ ] Tipos del front generados desde la API (MicroProfile OpenAPI de WildFly
-      + generador de tipos TypeScript).
-- [ ] Reemplazar cada `dispatch` del store por la llamada a la API:
-  - [ ] `LOGIN`, `LOGOUT`, `REGISTER` → `/api/auth/*`
-  - [ ] `CREAR_EVENTO` → `POST /api/eventos`
+      + generador de tipos TypeScript). Por ahora se traducen a mano en
+      `src/servicios/*.ts`.
+- [~] Reemplazar cada `dispatch` del store por la llamada a la API:
+  - [x] `LOGIN`, `LOGOUT` → `POST /api/usuarios/login` y descartar el token
+        (`src/store/SesionContext.tsx`).
+  - [x] `REGISTER` → `/api/usuarios/registro`, `/verificacion` y
+        `/verificacion/reenvio`. Probado en navegador contra el backend el
+        09/10, con el código leído del log del servidor.
+  - [x] `CREAR_EVENTO` → `POST /api/eventos`. Probado en navegador contra el
+        backend el 09/10.
   - [ ] `SET_CARRITO` + `CREAR_ORDEN` → checkout de `ServicioDeVentas` + pago
+        (el enganche está en `src/servicios/ventas.ts`).
+    - [ ] Antes, decidir cómo compra una cuenta nueva: el registro la deja
+          con `identidadVerificada` en falso, el backend no tiene cómo
+          cambiarlo y Ventas responde 403 `identidad-no-verificada`
+          (ver `docs/notas/B2-frontend-sesion-catalogo.md`).
   - [ ] `PUBLICAR_REVENTA`, `RETIRAR_PUBLICACION`, `COMPRAR_REVENTA` → `/api/publicaciones/*`
   - [ ] `MARCAR_ENTRADA_USADA` → `/api/validacion/escaneos`
 - [ ] Checkout por pasos contra el bean stateful (cada paso es una llamada).
 - [ ] Confirmación con estado "emitiendo entradas…" hasta que la emisión
       asíncrona termine.
 - [ ] Countdown del checkout sincronizado con el vencimiento real.
-- [ ] Estados de carga, error y vacío en cada pantalla (hoy `sleep()`).
-- [ ] Errores de validación del servidor en los formularios.
-- [ ] Sacar la persistencia de `palco.state` en `localStorage`.
-- [ ] `ProtectedRoute` basado en la sesión real (`GET /api/auth/yo`).
-- [ ] Borrar `src/data/events.ts` y `src/data/listings.ts`.
+- [~] Estados de carga, error y vacío en cada pantalla: hechos en catálogo,
+      detalle, ingreso, registro, crear evento y las pantallas que esperan el
+      catálogo. Checkout y reventa siguen con `sleep()`.
+- [~] Errores de validación del servidor en los formularios: hechos en
+      ingreso, registro y crear evento. Falta el checkout.
+- [~] Sacar la persistencia de `palco.state` en `localStorage`: ya no guarda
+      sesión, usuarios ni eventos. Quedan entradas, órdenes, publicaciones y
+      carrito hasta tener Ventas y Reventa.
+- [x] `ProtectedRoute` basado en la sesión real (token guardado, confirmado
+      con `GET /api/usuarios/yo`).
+- [~] Borrar `src/data/events.ts` y `src/data/listings.ts`: `events.ts` ya no
+      tiene eventos (quedan las fotos locales); `listings.ts` sigue hasta tener
+      Reventa.
 
 ## Fase 11 — Pruebas
 
@@ -405,7 +432,9 @@ No dependen del backend.
 - [x] `index.html`: `lang="es"`.
 - [ ] `prefers-reduced-motion` también en framer-motion
       (`MotionConfig reducedMotion="user"`).
-- [ ] Pasada de accesibilidad y responsive.
+- [ ] Pasada de accesibilidad y responsive. Ya corregido: en pantalla angosta
+      el detalle del evento no dejaba elegir entradas, y el modal "Crear
+      evento" perdía el foco al escribir. Falta revisar el resto.
 - [ ] Code splitting por ruta (el bundle pesa 473 kB).
 - [ ] Actualizar `README.md` a medida que avanza el backend.
 

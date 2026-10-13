@@ -78,4 +78,12 @@ public final class Dtos {
     /** Respuesta del registro: todavía no hay sesión, falta verificar el email. */
     public record RegistroPendienteDto(String email, String mensaje) {
     }
+
+    /** Lo que presenta un servicio para pedir su token: el secreto que comparten todos los servicios. */
+    public record SecretoDto(@NotBlank(message = "Falta el secreto.") String secreto) {
+    }
+
+    /** Token de rol {@code servicio}, para las llamadas entre servicios. No lleva usuario. */
+    public record TokenDeServicioDto(String token, long expiraEnSegundos) {
+    }
 }

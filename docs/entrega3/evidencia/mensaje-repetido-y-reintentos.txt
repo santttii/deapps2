@@ -1,0 +1,135 @@
+Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico (primera toma)
+Qué muestra: que el consumidor de la cola es idempotente y qué pasa cuando falla. A: el mismo mensaje entregado otra vez (una vez y después tres) no vuelve a emitir: los códigos QR y las fechas no cambian. B: ocho copias del mismo mensaje a la vez, sobre una venta sin emitir, atendidas por ocho hilos: emite una sola. C: un texto que no es un PAGO_CONFIRMADO vuelve al broker, se entrega 5 veces cada 2 segundos y pasa a la DLQ, sin frenar a los demás mensajes. D: si el consumidor falla después de emitir, no queda nada a medias y el broker reentrega a los 2 segundos. E: si falla en las 5 entregas, el mensaje pasa a la DLQ y la venta queda CONFIRMADA; devuelto a la cola, se emite.
+Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados.
+
+OJO: esta prueba NO se puede repetir solo con el repo. La API pública no permite entregarle al consumidor el mismo
+mensaje dos veces ni hacerlo fallar. Se corrió con un guion de prueba que no está en el repo: arma una COPIA del WAR de
+Ventas con un recurso temporal (GET y POST /api/v1/diagnostico-emision/cola, solo rol servicio) que lee la cola y le
+manda el texto que recibe, y con una línea de más en el MDB (la que se ve al principio de la salida), que lanza una
+excepción solo cuando el primer titular se llama "Falla Una Vez" o "Falla Siempre". Al terminar, el guion volvió a
+desplegar el WAR del repo y lo comprobó (final de la salida). El servidor escribe la hora local (UTC-3).
+
+----------------------------------------------------------------------
+Salida completa del guion
+Fecha: 2026-10-13 -0300: la copia del WAR se desplegó a las 10:29:03 y el WAR del repo se restauró a las 10:31:07
+Comando:
+    bash repetido.sh     (guion de prueba fuera del repo; ver la nota de arriba)
+Salida:
+== diferencia entre el MDB del repo y la copia de la prueba
+   111a112
+   >         String primerTitular = mensaje.entradas().get(0).titular().nombre(); if (primerTitular.startsWith("Falla Siempre") || (primerTitular.startsWith("Falla Una Vez") && numeroDeEntrega(recibido) == 1)) { throw new IllegalStateException("Falla forzada despues de emitir, entrega " + numeroDeEntrega(recibido) + " (prueba del p
+== WAR de la prueba: sha 6725e2553fd5 (el limpio es 8b2fce29ae60); clases compiladas: 3
+== broker antes: cola agregados=70 pendientes=0 | topico agregados=119 | DLQ=5
+== desplegar el WAR de la prueba (10:29:03)
+   desplegado a los 4 s (sha 6725e2553fd5)
+  ok   el recurso temporal: sin token, con token de comprador, con token de servicio: 401 403 200
+== A. el mismo mensaje, entregado otra vez despues de emitir
+   stop-delivery: {"outcome"=>"success"}
+   el mensaje de V-23e99353, tal como esta en la cola:
+     {"compradorId":"user-titular","entradas":[{"entradaId":"T-85978d5b","sector":"Platea B","titular":{"dni":"30123456","nombre":"Ana Gomez"}},{"entradaId":"T-05a46f05","sector":"Platea B","titular":{"dni":"31234567","nombre":"Luis Perez"}}],"eventoId":"ev-1","montoTotal":60500,"timestamp":"2026-10-13T13:29:14Z","ventaId":"V-23e99353"}
+  ok   el mensaje en la cola es el de esa venta: V-23e99353 T-85978d5b
+   start-delivery: {"outcome"=>"success"}
+  ok   primera entrega: emitida: EMITIDA VALIDA VALIDA
+   codigos y fechas despues de la primera entrega: f8b230f5-1e75-445d-84f7-089226565552 2026-10-13T13:29:19Z 63234e50-a902-4a42-875f-0b84146453bb 2026-10-13T13:29:19Z
+  ok   se manda otra vez el mismo texto: 200
+  ok   log: una emision y un 'mensaje repetido': 1 1
+  ok   los codigos y las fechas no cambiaron: f8b230f5-1e75-445d-84f7-089226565552 2026-10-13T13:29:19Z 63234e50-a902-4a42-875f-0b84146453bb 2026-10-13T13:29:19Z
+  ok   se manda tres veces mas: 200
+  ok   log: sigue habiendo una sola emision, y cuatro repetidos: 1 4
+  ok   los codigos y las fechas siguen igual: f8b230f5-1e75-445d-84f7-089226565552 2026-10-13T13:29:19Z 63234e50-a902-4a42-875f-0b84146453bb 2026-10-13T13:29:19Z
+  ok   la venta sigue EMITIDA: EMITIDA
+  ok   cola: pendientes 0 y DLQ sin cambios (un repetido no es un error): 0 5
+   lineas del log:
+     2026-10-13 10:29:19,249 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-77 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-23e99353. Entradas emitidas: 2. La venta pasó a EMITIDA.
+     2026-10-13 10:29:25,187 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-78 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-23e99353. No había nada pendiente: es un mensaje repetido y no cambió nada.
+     2026-10-13 10:29:29,904 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-85 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-23e99353. No había nada pendiente: es un mensaje repetido y no cambió nada.
+     2026-10-13 10:29:29,904 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-83 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-23e99353. No había nada pendiente: es un mensaje repetido y no cambió nada.
+     2026-10-13 10:29:29,906 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-84 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-23e99353. No había nada pendiente: es un mensaje repetido y no cambió nada.
+== B. ocho copias del mismo mensaje a la vez, sobre una venta que todavia no se emitio
+   stop-delivery: {"outcome"=>"success"}
+  ok   antes: 1 mensaje pendiente y la venta sin emitir: 1 CONFIRMADA
+   se quita el original de la cola: {"outcome"=>"success","result"=>1}
+   start-delivery: {"outcome"=>"success"}
+  ok   consumidores activos y cola vacia: varios 0
+  ok   se mandan 8 copias en una sola transaccion: 200
+  ok   log: una sola emision: 1
+  ok   log: los otros siete, repetidos: 7
+  dato hilos distintos que atendieron esas 8 copias: 8 ; entre la primera y la ultima linea: 10:29:55,276 10:29:55,314 
+  dato lineas del log que no son del MDB en ese rato (ERROR, WARN): 0 ERROR, 0 WARN
+  ok   la venta y sus entradas: EMITIDA VALIDA VALIDA
+  ok   dos codigos distintos, uno por entrada: 2
+  ok   cola: pendientes 0 y DLQ sin cambios: 0 5
+   lineas del log:
+     2026-10-13 10:29:55,276 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-88 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-8f4549cb. Entradas emitidas: 2. La venta pasó a EMITIDA.
+     2026-10-13 10:29:55,285 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-77 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-8f4549cb. No había nada pendiente: es un mensaje repetido y no cambió nada.
+     2026-10-13 10:29:55,288 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-81 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-8f4549cb. No había nada pendiente: es un mensaje repetido y no cambió nada.
+     2026-10-13 10:29:55,298 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-87 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-8f4549cb. No había nada pendiente: es un mensaje repetido y no cambió nada.
+     2026-10-13 10:29:55,304 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-79 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-8f4549cb. No había nada pendiente: es un mensaje repetido y no cambió nada.
+     2026-10-13 10:29:55,309 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-78 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-8f4549cb. No había nada pendiente: es un mensaje repetido y no cambió nada.
+     2026-10-13 10:29:55,311 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-80 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-8f4549cb. No había nada pendiente: es un mensaje repetido y no cambió nada.
+     2026-10-13 10:29:55,314 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-85 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-8f4549cb. No había nada pendiente: es un mensaje repetido y no cambió nada.
+== C. un texto que no es un PAGO_CONFIRMADO: vuelve al broker 5 veces y termina en la DLQ; mientras, la cola sigue
+  ok   se manda el texto invalido: 200
+  ok   una compra hecha durante los reintentos se emite enseguida: EMITIDA VALIDA
+  dato en ese momento el invalido llevaba 2 entregas
+  ok   log: 5 avisos de mensaje invalido: 5
+  ok   log: numeradas de la entrega 1 a la 5: 1 2 3 4 5 
+  ok   log: el broker lo paso a la DLQ: 1
+  ok   cola: pendientes 0 ; DLQ +1: 0 6
+   lineas del log:
+     2026-10-13 10:30:08,308 WARNING [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-84 (activemq-client-global)) EmisionDeEntradas: mensaje inválido (entrega 1), vuelve al broker. El mensaje no es un JSON de PAGO_CONFIRMADO.
+     2026-10-13 10:30:10,316 WARNING [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-88 (activemq-client-global)) EmisionDeEntradas: mensaje inválido (entrega 2), vuelve al broker. El mensaje no es un JSON de PAGO_CONFIRMADO.
+     2026-10-13 10:30:12,331 WARNING [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-77 (activemq-client-global)) EmisionDeEntradas: mensaje inválido (entrega 3), vuelve al broker. El mensaje no es un JSON de PAGO_CONFIRMADO.
+     2026-10-13 10:30:14,364 WARNING [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-81 (activemq-client-global)) EmisionDeEntradas: mensaje inválido (entrega 4), vuelve al broker. El mensaje no es un JSON de PAGO_CONFIRMADO.
+     2026-10-13 10:30:16,371 WARNING [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-87 (activemq-client-global)) EmisionDeEntradas: mensaje inválido (entrega 5), vuelve al broker. El mensaje no es un JSON de PAGO_CONFIRMADO.
+     2026-10-13 10:30:16,380 WARN  [org.apache.activemq.artemis.core.server] (Thread-429 (activemq-default)) AMQ222149: Sending message Reference[1647]:RELIABLE:CoreMessage[messageID=1647, durable=true, userID=354b6598-c70a-11f1-8599-0a0027000009, priority=4, timestamp=Tue Oct 13 10:30:08 GMT-0
+   se quita de la DLQ ese mensaje (ID:354b6598-c70a-11f1-8599-0a0027000009): {"outcome"=>"success","result"=>1}
+  ok   DLQ: otra vez como al empezar: 5
+== D. falla forzada despues de emitir, solo en la primera entrega: no queda nada a medias y el broker reentrega
+  ok   la primera entrega ya habia fallado cuando se miro: si
+  ok   apenas falla la primera entrega: la venta y las entradas siguen como estaban: CONFIRMADA PENDIENTE_EMISION PENDIENTE_EMISION PENDIENTE_EMISION null
+  ok   despues de la reentrega: EMITIDA VALIDA VALIDA
+  ok   log: una sola emision, en la segunda entrega: 1 0
+  dato segundos entre la falla y la emision: 10:30:32,699 10:30:34,716 
+  ok   cola: pendientes 0 y DLQ sin cambios: 0 5
+   lineas del log (sin la traza):
+     2026-10-13 10:30:32,194 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-113) Compra V-4a6b44ee abierta por user-titular: total 60500, reserva hasta 2026-10-13T13:40:32Z (instancia 15875d7c).
+     2026-10-13 10:30:32,674 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-113) Compra V-4a6b44ee confirmada con el pago P-52897499. Entradas creadas: 2. PAGO_CONFIRMADO publicado en la misma transacción (instancia 15875d7c).
+     2026-10-13 10:30:32,691 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-113) Compra en curso: el contenedor destruye la instancia 15875d7c de la venta V-4a6b44ee.
+     2026-10-13 10:30:32,691 INFO  [com.palco.notificaciones.negocio.ServicioDeNotificaciones] (Thread-78 (activemq-client-global)) Aviso al comprador user-titular: tu compra V-4a6b44ee quedó confirmada. Evento ev-1, 2 entradas: Platea B (Falla Una Vez),
+     2026-10-13 10:30:32,692 INFO  [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-80 (activemq-client-global)) AuditoriaDeCompras: procesado el mensaje de la venta V-4a6b44ee.
+     2026-10-13 10:30:32,692 INFO  [com.palco.notificaciones.mensajeria.AvisoDeCompraMDB] (Thread-78 (activemq-client-global)) AvisoDeCompra: aviso enviado por la venta V-4a6b44ee.
+     2026-10-13 10:30:32,699 ERROR [org.jboss.as.ejb3.invocation] (Thread-79 (activemq-client-global)) WFLYEJB0034: Jakarta Enterprise Beans Invocation failed on component EmisionDeEntradas for method public void com.palco.ventas.mensajeria.EmisionDeEntra
+     Caused by: java.lang.IllegalStateException: Falla forzada despues de emitir, entrega 1 (prueba del paso 5-emision).
+     2026-10-13 10:30:32,707 ERROR [org.apache.activemq.artemis.ra.ActiveMQRALogger] (Thread-79 (activemq-client-global)) AMQ154004: Failed to deliver message: jakarta.ejb.EJBTransactionRolledbackException: Falla forzada despues de emitir, entrega 1 (prue
+     Caused by: java.lang.IllegalStateException: Falla forzada despues de emitir, entrega 1 (prueba del paso 5-emision).
+     2026-10-13 10:30:34,716 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-85 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-4a6b44ee. Entradas emitidas: 2. La venta pasó a EMITIDA.
+== E. falla forzada en todas las entregas: 5 intentos y DLQ; la venta queda CONFIRMADA y sin emitir
+  ok   log: fallo en las 5 entregas: 1 2 3 4 5 
+  ok   log: el broker lo paso a la DLQ: 1
+  ok   la venta y las entradas quedaron sin emitir, no a medias: CONFIRMADA PENDIENTE_EMISION null PENDIENTE_EMISION
+  ok   cola: pendientes 0 ; DLQ +1: 0 6
+   mensaje en la DLQ: ID:4c2ec5a0-c70a-11f1-8599-0a0027000009
+   lineas del log (sin la traza):
+     2026-10-13 10:30:46,714 ERROR [org.jboss.as.ejb3.invocation] (Thread-84 (activemq-client-global)) WFLYEJB0034: Jakarta Enterprise Beans Invocation failed on component EmisionDeEntradas for method public void com.palco.ventas.mensajeria.EmisionDeEntra
+     2026-10-13 10:30:48,739 ERROR [org.jboss.as.ejb3.invocation] (Thread-82 (activemq-client-global)) WFLYEJB0034: Jakarta Enterprise Beans Invocation failed on component EmisionDeEntradas for method public void com.palco.ventas.mensajeria.EmisionDeEntra
+     2026-10-13 10:30:50,759 ERROR [org.jboss.as.ejb3.invocation] (Thread-88 (activemq-client-global)) WFLYEJB0034: Jakarta Enterprise Beans Invocation failed on component EmisionDeEntradas for method public void com.palco.ventas.mensajeria.EmisionDeEntra
+     2026-10-13 10:30:52,782 ERROR [org.jboss.as.ejb3.invocation] (Thread-77 (activemq-client-global)) WFLYEJB0034: Jakarta Enterprise Beans Invocation failed on component EmisionDeEntradas for method public void com.palco.ventas.mensajeria.EmisionDeEntra
+     2026-10-13 10:30:54,824 ERROR [org.jboss.as.ejb3.invocation] (Thread-81 (activemq-client-global)) WFLYEJB0034: Jakarta Enterprise Beans Invocation failed on component EmisionDeEntradas for method public void com.palco.ventas.mensajeria.EmisionDeEntra
+     2026-10-13 10:30:54,836 WARN  [org.apache.activemq.artemis.core.server] (Thread-465 (activemq-default)) AMQ222149: Sending message Reference[1672]:RELIABLE:CoreMessage[messageID=1672, durable=true, userID=4c2ec5a0-c70a-11f1-8599-0a0027000009, priorit
+   ventas de esta corrida: A=V-23e99353 B=V-8f4549cb C=V-f506b1a3 D=V-4a6b44ee E=V-c5f264d1
+== restaurar el WAR limpio (10:31:07)
+   desplegado a los 2 s (sha 8b2fce29ae60)
+   health: {"servicio":"v1","baseDeDatos":"ok","estado":"ok"} [200]
+   sha desplegado 8b2fce29ae60 / sha limpio 8b2fce29ae60
+   el recurso temporal ya no existe: GET /api/v1/diagnostico-emision/cola -> 404
+   clases de diagnostico en el WAR desplegado: 0 ; el MDB desplegado tiene la falla forzada: 0 (0 = no)
+   sin archivos .failed
+== E (final). con el WAR limpio, se devuelve a la cola el mensaje que quedo en la DLQ
+   move-messages: {"outcome"=>"success","result"=>1}
+  ok   la venta que habia quedado sin emitir: EMITIDA VALIDA VALIDA
+  ok   log: emision de esa venta: 1
+== broker al terminar: cola agregados=89 pendientes=0 consumidores=15 | topico agregados=129 | DLQ=5 (empezo en 5)
+  ok   cola: pendientes: 0
+  ok   DLQ: igual que al empezar: 5
+REPETIDOS Y FALLAS: TODO BIEN

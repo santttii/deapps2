@@ -22,11 +22,15 @@ import jakarta.ws.rs.ext.Provider;
  * Lee y escribe JSON con JSON-B (el estándar de Jakarta EE) en todos los
  * servicios, en lugar del Jackson que trae RESTEasy. Así las fechas salen en
  * ISO, los null se incluyen y un JSON mal formado termina en un 400 con el
- * mismo formato de error que el resto ({@link ErrorRespuesta}).
+ * mismo formato de error que el resto ({@link Problema}).
+ *
+ * También escribe {@code application/problem+json}, el tipo de contenido de
+ * los errores: para JAX-RS es un tipo distinto de {@code application/json} y
+ * sin declararlo acá los errores los escribiría otro conversor.
  */
 @Provider
 @Consumes(MediaType.APPLICATION_JSON)
-@Produces(MediaType.APPLICATION_JSON)
+@Produces({ MediaType.APPLICATION_JSON, ManejadoresDeErrores.PROBLEMA_JSON })
 public class JsonProvider implements MessageBodyReader<Object>, MessageBodyWriter<Object> {
 
     private static final Jsonb JSONB = JsonbBuilder.create(new JsonbConfig().withNullValues(true));

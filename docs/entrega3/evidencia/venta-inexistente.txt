@@ -1,0 +1,52 @@
+Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico (primera toma)
+Qué muestra: qué hace el consumidor de la cola con el mensaje de una venta que no existe en Ventas (el endpoint de prueba de Notificaciones publica uno con ventaId 'prueba-...'): lo descarta con un aviso (WARNING), el mensaje queda consumido, no vuelve a la cola y no va a la DLQ.
+Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados.
+
+Antes de los comandos de este archivo se definieron estas variables (los tokens no se guardan acá):
+    export NOPAUSE=true JAVA_HOME="/c/Users/santi/.jdks/temurin-25"; B="/subsystem=messaging-activemq/server=default"; CLI=backend/servidor/target/server/bin/jboss-cli.bat
+    T=$(curl -s -X POST localhost:8080/api/usuarios/login -H "Content-Type: application/json" -d "{\"email\":\"titular@palco.test\",\"password\":\"palco1234\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")
+    S=$(curl -s -X POST localhost:8080/api/usuarios/servicios/token -H "Content-Type: application/json" -d "{\"secreto\":\"palco-desarrollo\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")
+
+Los cinco números de los contadores son, en orden: mensajes agregados a la cola, pendientes en la cola, consumidores de la cola, mensajes agregados al tópico y pendientes en la DLQ.
+
+----------------------------------------------------------------------
+1. Contadores antes
+Fecha: 2026-10-13 10:40:29 -0300
+Comando:
+    "$CLI" --connect --commands="$B/jms-queue=cola.emision-entradas:read-attribute(name=messages-added),$B/jms-queue=cola.emision-entradas:read-attribute(name=message-count),$B/jms-queue=cola.emision-entradas:read-attribute(name=consumer-count),$B/jms-topic=topico.compra-confirmada:read-attribute(name=messages-added),$B/jms-queue=DLQ:read-attribute(name=message-count)" | grep -o "\"result\" => [0-9]*" | grep -o "[0-9]*\$" | tr "\n" " "
+Salida:
+122 0 15 195 5 
+
+----------------------------------------------------------------------
+2. Publicar un PAGO_CONFIRMADO de prueba, con el publicador real (cola y tópico)
+Fecha: 2026-10-13 10:40:32 -0300
+Comando:
+    curl -s -i -X POST -H "Authorization: Bearer $S" localhost:8080/api/notificaciones/pruebas/pago-confirmado
+Salida:
+HTTP/1.1 202 Accepted
+Connection: keep-alive
+Transfer-Encoding: chunked
+Content-Type: application/json
+Date: Tue, 13 Oct 2026 13:40:32 GMT
+
+{"compradorId":"user-titular","entradas":[{"entradaId":"prueba-a6bb0f22-1","sector":"Platea B","titular":{"dni":"30123456","nombre":"Ana Gómez"}},{"entradaId":"prueba-a6bb0f22-2","sector":"Platea B","titular":{"dni":"31234567","nombre":"Luis Pérez"}}],"eventoId":"ev-1","montoTotal":60500,"timestamp":"2026-10-13T13:40:32Z","ventaId":"prueba-a6bb0f22"}
+
+----------------------------------------------------------------------
+3. Líneas de server.log con ese ventaId
+Fecha: 2026-10-13 10:40:36 -0300
+Comando:
+    grep -n "prueba-a6bb0f22" backend/servidor/target/server/standalone/log/server.log
+Salida:
+11254:2026-10-13 10:40:32,525 INFO  [com.palco.notificaciones.negocio.ServicioDeNotificaciones] (Thread-120 (activemq-client-global)) Aviso al comprador user-titular: tu compra prueba-a6bb0f22 quedó confirmada. Evento ev-1, 2 entradas: Platea B (Ana Gómez), Platea B (Luis Pérez). Total: $60500.
+11255:2026-10-13 10:40:32,526 INFO  [com.palco.notificaciones.mensajeria.AvisoDeCompraMDB] (Thread-120 (activemq-client-global)) AvisoDeCompra: aviso enviado por la venta prueba-a6bb0f22.
+11256:2026-10-13 10:40:32,526 INFO  [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-122 (activemq-client-global)) AuditoriaDeCompras: procesado el mensaje de la venta prueba-a6bb0f22.
+11257:2026-10-13 10:40:32,526 WARNING [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-121 (activemq-client-global)) EmisionDeEntradas: se descarta el mensaje de la venta prueba-a6bb0f22, que no existe en Ventas.
+
+----------------------------------------------------------------------
+4. Contadores después: la cola sumó 1 y no quedó nada pendiente; la DLQ no cambió
+Fecha: 2026-10-13 10:40:37 -0300
+Comando:
+    "$CLI" --connect --commands="$B/jms-queue=cola.emision-entradas:read-attribute(name=messages-added),$B/jms-queue=cola.emision-entradas:read-attribute(name=message-count),$B/jms-queue=cola.emision-entradas:read-attribute(name=consumer-count),$B/jms-topic=topico.compra-confirmada:read-attribute(name=messages-added),$B/jms-queue=DLQ:read-attribute(name=message-count)" | grep -o "\"result\" => [0-9]*" | grep -o "[0-9]*\$" | tr "\n" " "
+Salida:
+123 0 15 197 5 
+

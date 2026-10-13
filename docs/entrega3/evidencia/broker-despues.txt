@@ -1,0 +1,57 @@
+Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico (primera toma)
+Qué muestra: el estado de la cola, del tópico y de la DLQ DESPUÉS de la compra V-be1e5e8e. Contra broker-antes.txt: en la cola messages-added sube 1 y message-count sigue en 0 (el consumidor ya lo procesó); en el tópico messages-added sube 2 (una copia por suscriptor: aviso y auditoría); la DLQ no cambia.
+Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados.
+
+Antes de los comandos de este archivo se definieron estas variables (los tokens no se guardan acá):
+    export NOPAUSE=true JAVA_HOME="/c/Users/santi/.jdks/temurin-25"; B="/subsystem=messaging-activemq/server=default"; CLI=backend/servidor/target/server/bin/jboss-cli.bat
+    T=$(curl -s -X POST localhost:8080/api/usuarios/login -H "Content-Type: application/json" -d "{\"email\":\"titular@palco.test\",\"password\":\"palco1234\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")
+    S=$(curl -s -X POST localhost:8080/api/usuarios/servicios/token -H "Content-Type: application/json" -d "{\"secreto\":\"palco-desarrollo\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")
+
+----------------------------------------------------------------------
+Cola, tópico y DLQ después de la compra
+Fecha: 2026-10-13 10:40:27 -0300
+Comando:
+    "$CLI" --connect --commands="$B/jms-queue=cola.emision-entradas:read-resource(include-runtime=true),$B/jms-topic=topico.compra-confirmada:read-resource(include-runtime=true),$B/jms-queue=DLQ:read-attribute(name=message-count)"
+Salida:
+{
+    "outcome" => "success",
+    "result" => {
+        "consumer-count" => 15,
+        "dead-letter-address" => "jms.queue.DLQ",
+        "delivering-count" => 0,
+        "durable" => true,
+        "entries" => ["java:/jms/queue/emisionEntradas"],
+        "expiry-address" => "jms.queue.ExpiryQueue",
+        "legacy-entries" => undefined,
+        "message-count" => 0L,
+        "messages-added" => 122L,
+        "paused" => false,
+        "queue-address" => "jms.queue.cola.emision-entradas",
+        "scheduled-count" => 0L,
+        "selector" => undefined,
+        "temporary" => false
+    }
+}
+{
+    "outcome" => "success",
+    "result" => {
+        "delivering-count" => 0,
+        "durable-message-count" => 0,
+        "durable-subscription-count" => 1,
+        "entries" => ["java:/jms/topic/compraConfirmada"],
+        "legacy-entries" => undefined,
+        "message-count" => 0L,
+        "messages-added" => 195L,
+        "non-durable-message-count" => 0,
+        "non-durable-subscription-count" => 1,
+        "paused" => false,
+        "subscription-count" => 2,
+        "temporary" => false,
+        "topic-address" => "jms.topic.topico.compra-confirmada"
+    }
+}
+{
+    "outcome" => "success",
+    "result" => 5L
+}
+

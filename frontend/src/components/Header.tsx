@@ -1,9 +1,19 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
+import { useSesion } from '../store/SesionContext';
 
 export default function Header() {
   const { usuarioActual, dispatch } = useApp();
+  const { salir } = useSesion();
   const navigate = useNavigate();
+
+  function cerrarSesion() {
+    salir();
+    // El carrito no pasa a la cuenta que ingrese después en este navegador.
+    dispatch({ type: 'SET_CARRITO', payload: null });
+    // Desde una página privada, ProtectedRoute redirige antes a /ingresar?next=<esa página>.
+    navigate('/');
+  }
 
   return (
     <header className="sticky top-0 z-40">
@@ -39,10 +49,7 @@ export default function Header() {
                 )}
                 <button
                   type="button"
-                  onClick={() => {
-                    dispatch({ type: 'LOGOUT' });
-                    navigate('/');
-                  }}
+                  onClick={cerrarSesion}
                   className="font-mono-label border border-edge px-3 py-2 text-[11px]"
                 >
                   {usuarioActual.nombre} · salir

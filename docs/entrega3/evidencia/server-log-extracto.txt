@@ -1,0 +1,18 @@
+Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico (primera toma)
+Qué muestra: las líneas del log del servidor que nombran a la venta V-be1e5e8e, en orden: la compra con estado (ServicioDeVentas), y los tres consumidores del mensaje PAGO_CONFIRMADO: AvisoDeCompra y AuditoriaDeCompras (tópico, en Notificaciones) y EmisionDeEntradas (cola, en Ventas). El servidor escribe la hora local (UTC-3).
+Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados.
+
+----------------------------------------------------------------------
+Líneas de server.log con el id de la venta
+Fecha: 2026-10-13 10:40:29 -0300
+Comando:
+    grep -n "V-be1e5e8e" backend/servidor/target/server/standalone/log/server.log
+Salida:
+11247:2026-10-13 10:40:21,370 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-115) Compra V-be1e5e8e abierta por user-titular: total 60500, reserva hasta 2026-10-13T13:50:21Z (instancia 4414697).
+11248:2026-10-13 10:40:21,913 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-115) Compra V-be1e5e8e confirmada con el pago P-d285aa53. Entradas creadas: 2. PAGO_CONFIRMADO publicado en la misma transacción (instancia 4414697).
+11249:2026-10-13 10:40:21,925 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-115) Compra en curso: el contenedor destruye la instancia 4414697 de la venta V-be1e5e8e.
+11250:2026-10-13 10:40:21,927 INFO  [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-120 (activemq-client-global)) AuditoriaDeCompras: procesado el mensaje de la venta V-be1e5e8e.
+11251:2026-10-13 10:40:21,931 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-121 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-be1e5e8e. Entradas emitidas: 2. La venta pasó a EMITIDA.
+11252:2026-10-13 10:40:21,933 INFO  [com.palco.notificaciones.negocio.ServicioDeNotificaciones] (Thread-122 (activemq-client-global)) Aviso al comprador user-titular: tu compra V-be1e5e8e quedó confirmada. Evento ev-1, 2 entradas: Platea B (Ana Gomez), Platea B (Luis Perez). Total: $60500.
+11253:2026-10-13 10:40:21,933 INFO  [com.palco.notificaciones.mensajeria.AvisoDeCompraMDB] (Thread-122 (activemq-client-global)) AvisoDeCompra: aviso enviado por la venta V-be1e5e8e.
+

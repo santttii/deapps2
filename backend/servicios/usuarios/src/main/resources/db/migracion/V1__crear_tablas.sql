@@ -11,7 +11,9 @@ create table usuario (
     fecha_nacimiento      date,
     -- PBKDF2: "pbkdf2-sha256$<iteraciones>$<sal base64>$<hash base64>"
     password_hash         varchar(200) not null,
-    rol                   varchar(20)  not null check (rol in ('user', 'organizer', 'staff')),
+    -- Sin check de lista: en H2 2.4.240 se rompe al cerrarse la conexión de la migración
+    -- y todo insert o update falla. Los valores válidos los controla el enumerado Rol.
+    rol                   varchar(20)  not null,
     email_verificado      boolean      not null default false,
     identidad_verificada  boolean      not null default false,
     creado                timestamp    not null

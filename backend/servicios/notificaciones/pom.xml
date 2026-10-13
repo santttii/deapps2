@@ -15,6 +15,15 @@
     <name>Palco — ServicioDeNotificaciones</name>
     <description>Confirmaciones, recordatorios y alertas, de forma asincrónica. Interfaz: INotificaciones.</description>
 
+    <dependencies>
+        <dependency>
+            <!-- Dobles de prueba de lo que en producción pone el servidor: el mensaje JMS, el
+                 contexto del MDB y el EntityManager. Versión y alcance (test) vienen del pom padre. -->
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+        </dependency>
+    </dependencies>
+
     <build>
         <finalName>notificaciones</finalName>
     </build>

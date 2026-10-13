@@ -13,7 +13,15 @@
     <artifactId>palco-pagos</artifactId>
     <packaging>war</packaging>
     <name>Palco — ServicioDePagos</name>
-    <description>Procesa, confirma y reembolsa pagos contra Mercado Pago. Interfaz: IPagos.</description>
+    <description>Cobra los pagos contra una pasarela (hoy simulada; Mercado Pago después). Interfaz: IPagos.</description>
+
+    <dependencies>
+        <dependency>
+            <!-- ConfigProvider, para leer palco.pagos.proveedor. La versión y el scope los fija el pom padre. -->
+            <groupId>org.eclipse.microprofile.config</groupId>
+            <artifactId>microprofile-config-api</artifactId>
+        </dependency>
+    </dependencies>
 
     <build>
         <finalName>pagos</finalName>

@@ -1,5 +1,12 @@
-# Configuración de WildFly versionada. Se aplica cada vez que se arma el server
-# (mvn package), así todo el grupo y el hosting tienen el mismo setup.
+# Configuración de WildFly versionada, así todo el grupo y el hosting tienen el mismo setup.
+#
+# OJO: este script corre una sola vez, cuando Maven arma el servidor en
+# servidor/target/server. Si esa carpeta ya existe, el armado se saltea y los cambios
+# de este archivo NO se aplican. Para tomar un cambio hay dos caminos:
+#   a) Aplicar las mismas líneas al servidor en marcha con bin/jboss-cli (con NOPAUSE=true
+#      en Windows). Las de reintentos se aplican así, sin reiniciar: están en docs/notas/mensajeria.md.
+#   b) Detener WildFly y rearmar con "mvn clean install". Borra los mensajes guardados
+#      del broker, y con la base H2 en memoria también los datos. Nunca "clean" con WildFly levantado.
 
 # --- Base de datos -------------------------------------------------------------
 # Por defecto: H2 en memoria, en modo compatible con PostgreSQL (desarrollo).
@@ -22,6 +29,14 @@ jms-queue add --queue-address=cola.emision-entradas --entries=["java:/jms/queue/
 
 # Publicación/suscripción: Notificaciones y Auditoría reciben cada una su copia.
 jms-topic add --topic-address=topico.compra-confirmada --entries=["java:/jms/topic/compraConfirmada"]
+
+# Reintentos: un mensaje que falla se entrega hasta 5 veces, con 2 segundos entre una y
+# otra, y después pasa a la cola de mensajes fallidos (DLQ, java:/jms/queue/DLQ), que ya
+# viene configurada. Vale para todas las colas y suscripciones ("#" es "cualquier dirección").
+# De fábrica son 10 entregas seguidas, sin espera: una falla pasajera (la base que tarda
+# en responder) agotaría los intentos en un instante.
+/subsystem=messaging-activemq/server=default/address-setting=#:write-attribute(name=max-delivery-attempts,value=5)
+/subsystem=messaging-activemq/server=default/address-setting=#:write-attribute(name=redelivery-delay,value=2000)
 
 # --- Seguridad -------------------------------------------------------------------
 # Hace que @RolesAllowed / @PermitAll funcionen en los recursos REST de todos los

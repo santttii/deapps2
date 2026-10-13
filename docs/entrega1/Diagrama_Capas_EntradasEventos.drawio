@@ -1,0 +1,110 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36 Edg/151.0.0.0" version="29.6.6">
+  <diagram name="Arquitectura en capas - Entradas para eventos" id="capas-entradas">
+    <mxGraphModel dx="886" dy="595" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="layer_pres" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#888780;verticalAlign=top;fontStyle=1;fontSize=13;align=left;spacingLeft=10;spacingTop=6;" value="PRESENTACIÓN" vertex="1">
+          <mxGeometry height="120" width="760" x="40" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_catalogo" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E6F1FB;strokeColor=#378ADD;" value="CatálogoEventosView" vertex="1">
+          <mxGeometry height="50" width="165" x="60" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="c_checkout" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E6F1FB;strokeColor=#378ADD;" value="CheckoutForm" vertex="1">
+          <mxGeometry height="50" width="165" x="240" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="c_panelorg" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E6F1FB;strokeColor=#378ADD;" value="PanelOrganizador" vertex="1">
+          <mxGeometry height="50" width="165" x="420" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="c_validapp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E6F1FB;strokeColor=#378ADD;" value="ValidacionApp (staff)" vertex="1">
+          <mxGeometry height="50" width="165" x="600" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="layer_neg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#888780;verticalAlign=top;fontStyle=1;fontSize=13;align=left;spacingLeft=10;spacingTop=6;" value="NEGOCIO" vertex="1">
+          <mxGeometry height="180" width="760" x="40" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="c_usuarios" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;" value="ServicioDeUsuarios" vertex="1">
+          <mxGeometry height="50" width="165" x="60" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="c_eventos" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;" value="ServicioDeEventos" vertex="1">
+          <mxGeometry height="50" width="165" x="240" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="c_ventas" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;fontStyle=1;" value="ServicioDeVentas&#xa;(stateful)" vertex="1">
+          <mxGeometry height="50" width="165" x="420" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="c_pagos" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;" value="ServicioDePagos" vertex="1">
+          <mxGeometry height="50" width="165" x="600" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="c_validacion" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;" value="ServicioDeValidación&#xa;(stateless)" vertex="1">
+          <mxGeometry height="50" width="165" x="60" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="c_reventa" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;" value="ServicioDeReventa" vertex="1">
+          <mxGeometry height="50" width="165" x="240" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="c_notif" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;" value="ServicioDeNotificaciones" vertex="1">
+          <mxGeometry height="50" width="165" x="420" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="c_facturacion" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#7F77DD;" value="ServicioDeFacturación" vertex="1">
+          <mxGeometry height="50" width="165" x="600" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="layer_datos" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#888780;verticalAlign=top;fontStyle=1;fontSize=13;align=left;spacingLeft=10;spacingTop=6;" value="DATOS" vertex="1">
+          <mxGeometry height="120" width="760" x="40" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="c_usuariorepo" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#1D9E75;" value="UsuarioRepository" vertex="1">
+          <mxGeometry height="50" width="165" x="60" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="c_eventorepo" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#1D9E75;" value="EventoRepository" vertex="1">
+          <mxGeometry height="50" width="165" x="240" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="c_entradarepo" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#1D9E75;" value="EntradaRepository" vertex="1">
+          <mxGeometry height="50" width="165" x="420" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="c_ventarepo" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#1D9E75;" value="VentaRepository" vertex="1">
+          <mxGeometry height="50" width="165" x="600" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="layer_ext" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#888780;verticalAlign=top;fontStyle=1;fontSize=13;align=left;spacingLeft=10;spacingTop=6;" value="SISTEMAS EXTERNOS / INTEGRACIÓN" vertex="1">
+          <mxGeometry height="100" width="760" x="40" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="c_afip" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAECE7;strokeColor=#D85A30;" value="AFIP / ARCA&#xa;SOAP — sistema legado" vertex="1">
+          <mxGeometry height="50" width="220" x="60" y="590" as="geometry" />
+        </mxCell>
+        <mxCell id="c_mp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAECE7;strokeColor=#D85A30;" value="Mercado Pago&#xa;REST — partner moderno" vertex="1">
+          <mxGeometry height="50" width="220" x="310" y="590" as="geometry" />
+        </mxCell>
+        <mxCell id="c_broker" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAECE7;strokeColor=#D85A30;" value="Broker (ActiveMQ/RabbitMQ)&#xa;colas y tópicos" vertex="1">
+          <mxGeometry height="50" width="220" x="560" y="590" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pres_neg" edge="1" parent="1" source="layer_pres" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#444441;fontSize=11;" target="layer_neg" value="comprar entrada">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_neg_datos" edge="1" parent="1" source="layer_neg" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#444441;" target="layer_datos">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_neg_afip" edge="1" parent="1" source="c_facturacion" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#D85A30;fontSize=10;" target="c_afip" value="SOAP">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="682" y="530" />
+              <mxPoint x="170" y="530" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_neg_mp" edge="1" parent="1" source="c_pagos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#D85A30;fontSize=10;" target="c_mp" value="REST">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="683" y="560" />
+              <mxPoint x="440" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_neg_broker" edge="1" parent="1" source="c_notif" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#D85A30;fontSize=10;" target="c_broker" value="async">
+          <mxGeometry relative="1" x="-0.1067" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="502" y="420" />
+              <mxPoint x="650" y="420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,20 +1,52 @@
-import { useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useApp } from '../store/AppContext';
+import { ErrorApi, mensajeDeError } from '../lib/api';
 import { fechaHora, money } from '../lib/format';
+import { obtenerEvento } from '../servicios/eventos';
 import { MAX_ENTRADAS_POR_ORDEN } from '../types';
 import { useAnimatedNumber } from '../lib/useAnimatedNumber';
 import ImagePlaceholder from '../components/ImagePlaceholder';
 import Button from '../components/Button';
+import Skeleton from '../components/Skeleton';
+import StatusMessage from '../components/StatusMessage';
 import PageTransition from '../components/PageTransition';
+
+// Por qué falló el pedido del detalle, junto con el slug al que corresponde.
+interface FalloDeCarga {
+  slug: string;
+  noExiste: boolean;
+  mensaje: string;
+}
 
 export default function EventPage() {
   const { slug } = useParams();
-  const { state, dispatch } = useApp();
+  const { state, dispatch, usuarioActual } = useApp();
   const navigate = useNavigate();
   const evento = state.eventos.find((e) => e.slug === slug);
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
+  const [fallo, setFallo] = useState<FalloDeCarga | null>(null);
+  const [reintentos, setReintentos] = useState(0);
+
+  // Si el evento ya está en el catálogo cargado se muestra enseguida. En paralelo se pide su
+  // detalle al servidor: trae el stock actual y deja el evento en el estado para el checkout.
+  useEffect(() => {
+    if (!slug) return;
+    let vigente = true;
+    obtenerEvento(slug)
+      .then((recibido) => {
+        if (vigente) dispatch({ type: 'EVENTO_RECIBIDO', payload: recibido });
+      })
+      .catch((error: unknown) => {
+        if (!vigente) return;
+        const noExiste = error instanceof ErrorApi && error.estado === 404;
+        setFallo({ slug, noExiste, mensaje: mensajeDeError(error) });
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [slug, dispatch, reintentos]);
 
   const publicacionesEvento = useMemo(
     () => (evento ? state.publicaciones.filter((p) => p.eventoId === evento.id && p.estado === 'activa') : []),
@@ -25,7 +57,49 @@ export default function EventPage() {
   const total = evento ? evento.sectores.reduce((acc, s) => acc + (cantidades[s.id] ?? 0) * s.precio, 0) : 0;
   const totalMostrado = useAnimatedNumber(total, 300);
 
-  if (!evento) return <Navigate to="/" replace />;
+  const falloActual = fallo?.slug === slug ? fallo : null;
+
+  if (falloActual?.noExiste) {
+    return (
+      <PageTransition>
+        <div className="mx-auto max-w-[1240px] px-7 py-10">
+          <StatusMessage
+            titulo="No encontramos ese evento"
+            texto="Puede que el enlace esté mal escrito o que el evento ya no esté publicado."
+            accion="Ver el catálogo"
+            onAccion={() => navigate('/')}
+          />
+        </div>
+      </PageTransition>
+    );
+  }
+
+  // Sin el evento en memoria (se entró por un enlace directo): cargando, o error con reintento.
+  if (!evento) {
+    return (
+      <PageTransition>
+        <div className="mx-auto max-w-[1240px] px-7 py-10">
+          {falloActual ? (
+            <StatusMessage
+              titulo="No pudimos cargar el evento"
+              texto={falloActual.mensaje}
+              accion="Reintentar"
+              onAccion={() => {
+                setFallo(null);
+                setReintentos((n) => n + 1);
+              }}
+            />
+          ) : (
+            <div className="flex flex-col gap-4" role="status" aria-label="Cargando evento">
+              <Skeleton className="min-h-[320px] w-full" />
+              <Skeleton className="h-10 w-2/3" />
+              <Skeleton className="h-4 w-1/3" />
+            </div>
+          )}
+        </div>
+      </PageTransition>
+    );
+  }
 
   function ajustar(sectorId: string, delta: number, cupoDisponible: number) {
     setCantidades((prev) => {
@@ -42,7 +116,10 @@ export default function EventPage() {
     const items = Object.entries(cantidades)
       .filter(([, cant]) => cant > 0)
       .map(([sectorId, cantidad]) => ({ sectorId, cantidad }));
-    dispatch({ type: 'SET_CARRITO', payload: { eventoId: evento.id, items } });
+    dispatch({
+      type: 'SET_CARRITO',
+      payload: { eventoId: evento.id, items, usuarioId: usuarioActual?.id ?? null },
+    });
     navigate('/checkout');
   }
 
@@ -88,7 +165,9 @@ export default function EventPage() {
           </p>
         </div>
 
-        <aside className="hidden self-start border border-wire p-6 md:sticky md:top-[104px] md:block">
+        {/* El selector se ve en todos los anchos: en pantalla angosta queda debajo de la descripción.
+            Si se ocultara, desde un teléfono no habría cómo elegir entradas. */}
+        <aside className="self-start border border-wire p-6 md:sticky md:top-[104px]">
           <h2 className="text-lg font-semibold tracking-tight text-ink">Elegí tus entradas</h2>
           <div className="mt-5 flex flex-col gap-4">
             {evento.sectores.map((s) => {
@@ -144,14 +223,17 @@ export default function EventPage() {
             )}
           </AnimatePresence>
 
-          <div className="mt-6 flex items-center justify-between border-t border-line pt-4">
-            <span className="font-mono-label text-[11px] text-muted">Total</span>
-            <span className="text-xl font-semibold text-ink">{money(totalMostrado)}</span>
-          </div>
+          {/* En pantalla angosta el total y el botón están en la barra fija de abajo. */}
+          <div className="hidden md:block">
+            <div className="mt-6 flex items-center justify-between border-t border-line pt-4">
+              <span className="font-mono-label text-[11px] text-muted">Total</span>
+              <span className="text-xl font-semibold text-ink">{money(totalMostrado)}</span>
+            </div>
 
-          <Button className="mt-5 w-full" disabled={total === 0} onClick={continuarCheckout}>
-            Continuar al checkout
-          </Button>
+            <Button className="mt-5 w-full" disabled={total === 0} onClick={continuarCheckout}>
+              Continuar al checkout
+            </Button>
+          </div>
 
           {publicacionesEvento.length > 0 && (
             <Link

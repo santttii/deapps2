@@ -6,6 +6,7 @@ import com.palco.usuarios.api.Dtos.LoginDto;
 import com.palco.usuarios.api.Dtos.RegistroDto;
 import com.palco.usuarios.api.Dtos.RegistroPendienteDto;
 import com.palco.usuarios.api.Dtos.SesionDto;
+import com.palco.usuarios.api.Dtos.TokenDeServicioDto;
 import com.palco.usuarios.api.Dtos.UsuarioDto;
 import com.palco.usuarios.api.Dtos.VerificacionDto;
 
@@ -31,4 +32,10 @@ public interface IUsuarios {
 
     /** Datos del usuario dueño del token. */
     UsuarioDto obtener(String usuarioId);
+
+    /**
+     * Credenciales de cliente: si el secreto es el que comparten los servicios,
+     * devuelve un token corto de rol {@code servicio} para que se llamen entre sí.
+     */
+    TokenDeServicioDto emitirTokenDeServicio(String secreto);
 }

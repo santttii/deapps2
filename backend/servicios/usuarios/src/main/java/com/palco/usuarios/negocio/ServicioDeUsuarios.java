@@ -24,10 +24,13 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.ReglasDeNegocio;
+import com.palco.common.seguridad.TokenDeServicio;
 import com.palco.usuarios.api.Dtos.LoginDto;
 import com.palco.usuarios.api.Dtos.RegistroDto;
 import com.palco.usuarios.api.Dtos.RegistroPendienteDto;
 import com.palco.usuarios.api.Dtos.SesionDto;
+import com.palco.usuarios.api.Dtos.TokenDeServicioDto;
 import com.palco.usuarios.api.Dtos.UsuarioDto;
 import com.palco.usuarios.api.Dtos.VerificacionDto;
 import com.palco.usuarios.dominio.CodigoVerificacion;
@@ -37,6 +40,11 @@ import com.palco.usuarios.seguridad.ClavesJwt;
 import com.palco.usuarios.seguridad.Contrasenas;
 import com.palco.usuarios.seguridad.Tokens;
 
+/**
+ * Stateless: cada operación recibe todo lo que necesita (los datos del pedido
+ * o el id del token) y lo que tiene que durar queda en la base, así que el
+ * contenedor reutiliza un pool de instancias.
+ */
 @Stateless
 public class ServicioDeUsuarios implements IUsuarios {
 
@@ -44,6 +52,8 @@ public class ServicioDeUsuarios implements IUsuarios {
 
     static final int EDAD_MINIMA = 16;
     static final Duration DURACION_SESION = Duration.ofHours(8);
+    /** Corto a propósito: si se filtra sirve pocos minutos, y el servicio pide otro solo. */
+    static final Duration DURACION_TOKEN_DE_SERVICIO = Duration.ofMinutes(5);
     static final Duration VIGENCIA_CODIGO = Duration.ofMinutes(15);
     static final Duration ESPERA_REENVIO = Duration.ofSeconds(30);
     static final int MAX_INTENTOS_CODIGO = 5;
@@ -63,8 +73,9 @@ public class ServicioDeUsuarios implements IUsuarios {
     @Override
     public RegistroPendienteDto registrar(RegistroDto r) {
         String email = normalizarEmail(r.email());
+        // El formulario acepta el DNI con puntos ("30.123.456"): se guardan solo los dígitos.
         String dni = r.dni().replaceAll("\\D", "");
-        if (!dni.matches("\\d{7,8}")) {
+        if (!ReglasDeNegocio.esDniValido(dni)) {
             throw new ErroresDeNegocio.DatosInvalidos("dni", "El DNI debe tener 7 u 8 dígitos.");
         }
         if (Period.between(r.fechaNacimiento(), LocalDate.now()).getYears() < EDAD_MINIMA) {
@@ -170,6 +181,43 @@ public class ServicioDeUsuarios implements IUsuarios {
             throw new ErroresDeNegocio.NoEncontrado("No existe el usuario.");
         }
         return aDto(usuario);
+    }
+
+    @Override
+    public TokenDeServicioDto emitirTokenDeServicio(String secreto) {
+        if (!esElSecretoCompartido(secreto)) {
+            throw new ErroresDeNegocio.NoAutenticado("El secreto no es correcto.");
+        }
+        // Se firma con la misma clave que las sesiones: los demás servicios lo verifican igual que cualquier token.
+        String token = Tokens.firmar(claimsDeServicio(Instant.now()), claves.privada(), claves.kid());
+        return new TokenDeServicioDto(token, DURACION_TOKEN_DE_SERVICIO.toSeconds());
+    }
+
+    /**
+     * {@code MessageDigest.isEqual} tarda lo mismo acierte o no: comparar con
+     * {@code equals} corta en la primera letra distinta y deja adivinar el
+     * secreto midiendo el tiempo de respuesta.
+     */
+    static boolean esElSecretoCompartido(String recibido) {
+        return recibido != null && MessageDigest.isEqual(
+                TokenDeServicio.secretoCompartido().getBytes(StandardCharsets.UTF_8),
+                recibido.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Lo que dice el token de servicio. No representa a una persona: el rol va en
+     * {@code groups}, que es de donde {@code @RolesAllowed("servicio")} saca los roles.
+     */
+    static Map<String, Object> claimsDeServicio(Instant ahora) {
+        Map<String, Object> claims = new LinkedHashMap<>();
+        claims.put("iss", "palco");
+        claims.put("sub", "servicio");
+        claims.put("upn", "servicio@palco.interno");
+        claims.put("groups", List.of("servicio"));
+        claims.put("iat", ahora.getEpochSecond());
+        claims.put("exp", ahora.plus(DURACION_TOKEN_DE_SERVICIO).getEpochSecond());
+        claims.put("jti", UUID.randomUUID().toString());
+        return claims;
     }
 
     // ---------------------------------------------------------------------------------------------

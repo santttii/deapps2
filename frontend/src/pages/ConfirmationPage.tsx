@@ -10,7 +10,7 @@ import PageTransition from '../components/PageTransition';
 
 export default function ConfirmationPage() {
   const { ordenId } = useParams();
-  const { state, dispatch } = useApp();
+  const { state, dispatch, usuarioActual } = useApp();
 
   useEffect(() => {
     dispatch({ type: 'SET_CARRITO', payload: null });
@@ -18,7 +18,12 @@ export default function ConfirmationPage() {
   }, []);
 
   const orden = state.ordenes.find((o) => o.id === ordenId);
-  const entradas = state.entradas.filter((e) => e.ordenId === ordenId);
+  // Solo las entradas que el usuario de la sesión compró en esa orden. El filtro por origen hace
+  // falta porque la entrada que recibe quien compra una reventa conserva el número de orden del
+  // vendedor: sin él, el comprador podría abrir la confirmación de la compra de otra persona.
+  const entradas = state.entradas.filter(
+    (e) => e.ordenId === ordenId && e.propietarioId === usuarioActual?.id && e.origen === 'compra',
+  );
   const evento = orden ? state.eventos.find((e) => e.id === orden.eventoId) : undefined;
 
   if (!orden || !evento || entradas.length === 0) return <Navigate to="/mis-entradas" replace />;

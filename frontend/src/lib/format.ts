@@ -1,4 +1,4 @@
-import { TOPE_REVENTA } from '../types';
+import { TASA_SERVICIO, TOPE_REVENTA } from '../types';
 
 export function money(value: number): string {
   return `$${Math.round(value).toLocaleString('es-AR')}`;
@@ -24,6 +24,11 @@ export function calcularMinimoReventa(precioPagado: number): number {
   return Math.ceil(precioPagado * 0.5);
 }
 
+// Cargo por servicio de una compra. Lo usan el resumen del checkout y la orden que se arma al pagar.
+export function calcularServicio(subtotal: number): number {
+  return Math.round(subtotal * TASA_SERVICIO);
+}
+
 export function formatearDNI(dni: string): string {
   const digits = dni.replace(/\D/g, '');
   if (digits.length <= 2) return digits;
@@ -33,11 +38,4 @@ export function formatearDNI(dni: string): string {
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export function normalizar(texto: string): string {
-  return texto
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
 }

@@ -1,0 +1,104 @@
+Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico (primera toma)
+Qué muestra: los mensajes que esperaban en la cola se consumieron apenas existió el consumidor. Antes de desplegar EmisionDeEntradasMDB la cola tenía 64 mensajes pendientes y ningún consumidor: 39 de compras reales, que ya estaban CONFIRMADA con sus entradas PENDIENTE_EMISION, y 25 de prueba, de ventas que no existen. Al desplegarlo quedaron 0 pendientes: emitió las 39 ventas (43 entradas) y descartó los 25 de prueba, sin mandar nada a la DLQ.
+Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados.
+
+Antes de los comandos de este archivo se definieron estas variables:
+    export NOPAUSE=true JAVA_HOME="/c/Users/santi/.jdks/temurin-25"; B="/subsystem=messaging-activemq/server=default"; CLI=backend/servidor/target/server/bin/jboss-cli.bat
+
+----------------------------------------------------------------------
+1. La cola, el tópico y la DLQ antes de desplegar el consumidor (consumer-count 0, message-count 64)
+Fecha: 2026-10-13 10:13:09 -0300
+Comando:
+    "$CLI" --connect --commands="$B/jms-queue=cola.emision-entradas:read-resource(include-runtime=true),$B/jms-topic=topico.compra-confirmada:read-resource(include-runtime=true),$B/jms-queue=DLQ:read-attribute(name=message-count)"
+Salida:
+{
+    "outcome" => "success",
+    "result" => {
+        "consumer-count" => 0,
+        "dead-letter-address" => "jms.queue.DLQ",
+        "delivering-count" => 0,
+        "durable" => true,
+        "entries" => ["java:/jms/queue/emisionEntradas"],
+        "expiry-address" => "jms.queue.ExpiryQueue",
+        "legacy-entries" => undefined,
+        "message-count" => 64L,
+        "messages-added" => 64L,
+        "paused" => false,
+        "queue-address" => "jms.queue.cola.emision-entradas",
+        "scheduled-count" => 0L,
+        "selector" => undefined,
+        "temporary" => false
+    }
+}
+{
+    "outcome" => "success",
+    "result" => {
+        "delivering-count" => 0,
+        "durable-message-count" => 0,
+        "durable-subscription-count" => 1,
+        "entries" => ["java:/jms/topic/compraConfirmada"],
+        "legacy-entries" => undefined,
+        "message-count" => 0L,
+        "messages-added" => 107L,
+        "non-durable-message-count" => 0,
+        "non-durable-subscription-count" => 1,
+        "paused" => false,
+        "subscription-count" => 2,
+        "temporary" => false,
+        "topic-address" => "jms.topic.topico.compra-confirmada"
+    }
+}
+{
+    "outcome" => "success",
+    "result" => 5L
+}
+
+----------------------------------------------------------------------
+2. Despliegue del WAR de Ventas con EmisionDeEntradasMDB (el servidor lo toma solo en unos segundos)
+Fecha: 2026-10-13 10:17:49 -0300
+Comando:
+    cp backend/servicios/ventas/target/ventas.war backend/servidor/target/server/standalone/deployments/palco-ventas.war
+Salida:
+(sin salida)
+
+----------------------------------------------------------------------
+3. Contadores dos segundos después de que el servidor terminó el despliegue
+Fecha: 2026-10-13 -0300, entre las 10:17:58 y las 10:18:05
+Comando:
+    "$CLI" --connect --commands="$B/jms-queue=cola.emision-entradas:read-attribute(name=messages-added),$B/jms-queue=cola.emision-entradas:read-attribute(name=message-count),$B/jms-topic=topico.compra-confirmada:read-attribute(name=messages-added),$B/jms-queue=DLQ:read-attribute(name=message-count)"
+    "$CLI" --connect --command="$B/jms-queue=cola.emision-entradas:read-attribute(name=delivering-count)"
+    "$CLI" --connect --command="$B/jms-queue=cola.emision-entradas:read-attribute(name=consumer-count)"
+Salida:
+(resumida por el guion que corrió esos tres comandos)
++2 s: cola agregados=64 pendientes=0 entregando=0 consumidores=15 | DLQ=5
+topico agregados (sin cambios): 107
+
+----------------------------------------------------------------------
+4. Qué hizo el consumidor con esos 64 mensajes, según server.log: cuántos procesó y cuántos descartó
+Fecha: 2026-10-13 10:41:51 -0300
+Comando:
+    grep '^2026-10-13 10:17:5' backend/servidor/target/server/standalone/log/server.log | grep -c 'EmisionDeEntradas: procesado el mensaje de la venta V-.*La venta pasó a EMITIDA'; grep '^2026-10-13 10:17:5' backend/servidor/target/server/standalone/log/server.log | grep -c 'EmisionDeEntradas: se descarta el mensaje de la venta prueba-'; grep '^2026-10-13 10:17:5' backend/servidor/target/server/standalone/log/server.log | grep -c 'EmisionDeEntradas:'
+Salida:
+39
+25
+64
+
+----------------------------------------------------------------------
+5. Cuántas entradas emitió en total
+Fecha: 2026-10-13 10:41:52 -0300
+Comando:
+    grep '^2026-10-13 10:17:5' backend/servidor/target/server/standalone/log/server.log | grep -o 'Entradas emitidas: [0-9]*' | awk '{s+=$3} END {print s}'
+Salida:
+43
+
+----------------------------------------------------------------------
+6. Primera y última línea del consumidor en ese despliegue, y una de cada tipo
+Fecha: 2026-10-13 10:41:52 -0300
+Comando:
+    grep '^2026-10-13 10:17:5' backend/servidor/target/server/standalone/log/server.log | grep 'EmisionDeEntradas:' | sed -n '1p;$p'; grep '^2026-10-13 10:17:5' backend/servidor/target/server/standalone/log/server.log | grep -m1 'EmisionDeEntradas: procesado'
+Salida:
+2026-10-13 10:17:55,145 WARNING [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-42 (activemq-client-global)) EmisionDeEntradas: se descarta el mensaje de la venta prueba-1e47ad40, que no existe en Ventas.
+2026-10-13 10:17:55,564 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-43 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-6f311c14. Entradas emitidas: 1. La venta pasó a EMITIDA.
+2026-10-13 10:17:55,294 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-43 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-a6da0241. Entradas emitidas: 1. La venta pasó a EMITIDA.
+
+Además, consultadas una por una por la API después del despliegue (GET /api/v1/ventas/{id} y GET /api/v1/entradas/{id}, con el token del comprador): las 39 ventas estaban EMITIDA y sus 43 entradas VALIDA, cada una con un código QR distinto y con fecha de emisión.

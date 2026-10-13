@@ -1,38 +1,65 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useApp } from '../store/AppContext';
+import { useSesion } from '../store/SesionContext';
+import { ErrorApi, mensajeDeError } from '../lib/api';
 import { esEmailValido, esPasswordValida } from '../lib/validate';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import PageTransition from '../components/PageTransition';
 
+const CREDENCIALES_INCORRECTAS = 'Revisá el email y la contraseña.';
+
+// El parámetro next solo se acepta si es una ruta interna simple (/checkout, /confirmacion/A-12345).
+// Así un enlace armado por otra persona no puede mandar a otro sitio después de ingresar.
+const RUTA_INTERNA = /^(\/[A-Za-z0-9_-]+)+$/;
+
 export default function LoginPage() {
-  const { state, dispatch } = useApp();
+  const { ingresar } = useSesion();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const next = params.get('next') ?? '/';
+  const next = params.get('next');
+  const destino = next !== null && RUTA_INTERNA.test(next) ? next : '/';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [verPassword, setVerPassword] = useState(false);
   const [error, setError] = useState('');
+  // Email de una cuenta que todavía no confirmó el código: habilita el enlace para verificarla.
+  const [emailSinVerificar, setEmailSinVerificar] = useState('');
+  const [ingresando, setIngresando] = useState(false);
   const [sacudir, setSacudir] = useState(false);
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setEmailSinVerificar('');
     if (!esEmailValido(email) || !esPasswordValida(password)) {
-      setError('Revisá el email y la contraseña.');
+      setError(CREDENCIALES_INCORRECTAS);
       dispararSacudida();
       return;
     }
-    const usuario = state.usuarios.find((u) => u.email === email && u.password === password);
-    if (!usuario) {
-      setError('Revisá el email y la contraseña.');
+    setIngresando(true);
+    try {
+      await ingresar(email.trim(), password);
+    } catch (err) {
+      mostrarError(err);
+      return;
+    } finally {
+      setIngresando(false);
+    }
+    // Fuera del try: un problema al navegar no es un error de ingreso.
+    navigate(destino);
+  }
+
+  function mostrarError(err: unknown) {
+    const estado = err instanceof ErrorApi ? err.estado : null;
+    if (estado === 400 || estado === 401) {
+      setError(CREDENCIALES_INCORRECTAS);
       dispararSacudida();
       return;
     }
-    dispatch({ type: 'LOGIN', payload: usuario });
-    navigate(next);
+    // 409: la cuenta existe pero falta confirmar el código que se mandó al email.
+    if (estado === 409) setEmailSinVerificar(email.trim());
+    setError(mensajeDeError(err));
   }
 
   function dispararSacudida() {
@@ -74,7 +101,12 @@ export default function LoginPage() {
             </div>
             {error && (
               <p role="alert" aria-live="polite" className="border-l-2 border-accent pl-2 text-xs text-ink">
-                {error}
+                {error}{' '}
+                {emailSinVerificar && (
+                  <Link to="/registro" state={{ emailSinVerificar }} className="text-accent underline">
+                    Verificar mi email
+                  </Link>
+                )}
               </p>
             )}
             <label className="flex items-center gap-2 text-sm text-muted">
@@ -83,7 +115,9 @@ export default function LoginPage() {
             <button type="button" className="text-left text-sm text-accent underline">
               olvidé mi contraseña
             </button>
-            <Button type="submit">Ingresar</Button>
+            <Button type="submit" loading={ingresando} loadingText="Ingresando…">
+              Ingresar
+            </Button>
             <div className="my-2 flex items-center gap-3 text-xs text-faint">
               <span className="h-px flex-1 bg-line" /> o <span className="h-px flex-1 bg-line" />
             </div>

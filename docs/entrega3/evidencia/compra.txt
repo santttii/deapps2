@@ -1,0 +1,39 @@
+Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico (primera toma)
+Qué muestra: la compra que dispara el proceso: abrir la compra (reserva el cupo) y pagarla. El pago responde 201 con la venta CONFIRMADA y las entradas todavía PENDIENTE_EMISION: la emisión es asincrónica y llega después, por la cola.
+Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados.
+
+Antes de los comandos de este archivo se definieron estas variables (los tokens no se guardan acá):
+    export NOPAUSE=true JAVA_HOME="/c/Users/santi/.jdks/temurin-25"; B="/subsystem=messaging-activemq/server=default"; CLI=backend/servidor/target/server/bin/jboss-cli.bat
+    T=$(curl -s -X POST localhost:8080/api/usuarios/login -H "Content-Type: application/json" -d "{\"email\":\"titular@palco.test\",\"password\":\"palco1234\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")
+    S=$(curl -s -X POST localhost:8080/api/usuarios/servicios/token -H "Content-Type: application/json" -d "{\"secreto\":\"palco-desarrollo\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")
+
+----------------------------------------------------------------------
+1. Abrir la compra: 2 entradas de Platea B (sec-1-4) del evento ev-1
+Fecha: 2026-10-13 10:40:20 -0300
+Comando:
+    K1=$(node -e "console.log(crypto.randomUUID())"); curl -s -i -X POST localhost:8080/api/v1/ventas -H "Authorization: Bearer $T" -H "Content-Type: application/json" -H "Idempotency-Key: $K1" -d "{\"eventoId\":\"ev-1\",\"items\":[{\"sectorId\":\"sec-1-4\",\"cantidad\":2}],\"titulares\":[{\"nombre\":\"Ana Gomez\",\"dni\":\"30123456\"},{\"nombre\":\"Luis Perez\",\"dni\":\"31234567\"}]}"
+Salida:
+HTTP/1.1 201 Created
+Connection: keep-alive
+Location: http://localhost:8080/api/v1/ventas/V-be1e5e8e
+Transfer-Encoding: chunked
+Content-Type: application/json
+Date: Tue, 13 Oct 2026 13:40:21 GMT
+
+{"_links":{"self":{"href":"/api/v1/ventas/V-be1e5e8e","method":"GET"},"pagar":{"href":"/api/v1/ventas/V-be1e5e8e/pagos","method":"POST"},"cancelar":{"href":"/api/v1/ventas/V-be1e5e8e","method":"DELETE"}},"cargoServicio":5500,"entradas":[],"estado":"EN_CHECKOUT","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-be1e5e8e","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":null,"subtotal":55000,"venceReserva":"2026-10-13T13:50:21Z"}
+
+----------------------------------------------------------------------
+2. Pagar la compra V-be1e5e8e con el cobro simulado (tok_test aprueba)
+Fecha: 2026-10-13 10:40:21 -0300
+Comando:
+    K2=$(node -e "console.log(crypto.randomUUID())"); curl -s -i -X POST localhost:8080/api/v1/ventas/V-be1e5e8e/pagos -H "Authorization: Bearer $T" -H "Content-Type: application/json" -H "Idempotency-Key: $K2" -d "{\"medioDePago\":\"tarjeta\",\"token\":\"tok_test\"}"
+Salida:
+HTTP/1.1 201 Created
+Connection: keep-alive
+Location: http://localhost:8080/api/v1/ventas/V-be1e5e8e/pagos/P-d285aa53
+Transfer-Encoding: chunked
+Content-Type: application/json
+Date: Tue, 13 Oct 2026 13:40:21 GMT
+
+{"_links":{"self":{"href":"/api/v1/ventas/V-be1e5e8e","method":"GET"}},"cargoServicio":5500,"entradas":[{"_links":{"self":{"href":"/api/v1/entradas/T-fc0a4a6a","method":"GET"}},"estado":"PENDIENTE_EMISION","id":"T-fc0a4a6a","sector":"Platea B","titular":{"dni":"30123456","nombre":"Ana Gomez"}},{"_links":{"self":{"href":"/api/v1/entradas/T-609cf451","method":"GET"}},"estado":"PENDIENTE_EMISION","id":"T-609cf451","sector":"Platea B","titular":{"dni":"31234567","nombre":"Luis Perez"}}],"estado":"CONFIRMADA","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-be1e5e8e","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":"P-d285aa53","subtotal":55000,"venceReserva":"2026-10-13T13:50:21Z"}
+

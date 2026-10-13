@@ -29,7 +29,11 @@ export default function ResalePage() {
   const [precioPublicar, setPrecioPublicar] = useState('');
   const [errorPublicar, setErrorPublicar] = useState('');
 
-  const publicacionesActivas = state.publicaciones.filter((p) => p.estado === 'activa');
+  // Las publicaciones son datos locales; los eventos vienen del servidor. Si un evento ya no
+  // existe allá (la base de desarrollo se reinicia), sus publicaciones no se muestran.
+  const publicacionesActivas = state.publicaciones.filter(
+    (p) => p.estado === 'activa' && state.eventos.some((e) => e.id === p.eventoId),
+  );
 
   const eventoActivo = state.eventos.find((e) => e.slug === eventoFiltro);
 
@@ -87,7 +91,12 @@ export default function ResalePage() {
   }
 
   const entradasPropiasPublicables = usuarioActual
-    ? state.entradas.filter((e) => e.propietarioId === usuarioActual.id && e.estado === 'valida')
+    ? state.entradas.filter(
+        (e) =>
+          e.propietarioId === usuarioActual.id &&
+          e.estado === 'valida' &&
+          state.eventos.some((ev) => ev.id === e.eventoId),
+      )
     : [];
   const entradaSeleccionada = entradasPropiasPublicables.find((e) => e.id === entradaAPublicar);
   const topeSeleccion = entradaSeleccionada ? calcularTope(entradaSeleccionada.precioPagado) : 0;
@@ -95,6 +104,7 @@ export default function ResalePage() {
   const precioNumerico = Number(precioPublicar || 0);
 
   function publicarLaMia() {
+    if (!usuarioActual) return;
     if (!entradaSeleccionada) {
       setErrorPublicar('Elegí una entrada.');
       return;
@@ -122,7 +132,8 @@ export default function ResalePage() {
         sectorId: entradaSeleccionada.sectorId,
         precioOriginal: entradaSeleccionada.precioPagado,
         precio: precioNumerico,
-        vendedorDni: entradaSeleccionada.titular.dni,
+        // Quien vende es el usuario de la sesión, aunque la entrada esté a nombre de otra persona.
+        vendedorDni: usuarioActual.dni,
         estado: 'activa',
         creadaISO: new Date().toISOString(),
       },
@@ -139,8 +150,9 @@ export default function ResalePage() {
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Reventa oficial</h1>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+          {/* No dice "verificados": las cuentas nuevas no pasan por una verificación de identidad. */}
           <p className="max-w-xl text-sm text-muted">
-            Todas las publicaciones son de titulares verificados · el tope es el precio
+            Todas las publicaciones son de titulares registrados · el tope es el precio
             pagado + 10%
           </p>
           <span className="font-mono-label text-[11px] text-muted">
@@ -324,7 +336,7 @@ export default function ResalePage() {
               Precio: <span className="font-semibold text-ink">{money(publicacion.precio)}</span> ·
               tope {money(calcularTope(publicacion.precioOriginal))}
             </p>
-            <p>La entrada se remite a tu nombre, ligada a tu DNI verificado.</p>
+            <p>La entrada se remite a tu nombre, ligada a tu DNI.</p>
             <Button loading={procesandoCompra} loadingText="Procesando…" onClick={confirmarCompra}>
               Confirmar compra
             </Button>

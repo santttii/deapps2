@@ -11,13 +11,19 @@ interface ModalProps {
 export default function Modal({ abierto, onCerrar, titulo, children }: ModalProps) {
   const ref = useRef<HTMLDivElement>(null);
 
+  // El foco pasa al diálogo solo al abrirlo. Va en un efecto aparte del de Escape porque ese
+  // depende de onCerrar, que suele ser una función nueva en cada render del padre: si el foco
+  // se moviera ahí, cada tecla escrita en un campo del modal se lo sacaría al campo.
+  useEffect(() => {
+    if (abierto) ref.current?.focus();
+  }, [abierto]);
+
   useEffect(() => {
     if (!abierto) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCerrar();
     };
     document.addEventListener('keydown', onKey);
-    ref.current?.focus();
     return () => document.removeEventListener('keydown', onKey);
   }, [abierto, onCerrar]);
 

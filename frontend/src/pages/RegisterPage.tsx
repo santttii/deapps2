@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useApp } from '../store/AppContext';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useSesion } from '../store/SesionContext';
+import { useToast } from '../components/ToastProvider';
+import { ErrorApi, mensajeDeError } from '../lib/api';
+import { reenviarCodigo, registrar } from '../servicios/usuarios';
 import {
   esDNIValido,
   esEmailValido,
@@ -10,7 +13,6 @@ import {
   fuerzaPassword,
   soloDigitosDNI,
 } from '../lib/validate';
-import { sleep } from '../lib/format';
 import Stepper from '../components/Stepper';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -27,10 +29,29 @@ interface Datos {
   repetirPassword: string;
 }
 
+// Las claves coinciden con los nombres de campo del backend: sus errores se vuelcan directo acá.
+type Errores = Partial<Record<keyof Datos, string>>;
+
+// El backend acepta un reenvío cada 30 segundos.
+const SEGUNDOS_ENTRE_REENVIOS = 30;
+
+function codigoVacio(): string[] {
+  return Array<string>(6).fill('');
+}
+
 export default function RegisterPage() {
-  const { state, dispatch } = useApp();
   const navigate = useNavigate();
-  const [paso, setPaso] = useState(0);
+  const location = useLocation();
+  const { verificarEmail } = useSesion();
+  const { mostrarToast } = useToast();
+
+  // El paso no se guarda en un useState: sale del state del router. Si trae un email sin
+  // verificar es el paso del código. Así recargar la página no devuelve al formulario vacío, y
+  // el enlace "Verificar mi email" del ingreso llega por el mismo camino.
+  const estadoDeRuta = location.state as { emailSinVerificar?: unknown } | null;
+  const emailSinVerificar =
+    typeof estadoDeRuta?.emailSinVerificar === 'string' ? estadoDeRuta.emailSinVerificar : '';
+  const paso = emailSinVerificar ? 1 : 0;
 
   const [datos, setDatos] = useState<Datos>({
     nombre: '',
@@ -42,27 +63,30 @@ export default function RegisterPage() {
     password: '',
     repetirPassword: '',
   });
-  const [errores, setErrores] = useState<Partial<Record<keyof Datos, string>>>({});
-
-  const [archivos, setArchivos] = useState<{ frente?: string; dorso?: string }>({});
-  const [subiendo, setSubiendo] = useState<'frente' | 'dorso' | null>(null);
-
-  const [codigo, setCodigo] = useState<string[]>(Array(6).fill(''));
-  const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
-  const [reenviarSegundos, setReenviarSegundos] = useState(30);
+  const [errores, setErrores] = useState<Errores>({});
+  const [errorGeneral, setErrorGeneral] = useState('');
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [declaraDatos, setDeclaraDatos] = useState(false);
-  const [creando, setCreando] = useState(false);
+  const [registrando, setRegistrando] = useState(false);
+
+  const [codigo, setCodigo] = useState<string[]>(codigoVacio);
+  const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+  const [errorCodigo, setErrorCodigo] = useState('');
+  const [yaVerificada, setYaVerificada] = useState(false);
+  const [verificando, setVerificando] = useState(false);
+  // Arranca en 0: quien llega desde el ingreso o recarga puede pedir un código enseguida.
+  const [reenviarSegundos, setReenviarSegundos] = useState(0);
+  const [reenviando, setReenviando] = useState(false);
+
+  function cambiar(campo: keyof Datos, valor: string) {
+    setDatos((d) => ({ ...d, [campo]: valor }));
+  }
 
   function validarDatos(): boolean {
-    const e: Partial<Record<keyof Datos, string>> = {};
+    const e: Errores = {};
     if (!esNombreValido(datos.nombre)) e.nombre = 'Ingresá un nombre válido.';
     if (!esNombreValido(datos.apellido)) e.apellido = 'Ingresá un apellido válido.';
-    if (!esDNIValido(datos.dni)) {
-      e.dni = 'El DNI debe tener 7 u 8 dígitos.';
-    } else if (state.usuarios.some((u) => u.dni === soloDigitosDNI(datos.dni))) {
-      e.dni = 'Ese DNI ya está registrado.';
-    }
+    if (!esDNIValido(datos.dni)) e.dni = 'El DNI debe tener 7 u 8 dígitos.';
     if (!datos.fechaNacimiento || !esMayorDeEdad(datos.fechaNacimiento)) {
       e.fechaNacimiento = 'Tenés que ser mayor de 16 años.';
     }
@@ -73,12 +97,39 @@ export default function RegisterPage() {
     return Object.keys(e).length === 0;
   }
 
-  function onArchivo(lado: 'frente' | 'dorso', file: File) {
-    setSubiendo(lado);
-    setTimeout(() => {
-      setArchivos((prev) => ({ ...prev, [lado]: file.name }));
-      setSubiendo(null);
-    }, 900);
+  async function crearCuenta() {
+    setErrorGeneral('');
+    if (!validarDatos()) return;
+    setRegistrando(true);
+    let emailRegistrado: string;
+    try {
+      const respuesta = await registrar({
+        nombre: datos.nombre.trim(),
+        apellido: datos.apellido.trim(),
+        dni: soloDigitosDNI(datos.dni),
+        fechaNacimiento: datos.fechaNacimiento,
+        email: datos.email,
+        telefono: datos.telefono.trim(),
+        password: datos.password,
+      });
+      emailRegistrado = respuesta.email;
+    } catch (error) {
+      // Los errores por campo (email o DNI repetidos, formato) van debajo de cada input.
+      if (error instanceof ErrorApi && Object.keys(error.campos).length > 0) setErrores(error.campos);
+      else setErrorGeneral(mensajeDeError(error));
+      return;
+    } finally {
+      setRegistrando(false);
+    }
+    setCodigo(codigoVacio());
+    setErrorCodigo('');
+    setYaVerificada(false);
+    setReenviarSegundos(SEGUNDOS_ENTRE_REENVIOS);
+    navigate('/registro', { replace: true, state: { emailSinVerificar: emailRegistrado } });
+  }
+
+  function volverADatos() {
+    navigate('/registro', { replace: true, state: null });
   }
 
   function onCambiarCodigo(index: number, valor: string) {
@@ -105,32 +156,52 @@ export default function RegisterPage() {
   }
 
   useEffect(() => {
-    if (paso !== 2 || reenviarSegundos <= 0) return;
+    if (reenviarSegundos <= 0) return;
     const interval = setInterval(() => {
       setReenviarSegundos((s) => (s > 0 ? s - 1 : 0));
     }, 1000);
     return () => clearInterval(interval);
-  }, [paso, reenviarSegundos]);
+  }, [reenviarSegundos]);
 
-  async function crearCuenta() {
-    if (!aceptaTerminos || !declaraDatos) return;
-    setCreando(true);
-    await sleep(700);
-    dispatch({
-      type: 'REGISTER',
-      payload: {
-        id: `user-${Date.now()}`,
-        nombre: datos.nombre,
-        apellido: datos.apellido,
-        dni: soloDigitosDNI(datos.dni),
-        email: datos.email,
-        rol: 'user',
-        identidadVerificada: true,
-        password: datos.password,
-      },
-    });
-    setCreando(false);
-    navigate('/');
+  async function verificar() {
+    setErrorCodigo('');
+    setYaVerificada(false);
+    setVerificando(true);
+    try {
+      // Con el código correcto el backend ya devuelve la sesión: la cuenta queda logueada.
+      await verificarEmail(emailSinVerificar, codigo.join(''));
+    } catch (error) {
+      // Código incorrecto, vencido o con demasiados intentos: llega como error del campo "codigo".
+      const errorDelCodigo = error instanceof ErrorApi ? error.campos.codigo : undefined;
+      if (errorDelCodigo) {
+        setCodigo(codigoVacio());
+        inputsRef.current[0]?.focus();
+      }
+      setErrorCodigo(errorDelCodigo ?? mensajeDeError(error));
+      // 409: ese email ya estaba verificado, solo falta ingresar.
+      setYaVerificada(error instanceof ErrorApi && error.estado === 409);
+      return;
+    } finally {
+      setVerificando(false);
+    }
+    navigate('/', { replace: true });
+  }
+
+  async function reenviar() {
+    setYaVerificada(false);
+    setReenviando(true);
+    try {
+      await reenviarCodigo(emailSinVerificar);
+      setErrorCodigo('');
+      setReenviarSegundos(SEGUNDOS_ENTRE_REENVIOS);
+      mostrarToast('Te enviamos un código nuevo.');
+    } catch (error) {
+      setErrorCodigo(mensajeDeError(error));
+      // 409: se pidió antes de tiempo y hay que esperar. Con otro error se puede reintentar enseguida.
+      if (error instanceof ErrorApi && error.estado === 409) setReenviarSegundos(SEGUNDOS_ENTRE_REENVIOS);
+    } finally {
+      setReenviando(false);
+    }
   }
 
   const fuerza = fuerzaPassword(datos.password);
@@ -139,87 +210,70 @@ export default function RegisterPage() {
   return (
     <PageTransition>
       <div className="mx-auto max-w-[1240px] px-7 py-10">
-        <Stepper pasos={['Datos', 'Identidad', 'Verificar email']} activo={paso} onVolver={setPaso} />
+        <Stepper pasos={['Datos', 'Verificar email']} activo={paso} onVolver={volverADatos} />
 
         <div className="mt-8 grid grid-cols-1 gap-10 md:grid-cols-[1fr_300px]">
           <div>
             {paso === 0 && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Input label="Nombre" value={datos.nombre} onChange={(e) => setDatos((d) => ({ ...d, nombre: e.target.value }))} error={errores.nombre} />
-                <Input label="Apellido" value={datos.apellido} onChange={(e) => setDatos((d) => ({ ...d, apellido: e.target.value }))} error={errores.apellido} />
-                <Input label="DNI" value={datos.dni} onChange={(e) => setDatos((d) => ({ ...d, dni: soloDigitosDNI(e.target.value) }))} error={errores.dni} />
-                <Input label="Fecha de nacimiento" type="date" value={datos.fechaNacimiento} onChange={(e) => setDatos((d) => ({ ...d, fechaNacimiento: e.target.value }))} error={errores.fechaNacimiento} />
-                <Input label="Email" type="email" value={datos.email} onChange={(e) => setDatos((d) => ({ ...d, email: e.target.value }))} error={errores.email} />
-                <Input label="Teléfono" value={datos.telefono} onChange={(e) => setDatos((d) => ({ ...d, telefono: e.target.value }))} />
+                <Input label="Nombre" value={datos.nombre} onChange={(e) => cambiar('nombre', e.target.value)} error={errores.nombre} maxLength={80} />
+                <Input label="Apellido" value={datos.apellido} onChange={(e) => cambiar('apellido', e.target.value)} error={errores.apellido} maxLength={80} />
+                <Input label="DNI" value={datos.dni} onChange={(e) => cambiar('dni', soloDigitosDNI(e.target.value))} error={errores.dni} />
+                <Input label="Fecha de nacimiento" type="date" value={datos.fechaNacimiento} onChange={(e) => cambiar('fechaNacimiento', e.target.value)} error={errores.fechaNacimiento} />
+                <Input label="Email" type="email" value={datos.email} onChange={(e) => cambiar('email', e.target.value)} error={errores.email} maxLength={200} />
+                <Input label="Teléfono" value={datos.telefono} onChange={(e) => cambiar('telefono', e.target.value)} error={errores.telefono} maxLength={30} />
                 <div>
-                  <Input label="Contraseña" type="password" value={datos.password} onChange={(e) => setDatos((d) => ({ ...d, password: e.target.value }))} error={errores.password} />
+                  <Input label="Contraseña" type="password" value={datos.password} onChange={(e) => cambiar('password', e.target.value)} error={errores.password} />
                   <div className="mt-2 flex gap-1">
                     {[0, 1, 2].map((i) => (
                       <span key={i} className={`h-1 flex-1 ${fuerza > i ? 'bg-accent' : 'bg-fill'}`} />
                     ))}
                   </div>
                 </div>
-                <Input label="Repetir contraseña" type="password" value={datos.repetirPassword} onChange={(e) => setDatos((d) => ({ ...d, repetirPassword: e.target.value }))} error={errores.repetirPassword} />
+                <Input label="Repetir contraseña" type="password" value={datos.repetirPassword} onChange={(e) => cambiar('repetirPassword', e.target.value)} error={errores.repetirPassword} />
+
+                {/* Los términos se aceptan antes de crear la cuenta, que ocurre en este paso. */}
+                <div className="flex flex-col gap-2 sm:col-span-2">
+                  <label className="flex items-start gap-2 text-sm text-muted">
+                    <input type="checkbox" checked={aceptaTerminos} onChange={(e) => setAceptaTerminos(e.target.checked)} className="mt-1" />
+                    Acepto los términos y la política anti-reventa.
+                  </label>
+                  <label className="flex items-start gap-2 text-sm text-muted">
+                    <input type="checkbox" checked={declaraDatos} onChange={(e) => setDeclaraDatos(e.target.checked)} className="mt-1" />
+                    Declaro que los datos ingresados son propios.
+                  </label>
+                </div>
+
+                {errorGeneral && (
+                  <p role="alert" aria-live="polite" className="border-l-2 border-accent pl-2 text-xs text-ink sm:col-span-2">
+                    {errorGeneral}
+                  </p>
+                )}
+
                 <div className="sm:col-span-2">
-                  <Button onClick={() => validarDatos() && setPaso(1)}>Continuar</Button>
+                  <Button
+                    disabled={!aceptaTerminos || !declaraDatos}
+                    loading={registrando}
+                    loadingText="Creando cuenta…"
+                    onClick={crearCuenta}
+                  >
+                    Crear cuenta
+                  </Button>
                 </div>
               </div>
             )}
 
             {paso === 1 && (
-              <div className="flex flex-col gap-6">
-                <p className="max-w-xl text-sm text-muted">
-                  La verificación de identidad es obligatoria para comprar y para
-                  publicar en reventa oficial: cada entrada queda ligada a un DNI
-                  verificado.
-                </p>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {(['frente', 'dorso'] as const).map((lado) => (
-                    <label
-                      key={lado}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const file = e.dataTransfer.files[0];
-                        if (file) onArchivo(lado, file);
-                      }}
-                      onDragOver={(e) => e.preventDefault()}
-                      className="flex h-40 cursor-pointer flex-col items-center justify-center border border-dashed border-edge text-center text-sm text-muted"
-                    >
-                      <input
-                        type="file"
-                        className="sr-only"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) onArchivo(lado, file);
-                        }}
-                      />
-                      {subiendo === lado ? (
-                        <div className="w-2/3">
-                          <div className="h-1 w-full overflow-hidden bg-fill">
-                            <div className="h-full w-full origin-left animate-[shimmer_0.9s_linear] bg-accent" />
-                          </div>
-                          <p className="mt-2 text-xs">Subiendo…</p>
-                        </div>
-                      ) : archivos[lado] ? (
-                        <p className="text-ink">✓ {archivos[lado]}</p>
-                      ) : (
-                        <p className="capitalize">{lado} del DNI · arrastrá o hacé click</p>
-                      )}
-                    </label>
-                  ))}
-                </div>
-                <Button className="self-start" disabled={!archivos.frente || !archivos.dorso} onClick={() => setPaso(2)}>
-                  Continuar
-                </Button>
-              </div>
-            )}
-
-            {paso === 2 && (
               <div className="flex max-w-sm flex-col gap-5">
                 <p className="text-sm text-graphite">
-                  Te enviamos un código de 6 dígitos a {datos.email || 'tu correo'}.
-                  Ingresalo para verificar tu cuenta.
+                  Te enviamos un código de 6 dígitos a {emailSinVerificar}. Si ya venció,
+                  pedí uno nuevo.
                 </p>
+                {import.meta.env.DEV && (
+                  <p className="font-mono-label text-[10px] text-muted">
+                    Desarrollo: el email todavía no se envía, el código queda en el log del servidor.
+                  </p>
+                )}
                 <div className="flex gap-2">
                   {codigo.map((c, i) => (
                     <input
@@ -238,30 +292,27 @@ export default function RegisterPage() {
                     />
                   ))}
                 </div>
+                {errorCodigo && (
+                  <p role="alert" aria-live="polite" className="border-l-2 border-accent pl-2 text-xs text-ink">
+                    {errorCodigo}{' '}
+                    {yaVerificada && (
+                      <Link to="/ingresar" className="text-accent underline">
+                        Ingresar
+                      </Link>
+                    )}
+                  </p>
+                )}
                 <button
                   type="button"
-                  disabled={reenviarSegundos > 0}
-                  onClick={() => setReenviarSegundos(30)}
+                  disabled={reenviarSegundos > 0 || reenviando}
+                  onClick={reenviar}
                   className="font-mono-label self-start text-[11px] text-accent disabled:text-faint"
                 >
                   {reenviarSegundos > 0 ? `reenviar en 0:${reenviarSegundos.toString().padStart(2, '0')}` : 'reenviar código'}
                 </button>
 
-                <label className="flex items-start gap-2 text-sm text-muted">
-                  <input type="checkbox" checked={aceptaTerminos} onChange={(e) => setAceptaTerminos(e.target.checked)} className="mt-1" />
-                  Acepto los términos y la política anti-reventa.
-                </label>
-                <label className="flex items-start gap-2 text-sm text-muted">
-                  <input type="checkbox" checked={declaraDatos} onChange={(e) => setDeclaraDatos(e.target.checked)} className="mt-1" />
-                  Declaro que los datos ingresados son propios.
-                </label>
-
-                <Button
-                  disabled={!codigoCompleto || !aceptaTerminos || !declaraDatos}
-                  loading={creando}
-                  onClick={crearCuenta}
-                >
-                  Crear cuenta
+                <Button disabled={!codigoCompleto} loading={verificando} loadingText="Verificando…" onClick={verificar}>
+                  Verificar email
                 </Button>
               </div>
             )}

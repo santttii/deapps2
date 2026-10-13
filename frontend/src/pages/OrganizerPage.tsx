@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { organizerMetrics as m } from '../data/organizer';
 import { useApp } from '../store/AppContext';
 import { fecha as formatearFecha, money } from '../lib/format';
+import { obtenerPerfil } from '../servicios/usuarios';
 import StatCard from '../components/StatCard';
 import ProgressBar from '../components/ProgressBar';
 import Button from '../components/Button';
@@ -15,6 +16,15 @@ export default function OrganizerPage() {
   const { state } = useApp();
   const [seccionActiva, setSeccionActiva] = useState('Eventos');
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
+
+  function abrirModalCrear() {
+    // Se confirma la sesión antes de que el organizador escriba. Si el token ya no sirve (por
+    // ejemplo, porque se reinició el servidor), api.ts cierra la sesión acá y no recién al
+    // enviar el formulario. El resultado no se usa.
+    obtenerPerfil().catch(() => undefined);
+    setModalCrearAbierto(true);
+  }
+
   const maxVentas = Math.max(...m.ventasUltimos10Dias);
   const indicesTop2 = [...m.ventasUltimos10Dias]
     .map((v, i) => [v, i] as const)
@@ -62,7 +72,7 @@ export default function OrganizerPage() {
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">Eventos</h1>
-            <Button onClick={() => setModalCrearAbierto(true)}>+ Crear evento</Button>
+            <Button onClick={abrirModalCrear}>+ Crear evento</Button>
           </div>
 
           <div className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">

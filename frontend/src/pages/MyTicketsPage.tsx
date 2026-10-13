@@ -17,9 +17,14 @@ export default function MyTicketsPage() {
   const [precioReventa, setPrecioReventa] = useState('');
   const [errorPrecio, setErrorPrecio] = useState('');
 
+  // Las entradas son datos locales; los eventos vienen del servidor. Si un evento ya no existe
+  // allá (la base de desarrollo se reinicia), sus entradas no se muestran.
   const misEntradas = useMemo(
-    () => state.entradas.filter((e) => e.propietarioId === usuarioActual?.id),
-    [state.entradas, usuarioActual],
+    () =>
+      state.entradas.filter(
+        (e) => e.propietarioId === usuarioActual?.id && state.eventos.some((ev) => ev.id === e.eventoId),
+      ),
+    [state.entradas, state.eventos, usuarioActual],
   );
 
   if (!usuarioActual) return null;
@@ -74,7 +79,7 @@ export default function MyTicketsPage() {
   }
 
   function publicar() {
-    if (!validarPrecio()) return;
+    if (!usuarioActual || !validarPrecio()) return;
     dispatch({
       type: 'PUBLICAR_REVENTA',
       payload: {
@@ -84,7 +89,8 @@ export default function MyTicketsPage() {
         sectorId: entrada.sectorId,
         precioOriginal: entrada.precioPagado,
         precio: precioNumerico,
-        vendedorDni: entrada.titular.dni,
+        // Quien vende es el usuario de la sesión, aunque la entrada esté a nombre de otra persona.
+        vendedorDni: usuarioActual.dni,
         estado: 'activa',
         creadaISO: new Date().toISOString(),
       },
@@ -99,9 +105,16 @@ export default function MyTicketsPage() {
     mostrarToast('Retiraste la publicación de reventa.');
   }
 
+  // La orden no guarda quién compró: es del usuario si tiene una entrada suya de origen "compra".
+  // La entrada que recibe quien compra una reventa conserva el número de orden del vendedor,
+  // y sin ese filtro vería la compra de otra persona.
   const historial = [
     ...state.ordenes
-      .filter((o) => state.entradas.some((e) => e.ordenId === o.id && e.propietarioId === usuarioActual.id))
+      .filter((o) =>
+        state.entradas.some(
+          (e) => e.ordenId === o.id && e.propietarioId === usuarioActual.id && e.origen === 'compra',
+        ),
+      )
       .map((o) => ({ texto: `Compra · orden #${o.id} · ${money(o.total)}`, fechaISO: o.creadaISO })),
     ...misEntradas
       .filter((e) => e.estado === 'usada')

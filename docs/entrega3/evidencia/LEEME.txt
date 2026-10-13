@@ -1,0 +1,43 @@
+Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico (primera toma)
+Fecha de la toma: 13/10/2026, entre las 10:13 y las 10:42 (hora de Argentina, UTC-3).
+
+QUÉ PROCESO SE MUESTRA
+Cuando se aprueba un pago, Ventas publica el mensaje PAGO_CONFIRMADO en el broker (ActiveMQ Artemis, embebido en
+WildFly), en la misma transacción que deja la venta CONFIRMADA. El mensaje va a dos destinos:
+  - la cola cola.emision-entradas, que lo entrega a un solo consumidor: EmisionDeEntradasMDB, en Ventas. Emite las
+    entradas (PENDIENTE_EMISION -> VALIDA, con su código QR) y pasa la venta de CONFIRMADA a EMITIDA.
+  - el tópico topico.compra-confirmada, que entrega una copia a cada suscriptor: AvisoDeCompraMDB y
+    AuditoriaDeComprasMDB, en Notificaciones.
+
+CÓMO LEER CADA ARCHIVO
+Cada archivo dice arriba qué muestra y, por cada paso, la fecha, el comando exacto y su salida sin retocar. Los
+comandos se corrieron desde la raíz del repo, en Git Bash. Los tokens de sesión no se guardan: cada archivo trae el
+comando con el que se pidieron. El servidor escribe su log en hora local (UTC-3); las fechas que devuelve la API
+están en UTC y terminan en Z.
+
+LA COMPRA DE LA TOMA (venta V-be1e5e8e, entradas T-fc0a4a6a y T-609cf451), en el orden en que se corrió
+  1. broker-antes.txt            Cola, tópico y DLQ antes de la compra.
+  2. compra.txt                  Abrir la compra (201, EN_CHECKOUT) y pagarla (201, CONFIRMADA, entradas PENDIENTE_EMISION).
+  3. venta.txt                   La venta unos segundos después: EMITIDA.
+  4. entrada.txt                 La entrada: VALIDA, con codigoQr y fecha de emisión.
+  5. broker-despues.txt          Cola, tópico y DLQ después. Contra el 1: la cola sumó 1 mensaje y no quedó nada
+                                 pendiente; el tópico sumó 2 (una copia por suscriptor); la DLQ no cambió.
+  6. server-log-extracto.txt     Las líneas del log con el id de la venta: la compra y los tres consumidores.
+  7. auditoria.txt               La fila que guardó auditoría por ese mensaje.
+
+OTROS CASOS DEL CONSUMIDOR DE LA COLA
+  venta-inexistente.txt               El mensaje de una venta que no existe se descarta con un aviso; no vuelve a la
+                                      cola ni va a la DLQ. Se repite con el endpoint de prueba de Notificaciones.
+  mensajes-pendientes.txt             La cola tenía 64 mensajes esperando antes de que existiera el consumidor; al
+                                      desplegarlo quedaron 0 (39 ventas emitidas y 25 mensajes de prueba descartados).
+  mensaje-repetido-y-reintentos.txt   El mismo mensaje entregado más de una vez no emite dos veces; un mensaje que no
+                                      se entiende y un consumidor que falla: reintentos y DLQ. NO se puede repetir
+                                      solo con el repo: el archivo explica con qué se corrió.
+
+LÍMITES DE ESTA TOMA
+  - El cobro es simulado (CobrosFake, token tok_test). Cuando Ventas cobre contra el servicio de Pagos, la evidencia
+    se vuelve a tomar.
+  - La base es H2 en memoria: las ventas de la toma se pierden al reiniciar WildFly. El broker sí guarda sus mensajes.
+  - No se probó una caída del servidor entre el commit de la base y el del broker.
+  - Los contadores "messages-added" son acumulados e incluyen las pruebas anteriores: lo que importa es la
+    diferencia entre el antes y el después.

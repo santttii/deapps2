@@ -1,0 +1,303 @@
+openapi: 3.1.0
+info:
+  title: Palco API
+  version: 1.0.0
+  description: >
+    API REST de Palco, plataforma de venta de entradas con reventa oficial (tope +10%).
+    Montos en pesos enteros. Fechas ISO 8601 con zona horaria. Errores en formato Problem Details (RFC 9457).
+servers:
+  - url: https://api.palco.example/api/v1
+    description: Base versionada en la URI
+security:
+  - bearerAuth: []
+tags:
+  - name: eventos
+  - name: ventas
+  - name: reventas
+
+paths:
+  /eventos/{slug}:
+    get:
+      tags: [eventos]
+      summary: Detalle de un evento con sus sectores y cupo disponible
+      security: []                       # catálogo público
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string, example: atletico-norte-racing-sur }
+        - name: If-None-Match
+          in: header
+          required: false
+          schema: { type: string }
+          description: ETag de la última copia; si no cambió responde 304 sin cuerpo.
+      responses:
+        '200':
+          description: Evento encontrado
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Evento' }
+        '304':
+          description: Sin cambios, usar la copia local
+        '404':
+          description: Evento inexistente
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /ventas:
+    post:
+      tags: [ventas]
+      summary: Iniciar una compra y reservar el cupo durante 10 minutos
+      description: Requiere rol `user` con identidad verificada. Es idempotente por `Idempotency-Key`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevaVenta' }
+      responses:
+        '201':
+          description: Compra iniciada, cupo reservado
+          headers:
+            Location:
+              schema: { type: string, example: /api/v1/ventas/V-00231 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Venta' }
+        '400':
+          description: Cuerpo mal formado o campos inválidos
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '409':
+          description: El sector no tiene cupo suficiente
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '422':
+          description: Viola una regla de negocio (más de 6 entradas, DNI repetido)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /ventas/{ventaId}/pagos:
+    post:
+      tags: [ventas]
+      summary: Pagar una compra en checkout
+      description: >
+        Cobra con Mercado Pago (REST), factura con ARCA (SOAP, timeout 5 s) y publica `PAGO_CONFIRMADO`
+        (cola de emisión + tópico). Si ARCA no responde, el pago igualmente se crea y la factura queda `PENDIENTE`.
+      parameters:
+        - name: ventaId
+          in: path
+          required: true
+          schema: { type: string, example: V-00231 }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevoPago' }
+      responses:
+        '201':
+          description: Pago aprobado. La venta queda CONFIRMADA y las entradas se emiten de forma asincrónica.
+          headers:
+            Location:
+              schema: { type: string, example: /api/v1/ventas/V-00231/pagos/P-0087 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Venta' }
+        '402':
+          description: Pago rechazado por la pasarela
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: La reserva venció o la venta ya está paga
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /reventas:
+    post:
+      tags: [reventas]
+      summary: Publicar una entrada propia en la reventa oficial
+      description: Requiere ser el titular verificado. El precio no puede superar pagado + 10% ni bajar de 50%.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevaPublicacion' }
+      responses:
+        '201':
+          description: Publicación creada
+          headers:
+            Location:
+              schema: { type: string, example: /api/v1/reventas/R-0012 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Publicacion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '422':
+          description: El precio supera el tope o faltan menos de 3 horas para el evento
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: /problemas/precio-sobre-tope
+                title: El precio supera el tope de reventa
+                status: 422
+                detail: Pagaste $27500; el máximo permitido es $30250 y pediste $33000.
+                instance: /api/v1/reventas
+                topeMaximo: 30250
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token RS256 emitido por /sesiones (ServicioDeUsuarios); el rol viaja en el claim `groups`.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+      description: UUID por intento lógico. Repetir la clave devuelve la misma respuesta sin duplicar la operación.
+
+  responses:
+    NoAutenticado:
+      description: Falta el token o es inválido
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problema' }
+    SinPermiso:
+      description: El rol del token no puede hacer esta operación
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problema' }
+    NoEncontrado:
+      description: El recurso no existe o no pertenece al usuario
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problema' }
+
+  schemas:
+    Problema:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, example: /problemas/cupo-agotado }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        errores:
+          type: object
+          additionalProperties: { type: string }
+          description: Errores de validación por campo (extensión propia)
+      additionalProperties: true
+
+    Sector:
+      type: object
+      properties:
+        id: { type: string, example: sec-1-1 }
+        nombre: { type: string, example: Platea A }
+        precio: { type: integer, format: int64, example: 27500 }
+        cupo: { type: integer }
+        vendidas: { type: integer }
+
+    Evento:
+      type: object
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        titulo: { type: string }
+        categoria: { type: string, example: Música }
+        venue: { type: string }
+        fechaISO: { type: string, format: date-time }
+        descripcion: { type: string }
+        sectores:
+          type: array
+          items: { $ref: '#/components/schemas/Sector' }
+
+    Titular:
+      type: object
+      required: [nombre, dni]
+      properties:
+        nombre: { type: string, example: Ana Gómez }
+        dni: { type: string, pattern: '^\d{7,8}$', example: '30123456' }
+
+    ItemVenta:
+      type: object
+      required: [sectorId, cantidad]
+      properties:
+        sectorId: { type: string, example: sec-1-1 }
+        cantidad: { type: integer, minimum: 1, maximum: 6 }
+
+    NuevaVenta:
+      type: object
+      required: [eventoId, items, titulares]
+      properties:
+        eventoId: { type: string, example: ev-1 }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ItemVenta' }
+        titulares:
+          type: array
+          description: Un titular nominativo por entrada
+          items: { $ref: '#/components/schemas/Titular' }
+
+    NuevoPago:
+      type: object
+      required: [medioDePago, token]
+      properties:
+        medioDePago: { type: string, example: tarjeta }
+        token: { type: string, description: Token de tarjeta generado por el SDK de la pasarela }
+
+    Venta:
+      type: object
+      properties:
+        id: { type: string, example: V-00231 }
+        estado:
+          type: string
+          enum: [EN_CHECKOUT, CONFIRMADA, EMITIDA, CANCELADA, VENCIDA]
+        facturaEstado:
+          type: string
+          enum: [NO_APLICA, AUTORIZADA, PENDIENTE, RECHAZADA]
+        montoTotal: { type: integer, format: int64, example: 60500 }
+        venceReserva: { type: string, format: date-time }
+        _links:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              href: { type: string }
+              method: { type: string }
+
+    NuevaPublicacion:
+      type: object
+      required: [entradaId, precio]
+      properties:
+        entradaId: { type: string, example: T-000981 }
+        precio: { type: integer, format: int64, example: 29000 }
+
+    Publicacion:
+      type: object
+      properties:
+        id: { type: string, example: R-0012 }
+        entradaId: { type: string }
+        precio: { type: integer, format: int64 }
+        topeMaximo: { type: integer, format: int64, example: 30250 }
+        estado: { type: string, enum: [ACTIVA, VENDIDA, RETIRADA] }

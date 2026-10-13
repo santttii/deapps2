@@ -35,7 +35,12 @@ public class CorsFilter implements ContainerResponseFilter {
         h.putSingle("Access-Control-Allow-Origin", origen);
         h.putSingle("Access-Control-Allow-Credentials", "true");
         h.putSingle("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-        h.putSingle("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        // Cabeceras que el navegador puede mandar: el token, la clave de idempotencia de
+        // las compras y la etiqueta de versión para no volver a descargar una respuesta.
+        h.putSingle("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, If-None-Match");
+        // Cabeceras de la respuesta que el navegador deja leer al frontend: sin esto no ve
+        // dónde quedó el recurso creado (Location) ni su versión (ETag).
+        h.putSingle("Access-Control-Expose-Headers", "Location, ETag");
         h.putSingle("Vary", "Origin");
     }
 }

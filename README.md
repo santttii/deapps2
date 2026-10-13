@@ -6,10 +6,11 @@ DNI y un canal de reventa oficial con tope de precio de +10% sobre lo pagado.
 
 El repo tiene dos partes:
 
-- **`frontend/`**: SPA en React. Hoy funciona sola: todo el estado (sesión,
-  usuarios, eventos, entradas, órdenes y publicaciones de reventa) vive en
-  `localStorage` bajo la clave `palco.state`, con datos mock y latencia simulada
-  con `sleep()`.
+- **`frontend/`**: SPA en React. La sesión (ingreso, registro, perfil) y el
+  catálogo de eventos (listado, búsqueda, detalle, crear evento) usan el
+  backend. Lo que todavía no tiene backend (compra, mis entradas, reventa,
+  puerta y estadísticas del organizador) sigue con datos locales en
+  `localStorage`, asociados al usuario de la sesión.
 - **`backend/`**: Jakarta EE sobre WildFly, en construcción. Son 8 servicios
   independientes (un WAR cada uno) desplegados en el mismo WildFly, con el
   broker JMS del taller de mensajería. `ServicioDeUsuarios` y
@@ -46,7 +47,17 @@ npm install
 npm run dev
 ```
 
-La app queda en `http://localhost:5173`.
+La app queda en `http://localhost:5173`. Para ingresar y ver el catálogo
+necesita el backend levantado (ver abajo): sin backend, el catálogo muestra un
+error con el botón "Reintentar".
+
+- **URL del backend:** por defecto `http://localhost:8080`. Para cambiarla,
+  copiar `frontend/.env.example` como `frontend/.env`, editar `VITE_API_URL` y
+  reiniciar `npm run dev`.
+- **Origen:** hay que abrir la app en `http://localhost:5173` tal cual. El
+  backend solo acepta pedidos desde los orígenes de `PALCO_CORS_ORIGENES`, así
+  que con `127.0.0.1:5173` o con `npm run preview` (puerto 4173) las llamadas
+  fallan.
 
 ### Backend
 
@@ -120,27 +131,33 @@ Todas las cuentas usan la contraseña `palco1234`.
 | `organizador@palco.test` | `organizer` | Todo lo anterior + `/organizador` |
 | `puerta@palco.test` | `staff` | Todo lo anterior + `/puerta` |
 
-También se pueden crear cuentas nuevas (rol `user`) desde `/registro`. En el paso
-de verificación de email se acepta cualquier código de 6 dígitos.
+Las tres cuentas existen en el backend (se cargan con las migraciones). También
+se pueden crear cuentas nuevas (rol `user`) desde `/registro`: el backend genera
+un código de 6 dígitos que, hasta que exista el envío de emails, queda escrito
+en el log del servidor (ver "Código de verificación" más arriba).
 
 ## Funcionalidades
 
-| Ruta | Pantalla | Acceso |
-|---|---|---|
-| `/` | Catálogo: evento destacado, filtros por categoría, buscador con debounce e insensible a acentos, grilla de eventos, estado vacío y bloque de reventa oficial | Pública |
-| `/evento/:slug` | Detalle del evento: mapa de sectores, selección de cantidad por sector, resumen sticky con total | Pública |
-| `/checkout` | Checkout en 3 pasos: reserva con cuenta regresiva, datos de cada titular, medio de pago (pasarela, tarjeta o transferencia) | Logueado |
-| `/confirmacion/:ordenId` | Confirmación de compra: QR, comprobante, imprimir, agregar al calendario | Logueado |
-| `/mis-entradas` | Visor de entradas con QR, publicación en reventa con validación de tope, historial | Logueado |
-| `/ingresar` | Login (con las credenciales de prueba visibles en pantalla) | Pública |
-| `/registro` | Alta de cuenta en 3 pasos: datos, identidad, verificación de email | Pública |
-| `/reventa` | Reventa oficial: filtros, listado con tope, compra con confirmación | Pública (comprar requiere login) |
-| `/organizador` | Panel del organizador: stats, ventas por día, mis eventos, ocupación por sector, monitor de reventa, liquidación, **crear evento con imagen** | Rol `organizer` |
-| `/puerta` | Validación en puerta: visor de escaneo simulado, tres estados (válida / usada / inválida), contadores y últimos escaneos | Rol `staff` |
+La columna "Datos" dice de dónde sale la información de cada pantalla: del
+backend (API) o del navegador (locales, hasta que exista el servicio).
+
+| Ruta | Pantalla | Acceso | Datos |
+|---|---|---|---|
+| `/` | Catálogo: evento destacado, filtros por categoría, buscador con demora e insensible a acentos, grilla de eventos, estados de carga, error y vacío, y bloque de reventa oficial | Pública | API (eventos); la franja de reventa es local |
+| `/evento/:slug` | Detalle del evento: mapa de sectores, selección de cantidad por sector, resumen sticky con total (en pantalla angosta, el total y el botón van en una barra fija abajo) | Pública | API |
+| `/checkout` | Checkout en 3 pasos: reserva con cuenta regresiva, datos de cada titular, medio de pago (pasarela, tarjeta o transferencia) | Logueado | Locales (falta `ServicioDeVentas`) |
+| `/confirmacion/:ordenId` | Confirmación de compra: QR, comprobante, imprimir, agregar al calendario | Logueado | Locales |
+| `/mis-entradas` | Visor de entradas con QR, publicación en reventa con validación de tope, historial | Logueado | Locales |
+| `/ingresar` | Login (con las credenciales de prueba visibles en pantalla) | Pública | API |
+| `/registro` | Alta de cuenta en 2 pasos: datos y verificación de email con código | Pública | API |
+| `/reventa` | Reventa oficial: filtros, listado con tope, compra con confirmación | Pública (comprar requiere login) | Locales (falta `ServicioDeReventa`) |
+| `/organizador` | Panel del organizador: stats, ventas por día, mis eventos, ocupación por sector, monitor de reventa, liquidación, **crear evento** | Rol `organizer` | API para "Mis eventos" y crear evento; el resto, datos fijos |
+| `/puerta` | Validación en puerta: visor de escaneo simulado, tres estados (válida / usada / inválida), contadores y últimos escaneos | Rol `staff` | Datos fijos (falta `ServicioDeValidación`) |
 
 Si no hay sesión, las rutas protegidas redirigen a `/ingresar?next=<ruta>` y
 vuelven a la ruta original después del login. Si la sesión no tiene el rol
-requerido, redirigen al catálogo.
+requerido, redirigen al catálogo. Si el backend deja de aceptar el token (venció
+a las 8 horas o se reinició el servidor), la sesión se cierra con un aviso.
 
 ## Reglas de negocio
 
@@ -182,9 +199,9 @@ Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anu
    escaneo (válida / usada / inválida) y "Marcar ingreso".
 9. Entrar como `organizador@palco.test` y revisar `/organizador`: stats, ventas
    por día, ocupación por sector, monitor de reventa y liquidación.
-10. Desde `/organizador`, tocar "+ Crear evento": subir una imagen (drag & drop o
-    click), cargar título/venue/fecha/sectores y confirmar — el evento nuevo
-    aparece al toque en el catálogo y en "Mis eventos".
+10. Desde `/organizador`, tocar "+ Crear evento": cargar título, lugar, fecha,
+    descripción y sectores, y confirmar — el evento se crea en el backend y
+    aparece en el catálogo y en "Mis eventos" con la foto de su categoría.
 
 ## Stack
 
@@ -207,6 +224,8 @@ Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anu
 - Tailwind CSS 3, con tokens de diseño propios (`border-radius: 0` en todo salvo
   indicadores de 6px)
 - Context + `useReducer` para el estado global (sin Redux ni Zustand)
+- `fetch` del navegador para hablar con el backend (sin axios ni librería de
+  datos)
 - `framer-motion` para animaciones (`index.css` reduce las transiciones CSS con
   `prefers-reduced-motion`)
 - Validaciones de formulario escritas a mano (sin Formik ni React Hook Form)
@@ -250,47 +269,78 @@ Dentro de `frontend/src/`:
 
 ```
 src/
-├── main.tsx              # Punto de entrada: Router, AppProvider, ToastProvider
+├── main.tsx              # Punto de entrada: Router, ToastProvider, SesionProvider, AppProvider
 ├── App.tsx               # Definición de rutas y rutas protegidas
 ├── index.css             # Estilos base y fuentes
 ├── types/index.ts        # Modelo de datos y constantes de negocio
+├── servicios/            # Una función por endpoint del backend
+│   ├── usuarios.ts       # /api/usuarios: ingresar, registrar, verificar email, perfil
+│   ├── eventos.ts        # /api/eventos: listar, detalle, crear
+│   └── ventas.ts         # Enganche del checkout (hoy arma la compra en el navegador)
 ├── store/
-│   ├── AppContext.tsx    # Estado global, reducer y persistencia en localStorage
+│   ├── SesionContext.tsx # Quién está logueado: ingresar, verificar email, salir
+│   ├── AppContext.tsx    # Catálogo del servidor + datos locales (reducer y localStorage)
 │   └── actions.ts        # Tipos de acciones del reducer
 ├── data/
-│   ├── events.ts         # 6 eventos semilla
+│   ├── events.ts         # Fotos locales de los eventos (por id y por categoría)
 │   ├── listings.ts       # 4 publicaciones de reventa iniciales
 │   └── organizer.ts      # Métricas mock del panel del organizador
 ├── lib/
-│   ├── format.ts         # Formato de moneda/fechas/DNI, cálculo de tope, sleep()
+│   ├── api.ts            # Cliente HTTP: URL base, JSON, token, errores, sesión perdida
+│   ├── sesion.ts         # Lee y guarda la sesión en localStorage
+│   ├── format.ts         # Formato de moneda/fechas/DNI, cálculo de tope y servicio, sleep()
 │   ├── validate.ts       # Validaciones de formularios
+│   ├── useDebouncedValue.ts
 │   └── useAnimatedNumber.ts
 ├── components/           # Componentes reutilizables (Button, Input, Modal, QRCode,
-│                         # Stepper, Toast, CreateEventModal, ProtectedRoute, etc.)
+│                         # Stepper, Toast, CreateEventModal, ProtectedRoute,
+│                         # RequireCatalog, StatusMessage, etc.)
 └── pages/                # Una página por ruta
 ```
 
 ## Arquitectura y estado
 
-- **Un solo store** en [`AppContext.tsx`](frontend/src/store/AppContext.tsx) con
-  `useReducer`. Guarda `usuarioActualId`, `usuarios`, `eventos`, `entradas`,
-  `ordenes`, `publicaciones` y el `carrito`.
-- **Persistencia**: cada cambio de estado se serializa completo en
-  `localStorage['palco.state']`. Al cargar, el estado guardado se combina con los
-  datos semilla, así que si falta alguna clave se usa el valor por defecto.
-- **Acciones del reducer**: `LOGIN`, `LOGOUT`, `REGISTER`, `SET_CARRITO`,
-  `CREAR_ORDEN`, `PUBLICAR_REVENTA`, `RETIRAR_PUBLICACION`, `COMPRAR_REVENTA`,
-  `MARCAR_ENTRADA_USADA` y `CREAR_EVENTO`.
-- **Validaciones**: las reglas de negocio (tope, cupo, máximo por orden, DNI
-  único, cierre de reventa) se validan en las páginas antes de despachar la
-  acción. El reducer solo aplica los cambios.
+- **Llamadas al backend**: [`lib/api.ts`](frontend/src/lib/api.ts) es el único
+  lugar que usa `fetch`. Arma la URL (`VITE_API_URL`), manda y lee JSON, agrega
+  `Authorization: Bearer` solo en los pedidos que lo necesitan y convierte el
+  formato de error del backend (Problem Details: el mensaje llega en `detail` y
+  los errores por campo en `errores`) en un `ErrorApi`.
+  Encima, `servicios/*.ts` tiene una función por endpoint y es donde se traducen
+  los tipos; las páginas no arman URLs.
+- **Sesión** en [`SesionContext.tsx`](frontend/src/store/SesionContext.tsx): el
+  token, su vencimiento y el usuario se guardan juntos en
+  `localStorage['palco.sesion']` y se leen de forma síncrona al abrir la app, así
+  las rutas protegidas saben quién es el usuario desde el primer render. Después
+  se confirma con `GET /api/usuarios/yo`. Si el backend rechaza el token, la
+  sesión se cierra con un aviso. Las páginas leen el usuario con
+  `useApp().usuarioActual`.
+- **Catálogo y datos locales** en
+  [`AppContext.tsx`](frontend/src/store/AppContext.tsx) con `useReducer`:
+  `eventos` es una copia de `GET /api/eventos` que se pide al abrir la app y no
+  se guarda; `entradas`, `ordenes`, `publicaciones` y `carrito` todavía no tienen
+  backend y se guardan en `localStorage['palco.state']`.
+- **Acciones del reducer**: `CATALOGO_CARGANDO`, `CATALOGO_CARGADO`,
+  `CATALOGO_FALLO` y `EVENTO_RECIBIDO` para el catálogo; `SET_CARRITO`,
+  `CREAR_ORDEN`, `PUBLICAR_REVENTA`, `RETIRAR_PUBLICACION`, `COMPRAR_REVENTA` y
+  `MARCAR_ENTRADA_USADA` para los datos locales.
+- **Validaciones**: los formularios validan en el navegador con las mismas
+  reglas y textos que el backend, y además muestran en cada campo los errores que
+  devuelve el servidor. Las reglas de lo que sigue local (tope, máximo por orden,
+  DNI único, cierre de reventa) se validan en las páginas antes de despachar la
+  acción; el reducer solo aplica los cambios.
 
 ## Decisiones de diseño
 
-- **Sin backend real**: como no hay servidor, todo el negocio (stock, tope de
-  reventa, unicidad de DNI por orden) se valida en el cliente. Como todas las
-  cuentas comparten el mismo `localStorage`, se pueden simular varios usuarios en
-  el mismo navegador (por ejemplo, publicar con una cuenta y comprar con otra).
+- **Integración por etapas**: el frontend usa el backend en todo lo que el
+  backend ya ofrece (usuarios y eventos) y deja local lo demás. Compra y reventa
+  siguen validándose en el cliente (tope de reventa, unicidad de DNI por orden)
+  y viven en el `localStorage` del navegador, así que se pueden simular varios
+  usuarios en el mismo navegador (publicar con una cuenta y comprar con otra).
+  El porqué de cada decisión está en
+  [`docs/notas/B2-frontend-sesion-catalogo.md`](docs/notas/B2-frontend-sesion-catalogo.md).
+- **Stock**: las entradas disponibles que se muestran son las del servidor. Una
+  compra hecha en el navegador no las descuenta hasta que exista
+  `ServicioDeVentas`.
 - **QR determinístico dibujado a mano**: en vez de una librería, el componente
   `QRCode` genera una grilla 21×21 a partir de un hash simple del id de la
   entrada, con los tres cuadrados de orientación fijos en las esquinas. Es estable
@@ -298,18 +348,21 @@ src/
 - **Carrito en el store**: la selección de sectores del detalle de evento se
   guarda en `state.carrito` y se limpia automáticamente al crear la orden.
 - **Extensión interna `propietarioId`**: además de los campos del modelo de
-  datos, cada entrada guarda a qué cuenta pertenece, para poder filtrar "Mis
-  entradas" sin backend. No se muestra en la UI.
+  datos, cada entrada guarda el id del usuario (el real, del backend) al que
+  pertenece, para poder filtrar "Mis entradas" mientras no exista el servicio.
+  No se muestra en la UI.
 - **Tailwind 3 en vez de 4**: se fijó la versión 3.x para poder declarar los
   tokens de color en `tailwind.config.js` con la sintaxis clásica.
-- **Imágenes de eventos**: los 6 eventos semilla usan fotos determinísticas de
-  `picsum.photos/seed/<slug>` (mismo slug, misma foto). Los eventos creados desde
-  el panel del organizador guardan la imagen subida como data URL (base64) dentro
-  del objeto del evento, porque sin backend no hay otro lugar donde alojarla.
-- **Crear evento**: el modal "+ Crear evento" en `/organizador` genera un `Evento`
-  completo (slug único, sectores con cupo y precio, imagen) y lo agrega a
-  `state.eventos`. Por eso aparece de inmediato en el catálogo y en "Mis eventos",
-  que se calcula en vivo desde el store.
+- **Imágenes de eventos**: los 6 eventos de prueba usan fotos reales de dominio
+  público guardadas en `frontend/public/eventos/` (una por evento, más una
+  genérica por categoría; fuentes en `CREDITOS.md` de esa carpeta). El backend
+  todavía devuelve URLs de relleno, así que `imagenDeEvento()` las reemplaza por
+  la foto local. Los eventos creados desde el panel del organizador usan la foto
+  de su categoría: el backend no tiene todavía dónde subir imágenes.
+- **Crear evento**: el modal "+ Crear evento" en `/organizador` manda el evento
+  a `POST /api/eventos` (el id, el slug y los ids de sector los genera el
+  servidor) y agrega la respuesta al catálogo en memoria. Por eso aparece de
+  inmediato en el catálogo y en "Mis eventos".
 - **Login para comprar en reventa**: comprar una publicación sin sesión muestra
   un toast ("Iniciá sesión para comprar…") y redirige a `/ingresar?next=/reventa`.
 
@@ -318,16 +371,29 @@ src/
 La mayoría se resuelven con el backend. El plan de trabajo está en
 [`TODO.md`](TODO.md).
 
-- **No hay seguridad real**: las contraseñas se guardan en texto plano en
-  `localStorage` y los roles se controlan solo en el cliente. Es una demo.
+- **Token en `localStorage`**: las contraseñas ya no se guardan en el navegador
+  y los roles los valida el backend. El token de sesión queda en `localStorage`,
+  donde un script inyectado en la página podría leerlo; hoy el frontend no carga
+  scripts de terceros.
+- **Aviso de CORS con un token inválido**: si el backend deja de aceptar el
+  token, la sesión se cierra bien, pero en la consola del navegador queda un
+  aviso "blocked by CORS policy" por cada pedido rechazado. Ese 401 sale del
+  servidor sin cabeceras CORS; se corrige en el backend, no en el frontend.
+- **Compra y reventa sin backend**: las órdenes, las entradas y las
+  publicaciones viven solo en el navegador donde se crearon, y sus reglas se
+  controlan en el cliente.
 - **`/puerta` es una simulación**: los estados de escaneo, los contadores y los
   últimos escaneos son locales a la pantalla y no leen ni modifican las entradas
   reales del store. La acción `MARCAR_ENTRADA_USADA` existe pero todavía no se usa.
 - **Métricas del organizador**: las ventas por día, el monitor de reventa y la
-  liquidación usan datos mock fijos. Solo "Mis eventos" se calcula desde el store.
-- **Tamaño de `localStorage`**: las imágenes subidas se guardan en base64 y el
-  navegador suele limitar `localStorage` a unos 5 MB, así que crear muchos
-  eventos con imágenes grandes puede llenar el almacenamiento.
+  liquidación usan datos mock fijos. "Mis eventos" sale del backend, pero lista
+  todos los eventos: la API todavía no dice de qué organizador es cada uno.
+- **Registro**: la verificación de identidad (fotos del DNI) no tiene backend y
+  se quitó del alta; las cuentas nuevas quedan con `identidadVerificada` en
+  falso. Hoy pueden comprar porque la compra es local. Cuando el checkout se
+  conecte a `ServicioDeVentas`, que exige identidad verificada, no van a poder:
+  es una decisión pendiente del grupo (ver la nota de decisiones).
 - **Pagos y emails simulados**: no se procesa ningún pago ni se envía ningún
-  email. El código de verificación del registro acepta cualquier valor de 6 dígitos.
+  email. El código de verificación del registro es real, pero se lee del log del
+  servidor.
 - **Sin tests automatizados**.

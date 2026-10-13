@@ -23,7 +23,9 @@ import com.palco.usuarios.api.Dtos.LoginDto;
 import com.palco.usuarios.api.Dtos.ReenvioDto;
 import com.palco.usuarios.api.Dtos.RegistroDto;
 import com.palco.usuarios.api.Dtos.RegistroPendienteDto;
+import com.palco.usuarios.api.Dtos.SecretoDto;
 import com.palco.usuarios.api.Dtos.SesionDto;
+import com.palco.usuarios.api.Dtos.TokenDeServicioDto;
 import com.palco.usuarios.api.Dtos.UsuarioDto;
 import com.palco.usuarios.api.Dtos.VerificacionDto;
 import com.palco.usuarios.negocio.IUsuarios;
@@ -88,6 +90,18 @@ public class UsuariosResource {
     @RolesAllowed({ "user", "organizer", "staff" })
     public UsuarioDto yo(@Context SecurityContext seguridad) {
         return usuarios.obtener(Sesion.usuarioId(seguridad));
+    }
+
+    /**
+     * Token de rol {@code servicio} para las llamadas entre servicios. Es
+     * {@code @PermitAll} porque quien lo pide todavía no tiene token: lo protege
+     * el secreto compartido, que viaja en el cuerpo.
+     */
+    @POST
+    @Path("servicios/token")
+    @PermitAll
+    public TokenDeServicioDto tokenDeServicio(@NotNull(message = FALTA_CUERPO) @Valid SecretoDto pedido) {
+        return usuarios.emitirTokenDeServicio(pedido.secreto());
     }
 
     /** Clave pública con la que los demás servicios verifican los tokens. */

@@ -1,0 +1,73 @@
+Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico (primera toma)
+Qué muestra: la venta V-be1e5e8e unos segundos después del pago: pasó de CONFIRMADA a EMITIDA y sus dos entradas están VALIDA. Lo hizo EmisionDeEntradasMDB al consumir el mensaje de la cola.
+Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados.
+
+Antes de los comandos de este archivo se definieron estas variables (los tokens no se guardan acá):
+    export NOPAUSE=true JAVA_HOME="/c/Users/santi/.jdks/temurin-25"; B="/subsystem=messaging-activemq/server=default"; CLI=backend/servidor/target/server/bin/jboss-cli.bat
+    T=$(curl -s -X POST localhost:8080/api/usuarios/login -H "Content-Type: application/json" -d "{\"email\":\"titular@palco.test\",\"password\":\"palco1234\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")
+    S=$(curl -s -X POST localhost:8080/api/usuarios/servicios/token -H "Content-Type: application/json" -d "{\"secreto\":\"palco-desarrollo\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")
+
+----------------------------------------------------------------------
+La venta, consultada por su comprador
+Fecha: 2026-10-13 10:40:26 -0300
+Comando:
+    curl -s -H "Authorization: Bearer $T" localhost:8080/api/v1/ventas/V-be1e5e8e | node -p "JSON.stringify(JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")),null,2)"
+Salida:
+{
+  "_links": {
+    "self": {
+      "href": "/api/v1/ventas/V-be1e5e8e",
+      "method": "GET"
+    }
+  },
+  "cargoServicio": 5500,
+  "entradas": [
+    {
+      "_links": {
+        "self": {
+          "href": "/api/v1/entradas/T-fc0a4a6a",
+          "method": "GET"
+        }
+      },
+      "estado": "VALIDA",
+      "id": "T-fc0a4a6a",
+      "sector": "Platea B",
+      "titular": {
+        "dni": "30123456",
+        "nombre": "Ana Gomez"
+      }
+    },
+    {
+      "_links": {
+        "self": {
+          "href": "/api/v1/entradas/T-609cf451",
+          "method": "GET"
+        }
+      },
+      "estado": "VALIDA",
+      "id": "T-609cf451",
+      "sector": "Platea B",
+      "titular": {
+        "dni": "31234567",
+        "nombre": "Luis Perez"
+      }
+    }
+  ],
+  "estado": "EMITIDA",
+  "eventoId": "ev-1",
+  "facturaEstado": "NO_APLICA",
+  "id": "V-be1e5e8e",
+  "items": [
+    {
+      "cantidad": 2,
+      "precioUnitario": 27500,
+      "sector": "Platea B",
+      "sectorId": "sec-1-4"
+    }
+  ],
+  "montoTotal": 60500,
+  "pagoId": "P-d285aa53",
+  "subtotal": 55000,
+  "venceReserva": "2026-10-13T13:50:21Z"
+}
+

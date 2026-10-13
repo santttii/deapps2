@@ -49,5 +49,10 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
         </dependency>
+        <dependency>
+            <!-- JSON-B para los tests del mensaje y de los errores; la versión y el alcance (test) vienen del pom padre. -->
+            <groupId>org.eclipse</groupId>
+            <artifactId>yasson</artifactId>
+        </dependency>
     </dependencies>
 </project>

@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useApp } from '../store/AppContext';
-import { money, sleep } from '../lib/format';
+import type { Carrito } from '../store/actions';
+import { mensajeDeError } from '../lib/api';
+import { calcularServicio, money } from '../lib/format';
+import { confirmarCompra, type CompraConfirmada } from '../servicios/ventas';
 import {
   esCVVValido,
   esDNIValido,
@@ -12,7 +15,7 @@ import {
   formatearNumeroTarjeta,
   soloDigitosDNI,
 } from '../lib/validate';
-import { MINUTOS_RESERVA, TASA_SERVICIO, type Asistente, type Entrada, type MedioPago, type Orden } from '../types';
+import { MINUTOS_RESERVA, type Evento, type MedioPago, type Usuario } from '../types';
 import Stepper from '../components/Stepper';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -29,17 +32,35 @@ interface FilaTitular {
   asignarDespues: boolean;
 }
 
-function generarId(prefijo: string, largo: number): string {
-  const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let out = '';
-  for (let i = 0; i < largo; i++) out += alfabeto[Math.floor(Math.random() * alfabeto.length)];
-  return `${prefijo}-${out}`;
+// Una fila por entrada del carrito. La primera queda a nombre de quien compra.
+function filasIniciales(carrito: Carrito | null, evento: Evento | undefined, comprador: Usuario | null): FilaTitular[] {
+  if (!carrito || !evento) return [];
+  const filas: FilaTitular[] = [];
+  carrito.items.forEach((item) => {
+    const sector = evento.sectores.find((s) => s.id === item.sectorId);
+    if (!sector) return;
+    for (let i = 0; i < item.cantidad; i++) {
+      const esPrimera = filas.length === 0;
+      filas.push({
+        sectorId: sector.id,
+        sectorNombre: sector.nombre,
+        precio: sector.precio,
+        nombre: esPrimera ? comprador?.nombre ?? '' : '',
+        apellido: esPrimera ? comprador?.apellido ?? '' : '',
+        dni: esPrimera ? comprador?.dni ?? '' : '',
+        asignarDespues: false,
+      });
+    }
+  });
+  return filas;
 }
 
 export default function CheckoutPage() {
   const { state, dispatch, usuarioActual } = useApp();
   const navigate = useNavigate();
-  const carrito = state.carrito;
+  // Un carrito que armó otra cuenta en este navegador no se usa: se trata como vacío.
+  const carritoAjeno = !!state.carrito?.usuarioId && state.carrito.usuarioId !== usuarioActual?.id;
+  const carrito = carritoAjeno ? null : state.carrito;
   const evento = carrito ? state.eventos.find((e) => e.id === carrito.eventoId) : undefined;
 
   const [paso, setPaso] = useState(0);
@@ -49,34 +70,12 @@ export default function CheckoutPage() {
   const [tarjeta, setTarjeta] = useState({ numero: '', vencimiento: '', cvv: '', titular: '' });
   const [erroresTarjeta, setErroresTarjeta] = useState<Record<string, string>>({});
   const [procesando, setProcesando] = useState(false);
+  const [errorPago, setErrorPago] = useState('');
 
-  const filasIniciales: FilaTitular[] = useMemo(() => {
-    if (!carrito || !evento) return [];
-    const filas: FilaTitular[] = [];
-    carrito.items.forEach((item) => {
-      const sector = evento.sectores.find((s) => s.id === item.sectorId);
-      if (!sector) return;
-      for (let i = 0; i < item.cantidad; i++) {
-        filas.push({
-          sectorId: sector.id,
-          sectorNombre: sector.nombre,
-          precio: sector.precio,
-          nombre: i === 0 && filas.length === 0 ? usuarioActual?.nombre ?? '' : '',
-          apellido: i === 0 && filas.length === 0 ? usuarioActual?.apellido ?? '' : '',
-          dni: i === 0 && filas.length === 0 ? usuarioActual?.dni ?? '' : '',
-          asignarDespues: false,
-        });
-      }
-    });
-    return filas;
-  }, [carrito, evento, usuarioActual]);
-
-  const [titulares, setTitulares] = useState<FilaTitular[]>(filasIniciales);
+  // Las filas se arman una sola vez, al entrar: ProtectedRoute y RequireCatalog garantizan que
+  // el usuario y el evento ya están. Así un refresco del evento no borra lo que se tipeó.
+  const [titulares, setTitulares] = useState<FilaTitular[]>(() => filasIniciales(carrito, evento, usuarioActual));
   const [erroresTitulares, setErroresTitulares] = useState<Record<number, { nombre?: string; apellido?: string; dni?: string }>>({});
-
-  useEffect(() => {
-    setTitulares(filasIniciales);
-  }, [filasIniciales]);
 
   useEffect(() => {
     if (reservaVencida) return;
@@ -100,7 +99,7 @@ export default function CheckoutPage() {
   const timerCritico = segundosRestantes <= 120;
 
   const subtotal = titulares.reduce((acc, t) => acc + t.precio, 0);
-  const servicio = Math.round(subtotal * TASA_SERVICIO);
+  const servicio = calcularServicio(subtotal);
   const total = subtotal + servicio;
 
   function actualizarTitular(index: number, campo: keyof FilaTitular, valor: string | boolean) {
@@ -147,56 +146,32 @@ export default function CheckoutPage() {
   }
 
   async function confirmarPago() {
-    if (!carrito || !evento || !validarPago()) return;
+    if (!carrito || !evento || !usuarioActual || !validarPago()) return;
+    setErrorPago('');
     setProcesando(true);
-    await sleep(1400);
-
-    const idOrden = `A-${Math.floor(10000 + Math.random() * 89999)}`;
-
-    const asistentes: Asistente[] = titulares.map((t) => ({
-      nombre: t.asignarDespues ? '' : t.nombre,
-      apellido: t.asignarDespues ? '' : t.apellido,
-      dni: t.asignarDespues ? '' : soloDigitosDNI(t.dni),
-    }));
-
-    const orden: Orden = {
-      id: idOrden,
-      eventoId: evento.id,
-      items: carrito.items.map((it) => ({
-        sectorId: it.sectorId,
-        cantidad: it.cantidad,
-        precioUnitario: evento.sectores.find((s) => s.id === it.sectorId)?.precio ?? 0,
-      })),
-      asistentes,
-      subtotal,
-      servicio,
-      total,
-      medioPago,
-      creadaISO: new Date().toISOString(),
-    };
-
-    const entradas: Entrada[] = titulares.map((t, i) => ({
-      id: generarId('PLC', 6),
-      ordenId: idOrden,
-      eventoId: evento.id,
-      sectorId: t.sectorId,
-      fila: String(1 + (i % 30)),
-      precioPagado: t.precio,
-      titular: asistentes[i],
-      estado: 'valida',
-      origen: 'compra',
-      emitidaISO: new Date().toISOString(),
-    }));
-
-    const stockDescontado = carrito.items.map((it) => ({
-      eventoId: evento.id,
-      sectorId: it.sectorId,
-      cantidad: it.cantidad,
-    }));
-
-    dispatch({ type: 'CREAR_ORDEN', payload: { orden, entradas, stockDescontado } });
-    setProcesando(false);
-    navigate(`/confirmacion/${idOrden}`);
+    let compra: CompraConfirmada;
+    try {
+      compra = await confirmarCompra({
+        evento,
+        items: carrito.items,
+        titulares: titulares.map((t) => ({
+          sectorId: t.sectorId,
+          precio: t.precio,
+          nombre: t.asignarDespues ? '' : t.nombre,
+          apellido: t.asignarDespues ? '' : t.apellido,
+          dni: t.asignarDespues ? '' : t.dni,
+        })),
+        medioPago,
+      });
+    } catch (error) {
+      setErrorPago(mensajeDeError(error));
+      return;
+    } finally {
+      setProcesando(false);
+    }
+    // La orden y las entradas quedan en el navegador, a nombre del usuario de la sesión.
+    dispatch({ type: 'CREAR_ORDEN', payload: { ...compra, compradorId: usuarioActual.id } });
+    navigate(`/confirmacion/${compra.orden.id}`);
   }
 
   return (
@@ -342,6 +317,12 @@ export default function CheckoutPage() {
                 </AnimatePresence>
 
                 <p className="text-xs text-muted">Facturación electrónica automática al confirmar el pago.</p>
+
+                {errorPago && (
+                  <p role="alert" aria-live="polite" className="border-l-2 border-accent pl-2 text-xs text-ink">
+                    {errorPago}
+                  </p>
+                )}
 
                 <Button
                   className="self-start"

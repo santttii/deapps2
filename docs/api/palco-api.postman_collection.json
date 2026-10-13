@@ -1,0 +1,934 @@
+{
+  "info": {
+    "name": "Palco API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUsuarios",
+      "value": "http://localhost:8080/api/usuarios"
+    },
+    {
+      "key": "baseEventos",
+      "value": "http://localhost:8080/api/eventos"
+    },
+    {
+      "key": "baseApi",
+      "value": "http://localhost:8080/api/v1"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "slug",
+      "value": ""
+    },
+    {
+      "key": "eventoId",
+      "value": ""
+    },
+    {
+      "key": "sectorId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1 Usuarios (implementado)",
+      "item": [
+        {
+          "name": "Registro (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/registro",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "registro"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ana\",\n  \"apellido\": \"Gomez\",\n  \"dni\": \"30123456\",\n  \"fechaNacimiento\": \"1995-05-10\",\n  \"email\": \"ana@test.com\",\n  \"telefono\": \"1155550000\",\n  \"password\": \"Clave1234\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registro invalido (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/registro",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "registro"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ana\",\n  \"apellido\": \"Gomez\",\n  \"dni\": \"30123456\",\n  \"fechaNacimiento\": \"1995-05-10\",\n  \"email\": \"mal\",\n  \"telefono\": \"1155550000\",\n  \"password\": \"123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verificar email (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/verificacion",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "verificacion"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana@test.com\",\n  \"codigo\": \"123456\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const s=pm.response.json(); if(s.token) pm.collectionVariables.set('token', s.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reenviar codigo (204)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/verificacion/reenvio",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "verificacion",
+                "reenvio"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana@test.com\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (200) guarda token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/login",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana@test.com\",\n  \"password\": \"Clave1234\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login incorrecto (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/login",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana@test.com\",\n  \"password\": \"incorrecta1\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mi perfil (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/yo",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "yo"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mi perfil sin token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUsuarios}}/yo",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "yo"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "JWKS claves publicas (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUsuarios}}/jwks",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "jwks"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('tiene keys', () => pm.expect(pm.response.json().keys).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 Eventos (implementado)",
+      "item": [
+        {
+          "name": "Listar eventos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseEventos}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [],
+              "query": [
+                {
+                  "key": "categoria",
+                  "value": ""
+                },
+                {
+                  "key": "q",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const j=pm.response.json(); if(j.length) pm.collectionVariables.set('slug', j[0].slug);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtrar por categoria",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseEventos}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [],
+              "query": [
+                {
+                  "key": "categoria",
+                  "value": "Música"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalle por slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseEventos}}/{{slug}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{slug}}"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalle inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseEventos}}/no-existe-xyz",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "no-existe-xyz"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear evento sin token (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Evento de prueba\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2026-12-01T21:00:00\",\n  \"descripcion\": \"Prueba Postman\",\n  \"sectores\": [\n    {\n      \"nombre\": \"General\",\n      \"precio\": 10000,\n      \"cupo\": 100\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear evento organizer (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Evento de prueba\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2026-12-01T21:00:00\",\n  \"descripcion\": \"Prueba Postman\",\n  \"sectores\": [\n    {\n      \"nombre\": \"General\",\n      \"precio\": 10000,\n      \"cupo\": 100\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.test('Location', () => pm.response.to.have.header('Location'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear evento invalido (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2026-12-01T21:00:00\",\n  \"descripcion\": \"Prueba Postman\",\n  \"sectores\": []\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cambiar cupo, rol servicio (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoId}}/sectores/{{sectorId}}/cupo",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoId}}",
+                "sectores",
+                "{{sectorId}}",
+                "cupo"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 2\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 Diseño v1 (por implementar)",
+      "item": [
+        {
+          "name": "POST /v1/ventas (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventoId\": \"ev-1\",\n  \"items\": [\n    {\n      \"sectorId\": \"sec-1-1\",\n      \"cantidad\": 2\n    }\n  ],\n  \"titulares\": [\n    {\n      \"nombre\": \"Ana Gómez\",\n      \"dni\": \"30123456\"\n    },\n    {\n      \"nombre\": \"Luis Pérez\",\n      \"dni\": \"31234567\"\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas/{id}/pagos (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/V-00231/pagos",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "V-00231",
+                "pagos"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"medioDePago\": \"tarjeta\",\n  \"token\": \"tok_test\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/entradas/{id} (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/entradas/T-000981",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "entradas",
+                "T-000981"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/reventas (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/reventas",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "reventas"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entradaId\": \"T-000981\",\n  \"precio\": 29000\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/reventas sobre tope (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/reventas",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "reventas"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entradaId\": \"T-000981\",\n  \"precio\": 33000\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422));",
+                  "pm.test('problem+json', () => pm.response.to.have.header('Content-Type', /problem\\+json/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /v1/reventas/{id} (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/reventas/R-0012",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "reventas",
+                "R-0012"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/validacion/escaneos (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/validacion/escaneos",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "validacion",
+                "escaneos"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigoQr\": \"QR-ABC123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

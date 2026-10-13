@@ -5,8 +5,9 @@ create table evento (
     id              varchar(40)   primary key,
     slug            varchar(160)  not null unique,
     titulo          varchar(200)  not null,
-    categoria       varchar(20)   not null
-                    check (categoria in ('Fútbol', 'Música', 'Fiesta', 'Teatro')),
+    -- Sin check de lista: en H2 2.4.240 se rompe al cerrarse la conexión de la migración
+    -- y todo insert o update falla. Los valores válidos los controla el enumerado Categoria.
+    categoria       varchar(20)   not null,
     venue           varchar(200)  not null,
     fecha           timestamp     not null,
     descripcion     varchar(2000) not null,

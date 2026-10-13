@@ -1,0 +1,194 @@
+{
+  "info": {
+    "name": "Palco - Eventos (bonus Clase 10)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base",
+      "value": "http://localhost:8080/api/eventos"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "slug",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Listar eventos (publico)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}?categoria=&q=",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [],
+          "query": [
+            {
+              "key": "categoria",
+              "value": ""
+            },
+            {
+              "key": "q",
+              "value": ""
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('es JSON', () => pm.response.to.have.header('Content-Type', /application\\/json/));",
+              "const j = pm.response.json();",
+              "pm.test('devuelve lista', () => pm.expect(j).to.be.an('array'));",
+              "if (j.length) pm.collectionVariables.set('slug', j[0].slug);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Detalle por slug",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/{{slug}}",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "{{slug}}"
+          ],
+          "query": []
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const e = pm.response.json();",
+              "pm.test('tiene sectores con precio entero', () => { pm.expect(e.sectores).to.be.an('array'); e.sectores.forEach(s => pm.expect(Number.isInteger(s.precio)).to.be.true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Detalle inexistente (error)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/no-existe-xyz",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "no-existe-xyz"
+          ],
+          "query": []
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Crear evento sin token (401)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [],
+          "query": []
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"titulo\": \"Evento de prueba\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2026-12-01T21:00:00-03:00\",\n  \"descripcion\": \"Prueba Postman\",\n  \"sectores\": [\n    {\n      \"nombre\": \"General\",\n      \"precio\": 10000,\n      \"cupo\": 100\n    }\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 sin autenticacion', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Crear evento como organizer (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [],
+          "query": []
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"titulo\": \"Evento de prueba\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2026-12-01T21:00:00-03:00\",\n  \"descripcion\": \"Prueba Postman\",\n  \"sectores\": [\n    {\n      \"nombre\": \"General\",\n      \"precio\": 10000,\n      \"cupo\": 100\n    }\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "pm.test('trae Location', () => pm.response.to.have.header('Location'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -44,4 +44,17 @@ public final class ReglasDeNegocio {
     public static long cargoServicio(long subtotal) {
         return Math.round(subtotal * TASA_SERVICIO_PORCENTAJE / 100.0);
     }
+
+    /**
+     * Un DNI son 7 u 8 dígitos y nada más: sin puntos ni espacios. La regla está
+     * en un solo lugar para que todos apliquen la misma: el registro de usuarios,
+     * el mensaje {@code PAGO_CONFIRMADO} y quien valide a los titulares de una
+     * compra. Si cada uno la escribiera por su cuenta, uno podría aceptar un DNI
+     * que otro rechaza después.
+     * Quien recibe el DNI con puntos (un formulario) los quita antes de preguntar.
+     * El frontend tiene la misma regla en {@code frontend/src/lib/validate.ts}.
+     */
+    public static boolean esDniValido(String dni) {
+        return dni != null && dni.matches("\\d{7,8}");
+    }
 }
