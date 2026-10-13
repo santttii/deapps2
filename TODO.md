@@ -192,6 +192,10 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 - [ ] `IPagos` con implementación `MercadoPagoPagos`: cliente JAX-RS contra la
       API REST de Mercado Pago (credenciales de prueba / sandbox).
 - [ ] Webhook de Mercado Pago (`POST /api/pagos/webhook`) con idempotencia.
+- [ ]       **Diseñado, pendiente (decisión del 13/10):** no se integra Mercado Pago real.
+      Pagos sigue con `PagosFake` y el requisito REST lo cubre la API propia. El diseño
+      está en `docs/planes/A3-pagos.md` (decisiones 5 y 6). Se retoma si la cátedra
+      pide una pasarela real (pregunta 11 de `docs/PLAN_AGENTES.md`).
 - [ ] Reembolsos (`IPagos` los menciona; definir cuándo: evento cancelado).
 - [ ] Al aprobarse el pago, publicar `PAGO_CONFIRMADO` (Fase 6).
 - [ ] Manejar pago rechazado, pendiente y vencido.
