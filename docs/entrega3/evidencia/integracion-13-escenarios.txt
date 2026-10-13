@@ -1,0 +1,298 @@
+Palco - Entrega Parcial N.º 2 - prueba de integración del backend: 13 escenarios de punta a punta
+Qué muestra: la compra completa, la idempotencia, el pago rechazado, las reglas de negocio, la seguridad y la cancelación (escenarios 1 a 6), y la mensajería (7 a 13): un mensaje a la cola y uno al tópico por cada pago, el consumidor de la cola frente a un mensaje repetido, los dos suscriptores del tópico, el escenario del taller (consumidor detenido con stop-delivery y reanudado con start-delivery), la suscripción durable, un mensaje inválido que se reintenta y termina en la DLQ, y la transacción que se deshace después de publicar.
+Cuándo y dónde: 13/10/2026, de 15:51 a 15:54 (hora local), contra el WildFly armado desde cero a las 15:17 y reiniciado a las 15:45. Todo se hizo por la API y con jboss-cli, sin tocar código: cada línea "ok" es una comprobación (qué se esperaba y qué se vio) y cada "dato", algo que se muestra sin comprobar.
+Cómo se corrió: con un guion de Node, escenarios.mjs, que NO está en el repo (quedó en la carpeta temporal de la sesión de integración). Por eso esta salida no se puede repetir solo con el repo; lo que sí se repite desde el repo son tomar-evidencia.sh, reproducir.sh y suscriptor-durable.sh.
+Tres aclaraciones para leerla:
+  - Las compras van sobre un evento que crea la misma prueba (un sector "Platea B" de 27.500 y uno "Mini" de 3 lugares), para que el cupo se compare exacto aunque otra persona esté usando el servidor.
+  - Escenario 8: la segunda entrega del mismo mensaje se logra deteniendo auditoría y pasando su copia a la cola de emisión con move-messages. Esa venta queda sin fila de auditoría.
+  - Escenario 12: el mensaje inválido sale del endpoint de prueba de Notificaciones (va solo al tópico); después se lo pasa de la DLQ a la cola de emisión para ver los reintentos del otro consumidor. Al terminar se vació la DLQ.
+
+----------------------------------------------------------------------
+Salida completa del guion, sin retocar
+Prueba de integración del backend de Palco. 13/10/2026, 15:51:08
+Servicios: api/usuarios/health 200 | api/eventos/health 200 | api/v1/health 200 | api/v1/pagos/health 200 | api/validacion/health 200 | api/reventa/health 200 | api/notificaciones/health 200 | api/facturacion/health 200
+Broker al empezar:  cola: agregados=53 pendientes=0 consumidores=15 | tópico: agregados=106 suscripciones=2 (durables=1) | suscripción durable de auditoría: agregados=53 pendientes=0 | DLQ: pendientes=0
+Evento de la prueba: ev-db4f0997 (Integracion backend 1791917473375). Sector de las compras: {"cupo":500,"id":"sec-a7b41f73","nombre":"Platea B","precio":27500,"vendidas":0,"eventoId":"ev-db4f0997"}
+
+====================================================================================================
+ESCENARIO 1. Compra completa: iniciar, pagar contra Pagos, venta emitida, cupo y pago   (15:51:13)
+====================================================================================================
+   dato  vendidas de sec-a7b41f73 antes: 0
+   ok   POST /api/v1/ventas responde (se espera 201): 201
+   ok   Location apunta a la venta: http://localhost:8080/api/v1/ventas/V-b4838355
+   ok   estado al abrir (se espera "EN_CHECKOUT"): "EN_CHECKOUT"
+   ok   montoTotal (2 x 27.500 + 10 %) (se espera 60500): 60500
+   ok   trae la fecha de creación y la reserva vence 10 minutos después: creada=2026-10-13T18:51:13Z venceReserva=2026-10-13T19:01:13Z
+   ok   sin entradas ni pago, con los enlaces pagar y cancelar: {"self":{"href":"/api/v1/ventas/V-b4838355","method":"GET"},"pagar":{"href":"/api/v1/ventas/V-b4838355/pagos","method":"POST"},"cancelar":{"href":"/api/v1/ventas/V-b4838355","method":"DELETE"}}
+   ok   vendidas con la compra abierta (reserva de cupo en Eventos) (se espera 2): 2
+   ok   POST /api/v1/ventas/{id}/pagos responde (se espera 201): 201
+   ok   al volver el pago la venta está CONFIRMADA (o ya EMITIDA) con su pago: CONFIRMADA P-62677380
+   ok   Location del pago: http://localhost:8080/api/v1/ventas/V-b4838355/pagos/P-62677380
+   ok   dos entradas, cada una con sectorId y precioPagado: T-d454fdeb PENDIENTE_EMISION sec-a7b41f73 27500 | T-df3e2e52 PENDIENTE_EMISION sec-a7b41f73 27500
+   ok   la venta pasa a EMITIDA (emisión asincrónica): EMITIDA
+   ok   las dos entradas quedan VALIDA y traen su código dentro de la venta: T-d454fdeb VALIDA cd0db44a-d811-410f-8ceb-7a7642b9d7a6 | T-df3e2e52 VALIDA 65af35f0-6eea-40a9-9187-d7967acc0e71
+   ok   GET /api/v1/entradas/{id}: VALIDA, mismo código, con fecha de emisión y precio pagado: 200 {"_links":{"self":{"href":"/api/v1/entradas/T-d454fdeb","method":"GET"}},"codigoQr":"cd0db44a-d811-410f-8ceb-7a7642b9d7a6","emitida":"2026-10-13T18:51:13Z","estado":"VALIDA","eventoId":"ev-db4f0997","id":"T-d454fdeb","precioPagado":27500,"sector":"Platea B","sectorId":"sec-a7b41f73","titular":{"dni"
+   ok   vendidas al final: subió exactamente lo comprado (se espera 2): 2
+   ok   en Pagos existe ese pago, de esa venta, por ese monto y APROBADO: 200 {"estado":"APROBADO","idExterno":"fake-95a5333e-e9ae-4c34-b2d1-775e444b9b3d","monto":60500,"motivo":null,"pagoId":"P-62677380","ventaId":"V-b4838355"}
+   ok   GET /api/v1/ventas (mis compras) la trae EMITIDA y con sus entradas: 200, 134 ventas
+   ok   y la lista viene de la más nueva a la más vieja: 2026-10-13T18:51:13Z 2026-10-13T18:49:45Z 2026-10-13T18:49:45Z 2026-10-13T18:49:45Z
+
+====================================================================================================
+ESCENARIO 2. Idempotencia: la misma clave al iniciar y al pagar no duplica nada   (15:51:14)
+====================================================================================================
+   ok   los dos POST /ventas con la misma clave responden 201 con la misma venta: 201 V-0f36708b / 201 V-0f36708b
+   ok   el cupo se reservó una sola vez (se espera 3): 3
+   ok   los dos pagos con la misma clave responden 201 con el mismo pago: 201 P-c5b070ab / 201 P-c5b070ab
+   ok   en "mis compras" hay una sola venta con ese titular: V-0f36708b
+   ok   cupo al final (se espera 3): 3
+   ok   un solo pago guardado por Pagos para esa venta (líneas de ServicioDePagos en el log) (se espera 1): 1
+   ok   una sola confirmación de Ventas (se espera 1): 1
+   dato  broker: cola +1 | tópico +2 | suscripción durable +1 | DLQ +0
+   ok   un solo mensaje a la cola (se espera 1): 1
+   ok   una sola copia para auditoría (un mensaje al tópico) (se espera 1): 1
+   ok   una sola fila de auditoría de esa venta (se espera 1): 1
+
+====================================================================================================
+ESCENARIO 3. Pago rechazado: 402, venta sin confirmar, ningún mensaje; un segundo intento la completa   (15:51:23)
+====================================================================================================
+   ok   402 pago-rechazado en Problem Details: 402 application/problem+json {"type":"/problemas/pago-rechazado","title":"Pago rechazado","status":402,"detail":"El pago fue rechazado (fondos_insuficientes). Podés probar con otro medio de pago.","instance":"/api/v1/ventas/V-e8b57fe2/pagos"}
+   dato  cuerpo del 402: {"type":"/problemas/pago-rechazado","title":"Pago rechazado","status":402,"detail":"El pago fue rechazado (fondos_insuficientes). Podés probar con otro medio de pago.","instance":"/api/v1/ventas/V-e8b57fe2/pagos"}
+   ok   la venta sigue EN_CHECKOUT, sin pago ni entradas: EN_CHECKOUT pagoId=null entradas=0
+   dato  broker tras el rechazo: cola +0 | tópico +0 | suscripción durable +0 | DLQ +0
+   ok   el rechazo no publicó nada en la cola (se espera 0): 0
+   ok   ni en el tópico (se espera 0): 0
+   ok   ninguna fila de auditoría de esa venta (se espera 0): 0
+   ok   ninguna línea de los consumidores por esa venta (se espera 0): 0
+   ok   repetir la MISMA clave devuelve el mismo rechazo aunque cambie el token (regla de Pagos) (se espera 402): 402
+   ok   segundo intento, con clave nueva y tok_test (se espera 201): 201
+   ok   la compra se completa: EMITIDA con su entrada VALIDA: EMITIDA VALIDA
+   ok   ahora sí salió un mensaje a la cola (se espera 1): 1
+
+====================================================================================================
+ESCENARIO 4. Reglas de negocio: cada una con su código y su cuerpo Problem Details   (15:51:38)
+====================================================================================================
+   ok   422 maximo-de-entradas en Problem Details: 422 application/problem+json {"type":"/problemas/maximo-de-entradas","title":"Regla de negocio incumplida","status":422,"detail":"Se pueden comprar hasta 6 entradas por compra.","instance":"/api/v1/ventas"}
+   ok   422 dni-repetido en Problem Details: 422 application/problem+json {"type":"/problemas/dni-repetido","title":"Regla de negocio incumplida","status":422,"detail":"Cada entrada va a nombre de una persona distinta: el DNI 23090263 está repetido.","instance":"/api/v1/ventas"}
+   ok   422 titulares-no-coinciden en Problem Details: 422 application/problem+json {"type":"/problemas/titulares-no-coinciden","title":"Regla de negocio incumplida","status":422,"detail":"Hace falta un titular por entrada: son 2 entradas y 1 titulares.","instance":"/api/v1/ventas"}
+   ok   422 sector-inexistente en Problem Details: 422 application/problem+json {"type":"/problemas/sector-inexistente","title":"Regla de negocio incumplida","status":422,"detail":"El evento no tiene ese sector.","instance":"/api/v1/ventas"}
+   dato  sector sec-ef12b4d5 con cupo 3 y sec-02076a17 con cupo 50
+   ok   409 cupo-agotado en Problem Details: 409 application/problem+json {"type":"/problemas/cupo-agotado","title":"Conflicto","status":409,"detail":"No quedan suficientes entradas en ese sector.","instance":"/api/v1/ventas"}
+   ok   el sector sin cupo suficiente no vendió nada (se espera 0): 0
+   ok   409 cupo-agotado en Problem Details: 409 application/problem+json {"type":"/problemas/cupo-agotado","title":"Conflicto","status":409,"detail":"No quedan suficientes entradas en ese sector.","instance":"/api/v1/ventas"}
+   ok   si falla el segundo sector, el primero devuelve lo que había reservado (se espera 0): 0
+   ok   exactamente el cupo que queda sí se puede comprar (se espera 201): 201
+   ok   409 cupo-agotado en Problem Details: 409 application/problem+json {"type":"/problemas/cupo-agotado","title":"Conflicto","status":409,"detail":"No quedan suficientes entradas en ese sector.","instance":"/api/v1/ventas"}
+   ok   cancelar esa compra (se espera 204): 204
+   ok   y el cupo vuelve a cero (se espera 0): 0
+   ok   400 datos-invalidos: sin la cabecera Idempotency-Key: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"Mandá la cabecera Idempotency-Key con un UUID nuevo por cada compra y por cada pago.","instance":"/api/v1/ventas","errores":{"Idempote
+   ok   400 datos-invalidos: con una clave que no es un UUID: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"Mandá la cabecera Idempotency-Key con un UUID nuevo por cada compra y por cada pago.","instance":"/api/v1/ventas","errores":{"Idempote
+   ok   400 datos-invalidos: sin cuerpo: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"El cuerpo de la solicitud no es un JSON válido.","instance":"/api/v1/ventas"}
+   ok   400 datos-invalidos: sin titulares: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"Hay datos inválidos.","instance":"/api/v1/ventas","errores":{"titulares":"Faltan los titulares de las entradas."}}
+   ok   400 datos-invalidos: con cantidad 0: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"Hay datos inválidos.","instance":"/api/v1/ventas","errores":{"cantidad":"La cantidad tiene que ser al menos 1."}}
+   ok   400 datos-invalidos: con un DNI que no tiene 7 u 8 dígitos: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"El DNI de cada titular debe tener 7 u 8 dígitos.","instance":"/api/v1/ventas","errores":{"titulares":"El DNI de cada titular debe tene
+   ok   400 datos-invalidos: con un salto de línea en el nombre del titular (inyección en el log): 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"El nombre de cada titular va en una sola línea, sin saltos de línea ni caracteres de control.","instance":"/api/v1/ventas","errores":{
+   ok   la línea falsa no aparece en server.log (se espera 0): 0
+   ok   400 datos-invalidos: pagar sin medio de pago: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"Hay datos inválidos.","instance":"/api/v1/ventas/V-fc813be6/pagos","errores":{"medioDePago":"Falta el medio de pago."}}
+   ok   404 no-encontrado en Problem Details: 404 application/problem+json {"type":"/problemas/no-encontrado","title":"No encontrado","status":404,"detail":"No existe esa venta.","instance":"/api/v1/ventas/V-00000000"}
+   ok   ninguna de estas pruebas dejó cupo tomado en sec-a7b41f73 (se espera 4): 4
+
+====================================================================================================
+ESCENARIO 5. Seguridad: sin token, con el token de otro usuario, con otro rol, y lo interno solo con rol servicio   (15:51:39)
+====================================================================================================
+   dato  venta abierta por titular@palco.test: V-6ce1db35; venta emitida suya: V-b4838355 (entrada T-d454fdeb)
+   ok   sin token: abrir, listar, ver, pagar, cancelar y ver una entrada responden 401: 401 401 401 401 401 401
+   ok   con un token con la firma alterada (se espera 401): 401
+   dato  cuenta nueva integracion.1791917499888@palco.test (user-7700a23c), identidadVerificada=false
+   ok   la cuenta nueva nace sin la identidad verificada (se espera false): false
+   ok   403 identidad-no-verificada en Problem Details: 403 application/problem+json {"type":"/problemas/identidad-no-verificada","title":"Sin permiso","status":403,"detail":"Tenés que verificar tu identidad antes de comprar.","instance":"/api/v1/ventas"}
+   ok   POST /api/usuarios/yo/identidad: 200, identidad verificada y declarada como simulada: 200 {"detalle":"Verificación simulada: Palco todavía no consulta ningún servicio de validación de documentos. La identidad se dio por verificada sin revisar nada.","simulada":true,"usuario":{"apellido":"Integracion","dni":"23090289","email":"integracion.1791917499888@palco.test","id":"user-7700a23c","identidadVerificada":true,"nombre":"Bruno","rol":"user"}}
+   ok   GET /api/usuarios/yo ya la muestra verificada (se espera true): true
+   ok   repetir la verificación (con Content-Type JSON y cuerpo vacío) también da 200 (se espera 200): 200
+   ok   después de verificar su identidad, la cuenta nueva ya puede abrir una compra (se espera 201): 201
+   ok   con el token de otro usuario: ver, pagar y cancelar una venta ajena, y ver una entrada ajena, responden 404: 404 404 404 404 404
+   ok   la venta ajena quedó como estaba: EN_CHECKOUT y sin pago: EN_CHECKOUT pagoId=null
+   ok   su listado trae solo su compra: V-74d4390b
+   ok   y el listado del titular no trae la compra del otro, pero sí las suyas: 139 ventas
+   ok   la cuenta nueva cancela su compra (se espera 204): 204
+   ok   el titular cancela la suya (se espera 204): 204
+   ok   rol organizer: abrir, listar, ver una venta y ver una entrada responden 403: 403 403 403 403
+   ok   rol staff: abrir, listar, ver una venta y ver una entrada responden 403: 403 403 403 403
+   ok   rol servicio: abrir, listar, ver una venta y ver una entrada responden 403: 403 403 403 403
+   ok   rol user: crear un evento (es de organizer) (se espera 403): 403
+   ok   rol servicio: verificar "su" identidad (no es una persona) (se espera 403): 403
+   ok   sin token: verificar la identidad (se espera 401): 401
+   ok   POST /api/v1/pagos: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   GET /api/v1/pagos/P-62677380: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   POST /api/eventos/ev-db4f0997/sectores/sec-a7b41f73/cupo: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   GET /api/notificaciones/auditoria: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   POST /api/notificaciones/pruebas/pago-confirmado: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   POST /api/notificaciones/pruebas/pago-confirmado-con-falla: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   POST /api/notificaciones/pruebas/mensaje-invalido: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   dato  broker: cola +0 | tópico +0 | suscripción durable +0 | DLQ +0
+   ok   ninguno de esos pedidos rechazados publicó un mensaje en la cola (se espera 0): 0
+   ok   con el token de rol servicio: consultar el pago, tocar el cupo (cantidad 0) y leer auditoría responden 200: 200 200 200
+   ok   token de servicio con el secreto incorrecto (se espera 401): 401
+   ok   el cupo de sec-a7b41f73 quedó como al empezar (se espera 4): 4
+
+====================================================================================================
+ESCENARIO 6. Cancelar una compra en curso libera el cupo   (15:51:49)
+====================================================================================================
+   ok   vendidas con la compra abierta (se espera 6): 6
+   ok   DELETE /api/v1/ventas/V-06417db0 (se espera 204): 204
+   ok   vendidas después de cancelar (se espera 4): 4
+   ok   la venta queda CANCELADA y sin los enlaces pagar y cancelar: CANCELADA self
+   ok   repetir el DELETE (se espera 204): 204
+   ok   el cupo no se devuelve dos veces (se espera 4): 4
+   ok   409 reserva-vencida en Problem Details: 409 application/problem+json {"type":"/problemas/reserva-vencida","title":"Conflicto","status":409,"detail":"La reserva de esta compra ya no está vigente. Empezá la compra de nuevo.","instance":"/api/v1/ventas/V-06417db0/pagos"}
+   ok   el log de Ventas dice que canceló y devolvió el cupo: 2026-10-13 15:51:49,551 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-43) Compra V-06417db0 cancelada (instancia 6dc7cf77). // 2026-10-13 15:51:49,552 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-43) Compra en curso: el contenedor destruye la instancia 6dc7cf77 de la  // 2026-10-13 15:51:49,552 INFO  [com.palco.ventas.negocio.ComprasEnCurso] (default task-43) Venta V-06417db0 cancelada por su comprador: se devuelve el cupo a Eve
+   dato  el vencimiento real a los 10 minutos no se repite acá: está en docs/entrega3/evidencia/vencimiento-de-reserva.txt
+
+====================================================================================================
+ESCENARIO 7. Al confirmarse un pago sale UN mensaje a la cola y UNO al tópico, con el tipoEvento del contrato   (15:51:49)
+====================================================================================================
+   ok   el tópico tiene dos suscripciones, y una es la durable de auditoría: palco-auditoria.compras-confirmadas , b7f328c7-1296-43df-96e0-3e8bb11977f7
+   ok   las dos filtran por la propiedad tipoEvento = 'PAGO_CONFIRMADO': tipoEvento = 'PAGO_CONFIRMADO' | tipoEvento = 'PAGO_CONFIRMADO'
+   dato  antes de pagar V-c3f971dc (la compra ya está abierta: abrirla no publica):  cola: agregados=56 pendientes=0 consumidores=15 | tópico: agregados=112 suscripciones=2 (durables=1) | suscripción durable de auditoría: agregados=56 pendientes=0 | DLQ: pendientes=0
+   ok   pago (se espera 201): 201
+   dato  después de pagar:  cola: agregados=57 pendientes=0 consumidores=15 | tópico: agregados=114 suscripciones=2 (durables=1) | suscripción durable de auditoría: agregados=57 pendientes=0 | DLQ: pendientes=0
+   ok   cola: mensajes agregados (se espera 1): 1
+   ok   tópico: copias agregadas, una por cada una de sus 2 suscripciones (se espera 2): 2
+   ok   suscripción durable (auditoría): recibió (se espera 1): 1
+   ok   suscripción no durable (aviso): recibió al menos 1: 1
+   ok   no quedó nada pendiente ni fue nada a la DLQ: cola 0, auditoría 0, DLQ +0
+   ok   la fila de auditoría trae, leídos del cuerpo del mensaje, la venta, el comprador, el evento y el total: {"compradorId":"user-titular","eventoId":"ev-db4f0997","mensajeId":"ID:2d3c4831-c737-11f1-9d59-0a0027000009","montoTotal":60500,"recibidoEn":"2026-10-13T18:52:02Z","tipoEvento":"PAGO_CONFIRMADO","ventaId":"V-c3f971dc"}
+   ok   Ventas dejó en el log una sola publicación, dentro de la transacción del pago (se espera 1): 1
+   ok   el aviso nombra el sector y a los dos titulares, que viajan en entradas[] del cuerpo: Aviso al comprador user-titular: tu compra V-c3f971dc quedó confirmada. Evento ev-db4f0997, 2 entradas: Platea B (Prueba Integracion 1), Platea B (Prueba Integracion 2). Total: $60500.
+   ok   y las entradas emitidas son las que nombraba el mensaje: T-f994a5f8 T-b22a690a
+
+====================================================================================================
+ESCENARIO 8. El consumidor de la cola emite una sola vez aunque el mensaje llegue dos veces   (15:52:11)
+====================================================================================================
+   dato  cómo se logra la segunda entrega sin tocar código: se detiene auditoría, su copia del mensaje queda
+   dato  guardada en palco-auditoria.compras-confirmadas, y con move-messages se la pasa a cola.emision-entradas: es el mismo texto con el mismo tipoEvento.
+   ok   nombre interno de la cola de emisión: jms.queue.cola.emision-entradas
+   ok   stop-delivery de AuditoriaDeCompras
+   ok   pago (se espera 201): 201
+   ok   primera entrega: venta EMITIDA con sus dos códigos: T-617adf4b=f30b7097-dfa2-4d2e-b1b1-7ddc4e1b55f3 T-3c951c33=0e655b5d-85f6-457b-82b6-ec3a7b8a4e65 | emitidas 2026-10-13T18:52:23Z 2026-10-13T18:52:23Z
+   ok   una emisión en el log (se espera 1): 1
+   ok   la copia de auditoría espera en su suscripción durable (se espera 1): 1
+   ok   move-messages: se pasó 1 mensaje a la cola de emisión: { "outcome" => "success", "result" => 1 }
+   ok   segunda entrega: el consumidor la reconoce como repetida y no cambia nada: 2026-10-13 15:52:32,534 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-23 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-ab512fe8. No había nada pendiente: es un mensaje repetido y no cambió nada.
+   ok   los códigos de las entradas no cambiaron: T-617adf4b=f30b7097-dfa2-4d2e-b1b1-7ddc4e1b55f3 T-3c951c33=0e655b5d-85f6-457b-82b6-ec3a7b8a4e65
+   ok   las fechas de emisión tampoco (se espera "2026-10-13T18:52:23Z 2026-10-13T18:52:23Z"): "2026-10-13T18:52:23Z 2026-10-13T18:52:23Z"
+   ok   la venta sigue EMITIDA (se espera "EMITIDA"): "EMITIDA"
+   ok   sigue habiendo una sola emisión en el log (se espera 1): 1
+   ok   la cola quedó vacía y la DLQ igual: un repetido no es un error: cola pendientes 0, DLQ +0
+   dato  esa venta (V-ab512fe8) no tiene fila de auditoría: su copia se usó para la prueba.
+   ok   start-delivery de AuditoriaDeCompras
+
+====================================================================================================
+ESCENARIO 9. Los dos suscriptores del tópico reciben cada uno su copia: el aviso (log) y la auditoría (fila)   (15:52:44)
+====================================================================================================
+   ok   pago (se espera 201): 201
+   ok   auditoría: GET /api/notificaciones/auditoria trae una fila de esa venta: {"compradorId":"user-titular","eventoId":"ev-db4f0997","mensajeId":"ID:467b246c-c737-11f1-9d59-0a0027000009","montoTotal":30250,"recibidoEn":"2026-10-13T18:52:44Z","tipoEvento":"PAGO_CONFIRMADO","ventaId":"V-3a42a30c"}
+   ok   recibida hace instantes, en UTC: 2026-10-13T18:52:44Z
+   ok   el listado sumó al menos una fila (o ya estaba en su tope de 50): 50 -> 50
+   ok   aviso: una línea con el texto para el comprador (se espera 1): 1
+   ok   aviso: una línea del MDB AvisoDeCompra (se espera 1): 1
+   ok   auditoría: una línea del MDB AuditoriaDeCompras (se espera 1): 1
+   dato  2026-10-13 15:52:44,498 INFO  [com.palco.notificaciones.negocio.ServicioDeNotificaciones] (Thread-23 (activemq-client-global)) Aviso al comprador user-titular: tu compra V-3a42a30c quedó confirmada. Evento ev-db4f0997, 1 entrada: Platea B (Prueba Integracion 1
+   dato  2026-10-13 15:52:44,500 INFO  [com.palco.notificaciones.mensajeria.AvisoDeCompraMDB] (Thread-23 (activemq-client-global)) AvisoDeCompra: aviso enviado por la venta V-3a42a30c.
+   dato  2026-10-13 15:52:44,500 INFO  [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-24 (activemq-client-global)) AuditoriaDeCompras: procesado el mensaje de la venta V-3a42a30c.
+   dato  hilos: aviso (Thread-23 (activemq-client-global)), auditoría (Thread-24 (activemq-client-global))
+
+====================================================================================================
+ESCENARIO 10. Taller: con el consumidor de emisión detenido el mensaje espera en la cola; al reanudarlo se emite   (15:52:45)
+====================================================================================================
+   ok   stop-delivery de EmisionDeEntradas
+   ok   el pago responde igual, sin esperar a la emisión (se espera 201): 201
+   ok   4 segundos después la venta sigue CONFIRMADA y sus entradas PENDIENTE_EMISION, sin código: CONFIRMADA PENDIENTE_EMISION/null PENDIENTE_EMISION/null
+   dato  con el consumidor detenido:  cola: agregados=61 pendientes=1 consumidores=0 | tópico: agregados=120 suscripciones=2 (durables=1) | suscripción durable de auditoría: agregados=60 pendientes=0 | DLQ: pendientes=0
+   ok   el mensaje espera en la cola: pendientes (se espera 1): 1
+   ok   la cola no tiene consumidores (se espera 0): 0
+   ok   el mensaje pendiente lleva la propiedad tipoEvento = PAGO_CONFIRMADO, es de texto (type 3) y persistente: { "outcome" => "success", "result" => [{ "JMSDeliveryMode" => true, "address" => "jms.queue.cola.emision-entradas", "__AMQ_CID" => "d8c61f1c-c736-11f1-9d59-0a0027000009", "tipoEvento" => "PAGO_CONFIRMADO", "_AMQ_ROUTING_TYPE" => 1, "messageID" => 1926, "JMSExpiration" => 0, "type" => 3, "JMSPriority" => 4, "JMSMessageID" => "ID:4bb0748e-c737-11f1-9d59-0a0027000009", "JMSTimestamp" => 1791917573218L }] } 
+   ok   mientras tanto los suscriptores del tópico sí recibieron su copia (aviso y auditoría): aviso 1, filas 1
+   ok   y todavía no hay ninguna línea de la emisión (se espera 0): 0
+   ok   start-delivery de EmisionDeEntradas
+   ok   al reanudarlo, la venta pasa a EMITIDA y las entradas a VALIDA con su código: EMITIDA VALIDA VALIDA
+   dato  después de reanudar:  cola: agregados=61 pendientes=0 consumidores=15 | tópico: agregados=120 suscripciones=2 (durables=1) | suscripción durable de auditoría: agregados=60 pendientes=0 | DLQ: pendientes=0
+   ok   la cola quedó sin pendientes y otra vez con consumidores: pendientes 0, consumidores 15
+   ok   una sola emisión en el log (se espera 1): 1
+
+====================================================================================================
+ESCENARIO 11. Suscripción durable: con auditoría detenida se publican mensajes y al reanudarla los recibe   (15:53:17)
+====================================================================================================
+   ok   stop-delivery de AuditoriaDeCompras
+   ok   pago de una compra real (se espera 201): 201
+   ok   y un mensaje de prueba (se espera 202): 202
+   ok   los dos mensajes esperan en la suscripción durable (se espera 2): 2
+   ok   auditoría no tiene filas de ninguno de los dos (se espera 0): 0
+   ok   el aviso (no durable) sí recibió los dos (se espera 2): 2
+   ok   la emisión no depende de auditoría: la venta ya está EMITIDA (se espera "EMITIDA"): "EMITIDA"
+   ok   start-delivery de AuditoriaDeCompras
+   ok   al reanudarla, auditoría registra los dos mensajes que se había perdido: V-5b958daa 2026-10-13T18:53:36Z | prueba-3707b541 2026-10-13T18:53:36Z
+   ok   la suscripción durable quedó sin pendientes (se espera 0): 0
+
+====================================================================================================
+ESCENARIO 12. Un mensaje inválido se reintenta y termina en la DLQ sin trabar a los demás   (15:53:45)
+====================================================================================================
+   ok   POST /api/notificaciones/pruebas/mensaje-invalido (se espera 202): 202
+   ok   pago de una compra hecha durante los reintentos (se espera 201): 201
+   ok   esa compra se emite y se audita enseguida, sin esperar a que terminen los reintentos: EMITIDA, fila sí, el inválido llevaba 1 entregas
+   ok   auditoría lo devolvió al broker 5 veces (se espera 5): 5
+   ok   numeradas de la entrega 1 a la 5 (se espera "1 2 3 4 5"): "1 2 3 4 5"
+   ok   con unos 2 segundos entre una y otra: 2.0 2.0 2.0 2.0
+   ok   el broker lo pasó a la DLQ (AMQ222149): 2026-10-13 15:53:57,656 WARN  [org.apache.activemq.artemis.core.server] (Thread-6 (activemq-default)) AMQ222149: Sending message Reference[1995]:RELIABLE:CoreMessage[messageID=1995, durable=true, user
+   ok   el aviso (no durable) lo descartó una sola vez, sin reintentar (se espera 1): 1
+   dato  2026-10-13 15:53:49,508 WARNING [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-27 (activemq-client-global)) AuditoriaDeCompras: mensaje inválido (entrega 1), vuelve al b
+   dato  2026-10-13 15:53:51,515 WARNING [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-22 (activemq-client-global)) AuditoriaDeCompras: mensaje inválido (entrega 2), vuelve al b
+   dato  2026-10-13 15:53:53,545 WARNING [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-26 (activemq-client-global)) AuditoriaDeCompras: mensaje inválido (entrega 3), vuelve al b
+   dato  2026-10-13 15:53:55,578 WARNING [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-27 (activemq-client-global)) AuditoriaDeCompras: mensaje inválido (entrega 4), vuelve al b
+   dato  2026-10-13 15:53:57,611 WARNING [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-23 (activemq-client-global)) AuditoriaDeCompras: mensaje inválido (entrega 5), vuelve al b
+   ok   DLQ (se espera 1): 1
+   ok   nada pendiente en la suscripción de auditoría ni en la cola: 0 0
+   ok   move-messages de la DLQ a la cola de emisión: 1 mensaje(s)
+   ok   pago de otra compra, con el inválido reintentándose en la cola (se espera 201): 201
+   ok   esa compra se emite igual (se espera "EMITIDA"): "EMITIDA"
+   ok   el consumidor de la cola también lo devuelve 5 veces por mensaje (se espera 5): 5
+   ok   y vuelve a la DLQ: la cola queda vacía: cola pendientes 0, DLQ 1 (antes de moverlo 1)
+
+====================================================================================================
+ESCENARIO 13. Si la transacción se deshace después de publicar, el mensaje no sale   (15:54:19)
+====================================================================================================
+   ok   409 conflicto en Problem Details: 409 application/problem+json {"type":"/problemas/conflicto","title":"Conflicto","status":409,"detail":"Falla provocada a propósito después de publicar: la transacción se deshace y el mensaje no sale.","instance":"/api/notificaciones/pruebas/pago-confirmado-con-falla"}
+   dato  cuerpo del 409: {"type":"/problemas/conflicto","title":"Conflicto","status":409,"detail":"Falla provocada a propósito después de publicar: la transacción se deshace y el mensaje no sale.","instance":"/api/notificaciones/pruebas/pago-confirmado-con-falla"}
+   dato  broker: cola +0 | tópico +0 | suscripción durable +0 | DLQ +0
+   ok   cola (se espera 0): 0
+   ok   tópico (se espera 0): 0
+   ok   suscripción durable (se espera 0): 0
+   ok   DLQ (se espera 0): 0
+   ok   ninguna línea nueva de los tres consumidores (salvo las de ventas ajenas) (se espera 0): 0
+   ok   ninguna fila nueva en auditoría (salvo las de ventas ajenas) (se espera 0): 0
+   ok   control: el mismo mensaje sin la falla (pruebas/pago-confirmado) (se espera 202): 202
+   dato  broker con el control: cola +1 | tópico +2 | suscripción durable +1 | DLQ +0
+   ok   ese sí sale a la cola (se espera 1): 1
+   ok   y al tópico, una copia por suscripción (se espera 2): 2
+   ok   y la emisión descarta ese mensaje de prueba, porque su venta no existe (se espera 1): 1
+
+Broker al terminar: cola: agregados=67 pendientes=0 consumidores=15 | tópico: agregados=132 suscripciones=2 (durables=1) | suscripción durable de auditoría: agregados=66 pendientes=0 | DLQ: pendientes=1
+
+====================================================================================================
+RESUMEN
+====================================================================================================
+PASA   1. Compra completa: iniciar, pagar contra Pagos, venta emitida, cupo y pago  (18/18 comprobaciones)
+PASA   2. Idempotencia: la misma clave al iniciar y al pagar no duplica nada  (10/10 comprobaciones)
+PASA   3. Pago rechazado: 402, venta sin confirmar, ningún mensaje; un segundo intento la completa  (10/10 comprobaciones)
+PASA   4. Reglas de negocio: cada una con su código y su cuerpo Problem Details  (23/23 comprobaciones)
+PASA   5. Seguridad: sin token, con el token de otro usuario, con otro rol, y lo interno solo con rol servicio  (31/31 comprobaciones)
+PASA   6. Cancelar una compra en curso libera el cupo  (8/8 comprobaciones)
+PASA   7. Al confirmarse un pago sale UN mensaje a la cola y UNO al tópico, con el tipoEvento del contrato  (12/12 comprobaciones)
+PASA   8. El consumidor de la cola emite una sola vez aunque el mensaje llegue dos veces  (14/14 comprobaciones)
+PASA   9. Los dos suscriptores del tópico reciben cada uno su copia: el aviso (log) y la auditoría (fila)  (7/7 comprobaciones)
+PASA   10. Taller: con el consumidor de emisión detenido el mensaje espera en la cola; al reanudarlo se emite  (12/12 comprobaciones)
+PASA   11. Suscripción durable: con auditoría detenida se publican mensajes y al reanudarla los recibe  (10/10 comprobaciones)
+PASA   12. Un mensaje inválido se reintenta y termina en la DLQ sin trabar a los demás  (15/15 comprobaciones)
+PASA   13. Si la transacción se deshace después de publicar, el mensaje no sale  (11/11 comprobaciones)
+
+TODO BIEN
+codigo de salida: 0
