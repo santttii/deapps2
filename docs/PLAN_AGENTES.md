@@ -271,7 +271,7 @@ para que cada integrante tenga al menos un componente del backend propio que def
 |---|---|---|---|---|
 | Sebastian Deya | A1 ventas-core; T1 errores y CORS | C3 transacciones; B4 patrones-y-tests | Lo que Reventa y Mercado Pago necesiten de Ventas | Ventas: el stateful, la transacción y la emisión |
 | Julian Zuchowicki | A2 mensajería; B1 integración; T2 token de servicio | Cola de reintento de C1 y revisión de C1; guion de demo; plan y arranque de C2 | C2 reventa | Mensajería y Notificaciones; el cobro de Ventas a Pagos; Reventa |
-| Valentina Frisoli | A3 pagos; B2 frontend (sesión, catálogo y compra) | D2: pantalla de puerta. D1: credenciales y adaptador de Mercado Pago | D1: webhook. D2: reventa y panel | Pagos; el frontend |
+| Valentina Frisoli | A3 pagos; B2 frontend (sesión, catálogo y compra) | D2: pantalla de puerta. C5: diagrama de secuencia de Mercado Pago, como diseño | D2: reventa y panel | Pagos; el frontend |
 | Joaquin Molina | A4 docs-entrega3 (con Santiago) | B3 validación-qr; C5 doc-técnico | D3 doc-final | Validación; el documento técnico |
 | Santiago Loto | Ola 0; T0 y T3 a T6; coordinación y revisión | C1 facturación-soap; C4 openapi; Revisor | Revisor; armado desde cero y tag de cada entrega | Facturación y el servicio SOAP |
 
@@ -566,6 +566,7 @@ estar para el 27/11.
 - **Línea de corte:** entra en la entrega del 13/11 solo si el 08/11 está cerrada y revisada.
 
 ### D1 · `mercadopago-webhook` — Valentina · credenciales el 30/10, adaptador hasta el 08/11, webhook hasta el 19/11
+- **Decisión del 13/10:** queda como "diseñado, pendiente" sin esperar la línea de corte. No se crea cuenta de Mercado Pago; Pagos sigue con `PagosFake` y el requisito REST lo cubre la API propia. Lo que queda de D1 es el diagrama de secuencia de Mercado Pago como diseño, dentro de C5. Las menciones a D1 en el calendario quedan sin efecto. Se retoma si la cátedra pide una pasarela real (pregunta 11).
 - **Toca:** `backend/servicios/pagos/`.
 - **Qué cambió por lo ya construido:** está diseñado en `docs/planes/A3-pagos.md` (decisiones 5 y 6). La Factory ya
   elige la pasarela por configuración (`palco.pagos.proveedor`). Falta `MercadoPagoPagos`, que es el Adapter de
