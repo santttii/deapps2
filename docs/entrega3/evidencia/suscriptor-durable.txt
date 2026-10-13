@@ -1,0 +1,75 @@
+Palco - Entrega Parcial N.º 2 - suscripción durable de auditoría
+Salida de docs/entrega3/evidencia/suscriptor-durable.sh, corrido desde la raíz del repo en Git Bash.
+
+----------------------------------------------------------------------
+0. Las suscripciones del tópico topico.compra-confirmada (sin la lista de conexiones de cada una)
+Fecha: 2026-10-13 15:48:19 -0300
+La de auditoría es durable y tiene nombre fijo (clientID más name): el broker le guarda los mensajes aunque
+nadie la esté escuchando. La del aviso no es durable: recibe solo lo que se publica mientras escucha.
+            "queueName" => "palco-auditoria.compras-confirmadas",
+            "durable" => true,
+            "clientID" => "palco-auditoria",
+            "selector" => "tipoEvento = 'PAGO_CONFIRMADO'",
+            "name" => "compras-confirmadas"
+            "queueName" => "b7f328c7-1296-43df-96e0-3e8bb11977f7",
+            "durable" => false,
+            "clientID" => "ActiveMQ",
+            "selector" => "tipoEvento = 'PAGO_CONFIRMADO'",
+            "name" => "ActiveMQ"
+
+----------------------------------------------------------------------
+1. Antes: mensajes pendientes de la suscripción durable y entrega de AuditoriaDeComprasMDB
+Fecha: 2026-10-13 15:48:23 -0300
+pendientes de la suscripción durable: 0
+  ok     AuditoriaDeComprasMDB está recibiendo (delivery-active): true
+
+----------------------------------------------------------------------
+2. Detener el suscriptor de auditoría: /deployment=palco-notificaciones.war/subsystem=ejb3/message-driven-bean=AuditoriaDeCompras:stop-delivery
+Fecha: 2026-10-13 15:48:31 -0300
+{"outcome" => "success"}
+  ok     AuditoriaDeComprasMDB está recibiendo (delivery-active): false
+
+----------------------------------------------------------------------
+3. Con auditoría detenida se publican dos mensajes: una compra real y un mensaje de prueba
+Fecha: 2026-10-13 15:48:39 -0300
+POST /api/v1/ventas: venta V-95a3a988
+POST /api/v1/ventas/V-95a3a988/pagos: 201 (se espera 201)
+POST /api/notificaciones/pruebas/pago-confirmado: mensaje de la venta de prueba prueba-d4239bf7
+
+----------------------------------------------------------------------
+4. Cuatro segundos después, todavía con auditoría detenida
+Fecha: 2026-10-13 15:48:45 -0300
+  ok     pendientes de la suscripción durable (esperan los dos mensajes de este guion): 2
+  ok     filas de auditoría de V-95a3a988: 0
+  ok     filas de auditoría de prueba-d4239bf7: 0
+  ok     líneas de AuditoriaDeCompras en el log por esas dos ventas: 0
+Mientras tanto, lo demás sigue funcionando:
+  ok     el aviso (suscriptor no durable) recibió su copia de V-95a3a988: 1
+  ok     el aviso recibió su copia de prueba-d4239bf7: 1
+  ok     estado de la venta V-95a3a988 (la emisión va por la cola, no depende de auditoría): "estado":"EMITIDA"
+
+----------------------------------------------------------------------
+5. Reanudar el suscriptor de auditoría: /deployment=palco-notificaciones.war/subsystem=ejb3/message-driven-bean=AuditoriaDeCompras:start-delivery
+Fecha: 2026-10-13 15:48:51 -0300
+{"outcome" => "success"}
+  ok     AuditoriaDeComprasMDB está recibiendo (delivery-active): true
+
+----------------------------------------------------------------------
+6. Tres segundos después de reanudar: auditoría recibió lo que el broker le había guardado
+Fecha: 2026-10-13 15:49:02 -0300
+  ok     pendientes de la suscripción durable: 0
+  ok     filas de auditoría de V-95a3a988: 1
+  ok     filas de auditoría de prueba-d4239bf7: 1
+Las dos filas (GET /api/notificaciones/auditoria, rol servicio):
+{"compradorId":"user-titular","eventoId":"ev-1","mensajeId":"ID:b52f190d-c736-11f1-9d59-0a0027000009","montoTotal":30250,"recibidoEn":"2026-10-13T18:48:55Z","tipoEvento":"PAGO_CONFIRMADO","ventaId":"V-95a3a988"}
+{"compradorId":"user-titular","eventoId":"ev-1","mensajeId":"ID:b5734e00-c736-11f1-9d59-0a0027000009","montoTotal":60500,"recibidoEn":"2026-10-13T18:48:55Z","tipoEvento":"PAGO_CONFIRMADO","ventaId":"prueba-d4239bf7"}
+Líneas del log de los dos suscriptores por esas ventas (el aviso las recibió al publicarse; auditoría, al reanudar):
+3163:2026-10-13 15:48:40,777 INFO  [com.palco.notificaciones.mensajeria.AvisoDeCompraMDB] (Thread-2 (activemq-client-global)) AvisoDeCompra: aviso enviado por la venta V-95a3a988.
+3166:2026-10-13 15:48:41,176 INFO  [com.palco.notificaciones.mensajeria.AvisoDeCompraMDB] (Thread-2 (activemq-client-global)) AvisoDeCompra: aviso enviado por la venta prueba-d4239bf7.
+3169:2026-10-13 15:48:55,444 INFO  [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-3 (activemq-client-global)) AuditoriaDeCompras: procesado el mensaje de la venta V-95a3a988.
+3170:2026-10-13 15:48:55,466 INFO  [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-3 (activemq-client-global)) AuditoriaDeCompras: procesado el mensaje de la venta prueba-d4239bf7.
+
+----------------------------------------------------------------------
+Resultado
+Fecha: 2026-10-13 15:49:08 -0300
+TODO DIO LO ESPERADO: con el suscriptor durable detenido el broker guardó los 2 mensajes y se los entregó al reanudarlo.

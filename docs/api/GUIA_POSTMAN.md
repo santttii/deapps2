@@ -2,7 +2,7 @@
 
 La colección `docs/api/palco-api.postman_collection.json` se corre entera, en orden y sin intervención, contra el backend local. Se puede repetir las veces que haga falta sin reiniciar el servidor.
 
-Última comprobación: 13/10/2026, con Newman 6.2.3 contra WildFly en `http://localhost:8080`. Resultado de la corrida completa: 44 requests, 162 tests, 0 fallados.
+Última comprobación: 13/10/2026, con Newman 6.2.3 contra WildFly en `http://localhost:8080`. Resultado de la corrida completa, con el servidor recién armado desde cero: 48 requests, 186 tests, 0 fallados.
 
 ## 1. Qué hace falta
 
@@ -17,9 +17,9 @@ La colección `docs/api/palco-api.postman_collection.json` se corre entera, en o
 
 | Carpeta | Requests de la corrida | Qué prueba |
 |---|---|---|
-| **1 Usuarios (implementado)** | 10 | Registro, registro inválido, login (comprador y staff), login incorrecto, login sin verificar el email, perfil con y sin token, token de servicio con secreto incorrecto, JWKS |
+| **1 Usuarios (implementado)** | 12 | Registro, registro inválido, login (comprador y staff), login incorrecto, login sin verificar el email, perfil con y sin token, verificación de identidad (simulada) con y sin token, token de servicio con secreto incorrecto, JWKS |
 | **2 Eventos (implementado)** | 13 | Listar, filtrar, detalle, 404, crear evento sin token, con rol organizer e inválido, y cambio de cupo con rol servicio (reservar, pasarse del cupo, liberar) |
-| **3 Diseño v1 (Ventas implementado)** | 21 | La compra contra `/api/v1`: abrir la compra con reserva de cupo, idempotencia, pago rechazado, pago aprobado, venta y entrada, emisión asincrónica de la entrada y cancelación |
+| **3 Diseño v1 (Ventas implementado)** | 23 | La compra contra `/api/v1`: abrir la compra con reserva de cupo, idempotencia, pago rechazado, pago aprobado, venta y entrada, emisión asincrónica de la entrada, listado de las compras propias (con y sin token) y cancelación |
 
 Además hay dos subcarpetas que **quedan fuera de la corrida**:
 
@@ -47,13 +47,17 @@ Cada request manda el token de su rol en la cabecera `Authorization: Bearer {{..
 
 La colección va de arriba hacia abajo: **1 Usuarios → 2 Eventos → 3 Diseño v1**. Dentro de cada carpeta el orden importa, porque cada request usa lo que guardó uno anterior:
 
-1. **Usuarios.** "Registro (201)" genera un email y un DNI nuevos. "Login (200) guarda token" entra con `titular@palco.test` y guarda `token`; lo usa "Mi perfil (200)".
+1. **Usuarios.** "Registro (201)" genera un email y un DNI nuevos. "Login (200) guarda token" entra con `titular@palco.test` y guarda `token`; lo usan "Mi perfil (200)" y "Verificar mi identidad (200, simulada)".
 2. **Eventos.** "Listar eventos" guarda `slug` para el detalle. "Login organizador" guarda `tokenOrganizador` para crear el evento. "Crear evento" guarda `eventoCreadoId` y `sectorCreadoId`, y "Token de servicio" guarda `tokenServicio`: con los tres se prueba el cupo sobre el evento recién creado, sin tocar los eventos de la demo.
-3. **Ventas.** "Login comprador" guarda `token`. "POST /v1/ventas (201)" guarda `ventaId`; el pago guarda `pagoId` y `entradaId`; después se consultan la entrada y la venta. Al final se abre otra compra y se cancela.
+3. **Ventas.** "Login comprador" guarda `token`. "POST /v1/ventas (201)" guarda `ventaId`; el pago guarda `pagoId` y `entradaId`; después se consultan la entrada y la venta, y "GET /v1/ventas mis compras (200)" comprueba que esa venta figure en el listado del comprador, con sus entradas y sus códigos. Al final se abre otra compra y se cancela.
 
 Cada carpeta empieza pidiendo sus propios tokens, así que también se puede correr una sola.
 
 La compra de la carpeta 3 es de 2 entradas de Platea B (`sec-1-4`) del evento `ev-1`: 2 × 27.500 más el 10 % de cargo de servicio da 60.500.
+
+**La verificación de identidad es simulada.** `POST /api/usuarios/yo/identidad` deja verificada la identidad del dueño del token, que es lo que Ventas exige para comprar. No revisa ningún documento, y la respuesta lo dice: `"simulada": true`, con un `detalle` que lo explica. No lleva cuerpo. La corrida lo llama con `titular@palco.test`, que ya estaba verificada: repetirlo no cambia nada. Una cuenta recién registrada tiene que llamarlo una vez antes de comprar; si no, `POST /v1/ventas` le responde 403 `identidad-no-verificada`.
+
+**Cada venta trae su fecha y sus entradas completas.** La venta suma `creada` (cuándo se abrió, en UTC), y cada entrada dentro de la venta trae `sectorId`, `precioPagado` y `codigoQr` (`null` hasta que se emite), para no tener que pedir cada entrada por separado.
 
 **La emisión es asincrónica.** El pago responde con las entradas en `PENDIENTE_EMISION`. El request "GET /v1/entradas/{id} emitida (200, VALIDA con codigoQr)" espera 1 segundo y pregunta; si la entrada todavía no se emitió, en una corrida se repite solo, hasta 10 veces. Enviado a mano no se repite: hay que volver a enviarlo.
 
@@ -88,7 +92,7 @@ No hay ids fijos: los `V-…`, `T-…` y `P-…` salen de las respuestas.
 2. Dejá todos los requests tildados y en el orden en que están. No hace falta poner demora ni iteraciones.
 3. `Run Palco API`.
 
-Tienen que ejecutarse 44 requests, todos con sus tests en verde. Los 6 de las subcarpetas "Pasos manuales" y "Pendientes" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
+Tienen que ejecutarse 48 requests, todos con sus tests en verde. Los 6 de las subcarpetas "Pasos manuales" y "Pendientes" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
 
 La corrida del 13/10/2026 se comprobó con Newman, que usa el mismo motor que el Runner. Falta repetirla una vez en la ventana de Postman para sacar la captura.
 
@@ -114,17 +118,17 @@ Para correr una sola carpeta se agrega `--folder` con el nombre exacto:
 npx newman run "<ruta de la colección>" --folder "3 Diseño v1 (Ventas implementado)"
 ```
 
-Resultado esperado de la corrida completa (comprobado el 13/10/2026, dos veces seguidas):
+Resultado esperado de la corrida completa (comprobado el 13/10/2026, dos veces seguidas, con el servidor recién armado):
 
 ```
 │              iterations │                 1 │                0 │
-│                requests │                44 │                0 │
-│            test-scripts │                44 │                0 │
+│                requests │                48 │                0 │
+│            test-scripts │                48 │                0 │
 │      prerequest-scripts │                 5 │                0 │
-│              assertions │               162 │                0 │
+│              assertions │               186 │                0 │
 ```
 
-Por carpeta: Usuarios 10 requests y 29 tests; Eventos 13 y 34; Ventas 21 y 99. Si la emisión tarda más de un segundo, el request que la espera se repite y el total de requests sube; el de tests no cambia.
+Por carpeta: Usuarios 12 requests y 36 tests; Eventos 13 y 34; Ventas 23 y 116. Si la emisión tarda más de un segundo, el request que la espera se repite y el total de requests sube; el de tests no cambia.
 
 ### Qué deja cada corrida en el servidor
 

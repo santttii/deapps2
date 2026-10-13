@@ -39,7 +39,7 @@ Las filas del 400 y del 409 son una regla nueva (revisión del 13/10) y todavía
 
 ## Qué quedó pendiente o simulado y por qué
 
-- **La pasarela es simulada.** Mercado Pago, el webhook (el aviso que manda la pasarela) y el reembolso quedan para el 09/11 (decisión P10): el 19/10 se evalúa el proceso asincrónico, que no pasa por Pagos, y la firma del webhook no se pudo verificar contra la documentación oficial. `PENDIENTE`, `VENCIDO` y `REEMBOLSADO` están en el enumerado, pero hoy nadie los escribe.
+- **La pasarela es simulada.** Mercado Pago, el webhook (el aviso que manda la pasarela) y el reembolso quedan para el 13/11 (decisión P10): el 23/10 (fecha de la Entrega Parcial N.º 2, a confirmar con la cátedra) se evalúa el proceso asincrónico, que no pasa por Pagos, y la firma del webhook no se pudo verificar contra la documentación oficial. `PENDIENTE`, `VENCIDO` y `REEMBOLSADO` están en el enumerado, pero hoy nadie los escribe.
 - **Ventas todavía no llama a este servicio.** Lo conecta la tarea B1; hasta entonces cobra con su simulador, `CobrosFake`, que usa los mismos tokens.
 - **Límites que se aceptan.**
   - Tras un `RECHAZADO`, la misma clave devuelve siempre ese rechazo, aunque llegue otro token: el token no se guarda, así que no distingue un pedido de otro. Un intento nuevo necesita una clave nueva, y la genera el cliente (el checkout), no Ventas, que reenvía la que recibe. La misma clave se repite solo ante un 504 o un error de red.

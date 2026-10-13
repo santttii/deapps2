@@ -351,7 +351,10 @@ src/
   el paso "Titulares", porque el backend pide los titulares en ese pedido. Los
   dos pedidos que cambian algo (iniciar y pagar) viajan con una clave de
   idempotencia, así un doble clic o un reintento no compra ni cobra dos veces.
-  La cuenta regresiva se calcula contra el vencimiento que devuelve el backend.
+  Un corte de red no cierra la sesión: se avisa y el reintento viaja con la
+  misma clave. La cuenta regresiva se calcula contra el vencimiento que
+  devuelve el backend y corrige la diferencia entre el reloj del navegador y
+  el del servidor.
 - **Stock**: las entradas disponibles que se muestran son las del servidor. Al
   reservar bajan en el acto, y vuelven si la compra se cancela o vence.
 - **QR determinístico dibujado a mano**: en vez de una librería, el componente

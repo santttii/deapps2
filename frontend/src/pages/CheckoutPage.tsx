@@ -72,10 +72,27 @@ function filasIniciales(carrito: Carrito | null, evento: Evento | undefined, com
   return filas;
 }
 
+// Una diferencia de pocos segundos entre los relojes no es un reloj mal puesto: es lo que tardó
+// el pedido más el redondeo a segundos del vencimiento. Por debajo de esto no se corrige nada.
+const TOLERANCIA_RELOJ_MS = 5_000;
+
+// Cuánto le lleva el reloj del servidor al de este navegador, en milisegundos (negativo si el
+// del navegador está adelantado). Se mide al recibir una reserva recién hecha: el backend acaba
+// de fijar el vencimiento como "su hora más 10 minutos", así que su hora es el vencimiento
+// menos 10 minutos. Es la única pista de la hora del servidor que llega al navegador.
+function medirDesfaseReloj(reserva: Orden): number {
+  const horaDelServidor = Date.parse(reserva.venceReservaISO) - MINUTOS_RESERVA * 60_000;
+  const desfase = horaDelServidor - Date.now();
+  return Math.abs(desfase) < TOLERANCIA_RELOJ_MS ? 0 : desfase;
+}
+
 // Segundos que faltan para que venza la reserva. Se calcula contra el reloj cada vez, en lugar de
 // descontar un contador: así no se atrasa con la pestaña en segundo plano y sigue bien al recargar.
-function segundosHasta(venceISO: string): number {
-  return Math.max(0, Math.ceil((Date.parse(venceISO) - Date.now()) / 1000));
+// El vencimiento está en la hora del servidor, por eso al reloj del navegador se le suma el
+// desfase medido al reservar: con el reloj adelantado la cuenta arrancaba con minutos de menos,
+// o directamente en cero, y la página soltaba una reserva recién hecha.
+function segundosHasta(venceISO: string, desfaseReloj: number): number {
+  return Math.max(0, Math.ceil((Date.parse(venceISO) - (Date.now() + desfaseReloj)) / 1000));
 }
 
 export default function CheckoutPage() {
@@ -85,6 +102,9 @@ export default function CheckoutPage() {
   const carritoAjeno = !!state.carrito?.usuarioId && state.carrito.usuarioId !== usuarioActual?.id;
   const carrito = carritoAjeno ? null : state.carrito;
   const evento = carrito ? state.eventos.find((e) => e.id === carrito.eventoId) : undefined;
+  // Se guarda en el carrito junto con la reserva: al recargar o volver se usa el mismo. El ?? 0
+  // cubre un carrito guardado antes de que existiera este dato.
+  const desfaseReloj = carrito?.desfaseReloj ?? 0;
 
   // La venta que devolvió el backend al reservar. null mientras no hay reserva.
   const [orden, setOrden] = useState<Orden | null>(null);
@@ -121,10 +141,11 @@ export default function CheckoutPage() {
   // Hubo un intento de pago del que no se supo el resultado: el botón pasa a "Reintentar pago".
   const [pagoSinConfirmar, setPagoSinConfirmar] = useState(false);
 
-  // Pasa al paso de pago con la reserva que devolvió el backend.
-  function mostrarPago(reserva: Orden) {
+  // Pasa al paso de pago con la reserva que devolvió el backend. El desfase se recibe por
+  // parámetro porque al reservar se acaba de medir y todavía no está en el carrito de este render.
+  function mostrarPago(reserva: Orden, desfase: number) {
     setOrden(reserva);
-    setSegundosRestantes(segundosHasta(reserva.venceReservaISO));
+    setSegundosRestantes(segundosHasta(reserva.venceReservaISO, desfase));
   }
 
   // La reserva ya no sirve (venció, se canceló o el backend la perdió): se quita del carrito y se
@@ -143,7 +164,7 @@ export default function CheckoutPage() {
       .then((recibida) => {
         if (!vigente) return;
         if (recibida.estado === 'en_checkout') {
-          mostrarPago(recibida);
+          mostrarPago(recibida, desfaseReloj);
         } else if (recibida.estado === 'confirmada' || recibida.estado === 'emitida') {
           // Ya estaba paga (se recargó justo después de pagar): va directo a la confirmación.
           dispatch({ type: 'GUARDAR_COMPRA', payload: { orden: recibida, entradas: [], compradorId: usuarioActual.id } });
@@ -170,7 +191,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!orden) return;
     const intervalo = setInterval(() => {
-      const restantes = segundosHasta(orden.venceReservaISO);
+      const restantes = segundosHasta(orden.venceReservaISO, desfaseReloj);
       setSegundosRestantes(restantes);
       if (restantes === 0 && !pagando) {
         soltarReserva(orden.id);
@@ -272,18 +293,27 @@ export default function CheckoutPage() {
         setReservaLiberada(true);
         return;
       }
-      // La clave del pago nace con la reserva y se guarda en el carrito: sobrevive a recargar.
+      // La clave del pago nace con la reserva y se guarda en el carrito, igual que el desfase
+      // entre los relojes: los dos sobreviven a recargar.
+      const desfase = medirDesfaseReloj(reserva);
       dispatch({
         type: 'SET_CARRITO',
-        payload: { ...carrito, usuarioId: usuarioActual.id, ordenId: reserva.id, clavePago: nuevaClave() },
+        payload: {
+          ...carrito,
+          usuarioId: usuarioActual.id,
+          ordenId: reserva.id,
+          clavePago: nuevaClave(),
+          desfaseReloj: desfase,
+        },
       });
-      mostrarPago(reserva);
+      mostrarPago(reserva, desfase);
     } catch (error) {
       // En un 400 el detalle está en los errores por campo; en el resto, en el mensaje.
       const campos = error instanceof ErrorApi ? Object.values(error.campos) : [];
       setErrorReserva(campos.length > 0 ? campos.join(' ') : mensajeDeError(error));
       // Sin cupo no sirve reintentar: se ofrece volver al evento, que muestra el stock al día.
-      setSinCupo(error instanceof ErrorApi && error.tipo === 'cupo-agotado');    } finally {
+      setSinCupo(error instanceof ErrorApi && error.tipo === 'cupo-agotado');
+    } finally {
       setReservando(false);
     }
   }

@@ -6,10 +6,12 @@
 |---|---|
 | Proyecto | Palco, plataforma de venta de entradas nominativas con reventa oficial |
 | Integrantes | Santiago Loto, Sebastian Deya, Julian Zuchowicki, Valentina Frisoli y Joaquin Molina |
-| Entrega | Entrega Parcial N.º 2, 19/10/2026 |
+| Entrega | Entrega Parcial N.º 2, 23/10/2026 |
 | Repositorio | https://github.com/santttii/deapps2 |
 | Versión entregada | Etiqueta (tag) `entrega-parcial-2`. **Pendiente:** el 13/10 esa etiqueta todavía no existe |
 | Estado que se describe | El del servidor de desarrollo el 13/10/2026 a las 14:04, armado con el código de trabajo de ese día: el commit `e7c8b6f` más cambios que todavía no tienen commit, entre ellos la llamada de Ventas a Pagos |
+
+<!-- PENDIENTE antes de exportar el PDF: confirmar con la cátedra la fecha de esta entrega. La fila "Entrega" dice 23/10/2026, que es una fecha de trabajo sin confirmar. La consigna está escrita para la comisión del lunes y dice 19/10; el grupo cursa en la de los viernes, y el cronograma de esa comisión no nombra este checkpoint. El 23/10 sale de sumarle los cuatro días que separan a las otras fechas de las dos comisiones. Si la cátedra da otra fecha, se cambia en esa fila. También falta confirmar la hora límite: la consigna dice 13:30, que es la de la comisión del lunes. -->
 
 <!-- PENDIENTE antes de exportar el PDF. (1) Crear el tag entrega-parcial-2: git tag no lista ninguno el 13/10. (2) Con el servidor armado desde el commit del tag, correr de nuevo docs/entrega3/evidencia/reproducir.sh y guardar la salida en reproduccion.txt. (3) Escribir en las dos filas de arriba la misma fecha y la misma versión, y actualizar en la sección 4.5 los ids, las horas y los hilos con los de esa corrida. Recién entonces se borra "Pendiente" de la fila "Versión entregada". -->
 
@@ -28,7 +30,7 @@ Las rutas de archivos son relativas a la raíz del repositorio.
 | Clasificación justificada de cada integración externa en síncrona (SOAP o REST) o asincrónica (cola o tópico) | Sección 3 | Completa para los dos sistemas externos del diseño, Mercado Pago y ARCA. Ninguno de los dos está conectado todavía: su clasificación es de diseño. El envío de email no se clasifica, porque todavía no tiene proveedor ni canal elegidos (sección 6.2) |
 | Al menos un proceso de negocio funcionando de punta a punta con mensajería asincrónica real y broker configurado | Sección 4 | Implementado: dos procesos disparados por el mismo evento, uno por cola y otro por tópico. El cobro que dispara ese evento pasa por una pasarela simulada (sección 6.1) |
 
-La sección 5 lista en qué se aparta este documento de lo que presentamos antes, y la sección 6 separa lo real de lo simulado y declara el uso de inteligencia artificial.
+La sección 5 lista en qué se aparta este documento de lo que presentamos antes, y la sección 6 separa lo real de lo simulado y lista lo que falta para la próxima entrega.
 
 ## 2. Arquitectura de integración
 
@@ -109,7 +111,7 @@ La mensajería usa JMS, la interfaz estándar de mensajería de Jakarta EE. Un M
 | I1 | Clientes → API REST de Palco | SÍNCRONA · REST (JSON sobre HTTP) | La persona espera la respuesta en pantalla: necesita saber en el momento si hay lugar y si el pago pasó. Es también la API de consumo externo que pide la consigna | El cliente repite el pedido. Abrir una compra y pagarla exigen la cabecera `Idempotency-Key`: repetir con la misma clave devuelve la misma venta y no reserva ni cobra de nuevo. Los errores salen en formato Problem Details (el estándar RFC 9457) | **Implementado.** Evidencia: `reproduccion.txt`, pasos 2 a 4 |
 | I2 | `ServicioDePagos` → Mercado Pago: cobro | SÍNCRONA · REST | El comprador no puede quedarse sin saber si pagó: Pagos necesita el resultado para responderle a Ventas. Mercado Pago es un partner moderno, con API REST | Pagos responde 504 y no guarda nada; la venta sigue abierta y se reintenta con la misma clave, sin cobrar dos veces. Ese camino hoy existe solo contra el simulador | **Diseñado, pendiente.** Hoy cobra `PagosFake`, detrás de la interfaz `PasarelaDePagos` |
 | I2 | Mercado Pago → `ServicioDePagos`: aviso de la pasarela (webhook) | Canal SÍNCRONO · REST, para un resultado que la compra recibe de forma asincrónica | Es para los pagos que la pasarela no resuelve en el momento: el resultado llega después, sin que la compra lo esté esperando. El canal es una llamada HTTP entrante que Pagos contesta en el acto. Figura como REST porque la consigna solo admite cola o tópico como canal asincrónico | Diseño de la clase 10: la pasarela reenvía el aviso si no recibe respuesta, y Pagos descarta los repetidos por el id del pago | **Diseñado, pendiente.** Pagos no tiene la ruta del webhook |
-| I3 | `ServicioDeFacturación` → ARCA (ex AFIP) | SÍNCRONA · SOAP, con WSDL. Reintento ASÍNCRONO por la cola `cola.reintento-facturacion` | ARCA es un sistema legado que solo ofrece SOAP, que es pedido y respuesta. La factura se pide dentro de la compra, con un tope de 5 segundos, para entregarla ya autorizada en la misma respuesta cuando ARCA contesta a tiempo. La compra no depende de esa respuesta para confirmarse | Diseño de las clases 9 y 10: si pasan los 5 segundos, la compra no se cae, porque el pago ya está cobrado. La factura queda pendiente y ese tramo pasa a la cola de reintento, que la vuelve a pedir | **Diseñado, pendiente** para el 09/11. No hay cliente SOAP, WSDL ni cola. Toda venta responde `facturaEstado` `NO_APLICA` |
+| I3 | `ServicioDeFacturación` → ARCA (ex AFIP) | SÍNCRONA · SOAP, con WSDL. Reintento ASÍNCRONO por la cola `cola.reintento-facturacion` | ARCA es un sistema legado que solo ofrece SOAP, que es pedido y respuesta. La factura se pide dentro de la compra, con un tope de 5 segundos, para entregarla ya autorizada en la misma respuesta cuando ARCA contesta a tiempo. La compra no depende de esa respuesta para confirmarse | Diseño de las clases 9 y 10: si pasan los 5 segundos, la compra no se cae, porque el pago ya está cobrado. La factura queda pendiente y ese tramo pasa a la cola de reintento, que la vuelve a pedir | **Diseñado, pendiente** para el 13/11. No hay cliente SOAP, WSDL ni cola. Toda venta responde `facturaEstado` `NO_APLICA` |
 | I4 | `ServicioDeVentas` → `cola.emision-entradas` → `EmisionDeEntradasMDB` | ASÍNCRONA · cola punto a punto (JMS) | Emitir la entrada no tiene por qué demorar el pago ni hacerlo fallar. La tiene que emitir un único responsable y una sola vez: por eso es una cola | El mensaje espera guardado en el broker y se procesa cuando el consumidor vuelve. Si el consumidor falla, el broker lo entrega hasta 5 veces y después lo aparta en la cola de mensajes fallidos (DLQ) | **Implementado.** Evidencia: sección 4 |
 | I5 | `ServicioDeVentas` → `topico.compra-confirmada` → `AvisoDeCompraMDB` y `AuditoriaDeComprasMDB` | ASÍNCRONA · tópico de publicación y suscripción (JMS) | Al aviso y a la auditoría les interesa el mismo hecho y no se conocen entre sí. Sumar otro interesado no obliga a tocar Ventas | La compra no se entera. Auditoría tiene una suscripción durable: el broker le guarda lo que no recibió. El aviso no es durable: si Notificaciones está caído ese aviso se pierde, y lo aceptamos | **Implementado.** Evidencia: sección 4. El aviso es una línea en el log: no se manda email |
 
@@ -210,7 +212,7 @@ Confirmar la venta, crear las entradas y publicar el mensaje ocurren en una sola
 
 Las pruebas de `mensaje-repetido-y-reintentos.txt` no se pueden repetir solo con el repositorio: se corrieron con una copia temporal del servicio que permite reenviar un mensaje y forzar una falla. El archivo lo explica y muestra que después se restauró el servicio original.
 
-La transacción cubre el tercer paso de la compra. Los dos anteriores se protegen de otra forma: la reserva de cupo es una llamada REST que Ventas compensa devolviendo el cupo si algo falla después, y el cobro, que es otra llamada REST, se protege con la clave de idempotencia, que Ventas le pasa a Pagos. Entre Ventas y Pagos no hay transacción compartida: el pago queda guardado en Pagos aunque después falle la confirmación en Ventas, y ese caso no lo probamos. La tabla completa de fallas del flujo es parte de la entrega del 09/11.
+La transacción cubre el tercer paso de la compra. Los dos anteriores se protegen de otra forma: la reserva de cupo es una llamada REST que Ventas compensa devolviendo el cupo si algo falla después, y el cobro, que es otra llamada REST, se protege con la clave de idempotencia, que Ventas le pasa a Pagos. Entre Ventas y Pagos no hay transacción compartida: el pago queda guardado en Pagos aunque después falle la confirmación en Ventas, y ese caso no lo probamos. La tabla completa de fallas del flujo es parte de la entrega del 13/11.
 
 ### 4.7 Cómo reproducirlo
 
@@ -243,7 +245,7 @@ Entre la Entrega Parcial N.º 1, los talleres de las clases 6, 8 y 9 y la activi
 
 | Tema | Qué decía el documento anterior | Qué vale hoy |
 |---|---|---|
-| Facturación con ARCA | Clases 9 y 10: SOAP síncrono con espera de 5 segundos y cola de reintento. La clase 9 dice: "es el que vamos a implementar para la Entrega 3" | **No está implementado.** Sigue siendo el diseño, pendiente para el 09/11. Hoy no se factura: `facturaEstado` vale `NO_APLICA` |
+| Facturación con ARCA | Clases 9 y 10: SOAP síncrono con espera de 5 segundos y cola de reintento. La clase 9 dice: "es el que vamos a implementar para la Entrega 3" | **No está implementado.** Sigue siendo el diseño, pendiente para el 13/11. Hoy no se factura: `facturaEstado` vale `NO_APLICA` |
 | Por qué la llamada a ARCA es síncrona | Clase 9: "la venta no puede darse por válida sin un CAE autorizado, y la respuesta (CAE o rechazo) se necesita antes de decidir cómo continúa el proceso". El CAE es el código con que ARCA autoriza una factura | Cambiamos la justificación. Desde la clase 10 la compra se confirma aunque ARCA no responda, porque el pago ya está cobrado. La llamada es síncrona porque SOAP es pedido y respuesta, y se hace dentro de la compra para entregar la factura en la misma respuesta cuando ARCA contesta a tiempo (fila I3) |
 | Aviso de Mercado Pago (webhook) | Clase 10: lo tratamos como asincrónico ("202 se usaría si el cobro mismo fuera asincrónico (pago diferido con webhook)") | Lo clasificamos por su canal, que es REST, y aclaramos que para la compra el resultado llega de forma asincrónica (fila I2) |
 | Emisión de la entrada | Clase 8: "hoy es una llamada síncrona interna" | Va por cola. Las entradas nacen `PENDIENTE_EMISION` al confirmarse el pago y el MDB las pasa a `VALIDA`. `EMITIDA` es un estado de la venta, no de la entrada |
@@ -258,7 +260,7 @@ Entre la Entrega Parcial N.º 1, los talleres de las clases 6, 8 y 9 y la activi
 | Identificadores | Clases 8 y 10: correlativos, como `V-00231` | Un prefijo y 8 caracteres al azar, como `V-e9ee3ad1` |
 | Nombres | "Entrega 3" y "AFIP/ARCA" | "Entrega Parcial N.º 2", como la llama la consigna, y "ARCA (ex AFIP)" |
 
-## 6. Qué es real y qué es simulado, pendientes y uso de inteligencia artificial
+## 6. Qué es real y qué es simulado, y pendientes
 
 ### 6.1 Real y simulado
 
@@ -274,7 +276,7 @@ Entre la Entrega Parcial N.º 1, los talleres de las clases 6, 8 y 9 y la activi
 | Reventa y validación en puerta | No existen en el backend |
 | Frontend (aplicación web en React) | En el código, el registro, el inicio de sesión y el catálogo llaman a la API (`frontend/src/servicios/usuarios.ts` y `eventos.ts`). Las llamadas de la compra a Ventas (`frontend/src/servicios/ventas.ts`) se escribieron el 13/10 y esa conexión está en curso. Para este documento no probamos el frontend en el navegador: toda la evidencia se tomó contra la API |
 
-### 6.2 Qué falta para la Entrega Obligatoria N.º 2 (09/11)
+### 6.2 Qué falta para la Entrega Obligatoria N.º 2 (13/11)
 
 | Requisito de la consigna | Situación |
 |---|---|
@@ -285,13 +287,3 @@ Entre la Entrega Parcial N.º 1, los talleres de las clases 6, 8 y 9 y la activi
 | Diagramas de secuencia de cada integración | Pendientes |
 
 Además queda, como trabajo futuro, mandar el aviso de compra por email. Hace falta elegir el proveedor y el canal, y pedirle a Usuarios el email del comprador, porque el mensaje trae solo `compradorId`. Cuando esté elegido, se suma a la sección 3 como una integración más, con su clasificación.
-
-### 6.3 Uso de inteligencia artificial generativa
-
-La consigna pide declararlo en las entregas obligatorias; lo declaramos también en esta.
-
-- **Qué se usó:** Claude Code, un asistente de programación basado en inteligencia artificial generativa.
-- **Para qué:** planificar las tareas; generar código de Ventas, Notificaciones, Pagos y la mensajería común (`backend/common`); conectar el frontend con la API; y redactar y revisar este documento, incluida la toma de la evidencia.
-- **Cómo se controló:** lo que este documento afirma sobre el sistema se comprobó contra el servidor en marcha, con comandos que cualquiera puede repetir (sección 4.7). Donde no hay salida guardada, el texto lo dice.
-
-<!-- PENDIENTE antes de exportar el PDF. (1) Falta la frase sobre la lectura del grupo. La consigna pide que cada integrante pueda explicar y defender cualquier parte del código o del diseño, no solo la suya. Se agrega recién cuando sea cierta. Texto propuesto: "Los cinco integrantes leímos este documento y el código que describe, y cualquiera de nosotros puede explicarlo." (2) No se cita la sección 11 de docs/planes/00-contratos-compartidos.md porque todavía se titula "Decisiones pendientes de aprobación". Si el grupo la aprueba y le cambia el título a "Decisiones tomadas", con la fecha, se puede volver a citar acá. -->

@@ -892,6 +892,7 @@ class ServicioDeVentasTest {
         Venta venta = ventaEnEstado(EstadoVenta.CONFIRMADA);
         when(venta.getId()).thenReturn(ventaId);
         when(venta.getFacturaEstado()).thenReturn(EstadoFactura.NO_APLICA);
+        when(venta.getCreada()).thenReturn(AHORA);
         when(venta.getVenceReserva()).thenReturn(AHORA.plusMinutes(10));
         when(venta.getPagoId()).thenReturn(PAGO_ID);
         return venta;

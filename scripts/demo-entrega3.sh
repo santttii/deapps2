@@ -80,6 +80,16 @@ if [ -z "$CLI" ]; then
   esac
 fi
 
+# En Git Bash, jboss-cli.bat necesita JAVA_HOME escrito al modo de Windows (C:\...). Si viene al modo de
+# Git Bash (/c/...), no encuentra Java y el guion seguiría sin contadores: se lo convierte acá.
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*)
+    case "${JAVA_HOME:-}" in
+      /*) command -v cygpath > /dev/null 2>&1 && export JAVA_HOME="$(cygpath -w "$JAVA_HOME")" ;;
+    esac
+    ;;
+esac
+
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
   NEGRITA=$'\033[1m' VERDE=$'\033[32m' ROJO=$'\033[31m' TENUE=$'\033[2m' FIN=$'\033[0m'
 else

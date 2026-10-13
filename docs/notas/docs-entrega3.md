@@ -1,6 +1,8 @@
-# A4 — Documento de la Entrega Parcial N.º 2 (19/10)
+# A4 — Documento de la Entrega Parcial N.º 2 (23/10, a confirmar)
 
 Nota para Joaquin Molina, que lo entrega con Santiago Loto. Escrita el 13/10/2026, con el servidor de ese día. Corregida el mismo día, después de las 14:04, con lo que encontró la revisión del documento (ver la última sección).
+
+**Fecha de entrega.** El grupo cursa en la comisión de los viernes y la consigna está escrita para la del lunes. La consigna fecha esta entrega el lunes 19/10 y el cronograma de los viernes no la nombra: se toma como fecha de trabajo el viernes 23/10/2026, y falta confirmarla con la cátedra. La entrega obligatoria con defensa es el viernes 13/11 (09/11 en la consigna).
 
 ## Qué contiene y de dónde salió cada parte
 
@@ -10,7 +12,7 @@ Todo está en `docs/entrega3/`: el documento (`Entrega_Parcial_2_Integracion.md`
 - **Sección 3, clasificación:** los criterios son los de los talleres de las clases 6, 8 y 9; el estado de cada flecha sale del código y del servidor, no de los planes.
 - **Sección 4, proceso asincrónico:** de `evidencia/`. El guion `reproducir.sh` repite todo, y su salida es `reproduccion.txt` (corrida de las 14:04, venta `V-e9ee3ad1`).
 - **Sección 5, diferencias:** de comparar la Entrega Parcial N.º 1, los talleres y la clase 10 con el código.
-- **Sección 6:** real y simulado, pendientes del 09/11 y uso de IA.
+- **Sección 6:** real y simulado, y pendientes del 13/11.
 
 ## Decisiones de redacción y por qué
 
@@ -21,8 +23,7 @@ Todo está en `docs/entrega3/`: el documento (`Entrega_Parcial_2_Integracion.md`
 5. **ARCA es síncrono porque SOAP es pedido y respuesta,** no porque la compra necesite la factura. La clase 9 decía lo contrario; el cambio está declarado en la sección 5.
 6. **El proveedor de email no es un sistema externo del documento.** El grupo no eligió proveedor ni canal, y una integración sin canal no se puede clasificar. Quedó como trabajo futuro en 6.2. Los externos son dos: Mercado Pago y ARCA.
 7. **Las diferencias se listan,** empezando por la más incómoda: la clase 9 prometió la factura SOAP para esta entrega y no está.
-8. **El uso de IA se declara ya,** aunque sea obligatorio recién el 09/11.
-9. **Largo:** unas 6.100 palabras contando las tablas, más que las 5 o 6 páginas del plan. Para recortar: 4.8, 6.2 y las filas menores de la sección 5.
+8. **Largo:** unas 6.100 palabras contando las tablas, más que las 5 o 6 páginas del plan. Para recortar: 4.8, 6.2 y las filas menores de la sección 5.
 
 ## Las cinco preguntas más probables de la cátedra
 
@@ -35,17 +36,18 @@ Todo está en `docs/entrega3/`: el documento (`Entrega_Parcial_2_Integracion.md`
 ## Qué falta que solo puede hacer una persona
 
 - **Tag y evidencia final.** El tag `entrega-parcial-2` no existe. La evidencia de las 14:04 se tomó con código sin commit (la llamada de Ventas a Pagos). Hay que hacer el commit, crear el tag, armar el servidor desde ese commit, correr `bash docs/entrega3/evidencia/reproducir.sh > docs/entrega3/evidencia/reproduccion.txt 2>&1` y actualizar la carátula y la sección 4.5 con los ids, las horas y los hilos de esa corrida. Si para entonces Ventas volviera a cobrar con `CobrosFake`, hay que reescribir 2.2, 2.4, 3.2, 4.5 y 6.1 y la flecha Ventas → Pagos del diagrama: el paso 6 del guion muestra quién cobra.
-- **Leerlo los cinco y completar el texto sobre IA.** La sección 6.3 ya no dice "cada integrante revisa y defiende la parte que le toca", porque la consigna pide que cada uno pueda defender cualquier parte. La frase propuesta está en un comentario de la sección 6.3 y se agrega cuando sea cierta.
-- **Sección 11 de `docs/planes/00-contratos-compartidos.md`.** Se sigue titulando "Decisiones pendientes de aprobación". El documento dejó de citarla. Si el grupo la aprueba, cambiar el título a "Decisiones tomadas", con la fecha, y volver a citarla en 6.3.
+- **Leerlo los cinco.** La consigna pide que cada integrante pueda explicar y defender cualquier parte, no solo la suya.
+- **La declaración que la consigna pide en las entregas obligatorias** la redacta el grupo. Este documento no la incluye.
+- **Sección 11 de `docs/planes/00-contratos-compartidos.md`.** Se sigue titulando "Decisiones pendientes de aprobación" y el documento no la cita. Si el grupo la aprueba, cambiar el título a "Decisiones tomadas", con la fecha.
 - **Prueba del suscriptor durable.** Con el servidor sin otras pruebas en curso, correr los comandos de detener y reanudar el suscriptor de auditoría y guardar la salida en `docs/entrega3/evidencia/suscriptor-durable.txt`. Hasta entonces, la fila de 4.6 dice "configurado y no probado para este documento".
 - **`docs/notas/mensajeria.md`, sección "Qué quedó pendiente":** la frase "Al 13/10 ninguna compra real publica" quedó vieja y contradice la sección 4 del documento. La corrige el dueño de esa nota.
 - **Email.** Si el grupo elige proveedor y canal, se suma una fila I6 en 3.1 ("`ServicioDeNotificaciones` → proveedor de email"), con tipo, canal, porqué, qué pasa si no responde y estado "Diseñado, pendiente"; se vuelve a dibujar la caja y se cambia "I1 a I5" por "I1 a I6" en 2.1 y en la leyenda.
 - **Anexos (funcional, manual, Figma):** no se hicieron. Dependen de la consulta a la cátedra, que no tiene respuesta.
 - **Diagrama:** abrir el `.drawio` en app.diagrams.net (nunca se abrió), acomodarlo y exportar el PNG. Si no abre bien, alcanza el SVG, que Word inserta. Conviene página apaisada.
 - **Captura del Runner de Postman** (`evidencia/postman-runner.png`).
-- **Git:** commit de `docs/entrega3/` y de esta nota. Borrar los dos comentarios "PENDIENTE" del documento cuando estén resueltos.
-- **Word y PDF,** y subirlos antes de las 13:30. Probar el enlace al repo sin sesión iniciada.
-- **Confirmar:** la comisión (la consigna dice "Lunes TM" y su archivo, "Viernes") y el grupo de cinco, cuando la consigna fija 3 a 4.
+- **Git:** commit de `docs/entrega3/` y de esta nota. Borrar los dos comentarios "PENDIENTE" del documento cuando estén resueltos: están junto a la carátula (la fecha de la entrega y el tag).
+- **Word y PDF,** y subirlos el jueves 22/10, el día anterior a la clase, porque la hora límite del viernes 23/10 no está confirmada. Probar el enlace al repo sin sesión iniciada.
+- **Confirmar con la cátedra:** la fecha de esta entrega (la carátula dice 23/10/2026); la hora límite, porque las 13:30 de la consigna son de la comisión del lunes y la de los viernes cursa de 08:45 a 11:45; y el grupo de cinco, cuando la consigna fija 3 a 4. Si la fecha resulta otra, se cambia primero en la carátula del documento y después en el resto del repo, buscando `23/10`.
 
 ## Qué cambió con la revisión del 13/10
 
@@ -54,7 +56,7 @@ La revisión marcó diez puntos. Los diez se comprobaron contra el código, el s
 1. **Ventas y Pagos.** El hallazgo decía que el código nuevo cobraba contra Pagos y el servidor seguía en `fake`. Cuando se corrigió, el servidor ya cobraba contra Pagos: Ventas se redesplegó a las 13:54:20 y el log de las 13:54:39 dice "Cobros: Ventas cobra llamando al servicio de Pagos". Se volvió a correr `reproducir.sh` a las 14:04 y se reescribieron 2.2, 2.4 ("funcionan 8"), 2.5, 3.2, 4.1, 4.5, 6.1 y 6.2, la flecha del diagrama (ahora llena), `LEEME.txt` y el guion. La carátula dice que el tag no existe y que el código de la evidencia no tiene commit.
 2. **Proveedor de email sin clasificar.** Se sacó de los sistemas externos y del diagrama, y quedó como trabajo futuro en 6.2. No se inventó un canal que el grupo no eligió.
 3. **Clasificación de ARCA y del webhook.** Se reescribieron el criterio general y las filas I2 (ahora dos renglones) e I3, y se agregaron dos filas a la sección 5 que declaran el cambio respecto de las clases 9 y 10.
-4. **Declaración de IA.** Se quitó la frase que contradecía la consigna y la cita a la sección 11 de contratos. Ver pendientes.
+4. **Declaración.** Se sacó del documento: la consigna la pide en las entregas obligatorias y la redacta el grupo. Ver pendientes.
 5. **Respaldo de las afirmaciones.** El guion tiene dos pasos nuevos: el 9 (401, 403 y 200) y el 10 (vendidas de 1635 a 1636 y de vuelta a 1635). Se citan en 2.5 y 3.2. La tabla de 4.8 dice qué trae cada archivo y suma `vencimiento-de-reserva.txt`. La consulta de Ventas a Usuarios quedó como "implementado, sin salida guardada".
 6. **Cajas del diagrama.** Facturación, Reventa y Validación tienen borde punteado y el texto "desplegado, solo health". La flecha de Eventos a Usuarios lleva "S2" al lado.
 7. **Fila de Notificaciones caído.** Dice "configurado y no probado para este documento" y ya no cita `docs/notas/mensajeria.md`.

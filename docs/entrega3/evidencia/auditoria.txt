@@ -1,6 +1,6 @@
-Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico (primera toma)
-Qué muestra: la fila que guardó AuditoriaDeComprasMDB (suscriptor durable del tópico) por el mensaje de la venta V-be1e5e8e. El endpoint devuelve los últimos 50 registros; acá se muestra solo el de esta venta.
-Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados.
+Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico
+Qué muestra: la fila que guardó AuditoriaDeComprasMDB (suscriptor durable del tópico) por el mensaje de la venta V-91934f4a. El endpoint devuelve los últimos 50 registros; acá se muestra solo el de esta venta.
+Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados. Lo escribió docs/entrega3/evidencia/tomar-evidencia.sh.
 
 Antes de los comandos de este archivo se definieron estas variables (los tokens no se guardan acá):
     export NOPAUSE=true JAVA_HOME="/c/Users/santi/.jdks/temurin-25"; B="/subsystem=messaging-activemq/server=default"; CLI=backend/servidor/target/server/bin/jboss-cli.bat
@@ -9,19 +9,18 @@ Antes de los comandos de este archivo se definieron estas variables (los tokens 
 
 ----------------------------------------------------------------------
 Registro de auditoría de la venta (rol servicio)
-Fecha: 2026-10-13 10:40:29 -0300
+Fecha: 2026-10-13 15:46:05 -0300
 Comando:
-    curl -s -H "Authorization: Bearer $S" localhost:8080/api/notificaciones/auditoria | node -p "JSON.stringify(JSON.parse(require('fs').readFileSync(0,'utf8')).filter(f => f.ventaId === 'V-be1e5e8e'), null, 2)"
+    curl -s -H "Authorization: Bearer $S" localhost:8080/api/notificaciones/auditoria | node -p "JSON.stringify(JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")).filter(f => f.ventaId === \"V-91934f4a\"), null, 2)"
 Salida:
 [
   {
     "compradorId": "user-titular",
     "eventoId": "ev-1",
-    "mensajeId": "ID:a30a39f7-c70b-11f1-8599-0a0027000009",
+    "mensajeId": "ID:52a80392-c736-11f1-9d59-0a0027000009",
     "montoTotal": 60500,
-    "recibidoEn": "2026-10-13T13:40:21Z",
+    "recibidoEn": "2026-10-13T18:45:55Z",
     "tipoEvento": "PAGO_CONFIRMADO",
-    "ventaId": "V-be1e5e8e"
+    "ventaId": "V-91934f4a"
   }
 ]
-

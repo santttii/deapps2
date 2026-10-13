@@ -16,7 +16,8 @@ export interface Carrito {
   // Clave de idempotencia del pago de esa venta; null si no hay reserva.
   clavePago: string | null;
   // Milisegundos que el reloj del servidor le lleva al de este navegador (negativo si el del
-  // navegador está adelantado). Se mide al reservar y lo usa la cuenta regresiva; 0 sin reserva.
+  // navegador está adelantado). Se mide al reservar y lo usa la cuenta regresiva de esa reserva;
+  // sin reserva no se usa.
   desfaseReloj: number;
 }
 

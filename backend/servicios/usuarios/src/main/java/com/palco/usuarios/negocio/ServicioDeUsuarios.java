@@ -33,6 +33,7 @@ import com.palco.usuarios.api.Dtos.RegistroPendienteDto;
 import com.palco.usuarios.api.Dtos.SesionDto;
 import com.palco.usuarios.api.Dtos.TokenDeServicioDto;
 import com.palco.usuarios.api.Dtos.UsuarioDto;
+import com.palco.usuarios.api.Dtos.VerificacionDeIdentidadDto;
 import com.palco.usuarios.api.Dtos.VerificacionDto;
 import com.palco.usuarios.dominio.CodigoVerificacion;
 import com.palco.usuarios.dominio.Rol;
@@ -60,6 +61,10 @@ public class ServicioDeUsuarios implements IUsuarios {
     static final int MAX_INTENTOS_CODIGO = 5;
 
     private static final String ERROR_LOGIN = "Revisá el email y la contraseña.";
+
+    /** Lo que la verificación de identidad le dice a quien la llama: que no revisó nada. */
+    static final String DETALLE_DE_LA_SIMULACION = "Verificación simulada: Palco todavía no consulta ningún"
+            + " servicio de validación de documentos. La identidad se dio por verificada sin revisar nada.";
     private static final SecureRandom AZAR = new SecureRandom();
 
     /** Hash de una contraseña que nadie tiene, para igualar tiempos cuando el email no existe. */
@@ -182,6 +187,32 @@ public class ServicioDeUsuarios implements IUsuarios {
             throw new ErroresDeNegocio.NoEncontrado("No existe el usuario.");
         }
         return aDto(usuario);
+    }
+
+    /**
+     * SIMULACIÓN, a propósito y declarada. Una verificación de identidad real
+     * manda la foto del documento y una selfie a un servicio externo y espera
+     * su respuesta. Palco no tiene ese servicio: acá la identidad se da por
+     * verificada sin revisar nada. Existe para que una cuenta recién
+     * registrada pueda comprar, porque Ventas exige la identidad verificada.
+     *
+     * La respuesta dice que fue simulada y cada verificación queda en el log.
+     * Antes de usar el sistema con público real, esto se reemplaza por la
+     * llamada al validador: es el único lugar que cambia.
+     */
+    @Override
+    public VerificacionDeIdentidadDto verificarIdentidad(String usuarioId) {
+        Usuario usuario = em.find(Usuario.class, usuarioId);
+        if (usuario == null) {
+            throw new ErroresDeNegocio.NoEncontrado("No existe el usuario.");
+        }
+        if (!usuario.isIdentidadVerificada()) {
+            // La entidad está administrada: el cambio se guarda al cerrar la transacción de este método.
+            usuario.marcarIdentidadVerificada();
+            LOG.info("Identidad del usuario " + usuario.getId() + " dada por verificada. SIMULACIÓN: no se"
+                    + " consultó ningún servicio de validación de documentos.");
+        }
+        return new VerificacionDeIdentidadDto(aDto(usuario), true, DETALLE_DE_LA_SIMULACION);
     }
 
     @Override

@@ -3,11 +3,12 @@
 - **Dueño:** Sebastian Deya. **Rama:** `feat/ventas-core` es el nombre previsto; hoy se trabaja en el árbol actual, y la rama y los commits los maneja Santiago, uno por paso de este plan.
 - **Toca:** `backend/servicios/ventas/` y la nota `docs/notas/ventas-core.md`.
 - **Depende de:** los pasos previos T0 (Mockito en el pom padre), T1 (errores comunes) y T2 (token de rol `servicio`), y de A2 (publicador de mensajes). Están en `docs/planes/00-contratos-compartidos.md`, que acá se cita como "contratos §n" y que manda si este plan dice otra cosa.
-- **Dependen de este plan:** A4 (evidencia del 19/10), B1 (reemplaza el cobro simulado), B2, B3, C1, C2 y C3.
+- **Dependen de este plan:** A4 (evidencia del 23/10), B1 (reemplaza el cobro simulado), B2, B3, C1, C2 y C3.
+- **Fechas:** son las de la comisión de los viernes (contratos §1). El viernes 23/10 es la fecha de trabajo de la Entrega Parcial N.º 2 y falta confirmarla con la cátedra; la consigna, escrita para la comisión del lunes, dice 19/10. El 13/11 es la entrega obligatoria con defensa.
 
 ## Qué se construye
 
-**Para el 19/10**
+**Para el 23/10**
 - La compra en dos llamadas, como la OpenAPI (`docs/api/openapi.yaml`, el contrato REST del grupo): `POST /api/v1/ventas` reserva el cupo 10 minutos y deja la venta `EN_CHECKOUT`; `POST /api/v1/ventas/{ventaId}/pagos` cobra con un simulador local, la deja `CONFIRMADA`, crea las entradas y publica el mensaje `PAGO_CONFIRMADO`.
 - `GET` y `DELETE /api/v1/ventas/{ventaId}` y `GET /api/v1/entradas/{entradaId}`.
 - `ServicioDeVentas` como `@Stateful` (componente de negocio que el servidor mantiene vivo durante una conversación), una instancia por compra, con su ciclo de vida a la vista en el log.
@@ -15,7 +16,7 @@
 - `EmisionDeEntradasMDB`: el MDB (Message-Driven Bean, componente que consume mensajes) de la cola `cola.emision-entradas`. Pasa las entradas a `VALIDA` y la venta a `EMITIDA`.
 - Esquema `ventas` con Flyway (la herramienta de migraciones), `Idempotency-Key` (la clave que manda el cliente para que repetir un pedido no repita su efecto) con efecto real y tests con Mockito (librería de dobles de prueba).
 
-**Queda para el 09/11:** cobro contra el servicio de Pagos (B1) y Mercado Pago; factura SOAP (C1; hasta entonces `facturaEstado` vale `NO_APLICA`); pago pendiente con 202; reembolso, conciliación de cobros sin resultado y reenvío de mensajes (C3); reventa (C2); ETag (etiqueta de versión de una respuesta) y actualización del YAML (C4).
+**Queda para el 13/11:** cobro contra el servicio de Pagos (B1) y Mercado Pago; factura SOAP (C1; hasta entonces `facturaEstado` vale `NO_APLICA`); pago pendiente con 202; reembolso, conciliación de cobros sin resultado y reenvío de mensajes (C3); reventa (C2); ETag (etiqueta de versión de una respuesta) y actualización del YAML (C4).
 
 ## Decisiones para aprobar
 
@@ -119,7 +120,7 @@ Ids: (a) prefijo más 8 caracteres de un UUID, asignado en código; (b) número 
 
 ### 7. Llamadas a otros servicios y simuladores
 
-| Llamada | Para el 19/10 |
+| Llamada | Para el 23/10 |
 |---|---|
 | Eventos: reservar y liberar cupo (contratos §5.2) | Real, con `ClienteDeEventos` y `TokenDeServicio`. Sin T2 no funciona |
 | Usuarios: `GET /api/usuarios/yo` (§5.3) | Real. La hace `ComprasEnCurso` con el token del comprador, antes de abrir la transacción. 403 `identidad-no-verificada` |
@@ -185,7 +186,7 @@ Rutas relativas a `backend/servicios/ventas/`; las clases cuelgan de `src/main/j
 
 ## Pasos
 
-Cada paso termina con su verificación y es un punto de commit. Según el calendario de contratos §10, los pasos 1 a 6 van hasta el lunes 12/10 y el resto hasta el jueves 15/10.
+Cada paso termina con su verificación y es un punto de commit. El calendario de trabajo es el de `docs/PLAN_AGENTES.md`: el que este plan tomaba de contratos §10 apuntaba al lunes 19/10 y se quitó.
 
 0. Previos en el árbol: T0, T1, T2 y A2, con los 8 `health` en 200. Sin T0 ni T1 no se puede hacer el paso 3, sin T2 no se puede verificar el 4 y sin A2 no compila el 5.
 1. Context root, `persistence.xml`, `MigracionesVentas` y la V1, con el SQL cerrado antes del primer despliegue. `GET /api/v1/health` da 200 e informa `v1`; `/api/ventas/health` deja de existir.
@@ -270,7 +271,7 @@ Los requests 1, 2 y 3 de la carpeta 3 de Postman pasan cuando Santiago aplique T
 - El 403 `identidad-no-verificada` y el 404 de una venta ajena se prueban solo con dobles: hay una sola cuenta de prueba con rol `user` y tiene la identidad verificada.
 - La reentrega de una venta ya emitida: los endpoints de prueba de A2 publican un mensaje fijo. La condición del `UPDATE` la probó un revisor en H2; en vivo solo se ve el caso de la venta que no existe.
 
-**Límites que se aceptan para el 19/10**
+**Límites que se aceptan para el 23/10**
 - Los de contratos §12 que nacen acá: redesplegar Ventas corta las compras en curso; puede quedar cupo tomado sin venta si el servidor se cae entre la reserva y el commit o si Eventos no responde al liberar; y hay lugar para unas 5 compras simultáneas, porque cada una retiene una conexión de la base mientras llama a Eventos.
 - Una venta con `clave_pago` y sin resultado queda `EN_CHECKOUT`, con su cupo, hasta la conciliación de C3. Con el simulador solo pasa con `tok_sin_respuesta` o con una falla inesperada después de cobrar.
 - La misma clave con otro cuerpo devuelve la venta original: no se compara el cuerpo.

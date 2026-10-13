@@ -1,18 +1,18 @@
-Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico (primera toma)
-Qué muestra: las líneas del log del servidor que nombran a la venta V-be1e5e8e, en orden: la compra con estado (ServicioDeVentas), y los tres consumidores del mensaje PAGO_CONFIRMADO: AvisoDeCompra y AuditoriaDeCompras (tópico, en Notificaciones) y EmisionDeEntradas (cola, en Ventas). El servidor escribe la hora local (UTC-3).
-Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados.
+Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico
+Qué muestra: las líneas del log del servidor que nombran a la venta V-91934f4a, en orden: la compra con estado (ServicioDeVentas), el pago que guardó ServicioDePagos, y los tres consumidores del mensaje PAGO_CONFIRMADO: AvisoDeCompra y AuditoriaDeCompras (tópico, en Notificaciones) y EmisionDeEntradas (cola, en Ventas). El servidor escribe la hora local (UTC-3). Entre paréntesis va el hilo: el pago corre en un hilo del servidor web y los consumidores, en hilos del broker.
+Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados. Lo escribió docs/entrega3/evidencia/tomar-evidencia.sh.
 
 ----------------------------------------------------------------------
 Líneas de server.log con el id de la venta
-Fecha: 2026-10-13 10:40:29 -0300
+Fecha: 2026-10-13 15:46:05 -0300
 Comando:
-    grep -n "V-be1e5e8e" backend/servidor/target/server/standalone/log/server.log
+    grep -n "V-91934f4a" backend/servidor/target/server/standalone/log/server.log
 Salida:
-11247:2026-10-13 10:40:21,370 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-115) Compra V-be1e5e8e abierta por user-titular: total 60500, reserva hasta 2026-10-13T13:50:21Z (instancia 4414697).
-11248:2026-10-13 10:40:21,913 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-115) Compra V-be1e5e8e confirmada con el pago P-d285aa53. Entradas creadas: 2. PAGO_CONFIRMADO publicado en la misma transacción (instancia 4414697).
-11249:2026-10-13 10:40:21,925 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-115) Compra en curso: el contenedor destruye la instancia 4414697 de la venta V-be1e5e8e.
-11250:2026-10-13 10:40:21,927 INFO  [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-120 (activemq-client-global)) AuditoriaDeCompras: procesado el mensaje de la venta V-be1e5e8e.
-11251:2026-10-13 10:40:21,931 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-121 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-be1e5e8e. Entradas emitidas: 2. La venta pasó a EMITIDA.
-11252:2026-10-13 10:40:21,933 INFO  [com.palco.notificaciones.negocio.ServicioDeNotificaciones] (Thread-122 (activemq-client-global)) Aviso al comprador user-titular: tu compra V-be1e5e8e quedó confirmada. Evento ev-1, 2 entradas: Platea B (Ana Gomez), Platea B (Luis Perez). Total: $60500.
-11253:2026-10-13 10:40:21,933 INFO  [com.palco.notificaciones.mensajeria.AvisoDeCompraMDB] (Thread-122 (activemq-client-global)) AvisoDeCompra: aviso enviado por la venta V-be1e5e8e.
-
+3109:2026-10-13 15:45:54,087 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra V-91934f4a abierta por user-titular: total 60500, reserva hasta 2026-10-13T18:55:53Z (instancia 5565769a).
+3111:2026-10-13 15:45:55,116 INFO  [com.palco.pagos.negocio.ServicioDePagos] (default task-3) Pago P-8c25143c de la venta V-91934f4a: APROBADO (pasarela fake).
+3112:2026-10-13 15:45:55,415 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra V-91934f4a confirmada con el pago P-8c25143c. Entradas creadas: 2. PAGO_CONFIRMADO publicado en la misma transacción (instancia 5565769a).
+3113:2026-10-13 15:45:55,475 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra en curso: el contenedor destruye la instancia 5565769a de la venta V-91934f4a.
+3114:2026-10-13 15:45:55,522 INFO  [com.palco.notificaciones.negocio.ServicioDeNotificaciones] (Thread-1 (activemq-client-global)) Aviso al comprador user-titular: tu compra V-91934f4a quedó confirmada. Evento ev-1, 2 entradas: Platea B (Ana Gomez), Platea B (Luis Perez). Total: $60500.
+3115:2026-10-13 15:45:55,524 INFO  [com.palco.notificaciones.mensajeria.AvisoDeCompraMDB] (Thread-1 (activemq-client-global)) AvisoDeCompra: aviso enviado por la venta V-91934f4a.
+3116:2026-10-13 15:45:55,527 INFO  [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-0 (activemq-client-global)) AuditoriaDeCompras: procesado el mensaje de la venta V-91934f4a.
+3117:2026-10-13 15:45:55,602 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-1 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-91934f4a. Entradas emitidas: 2. La venta pasó a EMITIDA.

@@ -9,6 +9,31 @@ preferí código simple y justificado antes que código ingenioso.
 2. Trabajá solo en los módulos que tu tarea nombra. Si necesitás cambiar otro módulo, parate y avisá.
 3. `backend/common` es compartido: no lo modifiques salvo que tu tarea lo diga explícitamente.
 
+## Fechas de la comisión (viernes)
+El grupo cursa los **viernes de 08:45 a 11:45**. La consigna (`docs/consigna/`) está escrita para la comisión del
+lunes: **sus fechas no son las nuestras**. Usá las de esta tabla, que sale del cronograma que publica la cátedra.
+
+| Viernes | Hito en el cronograma de la comisión | Cómo lo llama la consigna, y con qué fecha |
+|---|---|---|
+| 04/09 y 18/09 | 1.er check point y 1.ª entrega parcial (ya pasaron) | Entrega Parcial N.º 1 (31/08) y Entrega Obligatoria N.º 1 (14/09) |
+| **23/10** | No figura con nombre. **Fecha sin confirmar con la cátedra** | Entrega Parcial N.º 2 (19/10): checkpoint sin defensa. El plan viejo la llamaba "Entrega 3" |
+| **06/11** | Entrega del diseño del TP Obligatorio | No figura. Qué se entrega: a confirmar con la cátedra |
+| **13/11** | 2.ª Entrega PARCIAL | Entrega Obligatoria N.º 2 — 2.º Parcial (09/11): con defensa oral. El plan viejo la llamaba "Entrega 4" |
+| **20/11** | 3.er Check point TPO | No figura. Qué se entrega: a confirmar con la cátedra |
+| **27/11** | Prueba del TP Obligatorio | Entrega Final (30/11 en el detalle de la consigna). Es el límite para tener el sistema completo funcionando |
+| 04/12 y 11/12 | Recuperatorio o final adelantado, y final regular | — |
+
+- El 16/10, el 23/10 y el 30/10 hay clase ("Desarrollo de una aplicación integrada").
+- El 23/10 sale del patrón de las demás fechas: las del viernes caen cuatro días después de las del lunes. Es la
+  fecha de trabajo hasta que la cátedra la confirme.
+- La hora límite de la consigna (13:30) es de la comisión del lunes y también falta confirmarla. Por eso **toda
+  entrega se sube el jueves anterior a la clase**.
+- En texto nuevo escribí la fecha o el nombre de la consigna, no "Entrega 3" ni "Entrega 4". Esos nombres quedan
+  solo en archivos y carpetas que ya existen (`docs/entrega3/`, `scripts/demo-entrega3.sh`).
+- No cambies una fecha que cuenta algo que ya pasó, ni las de `docs/clases/`, `docs/entrega1/` y `docs/consigna/`.
+- El calendario de trabajo y el reparto están en `docs/PLAN_AGENTES.md`. Qué pide cada hito y en qué estado está,
+  en la última sección de `TODO.md`.
+
 ## Stack y estructura
 - Backend: Jakarta EE 11 sobre WildFly 41, Java 25, Maven. **8 WAR independientes** en `backend/servicios/*`,
   uno por componente, cada uno con su API en `/api/<servicio>` y su esquema de base. Se hablan solo por REST o JMS,

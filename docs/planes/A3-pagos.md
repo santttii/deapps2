@@ -3,17 +3,19 @@
 - **Dueña:** Valentina Frisoli. **Rama:** `feat/pagos` en el brief; se trabaja en el árbol actual y los commits los hace solo Santiago, uno por paso.
 - **Toca:** `backend/servicios/pagos/` y la nota `docs/notas/pagos.md`. El prototipo en Figma es tarea humana de Valentina y no se planifica acá.
 - **Depende de:** los pasos transversales T0 y T1 para compilar, y T2 (token de rol `servicio`) para los `curl`.
-- **Dependen de este plan:** las tareas B1, C2 y C3 de las olas siguientes. A1 no, porque cobra con su `CobrosFake`: este plan no bloquea el 19/10.
+- **Dependen de este plan:** las tareas B1, C2 y C3 de las olas siguientes. A1 no, porque cobra con su `CobrosFake`: este plan no bloquea el 23/10.
 
 Los nombres son los de `docs/planes/00-contratos-compartidos.md` ("contratos"), que manda si hay diferencias.
+
+Las fechas son las de la comisión de los viernes (sección 1 de contratos). El viernes 23/10 es la fecha de trabajo de la Entrega Parcial N.º 2 y falta confirmarla con la cátedra; la consigna, escrita para la comisión del lunes, dice 19/10. El 13/11 es la entrega obligatoria con defensa.
 
 ## Qué se construye
 
 Hoy el WAR (el archivo desplegable del servicio) de pagos tiene solo `PagosApplication`.
 
-**Para el 19/10:** `POST /api/v1/pagos`, `GET /api/v1/pagos/{pagoId}`, la tabla `pagos.pago` y sus tests. Ventas pide un cobro y Pagos lo resuelve con `PagosFake`, una pasarela (el servicio externo que cobra) simulada. El pedido es idempotente: repetirlo no repite el cobro.
+**Para el 23/10:** `POST /api/v1/pagos`, `GET /api/v1/pagos/{pagoId}`, la tabla `pagos.pago` y sus tests. Ventas pide un cobro y Pagos lo resuelve con `PagosFake`, una pasarela (el servicio externo que cobra) simulada. El pedido es idempotente: repetirlo no repite el cobro.
 
-**Para el 09/11:** el webhook (el aviso HTTP que la pasarela le manda a nuestra API), el reembolso y `MercadoPagoPagos`, diseñados en las decisiones 5 y 6.
+**Para el 13/11:** el webhook (el aviso HTTP que la pasarela le manda a nuestra API), el reembolso y `MercadoPagoPagos`, diseñados en las decisiones 5 y 6.
 
 Respecto del brief cambian tres cosas: qué interfaz tiene las dos implementaciones (decisión 1), el alcance (decisión 5) y la ruta, de `/api/pagos` a `/api/v1/pagos` (propuesta P7 de contratos).
 
@@ -25,7 +27,7 @@ Se implementan con la recomendada y quedan pendientes de aprobación de Valentin
 - (a) `PagosFake` y `MercadoPagoPagos` implementan `IPagos`, como dice el brief: cada una tendría que guardar el pago y deduplicar.
 - (b) `ServicioDePagos` implementa `IPagos`, y las dos implementaciones elegibles implementan `PasarelaDePagos`.
 - **Recomendada: (b).** Guardar y deduplicar se escribe una sola vez, y coincide con la Entrega Parcial 1.
-- **Patrón.** `MercadoPagoPagos` va a ser un Adapter: traduce la API de Mercado Pago a `PasarelaDePagos`. `PagosFake` es una implementación simulada y no adapta nada. `FabricaDePasarela` es la Factory que elige cuál se crea. Que sean intercambiables es la forma de un Strategy, pero lo que se resuelve es una interfaz ajena incompatible: por eso se cuenta como Adapter. El 19/10 hay interfaz y Factory; el Adapter figura "diseñado, pendiente".
+- **Patrón.** `MercadoPagoPagos` va a ser un Adapter: traduce la API de Mercado Pago a `PasarelaDePagos`. `PagosFake` es una implementación simulada y no adapta nada. `FabricaDePasarela` es la Factory que elige cuál se crea. Que sean intercambiables es la forma de un Strategy, pero lo que se resuelve es una interfaz ajena incompatible: por eso se cuenta como Adapter. El 23/10 hay interfaz y Factory; el Adapter figura "diseñado, pendiente".
 - **Defensa:** "el servicio decide y guarda; la pasarela solo habla con el exterior".
 
 **2. Cómo se elige la implementación.**
@@ -46,13 +48,13 @@ Se implementan con la recomendada y quedan pendientes de aprobación de Valentin
 - (b) Una sola transacción: retiene una de las 10 conexiones de los 8 WAR mientras espera a un tercero, y tras una clave duplicada la transacción queda marcada para deshacerse y ya no se puede releer. (c) Verificar solo en Java: dos pedidos simultáneos pasan los dos.
 - **Recomendada: (a).** **Defensa:** "no dejamos una transacción abierta mientras esperamos a un tercero, y el duplicado lo impide la base, no un `if`".
 
-**5. Alcance antes del 19/10 (propuesta P10).**
+**5. Alcance antes del 23/10 (propuesta P10).**
 - (a) Solo el pago con `PagosFake`. (b) Todo el brief. (c) Sumar un `MercadoPagoPagos` escrito de memoria.
-- **Recomendada: (a).** El 19/10 se evalúa el proceso asincrónico, que no pasa por Pagos. Hoy la referencia oficial de `POST /v1/payments` devuelve 404 y la página de webhooks no trae la plantilla de la firma: un test contra ejemplos propios no prueba nada. Tampoco queda un esqueleto vacío.
+- **Recomendada: (a).** El 23/10 se evalúa el proceso asincrónico, que no pasa por Pagos. Hoy la referencia oficial de `POST /v1/payments` devuelve 404 y la página de webhooks no trae la plantilla de la firma: un test contra ejemplos propios no prueba nada. Tampoco queda un esqueleto vacío.
 - **`MercadoPagoPagos`, cuando se escriba.** Cliente JAX-RS (la API REST de Jakarta EE) con 2 segundos de conexión y 5 de lectura, creado fuera del constructor y cerrado al destruirse; todo código que no sea 2xx pasa a `SinRespuesta`; la traducción de estados es una función pura, probada con una respuesta copiada del sandbox (el entorno de pruebas de Mercado Pago). La credencial llega solo por `PALCO_PAGOS_MERCADOPAGO_TOKEN`.
 - **Defensa:** "mostramos lo que funciona y decimos qué es simulado".
 
-**6. Webhook (09/11).**
+**6. Webhook (13/11).**
 - **Validación.** (a) Firma HMAC (un código calculado con una clave secreta compartida) en la cabecera `x-signature`. (b) Un secreto en la URL: queda en los logs. (c) JWT, el token firmado de nuestros servicios: la pasarela no lo tiene. **Recomendada: (a)**, como figura en la clase 10. El secreto llega por `PALCO_PAGOS_WEBHOOK_SECRETO`; sin él se responde 401 a todo. Se valida antes de leer el cuerpo, y el id del pago se toma del parámetro `data.id` de la URL.
 - **Idempotencia.** El id del pago en la pasarela se guarda en `id_externo`, única desde la V1. La notificación solo cambia un pago `PENDIENTE` (`update … where idExterno = :id and estado = 'PENDIENTE'`, la técnica del cupo en Eventos): la repetida no modifica ninguna fila. Una tabla de notificaciones procesadas descartaría el aviso legítimo de un cambio de estado.
 - **Estados.** Se consultan con `PasarelaDePagos.consultar(idExterno)`, no se leen del cuerpo: `APROBADO`, `RECHAZADO` o `VENCIDO`; si sigue pendiente, no cambia nada.
@@ -81,7 +83,7 @@ Bajo `backend/servicios/pagos/`; las rutas de código son relativas al paquete `
 | Tests: `PagosFakeTest`, `ServicioDePagosTest`, `PagoRepositoryEnMemoria` | Ver pasos 3 y 4 |
 | `docs/notas/pagos.md` | Nota de una página para la defensa |
 
-Para el 09/11 se suman `api/WebhookResource`, `seguridad/FirmaDeWebhook`, `pasarela/MercadoPagoPagos` y sus tests.
+Para el 13/11 se suman `api/WebhookResource`, `seguridad/FirmaDeWebhook`, `pasarela/MercadoPagoPagos` y sus tests.
 
 ## Contratos con las otras tareas
 
@@ -101,7 +103,7 @@ Para el 09/11 se suman `api/WebhookResource`, `seguridad/FirmaDeWebhook`, `pasar
 
 ## Pasos
 
-Para el 19/10:
+Para el 23/10:
 
 1. `pom.xml`, `jboss-web.xml` y el comentario. Redesplegar: `/api/v1/pagos/health` da 200.
 2. Migración (el SQL se cierra antes de desplegar), `persistence.xml`, `MigracionesPagos`, `Pago` y `EstadoPago`. Redesplegar: health 200 y ningún archivo `.failed`.
@@ -111,7 +113,7 @@ Para el 19/10:
 6. Con T2, los `curl` de la sección siguiente.
 7. `docs/notas/pagos.md`, con las palabras de Valentina: decisiones 1 a 5 y cinco preguntas probables.
 
-Después del 19/10:
+Después del 23/10:
 
 8. `FirmaDeWebhook`, `confirmarPago` y `WebhookResource`. Tests: firma válida, alterada y sin secreto; dos `confirmarPago` seguidos cambian el estado una sola vez.
 9. Reembolso: `UPDATE` condicional de `APROBADO` a `REEMBOLSADO` y relectura en otra llamada al repositorio, porque ese `UPDATE` no actualiza una entidad ya cargada.
@@ -175,6 +177,6 @@ Cuando Ventas ya esté en `/api/v1`, `/api/v1/pagos/health` tiene que seguir dic
 - **Mercado Pago real necesita a una persona:** cuenta de desarrollador, aplicación y usuarios de prueba, access token de prueba, clave secreta de webhooks y una URL pública para recibir el webhook. La API pide además `payment_method_id`, `installments` y el email del pagador, que `NuevoPago` no tiene: `medioDePago` sigue siendo `tarjeta` y los campos nuevos se discuten en B2, que genera el token de tarjeta.
 - **Webhook, sin verificar:** la plantilla del texto firmado no está en la página oficial; se confirma contra el sandbox antes de escribir `FirmaDeWebhook`. Activar el secreto exige reiniciar WildFly, lo que vacía la base y cambia la clave de los tokens.
 - **Falta en contratos**, antes del paso 8: cómo se entera Ventas de que un pago pendiente se resolvió (C3); los tokens del simulador que devuelven `PENDIENTE`; el catálogo de la clase 10, que dice "200 vacío (acuse inmediato)" mientras la decisión 6 responde después de guardar; y el `type` del 409, para el que se propone `clave-reutilizada`.
-- **Consulta para la cátedra:** si el 09/11 una pasarela simulada y declarada como tal alcanza como integración REST con un sistema externo.
+- **Consulta para la cátedra:** si el 13/11 una pasarela simulada y declarada como tal alcanza como integración REST con un sistema externo.
 
 Fuente consultada hoy: [Webhooks de Mercado Pago](https://www.mercadopago.com.ar/developers/es/docs/your-integrations/notifications/webhooks).

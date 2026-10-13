@@ -2,7 +2,7 @@
 
 ## demo-entrega3.sh
 
-El guion de la demo de la Entrega 3. Hace una compra de punta a punta con `curl` contra el servidor ya levantado y muestra, paso por paso, el proceso de negocio con su parte asincrónica: al pagar, Ventas publica `PAGO_CONFIRMADO` en la cola `cola.emision-entradas` y en el tópico `topico.compra-confirmada`.
+El guion de la demo de la Entrega Parcial N.º 2 de la consigna (viernes 23/10/2026, fecha a confirmar con la cátedra). El plan viejo la llamaba "Entrega 3", y de ahí viene el nombre del archivo. Hace una compra de punta a punta con `curl` contra el servidor ya levantado y muestra, paso por paso, el proceso de negocio con su parte asincrónica: al pagar, Ventas publica `PAGO_CONFIRMADO` en la cola `cola.emision-entradas` y en el tópico `topico.compra-confirmada`.
 
 Se corre con Git Bash en Windows, o con Bash en Linux y macOS, desde cualquier carpeta:
 

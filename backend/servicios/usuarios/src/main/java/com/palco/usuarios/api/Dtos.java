@@ -79,6 +79,18 @@ public final class Dtos {
     public record RegistroPendienteDto(String email, String mensaje) {
     }
 
+    /**
+     * Respuesta de la verificación de identidad. {@code usuario} es la cuenta
+     * como quedó, con {@code identidadVerificada} en verdadero.
+     *
+     * {@code simulada} vale siempre {@code true} y {@code detalle} lo explica:
+     * hoy no hay un servicio que valide documentos, así que la identidad se
+     * da por verificada sin revisar nada. Va en la respuesta, y no solo en el
+     * código, para que quien la consuma no la tome por una validación real.
+     */
+    public record VerificacionDeIdentidadDto(UsuarioDto usuario, boolean simulada, String detalle) {
+    }
+
     /** Lo que presenta un servicio para pedir su token: el secreto que comparten todos los servicios. */
     public record SecretoDto(@NotBlank(message = "Falta el secreto.") String secreto) {
     }

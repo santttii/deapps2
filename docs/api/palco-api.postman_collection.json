@@ -520,6 +520,90 @@
           ]
         },
         {
+          "name": "Verificar mi identidad (200, simulada)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/yo/identidad",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "yo",
+                "identidad"
+              ],
+              "query": []
+            },
+            "description": "Deja verificada la identidad del dueño del token, que es lo que Ventas exige para comprar. Es una SIMULACIÓN: no revisa ningún documento, y la respuesta lo dice con \"simulada\": true. No lleva cuerpo. Repetirlo no cambia nada: acá se llama con titular@palco.test, que ya estaba verificada."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const r = pm.response.json();",
+                  "pm.test('la respuesta declara que la verificación es simulada', () => {",
+                  "  pm.expect(r.simulada).to.eql(true);",
+                  "  pm.expect(r.detalle).to.be.a('string').and.to.include('simulada');",
+                  "});",
+                  "pm.test('la cuenta del token queda con la identidad verificada', () => {",
+                  "  pm.expect(r.usuario.email).to.eql('titular@palco.test');",
+                  "  pm.expect(r.usuario.identidadVerificada).to.eql(true);",
+                  "  pm.expect(r.usuario).to.not.have.any.keys('password', 'passwordHash');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verificar mi identidad sin token (401)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUsuarios}}/yo/identidad",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "yo",
+                "identidad"
+              ],
+              "query": []
+            },
+            "description": "La cuenta sale del token: sin token no hay a quién verificar."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-autenticado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-autenticado');",
+                  "  pm.expect(p.status).to.eql(401);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Login staff (200) guarda tokenStaff",
           "request": {
             "method": "POST",
@@ -1708,7 +1792,7 @@
                   "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
                   "const v = pm.response.json();",
                   "pm.test('la venta trae los campos del contrato', () => {",
-                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'creada', 'venceReserva', 'pagoId', 'entradas', '_links');",
                   "  pm.expect(v.id).to.match(/^V-[0-9a-f]{8}$/);",
                   "  pm.expect(v.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
                   "});",
@@ -1735,6 +1819,10 @@
                   "  const faltan = Date.parse(v.venceReserva) - Date.now();",
                   "  pm.expect(faltan).to.be.above(0);",
                   "  pm.expect(faltan).to.be.at.most(11 * 60 * 1000);",
+                  "});",
+                  "pm.test('trae la fecha de creación, en UTC, 10 minutos antes del vencimiento', () => {",
+                  "  pm.expect(v.creada).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/);",
+                  "  pm.expect(Date.parse(v.venceReserva) - Date.parse(v.creada)).to.eql(10 * 60 * 1000);",
                   "});",
                   "pm.test('_links: self, pagar y cancelar, con rutas sin host', () => {",
                   "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
@@ -1808,7 +1896,7 @@
                   "pm.test('responde 201', () => pm.response.to.have.status(201));",
                   "const v = pm.response.json();",
                   "pm.test('la venta trae los campos del contrato', () => {",
-                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'creada', 'venceReserva', 'pagoId', 'entradas', '_links');",
                   "  pm.expect(v.id).to.match(/^V-[0-9a-f]{8}$/);",
                   "  pm.expect(v.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
                   "});",
@@ -1835,6 +1923,10 @@
                   "  const faltan = Date.parse(v.venceReserva) - Date.now();",
                   "  pm.expect(faltan).to.be.above(0);",
                   "  pm.expect(faltan).to.be.at.most(11 * 60 * 1000);",
+                  "});",
+                  "pm.test('trae la fecha de creación, en UTC, 10 minutos antes del vencimiento', () => {",
+                  "  pm.expect(v.creada).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/);",
+                  "  pm.expect(Date.parse(v.venceReserva) - Date.parse(v.creada)).to.eql(10 * 60 * 1000);",
                   "});",
                   "pm.test('_links: self, pagar y cancelar, con rutas sin host', () => {",
                   "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
@@ -1886,7 +1978,7 @@
                   "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
                   "const v = pm.response.json();",
                   "pm.test('la venta trae los campos del contrato', () => {",
-                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'creada', 'venceReserva', 'pagoId', 'entradas', '_links');",
                   "  pm.expect(v.id).to.match(/^V-[0-9a-f]{8}$/);",
                   "  pm.expect(v.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
                   "});",
@@ -1913,6 +2005,10 @@
                   "  const faltan = Date.parse(v.venceReserva) - Date.now();",
                   "  pm.expect(faltan).to.be.above(0);",
                   "  pm.expect(faltan).to.be.at.most(11 * 60 * 1000);",
+                  "});",
+                  "pm.test('trae la fecha de creación, en UTC, 10 minutos antes del vencimiento', () => {",
+                  "  pm.expect(v.creada).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/);",
+                  "  pm.expect(Date.parse(v.venceReserva) - Date.parse(v.creada)).to.eql(10 * 60 * 1000);",
                   "});",
                   "pm.test('_links: self, pagar y cancelar, con rutas sin host', () => {",
                   "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
@@ -2090,7 +2186,7 @@
                   "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
                   "const v = pm.response.json();",
                   "pm.test('es la misma venta, con los campos del contrato', () => {",
-                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'creada', 'venceReserva', 'pagoId', 'entradas', '_links');",
                   "  pm.expect(v.id).to.eql(pm.collectionVariables.get('ventaId'));",
                   "  pm.expect(v.facturaEstado).to.eql('NO_APLICA');",
                   "  pm.expect(v.montoTotal).to.eql(Number(pm.collectionVariables.get('montoTotal')));",
@@ -2111,6 +2207,14 @@
                   "    pm.expect(e.titular).to.eql(titulares[i]);",
                   "    pm.expect(e.estado).to.eql('PENDIENTE_EMISION');",
                   "    pm.expect(e._links.self).to.eql({ href: '/api/v1/entradas/' + e.id, method: 'GET' });",
+                  "  });",
+                  "});",
+                  "pm.test('cada entrada trae su sector, lo que se pagó por ella y su código', () => {",
+                  "  v.entradas.forEach((e) => {",
+                  "    pm.expect(e).to.include.all.keys('id', 'sectorId', 'sector', 'titular', 'precioPagado', 'estado', 'codigoQr', '_links');",
+                  "    pm.expect(e.sectorId).to.eql(v.items[0].sectorId);",
+                  "    pm.expect(e.precioPagado).to.eql(v.items[0].precioUnitario);",
+                  "    pm.expect(e.codigoQr).to.be.null;",
                   "  });",
                   "});",
                   "pm.test('_links: solo self; ya no se puede pagar ni cancelar', () => {",
@@ -2175,7 +2279,7 @@
                   "pm.test('responde 201', () => pm.response.to.have.status(201));",
                   "const v = pm.response.json();",
                   "pm.test('es la misma venta, con los campos del contrato', () => {",
-                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'creada', 'venceReserva', 'pagoId', 'entradas', '_links');",
                   "  pm.expect(v.id).to.eql(pm.collectionVariables.get('ventaId'));",
                   "  pm.expect(v.facturaEstado).to.eql('NO_APLICA');",
                   "  pm.expect(v.montoTotal).to.eql(Number(pm.collectionVariables.get('montoTotal')));",
@@ -2366,7 +2470,7 @@
                   "pm.test('responde 200', () => pm.response.to.have.status(200));",
                   "const v = pm.response.json();",
                   "pm.test('es la misma venta, con los campos del contrato', () => {",
-                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'creada', 'venceReserva', 'pagoId', 'entradas', '_links');",
                   "  pm.expect(v.id).to.eql(pm.collectionVariables.get('ventaId'));",
                   "  pm.expect(v.facturaEstado).to.eql('NO_APLICA');",
                   "  pm.expect(v.montoTotal).to.eql(Number(pm.collectionVariables.get('montoTotal')));",
@@ -2384,9 +2488,125 @@
                   "    pm.expect(e._links.self).to.eql({ href: '/api/v1/entradas/' + e.id, method: 'GET' });",
                   "  });",
                   "});",
+                  "pm.test('cada entrada trae su sector, lo que se pagó por ella y su código', () => {",
+                  "  v.entradas.forEach((e) => {",
+                  "    pm.expect(e).to.include.all.keys('id', 'sectorId', 'sector', 'titular', 'precioPagado', 'estado', 'codigoQr', '_links');",
+                  "    pm.expect(e.sectorId).to.eql(v.items[0].sectorId);",
+                  "    pm.expect(e.precioPagado).to.eql(v.items[0].precioUnitario);",
+                  "    pm.expect(e.codigoQr).to.be.a('string').and.not.empty;",
+                  "  });",
+                  "});",
                   "pm.test('_links: solo self; ya no se puede pagar ni cancelar', () => {",
                   "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
                   "  pm.expect(v._links).to.not.have.any.keys('pagar', 'cancelar');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/ventas mis compras (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas"
+              ],
+              "query": []
+            },
+            "description": "Las compras del dueño del token, de la más nueva a la más vieja, cada una con sus entradas. De quién son lo dice el token: no se le pasa ningún id de usuario. Es lo que usa \"Mis entradas\"."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const ventas = pm.response.json();",
+                  "pm.test('es una lista de ventas con los campos del contrato', () => {",
+                  "  pm.expect(ventas).to.be.an('array').that.is.not.empty;",
+                  "  ventas.forEach((venta) => pm.expect(venta).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'creada', 'venceReserva', 'pagoId', 'entradas', '_links'));",
+                  "});",
+                  "pm.test('viene de la más nueva a la más vieja', () => {",
+                  "  const fechas = ventas.map((venta) => venta.creada);",
+                  "  pm.expect(fechas).to.eql([...fechas].sort().reverse());",
+                  "});",
+                  "const v = ventas.find((venta) => venta.id === pm.collectionVariables.get('ventaId'));",
+                  "pm.test('trae la venta de esta corrida, EMITIDA y con su pago', () => {",
+                  "  pm.expect(v, 'la venta de la corrida no está en la lista').to.be.an('object');",
+                  "  pm.expect(v.estado).to.eql('EMITIDA');",
+                  "  pm.expect(v.pagoId).to.eql(pm.collectionVariables.get('pagoId'));",
+                  "});",
+                  "pm.test('trae las dos entradas, una por titular y en el orden del pedido, VALIDA', () => {",
+                  "  pm.expect(v.entradas).to.have.lengthOf(2);",
+                  "  const titulares = [{\"nombre\":\"Ana Gómez\",\"dni\":\"30123456\"},{\"nombre\":\"Luis Pérez\",\"dni\":\"31234567\"}];",
+                  "  v.entradas.forEach((e, i) => {",
+                  "    pm.expect(e.id).to.match(/^T-[0-9a-f]{8}$/);",
+                  "    pm.expect(e.sector).to.eql(v.items[0].sector);",
+                  "    pm.expect(e.titular).to.eql(titulares[i]);",
+                  "    pm.expect(e.estado).to.eql('VALIDA');",
+                  "    pm.expect(e._links.self).to.eql({ href: '/api/v1/entradas/' + e.id, method: 'GET' });",
+                  "  });",
+                  "});",
+                  "pm.test('cada entrada trae su sector, lo que se pagó por ella y su código', () => {",
+                  "  v.entradas.forEach((e) => {",
+                  "    pm.expect(e).to.include.all.keys('id', 'sectorId', 'sector', 'titular', 'precioPagado', 'estado', 'codigoQr', '_links');",
+                  "    pm.expect(e.sectorId).to.eql(v.items[0].sectorId);",
+                  "    pm.expect(e.precioPagado).to.eql(v.items[0].precioUnitario);",
+                  "    pm.expect(e.codigoQr).to.be.a('string').and.not.empty;",
+                  "  });",
+                  "});",
+                  "pm.test('el código de la entrada es el mismo que da GET /entradas/{id}', () => {",
+                  "  pm.expect(v.entradas[0].codigoQr).to.eql(pm.collectionVariables.get('codigoQr'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/ventas mis compras sin token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseApi}}/ventas",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-autenticado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-autenticado');",
+                  "  pm.expect(p.status).to.eql(401);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
                   "});"
                 ]
               }
@@ -2536,7 +2756,7 @@
                   "pm.test('responde 201', () => pm.response.to.have.status(201));",
                   "const v = pm.response.json();",
                   "pm.test('la venta trae los campos del contrato', () => {",
-                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'creada', 'venceReserva', 'pagoId', 'entradas', '_links');",
                   "  pm.expect(v.id).to.match(/^V-[0-9a-f]{8}$/);",
                   "  pm.expect(v.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
                   "});",
@@ -2563,6 +2783,10 @@
                   "  const faltan = Date.parse(v.venceReserva) - Date.now();",
                   "  pm.expect(faltan).to.be.above(0);",
                   "  pm.expect(faltan).to.be.at.most(11 * 60 * 1000);",
+                  "});",
+                  "pm.test('trae la fecha de creación, en UTC, 10 minutos antes del vencimiento', () => {",
+                  "  pm.expect(v.creada).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/);",
+                  "  pm.expect(Date.parse(v.venceReserva) - Date.parse(v.creada)).to.eql(10 * 60 * 1000);",
                   "});",
                   "pm.test('_links: self, pagar y cancelar, con rutas sin host', () => {",
                   "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",

@@ -311,8 +311,13 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
       de Vite.
 - [ ] Backend: mandar las cabeceras CORS también en el 401 de un token
       inválido (hoy llega sin ellas y el navegador avisa "blocked by CORS
-      policy"). Después, sacar de `api.ts` la consulta a `/health` que lo
-      compensa.
+      policy"). Después, sacar de `api.ts` la comprobación del token que lo
+      compensa (`GET /api/usuarios/yo` y, si no se puede leer, el `health`;
+      ver `docs/notas/B2-frontend-checkout.md`, decisión 7).
+- [ ] Backend: informar la hora del servidor (los segundos que faltan en la
+      venta, o exponer la cabecera `Date` por CORS). Mientras tanto el
+      checkout deduce el desfase de relojes de "la reserva dura 10 minutos"
+      (ver `docs/notas/B2-frontend-checkout.md`, decisión 3).
 - [x] Manejo de datos del servidor: `fetch` con `useEffect` y `useState`, sin
       librería. Al conectar Ventas se revisó TanStack Query y no hizo falta: el
       estado "emitiendo entradas" se resolvió con un `setTimeout` (una consulta
@@ -345,7 +350,9 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
       terminar "Titulares" se inicia la compra y en "Pago" se paga o se cancela.
 - [x] Confirmación con estado "emitiendo entradas…" hasta que la emisión
       asíncrona termine.
-- [x] Countdown del checkout sincronizado con el vencimiento real.
+- [x] Countdown del checkout sincronizado con el vencimiento real, también
+      con el reloj del navegador mal puesto (se corrige el desfase medido al
+      reservar).
 - [~] Estados de carga, error y vacío en cada pantalla: hechos en catálogo,
       detalle, ingreso, registro, crear evento, checkout, confirmación y las
       pantallas que esperan el catálogo. La reventa sigue con `sleep()`.
@@ -449,5 +456,35 @@ No dependen del backend.
 
 ## Entregas de la materia
 
-Según el taller de integración: Parcial N.º 2, Obligatoria N.º 2 y Final.
-- [ ] Anotar fechas y qué pide cada una, y mapear a estas fases.
+- [x] Anotar fechas y qué pide cada una, y mapear a estas fases (hecho el
+      13/10/2026).
+
+El grupo cursa los **viernes** (08:45 a 11:45) y la consigna está escrita para
+la comisión del lunes. Las fechas de esta tabla son las del cronograma que
+publica la cátedra para los viernes; entre paréntesis va la fecha que figura
+en la consigna, que no es la nuestra. "Qué pide" sale de la consigna
+(secciones 5, 6 y 9); donde la consigna no dice nada, figura "a confirmar con
+la cátedra".
+
+| Viernes | Hito del cronograma | Qué pide la consigna | Estado al 13/10 | Fases |
+|---|---|---|---|---|
+| 04/09 | 1.er check point TPO | Entrega Parcial N.º 1 (31/08): componentes candidatos con su interfaz, diagrama de arquitectura, stack y un componente desplegado. Sin defensa | Ya pasó | — |
+| 18/09 | 1.ª entrega parcial | Entrega Obligatoria N.º 1 (14/09): tres componentes desplegados, uno stateful y uno stateless, tres patrones, seguridad declarativa y documento de 5 a 8 páginas. Con defensa oral | Ya pasó | — |
+| **23/10**, sin confirmar | No figura con nombre: ese día hay clase | Entrega Parcial N.º 2 (19/10), checkpoint formativo sin defensa: diagrama de arquitectura de integración (SOA); clasificación justificada de cada integración externa en síncrona (SOAP o REST) o asincrónica (cola o tópico); y un proceso de negocio de punta a punta con mensajería real y broker configurado | **Listo para entregar**: documento, diagrama y evidencia en `docs/entrega3/`. Falta lo que hace una persona: el tag, la evidencia tomada desde ese tag, la lectura de los cinco, confirmar la fecha de la carátula (dice 23/10) y subirlo el jueves 22/10 | 2, 3, 4 y 6 |
+| **06/11** | Entrega del diseño del TP Obligatorio | La consigna no la nombra: a confirmar con la cátedra | Sin definir. Hasta tener respuesta se prepara el borrador del documento técnico con los diagramas de secuencia, el WSDL y `docs/api/openapi.yaml` al día; se sube el jueves 05/11 | 5 y 11 |
+| **13/11** | 2.ª Entrega PARCIAL | Entrega Obligatoria N.º 2 — 2.º Parcial (09/11), con defensa oral de 20 a 25 minutos y nota mínima 4. Hay que entregar: dos procesos con mensajería de punta a punta (uno por cola y uno por tópico); un servicio SOAP con su WSDL, justificado como sistema legado; un servicio REST (partner moderno o API de consumo externo); transacciones declarativas en un flujo crítico de varios pasos; documento técnico actualizado, de 8 a 12 páginas, con un diagrama de secuencia por integración; y la declaración del uso de IA. Hay que defender: una demo que cruce componentes, mensajería y servicios web; por qué cada integración es síncrona o asincrónica; y qué pasa con la transacción si algo falla a mitad del flujo | Hecho: la cola y el tópico (emisión de entradas; aviso y auditoría), la API REST propia y la transacción declarativa que confirma la compra. **No existen el servicio SOAP con su WSDL ni el documento técnico con los diagramas de secuencia.** Falta además una prueba de la falla a mitad del flujo que quede en el repo y se pueda repetir | 4, 5, 6 y 11 |
+| **20/11** | 3.er Check point TPO | La consigna no lo nombra: a confirmar con la cátedra | Sin definir. El plan es mostrar Validación y Reventa funcionando | 7, 8 y 10 |
+| **27/11** | Prueba del TP Obligatorio | La consigna no la nombra así: qué se hace ese día, a confirmar con la cátedra. Se toma como límite para lo que pide la Entrega Final (30/11 en el detalle de la consigna): sistema completo que cumpla el checklist de la sección 6; documentación final de 10 a 15 páginas; historial de git incremental y con participación visible de todos; demo completa, preguntas individuales y reflexión del equipo | Implementados 5 de los 8 componentes (Usuarios, Eventos, Ventas, Pagos y Notificaciones). Faltan Facturación, Validación y Reventa; Mercado Pago real con su webhook; el frontend de reventa, puerta y panel; la documentación final; y que en git se vea a los cinco (hoy no hay commits a nombre de Joaquin Molina) | 4, 5, 7 a 12 |
+| 04/12 u 11/12 | Recuperatorio o final adelantado (04/12) y final regular (11/12) | El encabezado de la consigna da esas dos fechas para la Entrega Final. En cuál se defiende: a confirmar con la cátedra | Sin definir | — |
+
+- El 16/10, el 23/10 y el 30/10 hay clase de "Desarrollo de una aplicación
+  integrada", sin entrega con nombre.
+- **El 23/10 no está confirmado.** Sale del patrón de las demás fechas (las
+  del viernes caen cuatro días después de las del lunes). Si la cátedra dice
+  otra fecha, se cambia acá, en `CLAUDE.md` y en `docs/PLAN_AGENTES.md`.
+- **Formato de cada entrega** (consigna, sección 9): enlace al repositorio y
+  documento técnico en PDF, subidos al aula virtual. La hora límite que da la
+  consigna (13:30) es de la comisión del lunes y falta confirmarla: cada
+  entrega se sube el jueves anterior.
+- El calendario día por día, el reparto por persona y la lista de preguntas
+  para la cátedra están en `docs/PLAN_AGENTES.md`.

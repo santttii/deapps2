@@ -956,6 +956,7 @@ class ComprasEnCursoTest {
         when(venta.estaPaga()).thenReturn(estado == EstadoVenta.CONFIRMADA || estado == EstadoVenta.EMITIDA);
         // Lo que hace falta para convertirla en la respuesta de la API.
         when(venta.getFacturaEstado()).thenReturn(EstadoFactura.NO_APLICA);
+        when(venta.getCreada()).thenReturn(AHORA);
         when(venta.getVenceReserva()).thenReturn(AHORA.plusMinutes(10));
         return venta;
     }

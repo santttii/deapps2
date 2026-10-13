@@ -7,18 +7,20 @@
 
 Los nombres son los de `docs/planes/00-contratos-compartidos.md` ("los contratos"); si difieren de este plan, vale ese archivo.
 
+Las fechas son las de la comisión de los viernes (sección 1 de los contratos). El viernes 23/10 es la fecha de trabajo de la Entrega Parcial N.º 2 y falta confirmarla con la cátedra; la consigna, escrita para la comisión del lunes, dice 19/10. El 13/11 es la entrega obligatoria con defensa.
+
 ## Qué se construye
 
 Al confirmarse un pago, Ventas publica `PAGO_CONFIRMADO` en dos destinos del broker (el servidor de mensajes, ActiveMQ Artemis dentro de WildFly): una cola, que entrega cada mensaje a un solo consumidor, y un tópico, que entrega una copia a cada suscriptor.
 
-**Para el 19/10**
+**Para el 23/10**
 - En `common`: el mensaje, el publicador y las constantes con los nombres JNDI (el nombre con que el servidor publica cada recurso).
 - En `notificaciones`: dos MDB (Message-Driven Bean, el componente que consume mensajes) suscriptos al tópico. `AvisoDeCompraMDB` es no durable y escribe el aviso al comprador en el log. `AuditoriaDeComprasMDB` es durable (el broker le guarda los mensajes mientras está detenido) e inserta una fila por mensaje. Además, tres endpoints de prueba y la consulta de auditoría.
 - En `configurar.cli`: 5 entregas separadas por 2 segundos y después la DLQ (la cola de los mensajes que agotaron sus intentos).
 
 El consumidor de la cola y la publicación real son de A1.
 
-**Para el 09/11:** email real (el mensaje trae `compradorId`, no el email: habrá que pedírselo a Usuarios), `enviarRecordatorio`, `enviarAlertaCancelacion`, el diagrama de secuencia y la decisión sobre el DNI en el tópico.
+**Para el 13/11:** email real (el mensaje trae `compradorId`, no el email: habrá que pedírselo a Usuarios), `enviarRecordatorio`, `enviarAlertaCancelacion`, el diagrama de secuencia y la decisión sobre el DNI en el tópico.
 
 ## Decisiones para aprobar
 
@@ -215,7 +217,7 @@ $pend = "count-messages-for-subscription(client-id=palco-auditoria,subscription-
 - **`configurar.cli` no se reaplica** si `backend/servidor/target/server` ya existe: cada integrante corre las dos líneas con `jboss-cli`, o detiene WildFly y rearma. Nunca `mvn clean` con WildFly levantado.
 - **Caída entre los dos commits:** nadie la probó, y así se dice en la defensa.
 - **El publicador queda desplegado en los 8 WAR** aunque solo lo use Ventas. Si la cátedra lo objeta, en la Ola 3 el bean se muda a Ventas.
-- **El DNI viaja completo** en el tópico y queda en la columna `cuerpo`. Se acepta para el 19/10 (Fase 12 del `TODO.md`).
+- **El DNI viaja completo** en el tópico y queda en la columna `cuerpo`. Se acepta para el 23/10 (Fase 12 del `TODO.md`).
 - **Detalles que este plan fija y los contratos no dicen**, a confirmar por el grupo:
   - `desdeJson()` llama a `validar()`.
   - El mensaje inválido de prueba lleva `tipoEvento`; sin esa propiedad el selector lo filtra.

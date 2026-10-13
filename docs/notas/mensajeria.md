@@ -24,7 +24,7 @@ Cuando se confirma un pago, Ventas publica el mensaje `PAGO_CONFIRMADO` en el br
 
 ## Qué quedó pendiente o simulado y por qué
 
-- **El aviso es una línea en el log, no un email.** El mensaje trae `compradorId` y no el email: para el 09/11 hay que pedírselo a Usuarios. `enviarRecordatorio` y `enviarAlertaCancelacion` todavía no existen.
+- **El aviso es una línea en el log, no un email.** El mensaje trae `compradorId` y no el email: para el 13/11 hay que pedírselo a Usuarios. `enviarRecordatorio` y `enviarAlertaCancelacion` todavía no existen.
 - **Al 13/10 ninguna compra real publica:** eso es de A1. Los mensajes salen de los endpoints de prueba, con un `ventaId` que empieza con `prueba-`.
 - **No se probó en vivo:** una caída del servidor entre el commit de la base y el del broker, la reentrega de un mensaje válido y un `INSERT` rechazado por la base (los dos tienen test, con dobles), y el SQL contra PostgreSQL.
 - **Un JSON cortado puede dejar colgado a un consumidor.** `PagoConfirmadoMensaje.desdeJson` no termina si el texto se corta dentro de un campo que el mensaje no conoce (por ejemplo `{"a":{`): la librería que lee el JSON queda en un bucle en lugar de dar error. Se reprodujo fuera del servidor, con los mismos jar (Yasson 3.0.4 y Parsson 1.1.9). Hoy nadie publica un texto así: Ventas manda `aJson()` y la prueba, un texto fijo. La corrección va en `common`, porque `desdeJson` la usan los tres MDB: leer antes el texto con JSON-P, que para esos textos da error al instante. Está pedida y todavía no se hizo.

@@ -27,6 +27,7 @@ import com.palco.usuarios.api.Dtos.SecretoDto;
 import com.palco.usuarios.api.Dtos.SesionDto;
 import com.palco.usuarios.api.Dtos.TokenDeServicioDto;
 import com.palco.usuarios.api.Dtos.UsuarioDto;
+import com.palco.usuarios.api.Dtos.VerificacionDeIdentidadDto;
 import com.palco.usuarios.api.Dtos.VerificacionDto;
 import com.palco.usuarios.negocio.IUsuarios;
 import com.palco.usuarios.seguridad.ClavesJwt;
@@ -90,6 +91,28 @@ public class UsuariosResource {
     @RolesAllowed({ "user", "organizer", "staff" })
     public UsuarioDto yo(@Context SecurityContext seguridad) {
         return usuarios.obtener(Sesion.usuarioId(seguridad));
+    }
+
+    /**
+     * {@code POST /api/usuarios/yo/identidad}: verifica la identidad del
+     * usuario dueño del token. Ventas la exige para comprar, y una cuenta
+     * recién registrada todavía no la tiene.
+     *
+     * Es una simulación: no hay un servicio que valide documentos, y la
+     * respuesta lo dice ({@code "simulada": true}). Ver
+     * {@code ServicioDeUsuarios.verificarIdentidad}.
+     *
+     * La cuenta sale del token, no de un parámetro: nadie puede verificar la
+     * identidad de otro. La puede llamar cualquier persona con sesión; el rol
+     * {@code servicio} no, porque no es una persona. No recibe cuerpo, por eso
+     * acepta cualquier {@code Content-Type}.
+     */
+    @POST
+    @Path("yo/identidad")
+    @Consumes(MediaType.WILDCARD)
+    @RolesAllowed({ "user", "organizer", "staff" })
+    public VerificacionDeIdentidadDto verificarIdentidad(@Context SecurityContext seguridad) {
+        return usuarios.verificarIdentidad(Sesion.usuarioId(seguridad));
     }
 
     /**

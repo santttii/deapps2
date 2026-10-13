@@ -36,7 +36,7 @@ Los `type` de los errores: `datos-invalidos` (400), `no-autenticado` (401), `pag
 
 ## Qué quedó pendiente o simulado y por qué
 
-- **La pasarela es simulada y no se factura.** Desde B1 cobra el servicio de Pagos, con su pasarela simulada, que decide por el token: `tok_rechazado` rechaza, `tok_sin_respuesta` no contesta y cualquier otro aprueba. `CobrosFake` queda para trabajar sin Pagos (`palco.ventas.cobros=fake`); con él, una clave de pago usada en dos ventas paga las dos. `facturaEstado` vale `NO_APLICA` hasta C1 (SOAP, para el 09/11).
+- **La pasarela es simulada y no se factura.** Desde B1 cobra el servicio de Pagos, con su pasarela simulada, que decide por el token: `tok_rechazado` rechaza, `tok_sin_respuesta` no contesta y cualquier otro aprueba. `CobrosFake` queda para trabajar sin Pagos (`palco.ventas.cobros=fake`); con él, una clave de pago usada en dos ventas paga las dos. `facturaEstado` vale `NO_APLICA` hasta C1 (SOAP, para el 13/11).
 - **Una venta con `clave_pago` y sin resultado queda `EN_CHECKOUT` con su cupo** hasta la conciliación de C3: el barrido no la toca y no se puede pagar ni cancelar. Hoy hay dos, de la prueba de la excepción forzada.
 - **Redesplegar Ventas corta las compras en curso** (el índice y los titulares viven en memoria): se pueden consultar y cancelar, pagar responde 409 `reserva-vencida` y el barrido las vence.
 - **Si Eventos no responde al devolver el cupo** queda un `WARNING` con venta, sector y cantidad, y ese lugar queda sin vender hasta C3. Si no responde al reservar, no se sabe si la reserva se aplicó y no se devuelve: el `WARNING` dice evento, sector y cantidad.

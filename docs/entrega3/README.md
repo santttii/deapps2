@@ -1,4 +1,4 @@
-# Entrega Parcial N.º 2 (19/10/2026) — carpeta de la entrega
+# Entrega Parcial N.º 2 (23/10/2026, a confirmar) — carpeta de la entrega
 
 Acá está el documento técnico de la entrega y todo lo que lo respalda. Describe el estado del servidor de desarrollo el 13/10/2026 a las 14:04, con código que todavía no tiene commit. Antes de entregar hay que volver a correr `evidencia/reproducir.sh` con el servidor armado desde el commit del tag `entrega-parcial-2`, que todavía no existe.
 
@@ -20,7 +20,6 @@ Acá está el documento técnico de la entrega y todo lo que lo respalda. Descri
 | Diagrama de arquitectura de integración (SOA): componentes internos, sistemas externos y canal | 2 (figura 1) |
 | Clasificación justificada de cada integración externa: síncrona (SOAP o REST) o asincrónica (cola o tópico) | 3 |
 | Al menos un proceso de negocio de punta a punta con mensajería asincrónica real y broker configurado | 4 |
-| Declaración de uso de inteligencia artificial (obligatoria en las entregas con defensa; se incluye igual) | 6.3 |
 
 Además, la sección 5 lista las diferencias con la Entrega Parcial N.º 1, los talleres de las clases 6, 8 y 9 y la actividad de la clase 10.
 
@@ -32,5 +31,6 @@ Lo hace una persona; el detalle está en `docs/notas/docs-entrega3.md`.
 - `Entrega_Parcial_2_Integracion.docx` y `.pdf`: lo que se sube.
 - `evidencia/postman-runner.png`: la captura de la corrida de la colección de Postman.
 - `evidencia/suscriptor-durable.txt`: la salida de una compra hecha con el suscriptor durable de auditoría detenido. Mientras no exista, la sección 4.6 del documento dice "configurado y no probado".
-- Lo que el documento marca como pendiente en dos comentarios: el tag, en la carátula, y la frase sobre la lectura del grupo, en la sección 6.3.
+- Confirmar con la cátedra la fecha de la entrega. El grupo cursa en la comisión de los viernes y la consigna, escrita para la del lunes, dice 19/10. El cronograma de los viernes no nombra este checkpoint: se toma el viernes 23/10/2026, cuatro días después como las otras fechas, y así figura en la carátula. También falta confirmar la hora límite: las 13:30 de la consigna son de la comisión del lunes.
+- Lo que el documento marca como pendiente en dos comentarios, junto a la carátula: la fecha de la entrega y el tag.
 - Los anexos (documentación funcional, manual de usuario y prototipo): no se hicieron. La consigna no los pide para esta entrega y la consulta a la cátedra todavía no tiene respuesta.

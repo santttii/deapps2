@@ -1,6 +1,6 @@
-Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico (primera toma)
-Qué muestra: el estado de la cola, del tópico y de la DLQ DESPUÉS de la compra V-be1e5e8e. Contra broker-antes.txt: en la cola messages-added sube 1 y message-count sigue en 0 (el consumidor ya lo procesó); en el tópico messages-added sube 2 (una copia por suscriptor: aviso y auditoría); la DLQ no cambia.
-Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados.
+Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico
+Qué muestra: el estado de la cola, del tópico y de la DLQ DESPUÉS de la compra V-91934f4a. Contra broker-antes.txt: en la cola messages-added sube 1 y message-count sigue en 0 (el consumidor ya lo procesó); en el tópico messages-added sube 2 (una copia por suscriptor: aviso y auditoría); la DLQ no cambia.
+Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados. Lo escribió docs/entrega3/evidencia/tomar-evidencia.sh.
 
 Antes de los comandos de este archivo se definieron estas variables (los tokens no se guardan acá):
     export NOPAUSE=true JAVA_HOME="/c/Users/santi/.jdks/temurin-25"; B="/subsystem=messaging-activemq/server=default"; CLI=backend/servidor/target/server/bin/jboss-cli.bat
@@ -9,7 +9,7 @@ Antes de los comandos de este archivo se definieron estas variables (los tokens 
 
 ----------------------------------------------------------------------
 Cola, tópico y DLQ después de la compra
-Fecha: 2026-10-13 10:40:27 -0300
+Fecha: 2026-10-13 15:46:05 -0300
 Comando:
     "$CLI" --connect --commands="$B/jms-queue=cola.emision-entradas:read-resource(include-runtime=true),$B/jms-topic=topico.compra-confirmada:read-resource(include-runtime=true),$B/jms-queue=DLQ:read-attribute(name=message-count)"
 Salida:
@@ -24,7 +24,7 @@ Salida:
         "expiry-address" => "jms.queue.ExpiryQueue",
         "legacy-entries" => undefined,
         "message-count" => 0L,
-        "messages-added" => 122L,
+        "messages-added" => 1L,
         "paused" => false,
         "queue-address" => "jms.queue.cola.emision-entradas",
         "scheduled-count" => 0L,
@@ -41,7 +41,7 @@ Salida:
         "entries" => ["java:/jms/topic/compraConfirmada"],
         "legacy-entries" => undefined,
         "message-count" => 0L,
-        "messages-added" => 195L,
+        "messages-added" => 2L,
         "non-durable-message-count" => 0,
         "non-durable-subscription-count" => 1,
         "paused" => false,
@@ -52,6 +52,5 @@ Salida:
 }
 {
     "outcome" => "success",
-    "result" => 5L
+    "result" => 0L
 }
-

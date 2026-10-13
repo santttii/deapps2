@@ -84,8 +84,7 @@ public class ServicioDePagos implements IPagos {
         }
         // El id de la venta vino en el pedido: al log va en un solo renglón (ver Textos.enUnaLinea).
         LOG.info("Pago " + pago.getId() + " de la venta " + Textos.enUnaLinea(pago.getVentaId()) + ": "
-                + pago.getEstado()
-                + " (pasarela " + pago.getProveedor() + ").");
+                + pago.getEstado() + " (pasarela " + pago.getProveedor() + ").");
         return aDto(pago);
     }
 

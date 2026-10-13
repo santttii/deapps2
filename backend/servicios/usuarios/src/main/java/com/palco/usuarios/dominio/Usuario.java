@@ -75,6 +75,11 @@ public class Usuario {
         this.emailVerificado = true;
     }
 
+    /** Desde acá el usuario puede comprar: Ventas exige la identidad verificada. */
+    public void marcarIdentidadVerificada() {
+        this.identidadVerificada = true;
+    }
+
     public String getId() { return id; }
     public String getNombre() { return nombre; }
     public String getApellido() { return apellido; }

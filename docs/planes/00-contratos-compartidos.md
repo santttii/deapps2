@@ -7,16 +7,19 @@ Versión del 09/10/2026. Es la fuente única que citan los planes A1 (ventas), A
 A1, A2 y A3 se implementan en paralelo y A4 documenta el resultado. Para que las partes encajen, cada nombre y cada interfaz que cruza de una tarea a otra tiene que existir en una sola versión. Este archivo fija esa versión.
 
 - Si un plan y este archivo dicen cosas distintas, vale este archivo. Para cambiar un contrato, primero se cambia acá y se avisa al grupo.
-- **Fechas.** El 19/10 es la Entrega Parcial N.º 2 de la consigna (el plan la llama "Entrega 3"): checkpoint formativo, sin defensa. El 09/11 es la entrega obligatoria con defensa oral (el plan la llama "Entrega 4").
+- **Fechas** (corregidas el 13/10/2026). El grupo cursa en la comisión de los viernes y la consigna está escrita para la del lunes, así que este archivo usa las fechas del cronograma de los viernes.
+  - El viernes 23/10 es la Entrega Parcial N.º 2 de la consigna (el plan viejo la llamaba "Entrega 3"): checkpoint formativo, sin defensa. La consigna la fecha el lunes 19/10 y el cronograma de los viernes no la nombra. El 23/10 sale de sumarle los cuatro días que separan a las otras fechas de las dos comisiones: es la fecha de trabajo y **falta confirmarla con la cátedra**.
+  - El viernes 13/11 es la entrega obligatoria con defensa oral: la Entrega Obligatoria N.º 2 de la consigna, que la fecha el 09/11, y la "2° Entrega PARCIAL" del cronograma (el plan viejo la llamaba "Entrega 4").
+  - El calendario de trabajo y el resto de los hitos de la comisión están en `docs/PLAN_AGENTES.md`.
 - **(propuesta Pn)** marca una decisión de arquitectura que es del grupo. Se implementa con la opción recomendada, como se acordó hoy; las alternativas y el porqué están en la sección 11. Todas quedan pendientes de aprobación hasta que el dueño las lea.
 - Lo que nadie ejecutó todavía en este servidor está en la sección 12 y no se afirma como hecho en el resto.
 - **Git.** Se trabaja en el árbol actual del repo. Las ramas y los commits los maneja solo Santiago, a mano: un commit por paso verificable, con mensaje `tipo: qué cambió`. Ningún agente hace commits, crea ramas ni cambia de rama.
 
 **Siglas y términos.** WAR: el archivo desplegable de cada servicio. Context root: la ruta de la que cuelga un WAR. Session Bean: componente de negocio que administra el servidor; `@Stateless` no recuerda nada entre llamadas y `@Stateful` mantiene una conversación. CDI: la inyección de dependencias de Jakarta EE. JMS: la API de mensajería. Broker: el servidor de mensajes (ActiveMQ Artemis, dentro de WildFly). MDB (Message-Driven Bean): el componente que consume mensajes. DLQ: la cola a la que van los mensajes que fallaron todos sus intentos. JNDI: el nombre con que el servidor publica un recurso. JTA: la API de transacciones. XA: el protocolo que deja a un recurso participar de un commit en dos fases. JWT: el token firmado de sesión; claim: cada dato que viaja dentro del token; JWKS: la clave pública con que se lo verifica. DTO: objeto que entra o sale de la API. JSON-B: el conversor estándar entre objetos y JSON. CORS: el permiso para que el navegador llame a la API desde otro origen. Problem Details: el formato estándar de errores HTTP (RFC 9457). ETag: la etiqueta de versión de una respuesta, para no volver a descargarla. Pasarela: el servicio externo que cobra; webhook: el aviso HTTP que la pasarela le manda a nuestra API. Idempotente: repetir el pedido no repite el efecto. UTC: hora universal, sin zona. Runner: la función de Postman que corre la colección entera y muestra qué tests pasaron.
 
-## 2. Qué entra para el 19/10 y qué queda para el 09/11
+## 2. Qué entra para el 23/10 y qué queda para el 13/11
 
-| Tema | Para el 19/10 | Queda para el 09/11 |
+| Tema | Para el 23/10 | Queda para el 13/11 |
 |---|---|---|
 | Compra (A1) | `POST /api/v1/ventas`, pago con cobro simulado, `GET` y `DELETE` de la venta, `GET` de la entrada, vencimiento de la reserva | Cobro contra Mercado Pago, factura SOAP, pago pendiente con webhook, reembolso, conciliación de cobros sin confirmar |
 | Mensajería (A2 y A1) | `PAGO_CONFIRMADO` por cola (emisión de entradas) y por tópico (aviso en el log y auditoría durable), reintentos y DLQ | Email real, cola de reintento de facturación, diagramas de secuencia |
@@ -24,7 +27,7 @@ A1, A2 y A3 se implementan en paralelo y A4 documenta el resultado. Para que las
 | Transversal | Token de rol `servicio`, errores en Problem Details, CORS, `/api/v1` en Ventas y Pagos | `/api/v1` en Usuarios y Eventos, ETag, completar `openapi.yaml` |
 | Otros servicios | Validación, solo si B3 llega en la Ola 2 | Reventa (C2), Facturación (C1) |
 
-Camino crítico del 19/10: T1 y T2 → A2 → A1 hasta el MDB de emisión → evidencia para A4. La consigna pide para esa fecha un proceso con mensajería real; A1 cobra con un simulador local, así que A3 no está en ese camino.
+Camino crítico del 23/10: T1 y T2 → A2 → A1 hasta el MDB de emisión → evidencia para A4. La consigna pide para esa fecha un proceso con mensajería real; A1 cobra con un simulador local, así que A3 no está en ese camino.
 
 ## 3. Cambios transversales previos
 
@@ -154,7 +157,7 @@ public class TokenDeServicio {
 
 - `backend/servicios/eventos/src/main/resources/db/migracion/V3__correr_fechas.sql`: seis `UPDATE` que llevan los eventos `ev-1` a `ev-6` a diciembre de 2026 o después. La V2 no se edita, porque Flyway (la herramienta de migraciones) compara su contenido con el ya aplicado.
 - Las mismas fechas en `frontend/src/data/events.ts`, que hoy tiene cambios sin commitear.
-- Motivo: los seis eventos van del 12/09 al 16/10. El 19/10 ya pasaron todos, y la reventa exige que falten más de 3 horas.
+- Motivo: los seis eventos van del 12/09 al 16/10. El 23/10 ya pasaron todos, y la reventa exige que falten más de 3 horas.
 - Ventas no valida la fecha del evento: el contrato no tiene esa regla.
 
 ### T4 · Colección de Postman
@@ -397,7 +400,7 @@ El pago público sigue en Ventas, como en la OpenAPI. Pagos expone una API inter
 | Errores | 400 datos inválidos o falta la clave; 401; 403 otro rol; 409 clave ya usada con otra venta u otro monto; 504 la pasarela no respondió (no se guarda nada y se puede reintentar con la misma clave) |
 | Consulta | `GET /api/v1/pagos/{pagoId}`, rol `servicio`: 200 o 404 |
 
-Rutas reservadas para después del 19/10: `POST /api/v1/pagos/{pagoId}/reembolsos` y `POST /api/v1/pagos/webhook`.
+Rutas reservadas para después del 23/10: `POST /api/v1/pagos/{pagoId}/reembolsos` y `POST /api/v1/pagos/webhook`.
 
 Pagos garantiza un solo pago por clave. No garantiza un solo pago por venta: eso lo garantiza Ventas (sección 7.3).
 
@@ -409,7 +412,7 @@ Pagos garantiza un solo pago por clave. No garantiza un solo pago por venta: eso
 | 504 o sin respuesta | 504 `sin-respuesta`; la venta sigue `EN_CHECKOUT` y se reintenta con la misma clave |
 | Cualquier otro | 500 |
 
-El estado `PENDIENTE` y el 202 llegan con el webhook, después del 19/10. Hasta entonces ningún simulador devuelve `PENDIENTE`.
+El estado `PENDIENTE` y el 202 llegan con el webhook, después del 23/10. Hasta entonces ningún simulador devuelve `PENDIENTE`.
 
 **Tokens de prueba.** Valen igual en `PagosFake` (Pagos) y en `CobrosFake` (Ventas):
 
@@ -442,12 +445,15 @@ El WAR de Ventas cuelga de `/api/v1` y sirve dos recursos: `ventas` y `entradas`
 | Operación | Éxito | Errores: código y `type` |
 |---|---|---|
 | `POST /api/v1/ventas` con `Idempotency-Key` | 201, `Location` y la Venta en `EN_CHECKOUT` | 400 `datos-invalidos` (incluye clave ausente o que no es UUID); 401; 403 `identidad-no-verificada`; 409 `cupo-agotado`; 422 `maximo-de-entradas`, `dni-repetido`, `titulares-no-coinciden` o `sector-inexistente`; 504 `sin-respuesta` |
+| `GET /api/v1/ventas` | 200 con la lista de las Ventas de quien hace el pedido; vacía si no compró nada | 401; 403 con otro rol |
 | `GET /api/v1/ventas/{ventaId}` | 200 con la Venta | 404 |
 | `DELETE /api/v1/ventas/{ventaId}` | 204; repetirlo también da 204 | 404; 409 `venta-ya-paga` |
 | `POST /api/v1/ventas/{ventaId}/pagos` con `Idempotency-Key` | 201, `Location` y la Venta en `CONFIRMADA` | 400; 402 `pago-rechazado`; 404; 409 `reserva-vencida`, `venta-ya-paga` u `operacion-en-curso`; 504 `sin-respuesta` |
 | `GET /api/v1/entradas/{entradaId}` | 200 con la Entrada | 404 |
 
 Si A1 necesita otro `type`, lo agrega y lo lista en su nota.
+
+**Listado de las compras propias** (agregado el 13/10, en la integración). `GET /api/v1/ventas` devuelve las ventas del usuario del token, de la más nueva a la más vieja, cada una con el mismo formato que `GET /ventas/{ventaId}` y con sus entradas adentro. De quién son lo dice el claim `sub` del token: la operación no recibe ningún id de usuario, así que nadie puede pedir las de otro. Vienen en todos los estados, también `CANCELADA` y `VENCIDA`; el cliente filtra las que quiere mostrar. No tiene paginación ni filtros. Lo usa "Mis entradas" del frontend, para no depender de lo que recuerda el navegador.
 
 **Idempotencia.** Repetir la clave en `POST /ventas` devuelve la misma venta sin reservar otra vez. Repetirla en el pago devuelve la venta ya confirmada. Se devuelve el estado actual del recurso, no una copia guardada de la primera respuesta.
 
@@ -463,6 +469,7 @@ Si A1 necesita otro `type`, lo agrega y lo lista en su nota.
   "subtotal": 55000,
   "cargoServicio": 5500,
   "montoTotal": 60500,
+  "creada": "2026-10-19T21:00:00Z",
   "venceReserva": "2026-10-19T21:10:00Z",
   "pagoId": null,
   "entradas": [],
@@ -474,7 +481,8 @@ Si A1 necesita otro `type`, lo agrega y lo lista en su nota.
 }
 ```
 
-- `entradas` está vacío hasta el pago. Después trae `{id, sector, titular: {nombre, dni}, estado, _links: {self}}` por cada una.
+- `creada` es el instante en que se abrió la compra, en UTC (agregado el 13/10).
+- `entradas` está vacío hasta el pago. Después trae `{id, sectorId, sector, titular: {nombre, dni}, precioPagado, estado, codigoQr, _links: {self}}` por cada una. `sectorId`, `precioPagado` y `codigoQr` se agregaron el 13/10 para que el cliente no tenga que pedir cada entrada por separado; valen lo mismo que en la Entrada completa, y `codigoQr` es `null` hasta la emisión.
 - `_links`: `self` siempre; `pagar` y `cancelar` solo en `EN_CHECKOUT`. Los `href` son rutas sin host, armadas a partir del pedido.
 - El titular lleva un solo `nombre`, con nombre y apellido, como en la OpenAPI y en el mensaje.
 
@@ -510,7 +518,7 @@ Columnas de `venta` que otras tareas dan por ciertas: `estado`, `factura_estado`
 
 ### 7.3 Estados
 
-| Dato | Valores | Se usan para el 19/10 |
+| Dato | Valores | Se usan para el 23/10 |
 |---|---|---|
 | `Venta.estado` | `EN_CHECKOUT`, `CONFIRMADA`, `EMITIDA`, `CANCELADA`, `VENCIDA` | Todos |
 | `Venta.facturaEstado` | `NO_APLICA`, `AUTORIZADA`, `PENDIENTE`, `RECHAZADA` | Solo `NO_APLICA`, hasta C1 |
@@ -550,7 +558,7 @@ Columnas de `venta` que otras tareas dan por ciertas: `estado`, `factura_estado`
 | `pasarela/` | Salida hacia la pasarela externa (Pagos) | `PasarelaDePagos`, `PagosFake`, `FabricaDePasarela` |
 
 - `datos/` usa los nombres de la Entrega Parcial 1 (`VentaRepository`, `EntradaRepository`). No existe `ArchivoDeVentas`. Notificaciones puede usar `EntityManager` directo en `ServicioDeAuditoria`, como Eventos y Usuarios hoy; B4 unifica.
-- **Pagos (propuesta P9).** `IPagos` es la interfaz del componente y la implementa `ServicioDePagos`. Para el 19/10 declara `procesarPago` y `obtener`; `confirmarPago` y `reembolsar` se declaran cuando se implementen. `PasarelaDePagos` es la interfaz propia hacia el exterior. `MercadoPagoPagos` va a ser un Adapter (traduce la API de Mercado Pago a `PasarelaDePagos`), `PagosFake` es una implementación simulada de esa interfaz y `FabricaDePasarela` es la Factory que elige cuál se crea.
+- **Pagos (propuesta P9).** `IPagos` es la interfaz del componente y la implementa `ServicioDePagos`. Para el 23/10 declara `procesarPago` y `obtener`; `confirmarPago` y `reembolsar` se declaran cuando se implementen. `PasarelaDePagos` es la interfaz propia hacia el exterior. `MercadoPagoPagos` va a ser un Adapter (traduce la API de Mercado Pago a `PasarelaDePagos`), `PagosFake` es una implementación simulada de esa interfaz y `FabricaDePasarela` es la Factory que elige cuál se crea.
 - Pagos no define excepción ni manejador propio para el 504: usa `ErroresDeNegocio.SinRespuesta`.
 
 ## 8. Alineación con la OpenAPI y con Postman
@@ -585,7 +593,7 @@ Ventas no define recursos llamados `pagos`, `validacion` ni `reventas` en su ra�
 |---|---|---|---|
 | `GET` y `DELETE /ventas/{id}`, `GET /entradas/{id}` | Se implementan aunque no figuran en `paths` | Están en `_links` y en el catálogo de la clase 10; los necesitan Postman y B2 | C4 los agrega al YAML |
 | Campos extra en `Venta` | `eventoId`, `items`, `subtotal`, `cargoServicio`, `pagoId`, `entradas` | Sin `entradas` el cliente no conoce los ids; agregar campos no rompe la versión | C4 |
-| Factura dentro del pago | No se factura; `facturaEstado` queda en `NO_APLICA` | La consigna pide SOAP para el 09/11 | C1 |
+| Factura dentro del pago | No se factura; `facturaEstado` queda en `NO_APLICA` | La consigna pide SOAP para la entrega obligatoria del 13/11 | C1 |
 | 202 y 504 del pago | 504 sí; 202 no | No hay estado de venta para un pago pendiente | Ola 3, con el webhook |
 | Respuesta guardada por clave | Se devuelve el estado actual | Dos columnas en lugar de una tabla de respuestas | Se documenta como diferencia |
 | `GET` del `Location` del pago | No existe | Ningún cliente lo usa todavía | C4 |
@@ -627,7 +635,7 @@ Las carpetas 1 y 2 no cambian de resultado por la Ola 1: sus tests miran solo el
 ## 9. Qué toma A4 de este archivo
 
 - **Nombres.** Los de las secciones 4 a 7. En particular: "adaptadores detrás de `PasarelaDePagos`", no detrás de `IPagos`; `POST /api/v1/pagos`, no `/cobros`.
-- **Estado.** "Implementado" o "Diseñado, pendiente", mirando el código y el servidor el 16/10. Quedan "Diseñado, pendiente": factura SOAP, Mercado Pago, webhook, pago pendiente, reembolso, email real, reventa y, si B3 no llega, validación.
+- **Estado.** "Implementado" o "Diseñado, pendiente", mirando el código y el servidor el martes 20/10, tres días antes de la entrega. Quedan "Diseñado, pendiente": factura SOAP, Mercado Pago, webhook, pago pendiente, reembolso, email real, reventa y, si B3 no llega, validación.
 - **Proceso asincrónico.** Dos procesos disparados por el mismo evento: "Emisión de entradas" (cola) y "Aviso y auditoría de la compra" (tópico).
 - **Diagrama.** El consumidor de la cola va dentro de Ventas y Auditoría dentro de Notificaciones. Se suma la flecha Ventas → Facturación, punteada.
 - **Evidencia.** No espera a B1. Apenas A1 llega al MDB de emisión se guarda la primera: contadores de la cola y del tópico antes y después, las líneas `INFO` de los tres MDB, la fila de `GET /api/notificaciones/auditoria` y la entrada en `VALIDA`. Si B1 llega, se reemplaza.
@@ -636,11 +644,11 @@ Las carpetas 1 y 2 no cambian de resultado por la Ola 1: sus tests miran solo el
 
 ## 10. Orden de implementación y de commit
 
-`PLAN_AGENTES.md` dice A2 → A3 → A1 → A4. Se cambia, porque el camino crítico del 19/10 no pasa por A3 y porque T1 y T2 tienen que existir antes que todo.
+`PLAN_AGENTES.md` dice A2 → A3 → A1 → A4. Se cambia, porque el camino crítico del 23/10 no pasa por A3 y porque T1 y T2 tienen que existir antes que todo.
 
 ```
 T0 → T1 → T2 → A2 → A1 hasta el MDB de emisión → primera evidencia (A4) → resto de A1
-               └── A3 (cobro con PagosFake), en paralelo; no bloquea el 19/10
+               └── A3 (cobro con PagosFake), en paralelo; no bloquea el 23/10
 T3 y T4: antes de la captura del Runner y de la demo
 T5: al cerrar la Ola 1
 ```
@@ -653,7 +661,7 @@ T5: al cerrar la Ola 1
 | A2 antes de que A1 confirme pagos | `confirmarCompra` usa el publicador |
 | Después de cada cambio en `common` | Reconstruir y redesplegar los 8 WAR y comprobar los 8 `health` |
 
-Calendario propuesto: sábado 10, T0, T1 y T2; domingo 11, A2 y el arranque de A1 y de A3; lunes 12, A1 hasta el MDB y primera evidencia; martes 13 a jueves 15, el resto de A1, T3, T4 y B1; viernes 16, evidencia definitiva.
+Calendario: vale el de `docs/PLAN_AGENTES.md`. El que se proponía acá, día por día del 10/10 al 16/10, apuntaba al lunes 19/10, la fecha que da la consigna para la comisión del lunes, y se quitó.
 
 **Archivos con un solo dueño**
 
@@ -693,9 +701,9 @@ El grupo acordó implementar con la opción recomendada. Quien defiende cada par
 | P7 | Cómo se versiona la URL | (a) Context root `/api/v1` en los servicios nuevos; Usuarios y Eventos en C4. (b) Reescritura en el servidor. (c) Esperar a C4. (d) Un WAR que haga de puerta de entrada | (a) | Cambia una línea por servicio y no toca lo que funciona. Con (c) los requests de la carpeta 3 dan 404 |
 | P8 | Problem Details en `common` ahora | (a) T1, ahora. (b) Excepciones propias en Ventas. (c) Esperar a C4 | (a) | Con (b) conviven dos formatos y Pagos suma un tercero. Rompe la regla "`common` solo lo toca A2", por eso es un paso aparte |
 | P9 | Interfaz y patrón en Pagos | (a) `IPagos` es el componente y `PasarelaDePagos` tiene las dos implementaciones. (b) Las dos implementan `IPagos`, como dice el brief | (a), contada como Adapter más Factory | Guardar y deduplicar se escribe una sola vez. Coincide con la Entrega Parcial 1 |
-| P10 | Qué hace A3 antes del 19/10 | (a) Solo el cobro con `PagosFake`; webhook, reembolso y `MercadoPagoPagos` después. (b) Todo el brief ahora | (a) | Esas piezas no responden a ningún punto del 19/10, y la firma del webhook y los campos de Mercado Pago no se pudieron verificar |
+| P10 | Qué hace A3 antes del 23/10 | (a) Solo el cobro con `PagosFake`; webhook, reembolso y `MercadoPagoPagos` después. (b) Todo el brief ahora | (a) | Esas piezas no responden a ningún punto del 23/10, y la firma del webhook y los campos de Mercado Pago no se pudieron verificar |
 | P11 | Quién defiende los pasos transversales | T1 Sebastian, T2 Julian y el resto Santiago, u otro reparto | El de la sección 3 | T1 es el paso previo de Ventas que el grupo anunció en la clase 10. T2 adelanta una parte de B1 |
-| P12 | Alcance del documento del 19/10 | (a) Solo lo que pide la consigna. (b) También anexos funcional, manual y Figma | (a), salvo que la cátedra los haya pedido por otro canal | La consigna no los nombra y ocupan cuatro de los nueve días de A4. Solo una persona del grupo puede confirmarlo |
+| P12 | Alcance del documento del 23/10 | (a) Solo lo que pide la consigna. (b) También anexos funcional, manual y Figma | (a), salvo que la cátedra los haya pedido por otro canal | La consigna no los nombra y ocupan cuatro días de trabajo de A4. Solo una persona del grupo puede confirmarlo |
 
 ## 12. Riesgos y dudas abiertas
 
@@ -723,7 +731,7 @@ Nada de esta lista se ejecutó en este servidor. Cada punto dice quién lo compr
 
 Queda para que lo confirme el grupo: T1 toca `frontend/src/lib/api.ts`, que `PLAN_AGENTES.md` asigna a B2 (Valentina, Ola 2). Va en T1 para que el formato nuevo y su lectura entren en el mismo paso. Si el grupo prefiere otro reparto, se cambia la propuesta P11.
 
-Límites que se conocen y se aceptan para el 19/10:
+Límites que se conocen y se aceptan para el 23/10:
 
 - La base admite 10 conexiones para los 8 WAR, y una compra retiene una mientras llama a otro servicio: unas 5 compras simultáneas.
 - Puede quedar cupo tomado sin dueño si el servidor se cae entre la reserva y el commit, o si Eventos no responde al liberar. Queda en el log; la compensación completa es de C3.
@@ -732,4 +740,4 @@ Límites que se conocen y se aceptan para el 19/10:
 - El health de Ventas informa `v1` en lugar de `ventas`.
 - El DNI del titular viaja completo en el tópico y queda en la auditoría. La decisión es de la Fase 12 del `TODO.md`.
 - Una sola máquina con unos 2 GB libres y el repo dentro de OneDrive: conviene pausar la sincronización mientras corren WildFly o Maven.
-- La consigna mira la participación visible de cada integrante en git en la Entrega Final, no el 19/10.
+- La consigna mira la participación visible de cada integrante en git en la Entrega Final, no el 23/10.
