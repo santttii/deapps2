@@ -3,6 +3,7 @@ package com.palco.ventas.negocio;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -16,6 +17,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -51,6 +53,7 @@ import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.negocio.externos.ClienteDeEventos;
 import com.palco.ventas.negocio.externos.ClienteDeUsuarios;
 import com.palco.ventas.negocio.externos.ClienteDeUsuarios.Usuario;
+import com.palco.ventas.negocio.externos.CobroNoRealizado;
 
 /**
  * La fachada y el índice de las compras, sin servidor: el repositorio, los
@@ -214,6 +217,41 @@ class ComprasEnCursoTest {
 
         assertEquals(VENTA, venta.id());
         assertEquals("EN_CHECKOUT", venta.estado());
+    }
+
+    // ---- Listar las compras propias ----
+
+    @Test
+    void listarDevuelveLasComprasDelCompradorConSusEntradasYEnElOrdenDelRepositorio() {
+        // Una compra ya paga, con su entrada, y otra más vieja todavía abierta.
+        Venta paga = new Venta("V-7b2e4d10", COMPRADOR, "ev-1", CLAVE, AHORA, AHORA.plusMinutes(10));
+        paga.agregarItem("sec-1-4", "Platea B", 27_500, 1);
+        paga.getEntradas().add(new Entrada("T-9c41d07e", paga.getItems().get(0), "Ana Gómez", "30123456", 1));
+        when(ventas.buscarPorComprador(COMPRADOR)).thenReturn(List.of(paga, ventaEnCheckout(COMPRADOR)));
+
+        List<VentaDto> lista = compras.listar(COMPRADOR);
+
+        assertEquals(List.of("V-7b2e4d10", VENTA), lista.stream().map(VentaDto::id).toList());
+        // La fecha de la compra y, en cada entrada, el sector, lo que se pagó y el código (todavía sin emitir).
+        assertEquals("2026-10-19T21:00:00Z", lista.get(0).creada());
+        assertEquals("sec-1-4", lista.get(0).entradas().get(0).sectorId());
+        assertEquals(27_500, lista.get(0).entradas().get(0).precioPagado());
+        assertNull(lista.get(0).entradas().get(0).codigoQr());
+    }
+
+    @Test
+    void listarBuscaSoloPorElCompradorDelPedidoYNoNecesitaLaInstanciaDeLaCompra() {
+        when(ventas.buscarPorComprador(COMPRADOR)).thenReturn(List.of());
+
+        // Quien no compró nada recibe una lista vacía, no un error.
+        assertTrue(compras.listar(COMPRADOR).isEmpty());
+
+        // La única consulta es la de ese comprador: no hay otra forma de que aparezca una venta ajena.
+        verify(ventas).buscarPorComprador(COMPRADOR);
+        verifyNoMoreInteractions(ventas);
+        // Se lee de la base: no se pide ninguna instancia ni se llama a otros servicios.
+        assertEquals(0, instanciasPedidas);
+        verifyNoInteractions(instancia, eventos);
     }
 
     @Test
@@ -689,8 +727,118 @@ class ComprasEnCursoTest {
         ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
                 () -> compras.pagar(COMPRADOR, VENTA, CON_TARJETA, CLAVE_DEL_PAGO));
 
-        assertEquals("reserva-vencida", error.tipo());
+        // No es "reserva vencida": con la marca puesta no se le dice al comprador que empiece de nuevo.
+        esPagoSinResultado(error);
         verify(ventas, never()).borrarClaveDePago(anyString(), anyString());
+        assertFalse(compras.enCurso.containsKey(VENTA));
+    }
+
+    // ---- Pagar una venta que quedó con un intento de pago sin resultado ----
+
+    @Test
+    void elReintentoConLaMismaClaveValeAunqueLaReservaHayaVencido() {
+        // El primer intento terminó en 504 y dejó la marca. El reintento llega con la reserva ya vencida.
+        VentaDto pagada = ventaPagada();
+        Venta conEsteIntento = ventaConPagoSinResultado(CLAVE_DEL_PAGO, true);
+        when(ventas.buscarPorId(VENTA)).thenReturn(Optional.of(conEsteIntento));
+        when(ventas.guardarClaveDePago(VENTA, CLAVE_DEL_PAGO, AL_PAGAR)).thenReturn(true);
+        when(instancia.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO)).thenReturn(pagada);
+        compras.enCurso.put(VENTA, instancia);
+
+        // La marca retiene el cupo: nadie pudo cancelar ni vencer la venta, así que confirmarla es seguro.
+        assertSame(pagada, compras.pagar(COMPRADOR, VENTA, CON_TARJETA, CLAVE_DEL_PAGO));
+
+        // El UPDATE de la marca se hace igual: es el que confirma, en la base, que la clave sigue anotada.
+        verify(ventas).guardarClaveDePago(VENTA, CLAVE_DEL_PAGO, AL_PAGAR);
+        assertFalse(compras.enCurso.containsKey(VENTA));
+    }
+
+    @Test
+    void conUnPagoSinResultadoYSinInstanciaNoSeLeDiceAlCompradorQueEmpieceDeNuevo() {
+        // Es lo que pasa si se redespliega Ventas después de un 504: la marca quedó y los titulares se perdieron.
+        Venta conEsteIntento = ventaConPagoSinResultado(CLAVE_DEL_PAGO, false);
+        when(ventas.buscarPorId(VENTA)).thenReturn(Optional.of(conEsteIntento));
+
+        ErroresDeNegocio.Conflicto conLaMismaClave = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> compras.pagar(COMPRADOR, VENTA, CON_TARJETA, CLAVE_DEL_PAGO));
+        ErroresDeNegocio.Conflicto conOtraClave = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> compras.pagar(COMPRADOR, VENTA, CON_TARJETA, OTRA_CLAVE_DE_PAGO));
+
+        esPagoSinResultado(conLaMismaClave);
+        esPagoSinResultado(conOtraClave);
+        // No se cobra ni se toca la marca: es el rastro para resolverla a mano.
+        verify(ventas, never()).guardarClaveDePago(anyString(), anyString(), any());
+        verify(ventas, never()).borrarClaveDePago(anyString(), anyString());
+    }
+
+    @Test
+    void conUnPagoSinResultadoYLaReservaVencidaOtraClaveNoPagaNiSeInvitaAComprarDeNuevo() {
+        Venta conOtroIntento = ventaConPagoSinResultado(OTRA_CLAVE_DE_PAGO, true);
+        when(ventas.buscarPorId(VENTA)).thenReturn(Optional.of(conOtroIntento));
+        compras.enCurso.put(VENTA, instancia);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> compras.pagar(COMPRADOR, VENTA, CON_TARJETA, CLAVE_DEL_PAGO));
+
+        esPagoSinResultado(error);
+        verify(ventas, never()).guardarClaveDePago(anyString(), anyString(), any());
+        verifyNoInteractions(instancia);
+        // La instancia se conserva: el reintento con la clave anotada todavía puede cerrar la venta.
+        assertSame(instancia, compras.enCurso.get(VENTA));
+    }
+
+    @Test
+    void siEnUnReintentoLaInstanciaDiceReservaVencidaElCompradorRecibePagoSinResultado() {
+        // La instancia no reconoce la clave (no llegó a mandarla a cobrar) y encuentra la reserva vencida.
+        Venta conEsteIntento = ventaConPagoSinResultado(CLAVE_DEL_PAGO, true);
+        when(ventas.buscarPorId(VENTA)).thenReturn(Optional.of(conEsteIntento));
+        when(ventas.guardarClaveDePago(VENTA, CLAVE_DEL_PAGO, AL_PAGAR)).thenReturn(true);
+        when(instancia.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO)).thenThrow(ServicioDeVentas.reservaVencida());
+        compras.enCurso.put(VENTA, instancia);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> compras.pagar(COMPRADOR, VENTA, CON_TARJETA, CLAVE_DEL_PAGO));
+
+        esPagoSinResultado(error);
+        verify(ventas, never()).borrarClaveDePago(anyString(), anyString());
+    }
+
+    // ---- Pagar cuando se sabe que el pedido no llegó a cobrarse ----
+
+    @Test
+    void siElPedidoSeFrenoAntesDeCobrarSeQuitaLaMarcaYElCompradorRecibeElMismo504() {
+        // Por ejemplo, Pagos no está desplegado: se sabe que no se cobró.
+        CobroNoRealizado sinCobrar = new CobroNoRealizado("El servicio de pagos no responde. Probá de nuevo.");
+        when(ventas.buscarPorId(VENTA)).thenReturn(Optional.of(ventaEnCheckout(COMPRADOR)));
+        when(ventas.guardarClaveDePago(VENTA, CLAVE_DEL_PAGO, AL_PAGAR)).thenReturn(true);
+        when(instancia.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO)).thenThrow(sinCobrar);
+        compras.enCurso.put(VENTA, instancia);
+
+        ErroresDeNegocio.SinRespuesta error = assertThrows(ErroresDeNegocio.SinRespuesta.class,
+                () -> compras.pagar(COMPRADOR, VENTA, CON_TARJETA, CLAVE_DEL_PAGO));
+
+        assertSame(sinCobrar, error);
+        assertEquals("sin-respuesta", error.tipo());
+        // Sin la marca, la venta se puede cancelar o vencer: no queda trabada por una caída de Pagos.
+        verify(ventas).borrarClaveDePago(VENTA, CLAVE_DEL_PAGO);
+        // La instancia sigue en el índice: cuando Pagos vuelva, se paga sobre la misma compra.
+        assertSame(instancia, compras.enCurso.get(VENTA));
+    }
+
+    @Test
+    void enUnReintentoUnPedidoQueNoLlegoACobrarNoQuitaLaMarcaDelIntentoAnterior() {
+        // De este pedido se sabe que no cobró; del anterior con la misma clave, no.
+        Venta conEsteIntento = ventaConPagoSinResultado(CLAVE_DEL_PAGO, false);
+        when(ventas.buscarPorId(VENTA)).thenReturn(Optional.of(conEsteIntento));
+        when(ventas.guardarClaveDePago(VENTA, CLAVE_DEL_PAGO, AL_PAGAR)).thenReturn(true);
+        when(instancia.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO))
+                .thenThrow(new CobroNoRealizado("El servicio de pagos no responde. Probá de nuevo."));
+        compras.enCurso.put(VENTA, instancia);
+
+        assertThrows(CobroNoRealizado.class, () -> compras.pagar(COMPRADOR, VENTA, CON_TARJETA, CLAVE_DEL_PAGO));
+
+        verify(ventas, never()).borrarClaveDePago(anyString(), anyString());
+        assertSame(instancia, compras.enCurso.get(VENTA));
     }
 
     @Test
@@ -812,10 +960,27 @@ class ComprasEnCursoTest {
         return venta;
     }
 
+    /**
+     * Una venta abierta que quedó marcada con la clave de un intento de pago
+     * del que no se supo el resultado, con la reserva vencida o todavía vigente.
+     */
+    private static Venta ventaConPagoSinResultado(String claveAnotada, boolean reservaVencida) {
+        Venta venta = ventaEnEstado(EstadoVenta.EN_CHECKOUT);
+        when(venta.getClavePago()).thenReturn(claveAnotada);
+        when(venta.reservaVencida(any())).thenReturn(reservaVencida);
+        return venta;
+    }
+
+    /** El 409 de una venta con un pago sin resultado que ya no se puede pagar: avisa que no se pague de nuevo. */
+    private static void esPagoSinResultado(ErroresDeNegocio.Conflicto error) {
+        assertEquals("operacion-en-curso", error.tipo());
+        assertTrue(error.getMessage().contains("No pagues de nuevo"), error.getMessage());
+    }
+
     /** Lo que devuelve la instancia de la compra cuando el pago se aprueba. */
     private static VentaDto ventaPagada() {
         return new VentaDto(VENTA, "CONFIRMADA", "NO_APLICA", "ev-1", List.of(), 55_000, 5_500, 60_500,
-                "2026-10-19T21:10:00Z", "P-0a1b2c3d", List.of(), Map.of());
+                "2026-10-19T21:00:00Z", "2026-10-19T21:10:00Z", "P-0a1b2c3d", List.of(), Map.of());
     }
 
     private static Usuario usuarioConIdentidad(boolean verificada) {

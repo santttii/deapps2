@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
@@ -24,7 +25,9 @@ import jakarta.ws.rs.core.UriInfo;
 import org.junit.jupiter.api.Test;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.ventas.api.Dtos.EntradaDeVentaDto;
 import com.palco.ventas.api.Dtos.ItemDto;
+import com.palco.ventas.api.Dtos.TitularDto;
 import com.palco.ventas.api.Dtos.VentaDto;
 import com.palco.ventas.negocio.ComprasEnCurso;
 
@@ -77,7 +80,7 @@ class VentasResourceTest {
         ComprasEnCurso compras = mock(ComprasEnCurso.class);
         VentaDto sinEnlaces = new VentaDto("V-3f9a1c2b", "EN_CHECKOUT", "NO_APLICA", "ev-1",
                 List.of(new ItemDto("sec-1-4", "Platea B", 2, 27_500)), 55_000, 5_500, 60_500,
-                "2026-10-19T21:10:00Z", null, List.of(), Map.of());
+                "2026-10-19T21:00:00Z", "2026-10-19T21:10:00Z", null, List.of(), Map.of());
         // El comprador es el "sub" del token: no viaja en la ruta ni en el cuerpo.
         when(compras.obtener("user-titular", "V-3f9a1c2b")).thenReturn(sinEnlaces);
         VentasResource recurso = new VentasResource();
@@ -101,6 +104,45 @@ class VentasResourceTest {
                 () -> recurso.obtener("V-3f9a1c2b", sinSesion, pedidoEnLaRaiz()));
     }
 
+    // ---- Listar las compras propias ----
+
+    @Test
+    void listarPideLasComprasDelUsuarioDelTokenYLeSumaLosEnlacesACadaUna() {
+        ComprasEnCurso compras = mock(ComprasEnCurso.class);
+        VentaDto emitida = new VentaDto("V-3f9a1c2b", "EMITIDA", "NO_APLICA", "ev-1",
+                List.of(new ItemDto("sec-1-4", "Platea B", 1, 27_500)), 27_500, 2_750, 30_250,
+                "2026-10-19T21:00:00Z", "2026-10-19T21:10:00Z", "P-0a1b2c3d",
+                List.of(new EntradaDeVentaDto("T-9c41d07e", "sec-1-4", "Platea B",
+                        new TitularDto("Ana Gómez", "30123456"), 27_500, "VALIDA", "codigo-de-prueba", Map.of())),
+                Map.of());
+        VentaDto abierta = new VentaDto("V-7b2e4d10", "EN_CHECKOUT", "NO_APLICA", "ev-2", List.of(), 0, 0, 0,
+                "2026-10-19T20:00:00Z", "2026-10-19T20:10:00Z", null, List.of(), Map.of());
+        // De quién son las compras sale del "sub" del token: la operación no recibe ningún id de usuario.
+        when(compras.listar("user-titular")).thenReturn(List.of(emitida, abierta));
+        VentasResource recurso = new VentasResource();
+        recurso.compras = compras;
+
+        List<VentaDto> ventas = recurso.listar(sesionDe("user-titular"), pedidoEnLaRaiz());
+
+        // Las mismas ventas y en el mismo orden en que las devolvió el negocio.
+        assertEquals(List.of("V-3f9a1c2b", "V-7b2e4d10"), ventas.stream().map(VentaDto::id).toList());
+        // Cada una con los enlaces de su estado, y cada entrada con el suyo.
+        assertEquals(List.of("self"), List.copyOf(ventas.get(0).enlaces().keySet()));
+        assertEquals("/api/v1/entradas/T-9c41d07e", ventas.get(0).entradas().get(0).enlaces().get("self").href());
+        assertEquals(List.of("self", "pagar", "cancelar"), List.copyOf(ventas.get(1).enlaces().keySet()));
+    }
+
+    @Test
+    void sinUnTokenDeUsuarioNoSeListaNada() {
+        ComprasEnCurso compras = mock(ComprasEnCurso.class);
+        VentasResource recurso = new VentasResource();
+        recurso.compras = compras;
+        SecurityContext sinSesion = mock(SecurityContext.class);
+
+        assertThrows(ErroresDeNegocio.NoAutenticado.class, () -> recurso.listar(sinSesion, pedidoEnLaRaiz()));
+        verifyNoInteractions(compras);
+    }
+
     // ---- Seguridad declarativa ----
 
     @Test
@@ -115,8 +157,8 @@ class VentasResourceTest {
             assertNotNull(roles, metodo.getName() + " no declara quién la puede llamar");
             assertArrayEquals(new String[] { "user" }, roles.value(), metodo.getName());
         }
-        // Abrir, consultar, pagar y cancelar.
-        assertEquals(4, operaciones);
+        // Abrir, listar las propias, consultar, pagar y cancelar.
+        assertEquals(5, operaciones);
     }
 
     // ---------------------------------------------------------------------------------------------

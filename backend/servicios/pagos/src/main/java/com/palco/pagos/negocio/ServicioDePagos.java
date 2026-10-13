@@ -14,6 +14,7 @@ import jakarta.ejb.TransactionAttributeType;
 import jakarta.inject.Inject;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.Textos;
 import com.palco.pagos.api.Dtos.NuevoPagoDto;
 import com.palco.pagos.api.Dtos.PagoDto;
 import com.palco.pagos.datos.PagoRepository;
@@ -81,7 +82,9 @@ public class ServicioDePagos implements IPagos {
             LOG.info("Dos pedidos simultáneos con la misma clave: se devuelve el pago " + ganador.getId() + ".");
             return aDto(siEsElMismoPedido(ganador, pedido));
         }
-        LOG.info("Pago " + pago.getId() + " de la venta " + pago.getVentaId() + ": " + pago.getEstado()
+        // El id de la venta vino en el pedido: al log va en un solo renglón (ver Textos.enUnaLinea).
+        LOG.info("Pago " + pago.getId() + " de la venta " + Textos.enUnaLinea(pago.getVentaId()) + ": "
+                + pago.getEstado()
                 + " (pasarela " + pago.getProveedor() + ").");
         return aDto(pago);
     }

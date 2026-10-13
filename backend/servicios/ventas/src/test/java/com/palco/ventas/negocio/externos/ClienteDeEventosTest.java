@@ -14,6 +14,9 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -105,6 +108,37 @@ class ClienteDeEventosTest {
         eventos.responde(500, null);
 
         assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> eventos.reservarCupo("ev-1", "sec-1-4", 2));
+    }
+
+    @Test
+    void siEventosRespondeOtraCosaElAvisoDiceEventoSectorYCantidad() {
+        // No se sabe si Eventos aplicó el cambio: con esos tres datos el cupo se puede revisar a mano.
+        List<String> avisos = new ArrayList<>();
+        Handler anotador = new Handler() {
+            @Override
+            public void publish(LogRecord registro) {
+                avisos.add(registro.getMessage());
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        Logger log = Logger.getLogger(ClienteDeEventos.class.getName());
+        log.addHandler(anotador);
+        try {
+            eventos.responde(500, null);
+            assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> eventos.reservarCupo("ev-4", "sec-4-2", 3));
+        } finally {
+            log.removeHandler(anotador);
+        }
+
+        assertEquals(1, avisos.size());
+        assertTrue(avisos.get(0).contains("evento ev-4, sector sec-4-2, cantidad 3"), avisos.get(0));
     }
 
     @Test

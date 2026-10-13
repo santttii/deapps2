@@ -20,6 +20,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.Textos;
 import com.palco.common.seguridad.TokenDeServicio;
 import com.palco.ventas.negocio.TiposDeProblema;
 
@@ -86,8 +87,10 @@ public class ClienteDeEventos {
             cambiarCupo(eventoId, sectorId, -cantidad);
             return true;
         } catch (RuntimeException e) {
-            LOG.warning("No se pudo devolver el cupo de la venta " + ventaId + ": evento " + eventoId + ", sector "
-                    + sectorId + ", cantidad " + cantidad + ". Motivo: " + e.getMessage());
+            // El evento y el sector vinieron en el pedido del comprador: al log van en un solo renglón.
+            LOG.warning("No se pudo devolver el cupo de la venta " + ventaId + ": evento "
+                    + Textos.enUnaLinea(eventoId) + ", sector " + Textos.enUnaLinea(sectorId) + ", cantidad "
+                    + cantidad + ". Motivo: " + Textos.enUnaLinea(e.getMessage()));
             return false;
         }
     }
@@ -116,8 +119,10 @@ public class ClienteDeEventos {
                     ? "No quedan suficientes entradas en ese sector."
                     : "Eventos no aceptó la devolución: el sector no tiene tantas entradas vendidas.");
             default -> {
-                LOG.warning("Eventos respondió " + respuesta.estado() + " al cambiar el cupo del sector " + sectorId
-                        + " del evento " + eventoId + ".");
+                // Con el evento, el sector y la cantidad, el cupo se puede revisar a mano en Eventos.
+                LOG.warning("Eventos respondió " + respuesta.estado() + " al cambiar el cupo: evento "
+                        + Textos.enUnaLinea(eventoId) + ", sector " + Textos.enUnaLinea(sectorId) + ", cantidad "
+                        + cantidad + ". No se sabe si lo aplicó.");
                 throw new ErroresDeNegocio.SinRespuesta("El servicio de eventos no responde. Probá de nuevo.");
             }
         };
@@ -162,7 +167,11 @@ public class ClienteDeEventos {
             return new Respuesta(estado, estado == 200 ? respuesta.readEntity(String.class) : null);
         } catch (ProcessingException e) {
             // Sin conexión o se cumplió el tiempo de espera: no se sabe si Eventos llegó a aplicar el cambio.
-            LOG.warning("Eventos no respondió al cambiar el cupo del sector " + sectorId + ": " + e.getMessage());
+            // El aviso lleva el evento, el sector y el cuerpo enviado (la cantidad: positiva es una reserva,
+            // negativa una devolución), para poder revisar ese cupo a mano en Eventos.
+            LOG.warning("Eventos no respondió al cambiar el cupo: evento " + Textos.enUnaLinea(eventoId)
+                    + ", sector " + Textos.enUnaLinea(sectorId) + ", pedido " + cuerpo
+                    + ". No se sabe si lo aplicó. Motivo: " + Textos.enUnaLinea(e.getMessage()));
             throw new ErroresDeNegocio.SinRespuesta("El servicio de eventos no responde. Probá de nuevo.");
         }
     }

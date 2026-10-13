@@ -131,9 +131,11 @@ export default function LoginPage() {
 
           <div className="font-mono-label mt-10 max-w-sm border border-edge p-4 text-[11px] leading-relaxed text-muted">
             <p className="mb-2 text-ink">Usuarios de prueba</p>
-            <p>titular@palco.test / palco1234 — user, verificado</p>
+            <p>titular@palco.test / palco1234 — user, identidad verificada</p>
             <p>organizador@palco.test / palco1234 — organizer</p>
             <p>puerta@palco.test / palco1234 — staff</p>
+            {/* El backend no tiene cómo verificar la identidad de una cuenta nueva y Ventas la exige. */}
+            <p className="mt-2">Para comprar usá titular@palco.test: una cuenta recién creada todavía no puede.</p>
           </div>
         </div>
 

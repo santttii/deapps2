@@ -22,8 +22,8 @@ import com.palco.ventas.api.Dtos.VentaDto;
 public interface IVentas {
 
     /**
-     * Abre la compra: valida el pedido, guarda la venta en {@code EN_CHECKOUT}
-     * y reserva el cupo de cada sector por {@code MINUTOS_RESERVA} minutos.
+     * Abre la compra: valida el pedido, reserva el cupo de cada sector por
+     * {@code MINUTOS_RESERVA} minutos y guarda la venta en {@code EN_CHECKOUT}.
      *
      * @param compradorId       el usuario del token (claim "sub")
      * @param claveIdempotencia la {@code Idempotency-Key} del pedido: un mismo
@@ -38,8 +38,9 @@ public interface IVentas {
      *
      * Lanza {@code PagoRechazado} si el cobro se rechaza: la compra sigue
      * abierta y se puede volver a pagar sobre esta misma instancia. Lanza
-     * {@code Conflicto} si la compra ya no se puede pagar (reserva vencida,
-     * cancelada o ya paga) y {@code SinRespuesta} si quien cobra no contesta.
+     * {@code Conflicto} si la reserva ya venció y {@code SinRespuesta} si
+     * quien cobra no contesta. Que la venta no esté cancelada ni paga lo
+     * comprueba antes {@link ComprasEnCurso}, con la venta leída de la base.
      *
      * @param claveIdempotencia la {@code Idempotency-Key} del pedido de pago:
      *                          se le pasa a quien cobra, para que repetir el

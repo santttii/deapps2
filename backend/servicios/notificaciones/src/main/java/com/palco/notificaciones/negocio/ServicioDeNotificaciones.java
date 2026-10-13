@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 import jakarta.ejb.Stateless;
 
+import com.palco.common.Textos;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 
 /**
@@ -26,6 +27,12 @@ public class ServicioDeNotificaciones implements INotificaciones {
     /**
      * El texto que recibiría el comprador. Lleva el nombre de cada titular pero
      * no su DNI: el log lo lee cualquiera que administre el servidor.
+     *
+     * Sale siempre en un solo renglón. Los ids, el sector y los nombres vienen
+     * en el mensaje, y el aviso se escribe en el log: con un salto de línea
+     * adentro de un nombre aparecería ahí un renglón falso (pasó en una
+     * revisión). Ventas rechaza esos nombres al comprar, pero este servicio no
+     * depende de eso: el mensaje podría publicarlo otro.
      */
     static String textoDelAviso(PagoConfirmadoMensaje mensaje) {
         String entradas = mensaje.entradas().stream()
@@ -33,9 +40,9 @@ public class ServicioDeNotificaciones implements INotificaciones {
                 .collect(Collectors.joining(", "));
         int cantidad = mensaje.entradas().size();
 
-        return "Aviso al comprador " + mensaje.compradorId()
+        return Textos.enUnaLinea("Aviso al comprador " + mensaje.compradorId()
                 + ": tu compra " + mensaje.ventaId() + " quedó confirmada. Evento " + mensaje.eventoId()
                 + ", " + cantidad + (cantidad == 1 ? " entrada: " : " entradas: ") + entradas
-                + ". Total: $" + mensaje.montoTotal() + ".";
+                + ". Total: $" + mensaje.montoTotal() + ".");
     }
 }

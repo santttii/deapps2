@@ -18,6 +18,7 @@ import jakarta.jms.Message;
 import jakarta.jms.MessageListener;
 import jakarta.jms.TextMessage;
 
+import com.palco.common.Textos;
 import com.palco.common.mensajeria.DestinosJms;
 import com.palco.common.mensajeria.MensajeInvalido;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
@@ -92,18 +93,21 @@ public class EmisionDeEntradasMDB implements MessageListener {
             // transacción en lugar de lanzar una excepción (que dejaría una traza por intento): el broker
             // reintenta y después lo guarda en la DLQ, donde queda para revisarlo.
             LOG.warning("EmisionDeEntradas: mensaje inválido (entrega " + numeroDeEntrega(recibido)
-                    + "), vuelve al broker. " + e.getMessage());
+                    + "), vuelve al broker. " + Textos.enUnaLinea(e.getMessage()));
             contexto.setRollbackOnly();
             return;
         }
 
         String ventaId = mensaje.ventaId();
+        // El id viene en el mensaje, y puede no ser el de una venta de este servicio: al log va en
+        // un solo renglón (ver Textos.enUnaLinea).
+        String ventaEnElLog = Textos.enUnaLinea(ventaId);
         if (ventas.buscarPorId(ventaId).isEmpty()) {
             // Pasa de verdad: el broker guarda los mensajes en disco y la base de desarrollo se vacía al
             // reiniciar; también lo producen los mensajes de prueba. Reintentar no la haría aparecer (la
             // venta queda guardada antes de que el broker entregue su mensaje): se avisa y el mensaje
             // queda consumido, así no traba la cola ni termina en la DLQ.
-            LOG.warning("EmisionDeEntradas: se descarta el mensaje de la venta " + ventaId
+            LOG.warning("EmisionDeEntradas: se descarta el mensaje de la venta " + ventaEnElLog
                     + ", que no existe en Ventas.");
             return;
         }
@@ -117,7 +121,7 @@ public class EmisionDeEntradasMDB implements MessageListener {
         String resultado = emitidas == 0 && !pasoAEmitida
                 ? "No había nada pendiente: es un mensaje repetido y no cambió nada."
                 : "Entradas emitidas: " + emitidas + "." + (pasoAEmitida ? " La venta pasó a EMITIDA." : "");
-        LOG.info("EmisionDeEntradas: procesado el mensaje de la venta " + ventaId + ". " + resultado);
+        LOG.info("EmisionDeEntradas: procesado el mensaje de la venta " + ventaEnElLog + ". " + resultado);
     }
 
     /**

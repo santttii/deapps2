@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useApp } from '../store/AppContext';
 import { useToast } from '../components/ToastProvider';
 import { calcularMinimoReventa, calcularTope, fecha, fechaHora, formatearDNI, money } from '../lib/format';
+import { obtenerEntradas, obtenerOrden } from '../servicios/ventas';
 import { HORAS_LIMITE_REVENTA } from '../types';
 import QRCode from '../components/QRCode';
 import Button from '../components/Button';
@@ -17,8 +18,10 @@ export default function MyTicketsPage() {
   const [precioReventa, setPrecioReventa] = useState('');
   const [errorPrecio, setErrorPrecio] = useState('');
 
-  // Las entradas son datos locales; los eventos vienen del servidor. Si un evento ya no existe
-  // allá (la base de desarrollo se reinicia), sus entradas no se muestran.
+  // El backend no tiene un listado de las entradas del usuario: se muestran las que este navegador
+  // guardó al terminar cada compra (más las de la reventa, que es local). Los eventos vienen del
+  // servidor: si un evento ya no existe allá (la base de desarrollo se reinicia), sus entradas no
+  // se muestran.
   const misEntradas = useMemo(
     () =>
       state.entradas.filter(
@@ -27,13 +30,50 @@ export default function MyTicketsPage() {
     [state.entradas, state.eventos, usuarioActual],
   );
 
+  // Compras pagas cuyas entradas todavía no se guardaron: el usuario se fue de la confirmación
+  // antes de que terminara la emisión. Se guardan los ids juntos en un texto para que el efecto
+  // de abajo corra solo cuando esa lista cambia.
+  const compradorId = usuarioActual?.id;
+  const idsPendientes = state.ordenes
+    .filter((o) => o.compradorId === compradorId && o.estado === 'confirmada')
+    .map((o) => o.id)
+    .join(',');
+  const comprasPendientes = idsPendientes ? idsPendientes.split(',').length : 0;
+
+  // Al abrir la página se le pregunta al backend por cada una. Si ya está emitida, se guardan sus
+  // entradas y aparecen solas. Si falla o sigue emitiéndose no se hace nada: se vuelve a
+  // preguntar la próxima vez que se abra la página.
+  useEffect(() => {
+    if (!compradorId || !idsPendientes) return;
+    let vigente = true;
+    idsPendientes.split(',').forEach(async (ordenId) => {
+      try {
+        const orden = await obtenerOrden(ordenId);
+        if (orden.estado !== 'emitida') return;
+        const entradas = await obtenerEntradas(orden);
+        if (vigente) dispatch({ type: 'GUARDAR_COMPRA', payload: { orden, entradas, compradorId } });
+      } catch {
+        // Se reintenta en la próxima visita.
+      }
+    });
+    return () => {
+      vigente = false;
+    };
+  }, [idsPendientes, compradorId, dispatch]);
+
   if (!usuarioActual) return null;
+
+  const avisoDeEmision = comprasPendientes > 0 && (
+    <p role="status" className="mb-6 border-l-2 border-accent pl-2 text-sm text-ink">
+      Emitiendo las entradas de {comprasPendientes} {comprasPendientes === 1 ? 'compra' : 'compras'}…
+    </p>
+  );
 
   if (misEntradas.length === 0) {
     return (
       <PageTransition>
         <div className="mx-auto max-w-[1240px] px-7 py-16 text-center">
-          <p className="text-lg text-graphite">Todavía no tenés entradas.</p>
+          {avisoDeEmision || <p className="text-lg text-graphite">Todavía no tenés entradas.</p>}
         </div>
       </PageTransition>
     );
@@ -105,16 +145,9 @@ export default function MyTicketsPage() {
     mostrarToast('Retiraste la publicación de reventa.');
   }
 
-  // La orden no guarda quién compró: es del usuario si tiene una entrada suya de origen "compra".
-  // La entrada que recibe quien compra una reventa conserva el número de orden del vendedor,
-  // y sin ese filtro vería la compra de otra persona.
   const historial = [
     ...state.ordenes
-      .filter((o) =>
-        state.entradas.some(
-          (e) => e.ordenId === o.id && e.propietarioId === usuarioActual.id && e.origen === 'compra',
-        ),
-      )
+      .filter((o) => o.compradorId === usuarioActual.id)
       .map((o) => ({ texto: `Compra · orden #${o.id} · ${money(o.total)}`, fechaISO: o.creadaISO })),
     ...misEntradas
       .filter((e) => e.estado === 'usada')
@@ -127,6 +160,7 @@ export default function MyTicketsPage() {
   return (
     <PageTransition>
       <div className="mx-auto max-w-[1240px] px-7 py-10">
+        {avisoDeEmision}
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
           <div>
             {misEntradas.length > 1 && (
@@ -171,10 +205,11 @@ export default function MyTicketsPage() {
                 </p>
 
                 <div className="mt-5">
-                  <QRCode id={entrada.id} />
+                  {/* El código lo genera Ventas al emitir; las entradas de la reventa local no lo tienen. */}
+                  <QRCode id={entrada.codigoQr ?? entrada.id} />
                 </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-dashed border-edge pt-4 text-sm sm:grid-cols-4">
+                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-dashed border-edge pt-4 text-sm sm:grid-cols-3">
                   <div>
                     <p className="font-mono-label text-[10px] text-muted">Titular</p>
                     <p>{entrada.titular.nombre || '—'} {entrada.titular.apellido}</p>
@@ -186,10 +221,6 @@ export default function MyTicketsPage() {
                   <div>
                     <p className="font-mono-label text-[10px] text-muted">Sector</p>
                     <p>{sector?.nombre}</p>
-                  </div>
-                  <div>
-                    <p className="font-mono-label text-[10px] text-muted">Fila</p>
-                    <p>{entrada.fila}</p>
                   </div>
                 </div>
 

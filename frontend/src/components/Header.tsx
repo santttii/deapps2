@@ -1,13 +1,17 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useSesion } from '../store/SesionContext';
+import { soltarReserva } from '../servicios/ventas';
 
 export default function Header() {
-  const { usuarioActual, dispatch } = useApp();
+  const { state, usuarioActual, dispatch } = useApp();
   const { salir } = useSesion();
   const navigate = useNavigate();
 
   function cerrarSesion() {
+    // Si quedó una compra con el cupo reservado, se suelta. Va antes de salir() porque el pedido
+    // necesita el token.
+    if (state.carrito?.ordenId) soltarReserva(state.carrito.ordenId);
     salir();
     // El carrito no pasa a la cuenta que ingrese después en este navegador.
     dispatch({ type: 'SET_CARRITO', payload: null });

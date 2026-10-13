@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 
 import com.palco.common.ErroresDeNegocio;
 
@@ -24,9 +25,18 @@ import com.palco.common.ErroresDeNegocio;
  * depende solo de lo que recibe), así que no hace falta más de una ni un
  * Session Bean. Lleva la anotación porque el repo no tiene {@code beans.xml}:
  * sin ella no se podría inyectar.
+ *
+ * {@code @Typed} hace que solo se pueda inyectar por su clase y no como
+ * {@code Cobros}: el {@code Cobros} que recibe la compra es el que entrega
+ * {@link FabricaDeCobros}, que usa este simulador solo si la configuración
+ * lo pide.
  */
 @ApplicationScoped
+@Typed(CobrosFake.class)
 public class CobrosFake implements Cobros {
+
+    /** Valor de {@code palco.ventas.cobros} que elige este cobro. */
+    public static final String NOMBRE = "fake";
 
     public static final String TOKEN_RECHAZADO = "tok_rechazado";
     public static final String TOKEN_SIN_RESPUESTA = "tok_sin_respuesta";

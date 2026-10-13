@@ -12,8 +12,9 @@ export function fecha(iso: string): string {
 export function fechaHora(iso: string): string {
   const d = new Date(iso);
   const fechaStr = d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
-  const horaStr = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-  return `${fechaStr} · ${horaStr}hs`;
+  // Reloj de 24 horas: sin esto el navegador escribe "09:00 p. m." y quedaba "09:00 p. m.hs".
+  const horaStr = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  return `${fechaStr} · ${horaStr} hs`;
 }
 
 export function calcularTope(precioPagado: number): number {
@@ -24,7 +25,8 @@ export function calcularMinimoReventa(precioPagado: number): number {
   return Math.ceil(precioPagado * 0.5);
 }
 
-// Cargo por servicio de una compra. Lo usan el resumen del checkout y la orden que se arma al pagar.
+// Cargo por servicio estimado, para el resumen del checkout antes de reservar. El importe que
+// vale es el que calcula el backend al iniciar la compra.
 export function calcularServicio(subtotal: number): number {
   return Math.round(subtotal * TASA_SERVICIO);
 }

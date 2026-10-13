@@ -9,9 +9,10 @@ function hash(str: string): number {
   return h;
 }
 
-function celdaActiva(id: string, x: number, y: number): boolean {
-  const n = hash(`${id}-${x}-${y}`);
-  return (n & 1) === 0;
+// Generador de números pseudoaleatorios (congruencial lineal, con las constantes clásicas): dado
+// un número devuelve el siguiente de la serie. Con la misma semilla la serie es siempre la misma.
+function siguiente(n: number): number {
+  return (Math.imul(n, 1664525) + 1013904223) | 0;
 }
 
 function enOjoOrientacion(x: number, y: number): boolean {
@@ -48,11 +49,16 @@ interface QRCodeProps {
 export default function QRCode({ id, size = 200 }: QRCodeProps) {
   const cell = size / GRID;
   const cells: { x: number; y: number }[] = [];
+  // La semilla sale del código de la entrada: el mismo código da siempre el mismo dibujo y dos
+  // entradas distintas dan dibujos distintos. Cada celda usa un número de la serie; su signo
+  // decide si va pintada.
+  let numero = hash(id);
   for (let y = 0; y < GRID; y++) {
     for (let x = 0; x < GRID; x++) {
+      numero = siguiente(numero);
       if (enOjoOrientacion(x, y)) {
         if (celdaOjo(x, y)) cells.push({ x, y });
-      } else if (celdaActiva(id, x, y)) {
+      } else if (numero < 0) {
         cells.push({ x, y });
       }
     }

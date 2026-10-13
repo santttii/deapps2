@@ -6,11 +6,12 @@ DNI y un canal de reventa oficial con tope de precio de +10% sobre lo pagado.
 
 El repo tiene dos partes:
 
-- **`frontend/`**: SPA en React. La sesión (ingreso, registro, perfil) y el
-  catálogo de eventos (listado, búsqueda, detalle, crear evento) usan el
-  backend. Lo que todavía no tiene backend (compra, mis entradas, reventa,
-  puerta y estadísticas del organizador) sigue con datos locales en
-  `localStorage`, asociados al usuario de la sesión.
+- **`frontend/`**: SPA en React. La sesión (ingreso, registro, perfil), el
+  catálogo de eventos (listado, búsqueda, detalle, crear evento) y la compra
+  (reserva, pago, emisión de entradas, cancelación) usan el backend. La
+  reventa, la puerta y las estadísticas del organizador siguen con datos
+  locales. "Mis entradas" muestra las compras que este navegador recuerda en
+  `localStorage`, con los datos que devolvió el backend.
 - **`backend/`**: Jakarta EE sobre WildFly, en construcción. Son 8 servicios
   independientes (un WAR cada uno) desplegados en el mismo WildFly, con el
   broker JMS del taller de mensajería. `ServicioDeUsuarios` y
@@ -145,9 +146,9 @@ backend (API) o del navegador (locales, hasta que exista el servicio).
 |---|---|---|---|
 | `/` | Catálogo: evento destacado, filtros por categoría, buscador con demora e insensible a acentos, grilla de eventos, estados de carga, error y vacío, y bloque de reventa oficial | Pública | API (eventos); la franja de reventa es local |
 | `/evento/:slug` | Detalle del evento: mapa de sectores, selección de cantidad por sector, resumen sticky con total (en pantalla angosta, el total y el botón van en una barra fija abajo) | Pública | API |
-| `/checkout` | Checkout en 3 pasos: reserva con cuenta regresiva, datos de cada titular, medio de pago (pasarela, tarjeta o transferencia) | Logueado | Locales (falta `ServicioDeVentas`) |
-| `/confirmacion/:ordenId` | Confirmación de compra: QR, comprobante, imprimir, agregar al calendario | Logueado | Locales |
-| `/mis-entradas` | Visor de entradas con QR, publicación en reventa con validación de tope, historial | Logueado | Locales |
+| `/checkout` | Checkout en 3 pasos: datos de cada titular, pago con la reserva hecha y su cuenta regresiva (pasarela, tarjeta o transferencia; se puede cancelar) y confirmación | Logueado | API (`ServicioDeVentas`) |
+| `/confirmacion/:ordenId` | Confirmación de compra: "emitiendo tus entradas…" hasta que termina la emisión, un QR por entrada, comprobante, imprimir, agregar al calendario | Logueado | API |
+| `/mis-entradas` | Visor de entradas con QR, publicación en reventa con validación de tope, historial | Logueado | Copia en el navegador de lo que devolvió la API (no hay listado en el backend); la reventa es local |
 | `/ingresar` | Login (con las credenciales de prueba visibles en pantalla) | Pública | API |
 | `/registro` | Alta de cuenta en 2 pasos: datos y verificación de email con código | Pública | API |
 | `/reventa` | Reventa oficial: filtros, listado con tope, compra con confirmación | Pública (comprar requiere login) | Locales (falta `ServicioDeReventa`) |
@@ -188,9 +189,12 @@ Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anu
 2. Abrir el evento destacado (`Atlético Norte vs. Racing del Sur`), elegir un
    sector y sumar 2 entradas.
 3. Ir a "Continuar al checkout" → loguearse como `titular@palco.test`.
-4. Completar los datos del segundo titular (o marcar "asignar después por link"),
-   elegir medio de pago y confirmar.
-5. Ver la confirmación con el QR, ir a "Mis entradas".
+4. Completar los datos del segundo titular y tocar "Continuar": ahí se reserva
+   el cupo por 10 minutos y aparece la cuenta regresiva. Elegir "Tarjeta" y
+   pagar (una tarjeta terminada en `0002` se rechaza, una terminada en `0504`
+   simula que la pasarela no responde y cualquier otra se aprueba).
+5. Ver "Emitiendo tus entradas…" y después la confirmación con un QR por
+   entrada; ir a "Mis entradas".
 6. Publicar una de las entradas en la reventa oficial (probar precios por encima
    del tope para ver el bloqueo).
 7. Cerrar sesión y volver a entrar con otra cuenta (o abrir `/registro` para crear
@@ -276,10 +280,10 @@ src/
 ├── servicios/            # Una función por endpoint del backend
 │   ├── usuarios.ts       # /api/usuarios: ingresar, registrar, verificar email, perfil
 │   ├── eventos.ts        # /api/eventos: listar, detalle, crear
-│   └── ventas.ts         # Enganche del checkout (hoy arma la compra en el navegador)
+│   └── ventas.ts         # /api/v1/ventas y /entradas: iniciar, consultar, pagar, cancelar
 ├── store/
 │   ├── SesionContext.tsx # Quién está logueado: ingresar, verificar email, salir
-│   ├── AppContext.tsx    # Catálogo del servidor + datos locales (reducer y localStorage)
+│   ├── AppContext.tsx    # Catálogo del servidor + compras guardadas y reventa local (reducer y localStorage)
 │   └── actions.ts        # Tipos de acciones del reducer
 ├── data/
 │   ├── events.ts         # Fotos locales de los eventos (por id y por categoría)
@@ -317,12 +321,15 @@ src/
 - **Catálogo y datos locales** en
   [`AppContext.tsx`](frontend/src/store/AppContext.tsx) con `useReducer`:
   `eventos` es una copia de `GET /api/eventos` que se pide al abrir la app y no
-  se guarda; `entradas`, `ordenes`, `publicaciones` y `carrito` todavía no tienen
-  backend y se guardan en `localStorage['palco.state']`.
+  se guarda; `ordenes` y `entradas` son copias de lo que devolvió
+  `ServicioDeVentas` (el backend no tiene un listado para pedirlas);
+  `publicaciones` es local y `carrito` es la compra en curso, con el id de la
+  venta cuando el cupo ya está reservado. Todo eso se guarda en
+  `localStorage['palco.state.v2']`.
 - **Acciones del reducer**: `CATALOGO_CARGANDO`, `CATALOGO_CARGADO`,
-  `CATALOGO_FALLO` y `EVENTO_RECIBIDO` para el catálogo; `SET_CARRITO`,
-  `CREAR_ORDEN`, `PUBLICAR_REVENTA`, `RETIRAR_PUBLICACION`, `COMPRAR_REVENTA` y
-  `MARCAR_ENTRADA_USADA` para los datos locales.
+  `CATALOGO_FALLO` y `EVENTO_RECIBIDO` para el catálogo; `SET_CARRITO` y
+  `GUARDAR_COMPRA` para la compra; `PUBLICAR_REVENTA`, `RETIRAR_PUBLICACION`,
+  `COMPRAR_REVENTA` y `MARCAR_ENTRADA_USADA` para los datos locales.
 - **Validaciones**: los formularios validan en el navegador con las mismas
   reglas y textos que el backend, y además muestran en cada campo los errores que
   devuelve el servidor. Las reglas de lo que sigue local (tope, máximo por orden,
@@ -332,25 +339,34 @@ src/
 ## Decisiones de diseño
 
 - **Integración por etapas**: el frontend usa el backend en todo lo que el
-  backend ya ofrece (usuarios y eventos) y deja local lo demás. Compra y reventa
-  siguen validándose en el cliente (tope de reventa, unicidad de DNI por orden)
-  y viven en el `localStorage` del navegador, así que se pueden simular varios
-  usuarios en el mismo navegador (publicar con una cuenta y comprar con otra).
-  El porqué de cada decisión está en
-  [`docs/notas/B2-frontend-sesion-catalogo.md`](docs/notas/B2-frontend-sesion-catalogo.md).
-- **Stock**: las entradas disponibles que se muestran son las del servidor. Una
-  compra hecha en el navegador no las descuenta hasta que exista
-  `ServicioDeVentas`.
+  backend ya ofrece (usuarios, eventos y ventas) y deja local lo demás. La
+  reventa sigue validándose en el cliente (tope de precio) y vive en el
+  `localStorage` del navegador, así que se pueden simular varios usuarios en el
+  mismo navegador (publicar con una cuenta y comprar con otra). El porqué de
+  cada decisión está en
+  [`docs/notas/B2-frontend-sesion-catalogo.md`](docs/notas/B2-frontend-sesion-catalogo.md)
+  y, para la compra, en
+  [`docs/notas/B2-frontend-checkout.md`](docs/notas/B2-frontend-checkout.md).
+- **Compra contra `ServicioDeVentas`**: la reserva del cupo se crea al terminar
+  el paso "Titulares", porque el backend pide los titulares en ese pedido. Los
+  dos pedidos que cambian algo (iniciar y pagar) viajan con una clave de
+  idempotencia, así un doble clic o un reintento no compra ni cobra dos veces.
+  La cuenta regresiva se calcula contra el vencimiento que devuelve el backend.
+- **Stock**: las entradas disponibles que se muestran son las del servidor. Al
+  reservar bajan en el acto, y vuelven si la compra se cancela o vence.
 - **QR determinístico dibujado a mano**: en vez de una librería, el componente
-  `QRCode` genera una grilla 21×21 a partir de un hash simple del id de la
-  entrada, con los tres cuadrados de orientación fijos en las esquinas. Es estable
-  para un mismo id y distinto entre entradas, pero no es escaneable.
+  `QRCode` genera una grilla 21×21 a partir de un hash simple del código de la
+  entrada (el `codigoQr` que genera el backend al emitirla), con los tres
+  cuadrados de orientación fijos en las esquinas. Es estable para un mismo
+  código y distinto entre entradas, pero no es escaneable.
 - **Carrito en el store**: la selección de sectores del detalle de evento se
-  guarda en `state.carrito` y se limpia automáticamente al crear la orden.
-- **Extensión interna `propietarioId`**: además de los campos del modelo de
-  datos, cada entrada guarda el id del usuario (el real, del backend) al que
-  pertenece, para poder filtrar "Mis entradas" mientras no exista el servicio.
-  No se muestra en la UI.
+  guarda en `state.carrito`, junto con el id de la venta cuando ya hay reserva
+  (por eso recargar el checkout retoma la misma compra). Lo vacía la pantalla
+  de confirmación.
+- **Extensiones internas `propietarioId` y `compradorId`**: cada entrada y cada
+  orden guardadas en el navegador llevan el id del usuario (el real, del
+  backend) al que pertenecen, para filtrar "Mis entradas" y el historial cuando
+  varias cuentas usan el mismo navegador. No se muestran en la UI.
 - **Tailwind 3 en vez de 4**: se fijó la versión 3.x para poder declarar los
   tokens de color en `tailwind.config.js` con la sintaxis clásica.
 - **Imágenes de eventos**: los 6 eventos de prueba usan fotos reales de dominio
@@ -379,9 +395,13 @@ La mayoría se resuelven con el backend. El plan de trabajo está en
   token, la sesión se cierra bien, pero en la consola del navegador queda un
   aviso "blocked by CORS policy" por cada pedido rechazado. Ese 401 sale del
   servidor sin cabeceras CORS; se corrige en el backend, no en el frontend.
-- **Compra y reventa sin backend**: las órdenes, las entradas y las
-  publicaciones viven solo en el navegador donde se crearon, y sus reglas se
-  controlan en el cliente.
+- **"Mis entradas" depende del navegador**: el backend no tiene un listado de
+  las ventas ni de las entradas de un usuario, así que el frontend recuerda en
+  `localStorage` qué compró cada cuenta. En otro dispositivo, o si se borra el
+  almacenamiento, las compras no aparecen (siguen existiendo en el backend).
+- **Reventa sin backend**: las publicaciones viven solo en el navegador donde
+  se crearon y sus reglas se controlan en el cliente. El backend no se entera
+  de que una entrada se publicó o se vendió.
 - **`/puerta` es una simulación**: los estados de escaneo, los contadores y los
   últimos escaneos son locales a la pantalla y no leen ni modifican las entradas
   reales del store. La acción `MARCAR_ENTRADA_USADA` existe pero todavía no se usa.
@@ -390,10 +410,14 @@ La mayoría se resuelven con el backend. El plan de trabajo está en
   todos los eventos: la API todavía no dice de qué organizador es cada uno.
 - **Registro**: la verificación de identidad (fotos del DNI) no tiene backend y
   se quitó del alta; las cuentas nuevas quedan con `identidadVerificada` en
-  falso. Hoy pueden comprar porque la compra es local. Cuando el checkout se
-  conecte a `ServicioDeVentas`, que exige identidad verificada, no van a poder:
-  es una decisión pendiente del grupo (ver la nota de decisiones).
-- **Pagos y emails simulados**: no se procesa ningún pago ni se envía ningún
-  email. El código de verificación del registro es real, pero se lee del log del
-  servidor.
+  falso. Como `ServicioDeVentas` exige identidad verificada, hoy no pueden
+  comprar: el checkout lo avisa al entrar ("Falta verificar tu identidad") en
+  lugar de pedir los titulares, y la pantalla de ingreso aclara que para
+  comprar hay que usar `titular@palco.test`. Falta que el backend ofrezca cómo
+  verificar la identidad: es una decisión pendiente del grupo (ver
+  `docs/notas/B2-frontend-checkout.md`).
+- **Pagos y emails simulados**: el cobro lo simula el backend (no se procesa
+  ningún pago real; el formulario de tarjeta no manda sus datos, solo un token
+  de prueba) y no se envía ningún email. El código de verificación del registro
+  es real, pero se lee del log del servidor.
 - **Sin tests automatizados**.

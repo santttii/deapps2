@@ -15,7 +15,7 @@ import com.palco.ventas.dominio.Venta;
  *
  * Tiene tres grupos de operaciones:
  * <ul>
- * <li>Guardar una venta nueva y completarla con sus renglones.</li>
+ * <li>Guardar una venta nueva, con sus renglones.</li>
  * <li>Buscar. Toda búsqueda devuelve la venta con sus renglones y sus entradas
  * ya cargados, para que se la pueda leer fuera de una transacción.</li>
  * <li>Cambiar de estado. Cada cambio es un solo UPDATE con la condición
@@ -35,25 +35,26 @@ public interface VentaRepository {
     String TIPO_CLAVE_REPETIDA = "clave-repetida";
 
     /**
-     * Guarda una venta nueva; el INSERT sale en el momento. Lanza
+     * Guarda una venta nueva junto con sus renglones; los INSERT salen en el
+     * momento, no al cerrar la transacción: si la base rechaza algo, quien
+     * llama se entera a tiempo de devolver el cupo que reservó. Lanza
      * {@code ErroresDeNegocio.Conflicto} de tipo {@link #TIPO_CLAVE_REPETIDA} si
      * el comprador ya tiene una venta con esa clave de idempotencia: es la base
      * la que lo impide, con una restricción única.
      */
     void guardar(Venta venta);
 
-    /**
-     * Escribe en la base los renglones y los montos que se le sumaron a una
-     * venta ya guardada. Sale en el momento, no al cerrar la transacción: si la
-     * base rechaza algo, quien llama se entera a tiempo de devolver el cupo que
-     * reservó.
-     */
-    void actualizar(Venta venta);
-
     Optional<Venta> buscarPorId(String ventaId);
 
     /** La venta que ese comprador creó con esa clave de idempotencia, si existe. */
     Optional<Venta> buscarPorClave(String compradorId, String claveIdempotencia);
+
+    /**
+     * Todas las ventas de ese comprador, en cualquier estado, de la más nueva
+     * a la más vieja. Nunca trae ventas de otro usuario: el filtro por
+     * comprador está en la consulta.
+     */
+    List<Venta> buscarPorComprador(String compradorId);
 
     /**
      * Las reservas que ya vencieron en el instante {@code ahora} y nadie
@@ -65,12 +66,19 @@ public interface VentaRepository {
     /**
      * Anota la clave del intento de pago, antes de cobrar. Exige que la venta
      * esté {@code EN_CHECKOUT}, que la reserva siga vigente y que no haya otra
-     * clave anotada (con la misma clave vuelve a pasar: es un reintento).
+     * clave anotada. Si la clave anotada ya es esta misma vuelve a pasar,
+     * aunque la reserva haya vencido: es el reintento de un pago del que no se
+     * supo el resultado, y esa marca siguió reteniendo el cupo.
      * Desde ese momento la venta no se puede cancelar ni vencer.
      */
     boolean guardarClaveDePago(String ventaId, String clavePago, LocalDateTime ahora);
 
-    /** Quita la clave del intento de pago cuando el cobro fue rechazado, para que se pueda pagar de nuevo o cancelar. */
+    /**
+     * Quita la clave del intento de pago cuando se sabe que no se cobró: el
+     * cobro fue rechazado o el pedido no llegó a cobrar. Sin la clave, la
+     * compra se puede pagar de nuevo, cancelar o vencer. Solo la quita si la
+     * venta sigue {@code EN_CHECKOUT} y la clave anotada es esa misma.
+     */
     boolean borrarClaveDePago(String ventaId, String clavePago);
 
     /** {@code EN_CHECKOUT} → {@code CONFIRMADA}: anota el pago aprobado y el instante de la confirmación. */

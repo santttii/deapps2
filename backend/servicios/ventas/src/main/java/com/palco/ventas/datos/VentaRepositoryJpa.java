@@ -22,8 +22,9 @@ import com.palco.ventas.dominio.Venta;
  *
  * Cada método corre dentro de una transacción, que es el comportamiento por
  * defecto de un Session Bean: si quien llama ya tiene una (el bean de la
- * compra), el método se suma a esa; si no tiene (la fachada o el barrido), el
- * contenedor abre una corta, solo para ese método.
+ * compra, al pagar o al cancelar), el método se suma a esa; si no tiene (la
+ * fachada, el barrido o el bean de la compra al abrirla), el contenedor abre
+ * una corta, solo para ese método.
  */
 @Stateless
 public class VentaRepositoryJpa implements VentaRepository {
@@ -34,32 +35,17 @@ public class VentaRepositoryJpa implements VentaRepository {
     @Override
     public void guardar(Venta venta) {
         try {
+            // Los renglones se guardan con la venta (cascade).
             em.persist(venta);
-            // Como el id lo asigna el código, el INSERT sale recién acá. Se fuerza ahora para
+            // Como los ids los asigna el código, los INSERT salen recién acá. Se fuerzan ahora para
             // que una clave repetida falle dentro de este método y no al cerrar la transacción.
             em.flush();
         } catch (PersistenceException e) {
             // Solo una clave repetida es un conflicto; cualquier otra falla de la base sigue siendo un error.
+            // La que puede repetirse es la clave de idempotencia: el pedido ya llega sin sectores repetidos.
             if (BaseDeDatos.esClaveDuplicada(e)) {
                 throw new ErroresDeNegocio.Conflicto(TIPO_CLAVE_REPETIDA,
                         "Ya existe una compra hecha con esa clave de idempotencia.");
-            }
-            throw e;
-        }
-    }
-
-    @Override
-    public void actualizar(Venta venta) {
-        try {
-            // merge sirve para los dos casos: si la venta se guardó en esta misma transacción, ya está
-            // a cargo del EntityManager y no copia nada; si viene de otra, copia sus datos sobre la que
-            // lee de la base. Los renglones nuevos se guardan con ella (cascade).
-            em.merge(venta);
-            em.flush();
-        } catch (PersistenceException e) {
-            // La única clave que puede repetirse acá es la de un renglón: (venta, sector).
-            if (BaseDeDatos.esClaveDuplicada(e)) {
-                throw new ErroresDeNegocio.Conflicto("sector-repetido", "La compra nombra dos veces el mismo sector.");
             }
             throw e;
         }
@@ -80,6 +66,20 @@ public class VentaRepositoryJpa implements VentaRepository {
                 .getResultStream()
                 .findFirst()
                 .map(this::cargada);
+    }
+
+    @Override
+    public List<Venta> buscarPorComprador(String compradorId) {
+        // El id desempata entre las que se crearon en el mismo segundo, para que el orden sea siempre el mismo.
+        return em.createQuery("""
+                        select v from Venta v
+                        where v.compradorId = :compradorId
+                        order by v.creada desc, v.id desc""", Venta.class)
+                .setParameter("compradorId", compradorId)
+                .getResultList()
+                .stream()
+                .map(this::cargada)
+                .toList();
     }
 
     @Override
@@ -104,8 +104,7 @@ public class VentaRepositoryJpa implements VentaRepository {
                         update Venta v set v.clavePago = :clave
                         where v.id = :id
                           and v.estado = :enCheckout
-                          and v.venceReserva > :ahora
-                          and (v.clavePago is null or v.clavePago = :clave)""")
+                          and ((v.clavePago is null and v.venceReserva > :ahora) or v.clavePago = :clave)""")
                 .setParameter("id", ventaId)
                 .setParameter("clave", clavePago)
                 .setParameter("enCheckout", EstadoVenta.EN_CHECKOUT)

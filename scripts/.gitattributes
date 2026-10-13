@@ -1,0 +1,2 @@
+# Los guiones de Bash van siempre con fin de línea LF: con CRLF, Git Bash no los corre.
+*.sh text eol=lf

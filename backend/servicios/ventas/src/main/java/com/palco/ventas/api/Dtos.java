@@ -54,7 +54,8 @@ public final class Dtos {
      * La persona a cuyo nombre sale una entrada. {@code nombre} lleva nombre y
      * apellido juntos. El formato del DNI no se valida acá con una expresión
      * propia: la regla está una sola vez, en {@code ReglasDeNegocio.esDniValido},
-     * y la aplica {@code ServicioDeVentas}.
+     * y la aplica {@code ServicioDeVentas}. Ahí también se exige que el nombre
+     * vaya en una sola línea, sin caracteres de control.
      */
     public record TitularDto(
             @NotBlank(message = "Ingresá el nombre y apellido del titular.")
@@ -93,19 +94,26 @@ public final class Dtos {
 
     /**
      * Una entrada dentro de la venta. La lista está vacía hasta que se aprueba
-     * el pago. {@code enlaces} sale en el JSON como {@code _links}, igual que
-     * en {@link VentaDto}.
+     * el pago. Trae lo que hace falta para mostrar la entrada sin pedirla
+     * aparte: el sector, lo que se pagó por ella ({@code precioPagado}, el
+     * precio del sector sin el cargo de servicio) y su código.
+     * {@code codigoQr} es null mientras la entrada está en
+     * {@code PENDIENTE_EMISION}. {@code enlaces} sale en el JSON como
+     * {@code _links}, igual que en {@link VentaDto}.
      */
     public record EntradaDeVentaDto(
             String id,
+            String sectorId,
             String sector,
             TitularDto titular,
+            long precioPagado,
             String estado,
+            String codigoQr,
             @JsonbProperty("_links") Map<String, EnlaceDto> enlaces) {
 
         /** La misma entrada, con los enlaces que arma la capa REST. */
         public EntradaDeVentaDto conEnlaces(Map<String, EnlaceDto> nuevos) {
-            return new EntradaDeVentaDto(id, sector, titular, estado, nuevos);
+            return new EntradaDeVentaDto(id, sectorId, sector, titular, precioPagado, estado, codigoQr, nuevos);
         }
     }
 
@@ -138,8 +146,9 @@ public final class Dtos {
 
     /**
      * La venta como la ve el comprador. Los montos son pesos enteros.
-     * {@code venceReserva} es un instante en UTC, con la Z al final
-     * ("2026-10-19T21:10:00Z"). {@code pagoId} es null hasta que se paga.
+     * {@code creada} y {@code venceReserva} son instantes en UTC, con la Z al
+     * final ("2026-10-19T21:10:00Z"): cuándo se abrió la compra y hasta
+     * cuándo vale su reserva. {@code pagoId} es null hasta que se paga.
      *
      * {@code enlaces} dice qué se puede hacer con la venta en el estado en que
      * está, y sale en el JSON con el nombre {@code _links}, que es el del
@@ -155,6 +164,7 @@ public final class Dtos {
             long subtotal,
             long cargoServicio,
             long montoTotal,
+            String creada,
             String venceReserva,
             String pagoId,
             List<EntradaDeVentaDto> entradas,
@@ -163,7 +173,7 @@ public final class Dtos {
         /** La misma venta, con sus entradas y sus enlaces ya completados por la capa REST. */
         public VentaDto conEnlaces(List<EntradaDeVentaDto> entradasConEnlaces, Map<String, EnlaceDto> nuevos) {
             return new VentaDto(id, estado, facturaEstado, eventoId, items, subtotal, cargoServicio, montoTotal,
-                    venceReserva, pagoId, entradasConEnlaces, nuevos);
+                    creada, venceReserva, pagoId, entradasConEnlaces, nuevos);
         }
     }
 }

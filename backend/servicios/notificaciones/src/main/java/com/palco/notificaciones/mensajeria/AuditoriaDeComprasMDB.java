@@ -11,6 +11,7 @@ import jakarta.jms.JMSException;
 import jakarta.jms.Message;
 import jakarta.jms.MessageListener;
 
+import com.palco.common.Textos;
 import com.palco.common.mensajeria.DestinosJms;
 import com.palco.common.mensajeria.MensajeInvalido;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
@@ -66,13 +67,15 @@ public class AuditoriaDeComprasMDB implements MessageListener {
             // Dice "procesado" y no "registrada": si es una reentrega, registrar encontró la
             // fila que ya estaba y no insertó nada. En los dos casos la fila existe: si el
             // INSERT hubiera fallado, registrar habría lanzado y esta línea no se escribiría.
-            LOG.info("AuditoriaDeCompras: procesado el mensaje de la venta " + mensaje.ventaId() + ".");
+            // El id viene en el mensaje: va al log en un solo renglón (ver Textos.enUnaLinea).
+            LOG.info("AuditoriaDeCompras: procesado el mensaje de la venta " + Textos.enUnaLinea(mensaje.ventaId())
+                    + ".");
         } catch (MensajeInvalido | JMSException e) {
             // No se puede registrar lo que no se entiende, pero tampoco se lo puede perder.
             // Se deshace la transacción en lugar de lanzar una excepción (que dejaría una
             // traza por intento): el broker reintenta y después lo guarda en la DLQ.
             LOG.warning("AuditoriaDeCompras: mensaje inválido (entrega " + LectorDeMensajes.numeroDeEntrega(recibido)
-                    + "), vuelve al broker. " + e.getMessage());
+                    + "), vuelve al broker. " + Textos.enUnaLinea(e.getMessage()));
             contexto.setRollbackOnly();
         }
     }

@@ -1,11 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useApp } from '../store/AppContext';
 import type { Carrito } from '../store/actions';
-import { mensajeDeError } from '../lib/api';
+import { ErrorApi, mensajeDeError } from '../lib/api';
 import { calcularServicio, money } from '../lib/format';
-import { confirmarCompra, type CompraConfirmada } from '../servicios/ventas';
+import {
+  cancelarCompra,
+  iniciarCompra,
+  nuevaClave,
+  obtenerOrden,
+  pagarCompra,
+  soltarReserva,
+  tokenDePrueba,
+  type NuevaCompra,
+} from '../servicios/ventas';
 import {
   esCVVValido,
   esDNIValido,
@@ -15,12 +24,20 @@ import {
   formatearNumeroTarjeta,
   soloDigitosDNI,
 } from '../lib/validate';
-import { MINUTOS_RESERVA, type Evento, type MedioPago, type Usuario } from '../types';
+import { MINUTOS_RESERVA, type Evento, type MedioPago, type Orden, type Usuario } from '../types';
 import Stepper from '../components/Stepper';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
+import StatusMessage from '../components/StatusMessage';
 import PageTransition from '../components/PageTransition';
+
+// El checkout contra ServicioDeVentas, en dos pasos:
+//   1. Titulares: todavía no hay nada en el backend. "Continuar" inicia la compra, que reserva el
+//      cupo por 10 minutos. Los titulares viajan en ese pedido y después no se pueden cambiar.
+//   2. Pago: con la reserva hecha corre la cuenta regresiva. Se paga o se cancela.
+// El id de la venta queda en el carrito (carrito.ordenId): por eso recargar la página, o irse y
+// volver, retoma la misma compra en el paso de pago.
 
 interface FilaTitular {
   sectorId: string;
@@ -29,8 +46,9 @@ interface FilaTitular {
   nombre: string;
   apellido: string;
   dni: string;
-  asignarDespues: boolean;
 }
+
+const MENSAJE_PAGO_SIN_CONFIRMAR = 'No pudimos confirmar el pago. Reintentá: no se cobra dos veces.';
 
 // Una fila por entrada del carrito. La primera queda a nombre de quien compra.
 function filasIniciales(carrito: Carrito | null, evento: Evento | undefined, comprador: Usuario | null): FilaTitular[] {
@@ -48,11 +66,16 @@ function filasIniciales(carrito: Carrito | null, evento: Evento | undefined, com
         nombre: esPrimera ? comprador?.nombre ?? '' : '',
         apellido: esPrimera ? comprador?.apellido ?? '' : '',
         dni: esPrimera ? comprador?.dni ?? '' : '',
-        asignarDespues: false,
       });
     }
   });
   return filas;
+}
+
+// Segundos que faltan para que venza la reserva. Se calcula contra el reloj cada vez, en lugar de
+// descontar un contador: así no se atrasa con la pestaña en segundo plano y sigue bien al recargar.
+function segundosHasta(venceISO: string): number {
+  return Math.max(0, Math.ceil((Date.parse(venceISO) - Date.now()) / 1000));
 }
 
 export default function CheckoutPage() {
@@ -63,54 +86,135 @@ export default function CheckoutPage() {
   const carrito = carritoAjeno ? null : state.carrito;
   const evento = carrito ? state.eventos.find((e) => e.id === carrito.eventoId) : undefined;
 
-  const [paso, setPaso] = useState(0);
-  const [segundosRestantes, setSegundosRestantes] = useState(MINUTOS_RESERVA * 60);
-  const [reservaVencida, setReservaVencida] = useState(false);
-  const [medioPago, setMedioPago] = useState<MedioPago>('pasarela');
-  const [tarjeta, setTarjeta] = useState({ numero: '', vencimiento: '', cvv: '', titular: '' });
-  const [erroresTarjeta, setErroresTarjeta] = useState<Record<string, string>>({});
-  const [procesando, setProcesando] = useState(false);
-  const [errorPago, setErrorPago] = useState('');
+  // La venta que devolvió el backend al reservar. null mientras no hay reserva.
+  const [orden, setOrden] = useState<Orden | null>(null);
+  const [segundosRestantes, setSegundosRestantes] = useState(0);
+  const [reservaLiberada, setReservaLiberada] = useState(false);
+
+  // Si al entrar el carrito ya tenía una reserva (se recargó la página o se volvió al checkout),
+  // se retoma esa compra en lugar de empezar otra.
+  const [ordenARetomar] = useState(() => carrito?.ordenId ?? null);
+  const [errorAlRetomar, setErrorAlRetomar] = useState('');
+  const [reintentosDeRetomar, setReintentosDeRetomar] = useState(0);
 
   // Las filas se arman una sola vez, al entrar: ProtectedRoute y RequireCatalog garantizan que
   // el usuario y el evento ya están. Así un refresco del evento no borra lo que se tipeó.
   const [titulares, setTitulares] = useState<FilaTitular[]>(() => filasIniciales(carrito, evento, usuarioActual));
   const [erroresTitulares, setErroresTitulares] = useState<Record<number, { nombre?: string; apellido?: string; dni?: string }>>({});
+  const [reservando, setReservando] = useState(false);
+  const [errorReserva, setErrorReserva] = useState('');
+  const [sinCupo, setSinCupo] = useState(false);
+  // Clave de idempotencia del último pedido de reserva, junto con el pedido que se mandó.
+  const ultimoPedido = useRef<{ clave: string; pedido: string } | null>(null);
+  // Ventas solo le vende a una cuenta con la identidad verificada (si no, responde 403
+  // 'identidad-no-verificada') y una cuenta recién creada no la tiene. El usuario de la sesión ya
+  // trae ese dato: si es falso se avisa al entrar, en lugar de dejar cargar los titulares para
+  // fallar al final. Igual decide el backend: su 403 se sigue mostrando como cualquier otro error.
+  const sinIdentidad = usuarioActual?.identidadVerificada === false;
 
+  const [medioPago, setMedioPago] = useState<MedioPago>('pasarela');
+  const [tarjeta, setTarjeta] = useState({ numero: '', vencimiento: '', cvv: '', titular: '' });
+  const [erroresTarjeta, setErroresTarjeta] = useState<Record<string, string>>({});
+  const [pagando, setPagando] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
+  const [errorPago, setErrorPago] = useState('');
+  // Hubo un intento de pago del que no se supo el resultado: el botón pasa a "Reintentar pago".
+  const [pagoSinConfirmar, setPagoSinConfirmar] = useState(false);
+
+  // Pasa al paso de pago con la reserva que devolvió el backend.
+  function mostrarPago(reserva: Orden) {
+    setOrden(reserva);
+    setSegundosRestantes(segundosHasta(reserva.venceReservaISO));
+  }
+
+  // La reserva ya no sirve (venció, se canceló o el backend la perdió): se quita del carrito y se
+  // avisa. El carrito nunca se pone en null acá: la página caería en su propio <Navigate to="/">.
+  function liberarReserva() {
+    if (carrito) dispatch({ type: 'SET_CARRITO', payload: { ...carrito, ordenId: null, clavePago: null } });
+    setOrden(null);
+    setReservaLiberada(true);
+  }
+
+  // Retomar la compra que quedó a medias: se le pregunta al backend cómo está.
   useEffect(() => {
-    if (reservaVencida) return;
-    const interval = setInterval(() => {
-      setSegundosRestantes((prev) => {
-        if (prev <= 1) {
-          setReservaVencida(true);
-          clearInterval(interval);
-          return 0;
+    if (!ordenARetomar || !usuarioActual) return;
+    let vigente = true;
+    obtenerOrden(ordenARetomar)
+      .then((recibida) => {
+        if (!vigente) return;
+        if (recibida.estado === 'en_checkout') {
+          mostrarPago(recibida);
+        } else if (recibida.estado === 'confirmada' || recibida.estado === 'emitida') {
+          // Ya estaba paga (se recargó justo después de pagar): va directo a la confirmación.
+          dispatch({ type: 'GUARDAR_COMPRA', payload: { orden: recibida, entradas: [], compradorId: usuarioActual.id } });
+          navigate(`/confirmacion/${recibida.id}`, { replace: true });
+        } else {
+          liberarReserva(); // cancelada o vencida
         }
-        return prev - 1;
+      })
+      .catch((error: unknown) => {
+        if (!vigente) return;
+        if (error instanceof ErrorApi && error.estado === 404) liberarReserva();
+        else setErrorAlRetomar(mensajeDeError(error));
       });
+    return () => {
+      vigente = false;
+    };
+    // Corre al entrar y cuando se toca "Reintentar"; no tiene que repetirse en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordenARetomar, reintentosDeRetomar]);
+
+  // Cuenta regresiva de la reserva. Al llegar a cero se suelta la reserva (así el cupo vuelve ya,
+  // sin esperar a que el backend la venza) y se avisa. Con un pago en vuelo no se toca nada: si
+  // la reserva venció, lo dice la respuesta del pago.
+  useEffect(() => {
+    if (!orden) return;
+    const intervalo = setInterval(() => {
+      const restantes = segundosHasta(orden.venceReservaISO);
+      setSegundosRestantes(restantes);
+      if (restantes === 0 && !pagando) {
+        soltarReserva(orden.id);
+        liberarReserva();
+      }
     }, 1000);
-    return () => clearInterval(interval);
-  }, [reservaVencida]);
+    return () => clearInterval(intervalo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orden, pagando]);
 
   if (!carrito || !evento) return <Navigate to="/" replace />;
+
+  const conReserva = carrito.ordenId !== null;
+  const paso = conReserva ? 1 : 0;
+  const rutaDelEvento = `/evento/${evento.slug}`;
 
   const minutos = Math.floor(segundosRestantes / 60);
   const segundos = segundosRestantes % 60;
   const timerCritico = segundosRestantes <= 120;
 
-  const subtotal = titulares.reduce((acc, t) => acc + t.precio, 0);
-  const servicio = calcularServicio(subtotal);
-  const total = subtotal + servicio;
+  // Con la reserva hecha, los importes son los que calculó el backend. Antes, una estimación con
+  // los precios del catálogo.
+  const subtotalEstimado = titulares.reduce((acc, t) => acc + t.precio, 0);
+  const subtotal = orden ? orden.subtotal : subtotalEstimado;
+  const servicio = orden ? orden.servicio : calcularServicio(subtotalEstimado);
+  const total = orden ? orden.total : subtotalEstimado + servicio;
+  const lineasDelResumen = orden
+    ? orden.items.map((it) => ({ sectorId: it.sectorId, cantidad: it.cantidad, precio: it.precioUnitario }))
+    : carrito.items.map((it) => ({
+        sectorId: it.sectorId,
+        cantidad: it.cantidad,
+        precio: evento.sectores.find((s) => s.id === it.sectorId)?.precio ?? 0,
+      }));
 
-  function actualizarTitular(index: number, campo: keyof FilaTitular, valor: string | boolean) {
+  function actualizarTitular(index: number, campo: 'nombre' | 'apellido' | 'dni', valor: string) {
     setTitulares((prev) => prev.map((t, i) => (i === index ? { ...t, [campo]: valor } : t)));
   }
 
+  // El backend valida lo mismo, pero no dice en qué entrada está el error: por eso se revisa
+  // antes acá, que sí puede marcar el campo exacto.
   function validarTitulares(): boolean {
     const errores: typeof erroresTitulares = {};
-    const dnisVistos = new Map<string, number>();
+    const dnisVistos = new Set<string>();
     titulares.forEach((t, i) => {
-      if (t.asignarDespues) return;
       const err: { nombre?: string; apellido?: string; dni?: string } = {};
       if (!esNombreValido(t.nombre)) err.nombre = 'Ingresá un nombre válido.';
       if (!esNombreValido(t.apellido)) err.apellido = 'Ingresá un apellido válido.';
@@ -121,7 +225,7 @@ export default function CheckoutPage() {
         if (dnisVistos.has(digits)) {
           err.dni = 'Ese DNI ya está asignado a otra entrada de esta compra.';
         } else {
-          dnisVistos.set(digits, i);
+          dnisVistos.add(digits);
         }
       }
       if (Object.keys(err).length > 0) errores[i] = err;
@@ -141,37 +245,113 @@ export default function CheckoutPage() {
     return Object.keys(errores).length === 0;
   }
 
-  function irAPaso2() {
-    if (validarTitulares()) setPaso(1);
+  // "Continuar": inicia la compra en el backend, que reserva el cupo.
+  async function reservar() {
+    if (!carrito || !evento || !usuarioActual || reservando || !validarTitulares()) return;
+    const datos: NuevaCompra = {
+      eventoId: evento.id,
+      items: carrito.items,
+      titulares: titulares.map((t) => ({ nombre: t.nombre, apellido: t.apellido, dni: t.dni })),
+    };
+    // Misma clave = mismo pedido. Si se repite el pedido tal cual (doble clic, reintento después
+    // de un corte de red) viaja la misma clave y el backend devuelve la venta que ya creó, sin
+    // reservar otra vez. Si cambió algo, es otro pedido y lleva una clave nueva: el backend, con
+    // una clave repetida, devuelve la venta anterior sin mirar el cuerpo.
+    const pedido = JSON.stringify(datos);
+    if (ultimoPedido.current?.pedido !== pedido) ultimoPedido.current = { clave: nuevaClave(), pedido };
+
+    setErrorReserva('');
+    setSinCupo(false);
+    setReservando(true);
+    try {
+      const reserva = await iniciarCompra(datos, ultimoPedido.current.clave);
+      // El pedido ya tuvo respuesta: esa clave no se vuelve a usar.
+      ultimoPedido.current = null;
+      if (reserva.estado !== 'en_checkout') {
+        // Solo pasa si se reintentó con la misma clave una reserva que mientras tanto venció.
+        setReservaLiberada(true);
+        return;
+      }
+      // La clave del pago nace con la reserva y se guarda en el carrito: sobrevive a recargar.
+      dispatch({
+        type: 'SET_CARRITO',
+        payload: { ...carrito, usuarioId: usuarioActual.id, ordenId: reserva.id, clavePago: nuevaClave() },
+      });
+      mostrarPago(reserva);
+    } catch (error) {
+      // En un 400 el detalle está en los errores por campo; en el resto, en el mensaje.
+      const campos = error instanceof ErrorApi ? Object.values(error.campos) : [];
+      setErrorReserva(campos.length > 0 ? campos.join(' ') : mensajeDeError(error));
+      // Sin cupo no sirve reintentar: se ofrece volver al evento, que muestra el stock al día.
+      setSinCupo(error instanceof ErrorApi && error.tipo === 'cupo-agotado');    } finally {
+      setReservando(false);
+    }
   }
 
-  async function confirmarPago() {
-    if (!carrito || !evento || !usuarioActual || !validarPago()) return;
+  async function pagar() {
+    if (!carrito?.clavePago || !orden || !usuarioActual || pagando || !validarPago()) return;
     setErrorPago('');
-    setProcesando(true);
-    let compra: CompraConfirmada;
+    setPagando(true);
     try {
-      compra = await confirmarCompra({
-        evento,
-        items: carrito.items,
-        titulares: titulares.map((t) => ({
-          sectorId: t.sectorId,
-          precio: t.precio,
-          nombre: t.asignarDespues ? '' : t.nombre,
-          apellido: t.asignarDespues ? '' : t.apellido,
-          dni: t.asignarDespues ? '' : t.dni,
-        })),
-        medioPago,
-      });
+      const paga = await pagarCompra(
+        orden.id,
+        { medioPago, token: tokenDePrueba(medioPago, tarjeta.numero) },
+        carrito.clavePago,
+      );
+      // Queda anotada en el navegador como compra del usuario. Las entradas se guardan después,
+      // cuando termina la emisión.
+      dispatch({ type: 'GUARDAR_COMPRA', payload: { orden: paga, entradas: [], compradorId: usuarioActual.id } });
+      navigate(`/confirmacion/${paga.id}`);
     } catch (error) {
-      setErrorPago(mensajeDeError(error));
-      return;
+      const tipo = error instanceof ErrorApi ? error.tipo : '';
+      const estado = error instanceof ErrorApi ? error.estado : 0;
+      if (tipo === 'venta-ya-paga') {
+        navigate(`/confirmacion/${orden.id}`);
+      } else if (tipo === 'reserva-vencida' || estado === 404) {
+        soltarReserva(orden.id);
+        liberarReserva();
+      } else if (tipo === 'pago-rechazado') {
+        // El backend confirmó que no cobró: el próximo intento es otro pago y lleva otra clave.
+        dispatch({ type: 'SET_CARRITO', payload: { ...carrito, clavePago: nuevaClave() } });
+        setPagoSinConfirmar(false);
+        setErrorPago(mensajeDeError(error));
+      } else if (estado === 0 || estado >= 500) {
+        // Sin respuesta (504), sin conexión o error del servidor: no se sabe si se cobró. Se
+        // reintenta con la MISMA clave, así el backend no cobra dos veces; además es la única
+        // forma de destrabar una venta que quedó con un pago sin resultado.
+        setPagoSinConfirmar(true);
+        setErrorPago(MENSAJE_PAGO_SIN_CONFIRMAR);
+      } else {
+        // 'operacion-en-curso' y el resto: el mensaje del backend. La clave no cambia.
+        setErrorPago(mensajeDeError(error));
+      }
     } finally {
-      setProcesando(false);
+      setPagando(false);
     }
-    // La orden y las entradas quedan en el navegador, a nombre del usuario de la sesión.
-    dispatch({ type: 'CREAR_ORDEN', payload: { ...compra, compradorId: usuarioActual.id } });
-    navigate(`/confirmacion/${compra.orden.id}`);
+  }
+
+  async function cancelar() {
+    if (!carrito || !evento || !orden || cancelando) return;
+    setErrorPago('');
+    setCancelando(true);
+    try {
+      await cancelarCompra(orden.id);
+    } catch (error) {
+      if (error instanceof ErrorApi && error.tipo === 'venta-ya-paga') {
+        navigate(`/confirmacion/${orden.id}`);
+        return;
+      }
+      // Una venta que el backend ya no tiene está tan cancelada como se quería. Cualquier otro
+      // error se muestra (por ejemplo 'operacion-en-curso': hay un pago sin resultado).
+      if (!(error instanceof ErrorApi && error.estado === 404)) {
+        setErrorPago(mensajeDeError(error));
+        return;
+      }
+    } finally {
+      setCancelando(false);
+    }
+    dispatch({ type: 'SET_CARRITO', payload: { ...carrito, ordenId: null, clavePago: null } });
+    navigate(rutaDelEvento);
   }
 
   return (
@@ -179,20 +359,30 @@ export default function CheckoutPage() {
       <div className="mx-auto max-w-[1240px] px-7 py-10">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Checkout</h1>
-          <p className={`font-mono-label text-sm ${timerCritico ? 'text-accent' : 'text-muted'}`}>
-            Reserva: {minutos}:{segundos.toString().padStart(2, '0')}
-          </p>
+          {/* La cuenta regresiva aparece recién cuando hay una reserva que pueda vencer. */}
+          {orden && (
+            <p className={`font-mono-label text-sm ${timerCritico ? 'text-accent' : 'text-muted'}`}>
+              Reserva: {minutos}:{segundos.toString().padStart(2, '0')}
+            </p>
+          )}
         </div>
 
-        <Stepper
-          pasos={['Titulares', 'Pago', 'Confirmación']}
-          activo={paso}
-          onVolver={(i) => setPaso(i)}
-        />
+        {/* Sin onVolver: con la reserva hecha no se vuelve a Titulares, porque ya viajaron. */}
+        <Stepper pasos={['Titulares', 'Pago', 'Confirmación']} activo={paso} />
 
         <div className="mt-8 grid grid-cols-1 gap-10 md:grid-cols-[1fr_320px]">
           <div>
-            {paso === 0 && (
+            {/* El backend todavía no tiene cómo verificar la identidad: no hay un paso para ofrecer. */}
+            {paso === 0 && sinIdentidad && (
+              <StatusMessage
+                titulo="Falta verificar tu identidad"
+                texto="Para comprar entradas hace falta una cuenta con la identidad verificada, y Palco todavía no tiene ese paso. Por ahora solo puede comprar la cuenta de prueba titular@palco.test."
+                accion="Volver al evento"
+                onAccion={() => navigate(rutaDelEvento)}
+              />
+            )}
+
+            {paso === 0 && !sinIdentidad && (
               <div className="flex flex-col gap-5">
                 {titulares.map((t, i) => {
                   const err = erroresTitulares[i] ?? {};
@@ -206,53 +396,79 @@ export default function CheckoutPage() {
                         <Input
                           label="Nombre"
                           value={t.nombre}
-                          disabled={esComprador || t.asignarDespues}
+                          disabled={esComprador}
                           onChange={(e) => actualizarTitular(i, 'nombre', e.target.value)}
                           error={err.nombre}
                         />
                         <Input
                           label="Apellido"
                           value={t.apellido}
-                          disabled={esComprador || t.asignarDespues}
+                          disabled={esComprador}
                           onChange={(e) => actualizarTitular(i, 'apellido', e.target.value)}
                           error={err.apellido}
                         />
                         <Input
                           label="DNI"
                           value={t.dni}
-                          disabled={esComprador || t.asignarDespues}
+                          disabled={esComprador}
                           onChange={(e) => actualizarTitular(i, 'dni', soloDigitosDNI(e.target.value))}
                           error={err.dni}
                         />
                       </div>
-                      {!esComprador && (
-                        <label className="mt-3 flex items-center gap-2 text-sm text-muted">
-                          <input
-                            type="checkbox"
-                            checked={t.asignarDespues}
-                            onChange={(e) => {
-                              actualizarTitular(i, 'asignarDespues', e.target.checked);
-                              if (e.target.checked) {
-                                actualizarTitular(i, 'nombre', '');
-                                actualizarTitular(i, 'apellido', '');
-                                actualizarTitular(i, 'dni', '');
-                              }
-                            }}
-                          />
-                          asignar después por link
-                        </label>
-                      )}
                     </div>
                   );
                 })}
-                <Button className="self-start" onClick={irAPaso2}>
-                  Continuar
-                </Button>
+
+                <p className="text-xs text-muted">
+                  Al continuar reservamos tus lugares por {MINUTOS_RESERVA} minutos. Después los
+                  titulares no se pueden cambiar.
+                </p>
+
+                {errorReserva && (
+                  <p role="alert" aria-live="polite" className="border-l-2 border-accent pl-2 text-xs text-ink">
+                    {errorReserva}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap gap-3">
+                  <Button loading={reservando} loadingText="Reservando…" onClick={reservar}>
+                    Continuar
+                  </Button>
+                  {sinCupo && (
+                    <Button variant="secondary" onClick={() => navigate(rutaDelEvento)}>
+                      Volver al evento
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
-            {paso === 1 && (
+            {/* El carrito tiene una reserva pero todavía no llegó del backend: se está retomando. */}
+            {paso === 1 && !orden && (
+              errorAlRetomar ? (
+                <StatusMessage
+                  titulo="No pudimos recuperar tu compra"
+                  texto={errorAlRetomar}
+                  accion="Reintentar"
+                  onAccion={() => {
+                    setErrorAlRetomar('');
+                    setReintentosDeRetomar((n) => n + 1);
+                  }}
+                />
+              ) : (
+                <p role="status" className="text-sm text-muted">
+                  Recuperando tu compra…
+                </p>
+              )
+            )}
+
+            {paso === 1 && orden && (
               <div className="flex flex-col gap-5">
+                <p className="text-xs text-muted">
+                  Tus lugares están reservados. Para cambiar los titulares, cancelá la compra y
+                  empezá de nuevo.
+                </p>
+
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {(
                     [
@@ -312,6 +528,11 @@ export default function CheckoutPage() {
                           maxLength={3}
                         />
                       </div>
+                      {/* El cobro es simulado: esta ayuda es para poder mostrar cada caso en la demo. */}
+                      <p className="mt-2 text-xs text-muted">
+                        Cobro de prueba: una tarjeta terminada en 0002 se rechaza y una terminada en
+                        0504 simula que la pasarela no responde. Cualquier otra se aprueba.
+                      </p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -324,14 +545,20 @@ export default function CheckoutPage() {
                   </p>
                 )}
 
-                <Button
-                  className="self-start"
-                  loading={procesando}
-                  loadingText="Procesando pago…"
-                  onClick={confirmarPago}
-                >
-                  Pagar y confirmar
-                </Button>
+                <div className="flex flex-wrap gap-3">
+                  <Button loading={pagando} loadingText="Procesando pago…" disabled={cancelando} onClick={pagar}>
+                    {pagoSinConfirmar ? 'Reintentar pago' : 'Pagar y confirmar'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    loading={cancelando}
+                    loadingText="Cancelando…"
+                    disabled={pagando}
+                    onClick={cancelar}
+                  >
+                    Cancelar compra
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -339,20 +566,24 @@ export default function CheckoutPage() {
           <aside className="h-fit border border-wire p-6 md:sticky md:top-[104px]">
             <h2 className="font-mono-label text-[11px] text-muted">Resumen</h2>
             <div className="mt-4 flex flex-col gap-2">
-              {carrito.items.map((it) => {
-                const sector = evento.sectores.find((s) => s.id === it.sectorId);
+              {lineasDelResumen.map((linea) => {
+                const sector = evento.sectores.find((s) => s.id === linea.sectorId);
                 if (!sector) return null;
                 return (
-                  <div key={it.sectorId} className="flex justify-between text-sm">
+                  <div key={linea.sectorId} className="flex justify-between text-sm">
                     <span>
-                      {it.cantidad} × {sector.nombre}
+                      {linea.cantidad} × {sector.nombre}
                     </span>
-                    <span>{money(it.cantidad * sector.precio)}</span>
+                    <span>{money(linea.cantidad * linea.precio)}</span>
                   </div>
                 );
               })}
             </div>
             <div className="mt-4 flex justify-between border-t border-line pt-3 text-sm text-muted">
+              <span>Subtotal</span>
+              <span>{money(subtotal)}</span>
+            </div>
+            <div className="mt-2 flex justify-between text-sm text-muted">
               <span>Cargo por servicio (10%)</span>
               <span>{money(servicio)}</span>
             </div>
@@ -364,12 +595,12 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      <Modal abierto={reservaVencida} onCerrar={() => navigate(`/evento/${evento.slug}`)} titulo="Se liberó tu reserva">
+      <Modal abierto={reservaLiberada} onCerrar={() => navigate(rutaDelEvento)} titulo="Se liberó tu reserva">
         <p className="text-sm text-graphite">
-          Pasaron {MINUTOS_RESERVA} minutos y liberamos los lugares reservados. Volvé a
-          elegir tus entradas.
+          La reserva dura {MINUTOS_RESERVA} minutos y la de esta compra ya no está vigente:
+          liberamos los lugares. Volvé a elegir tus entradas.
         </p>
-        <Button className="mt-5 w-full" onClick={() => navigate(`/evento/${evento.slug}`)}>
+        <Button className="mt-5 w-full" onClick={() => navigate(rutaDelEvento)}>
           Volver al evento
         </Button>
       </Modal>

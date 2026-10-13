@@ -5,6 +5,12 @@ package com.palco.ventas.negocio;
  * en el error como {@code "type": "/problemas/<tipo>"} y es parte del contrato
  * de la API: el frontend decide qué mostrar según el tipo, no según el texto.
  * Son los de la sección 6 de {@code docs/planes/00-contratos-compartidos.md}.
+ *
+ * Fuera de esta lista hay dos tipos que arman los repositorios cuando la base
+ * rechaza una clave repetida: {@code clave-repetida} y
+ * {@code entrada-repetida}. Son la última red y no deberían llegar al
+ * cliente: el negocio valida antes el pedido, y ante una clave de idempotencia
+ * repetida {@code ComprasEnCurso} devuelve la venta que ya existía.
  */
 public final class TiposDeProblema {
 
@@ -36,7 +42,11 @@ public final class TiposDeProblema {
     /** 409: la venta ya se pagó; no se cancela ni se paga de nuevo. */
     public static final String VENTA_YA_PAGA = "venta-ya-paga";
 
-    /** 409: hay otra llamada o un pago en curso sobre la misma compra. */
+    /**
+     * 409: hay otra llamada o un pago en curso sobre la misma compra. También
+     * cuando quedó un pago del que no se supo el resultado y ya no se puede
+     * repetir: el texto avisa que no se pague de nuevo.
+     */
     public static final String OPERACION_EN_CURSO = "operacion-en-curso";
 
     private TiposDeProblema() {

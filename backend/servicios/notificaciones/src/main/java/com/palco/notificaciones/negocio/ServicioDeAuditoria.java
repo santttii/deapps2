@@ -11,6 +11,7 @@ import jakarta.ejb.Stateless;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
+import com.palco.common.Textos;
 import com.palco.common.mensajeria.DestinosJms;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.notificaciones.api.Dtos.RegistroDeAuditoriaDto;
@@ -40,7 +41,8 @@ public class ServicioDeAuditoria implements IAuditoria {
         // El id del mensaje es la clave primaria y no cambia cuando el broker reentrega:
         // si la fila ya está, este mensaje ya se registró y no hay nada que hacer.
         if (em.find(RegistroDeAuditoria.class, mensajeId) != null) {
-            LOG.info("El mensaje " + mensajeId + " ya estaba registrado (reentrega del broker): no se repite.");
+            LOG.info("El mensaje " + Textos.enUnaLinea(mensajeId)
+                    + " ya estaba registrado (reentrega del broker): no se repite.");
             return;
         }
         em.persist(new RegistroDeAuditoria(

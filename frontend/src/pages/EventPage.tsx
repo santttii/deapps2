@@ -5,6 +5,7 @@ import { useApp } from '../store/AppContext';
 import { ErrorApi, mensajeDeError } from '../lib/api';
 import { fechaHora, money } from '../lib/format';
 import { obtenerEvento } from '../servicios/eventos';
+import { soltarReserva } from '../servicios/ventas';
 import { MAX_ENTRADAS_POR_ORDEN } from '../types';
 import { useAnimatedNumber } from '../lib/useAnimatedNumber';
 import ImagePlaceholder from '../components/ImagePlaceholder';
@@ -116,9 +117,19 @@ export default function EventPage() {
     const items = Object.entries(cantidades)
       .filter(([, cant]) => cant > 0)
       .map(([sectorId, cantidad]) => ({ sectorId, cantidad }));
+    // Si el carrito anterior ya tenía el cupo reservado, esa reserva se suelta: empieza otra compra.
+    if (usuarioActual && state.carrito?.ordenId) soltarReserva(state.carrito.ordenId);
+    // Acá no se llama a Ventas: la reserva se hace en el checkout, cuando ya están los titulares.
     dispatch({
       type: 'SET_CARRITO',
-      payload: { eventoId: evento.id, items, usuarioId: usuarioActual?.id ?? null },
+      payload: {
+        eventoId: evento.id,
+        items,
+        usuarioId: usuarioActual?.id ?? null,
+        ordenId: null,
+        clavePago: null,
+        desfaseReloj: 0,
+      },
     });
     navigate('/checkout');
   }

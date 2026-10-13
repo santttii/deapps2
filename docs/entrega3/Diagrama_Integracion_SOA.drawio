@@ -1,0 +1,230 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Arquitectura de integración (SOA) - Palco" id="integracion-soa-palco">
+    <mxGraphModel dx="1200" dy="820" grid="1" gridSize="2" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1180" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="clientes" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#F4F4F4;strokeColor=#000000;fontSize=12;" value="&lt;b&gt;Clientes: SPA en React · Postman · curl&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="340" x="180" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="wildfly" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontSize=13;" value="&lt;b&gt;WildFly 41 · API REST de Palco: 8 servicios, un WAR cada uno&lt;/b&gt;" vertex="1">
+          <mxGeometry height="654" width="826" x="12" y="86" as="geometry" />
+        </mxCell>
+        <mxCell id="usuarios" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#F4F4F4;strokeColor=#000000;fontSize=12;" value="&lt;b&gt;ServicioDeUsuarios&lt;/b&gt;&lt;br&gt;/api/usuarios · stateless" vertex="1">
+          <mxGeometry height="60" width="230" x="28" y="138" as="geometry" />
+        </mxCell>
+        <mxCell id="eventos" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#F4F4F4;strokeColor=#000000;fontSize=12;" value="&lt;b&gt;ServicioDeEventos&lt;/b&gt;&lt;br&gt;/api/eventos · stateless" vertex="1">
+          <mxGeometry height="60" width="230" x="298" y="138" as="geometry" />
+        </mxCell>
+        <mxCell id="pagos" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#F4F4F4;strokeColor=#000000;fontSize=12;" value="&lt;b&gt;ServicioDePagos&lt;/b&gt;&lt;br&gt;/api/v1/pagos · stateless&lt;br&gt;PasarelaDePagos:&lt;br&gt;PagosFake (simulada)" vertex="1">
+          <mxGeometry height="92" width="176" x="648" y="138" as="geometry" />
+        </mxCell>
+        <mxCell id="ventas" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F4F4;strokeColor=#000000;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontSize=13;" value="&lt;b&gt;ServicioDeVentas · /api/v1 · stateful&lt;/b&gt;" vertex="1">
+          <mxGeometry height="112" width="500" x="28" y="262" as="geometry" />
+        </mxCell>
+        <mxCell id="publicador" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" value="&lt;b&gt;confirmarCompra()&lt;/b&gt;&lt;br&gt;publica PAGO_CONFIRMADO" vertex="1">
+          <mxGeometry height="56" width="236" x="40" y="304" as="geometry" />
+        </mxCell>
+        <mxCell id="emision" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" value="&lt;b&gt;EmisionDeEntradasMDB&lt;/b&gt;&lt;br&gt;único consumidor de la cola" vertex="1">
+          <mxGeometry height="56" width="212" x="304" y="304" as="geometry" />
+        </mxCell>
+        <mxCell id="broker" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;verticalAlign=top;align=left;spacingLeft=46;spacingTop=4;fontSize=13;" value="&lt;b&gt;Broker ActiveMQ Artemis embebido en WildFly (JMS)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="110" width="500" x="28" y="446" as="geometry" />
+        </mxCell>
+        <mxCell id="topico" parent="1" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" value="&lt;b&gt;topico.compra-confirmada&lt;/b&gt;&lt;br&gt;I5 · ASÍNCRONO · tópico" vertex="1">
+          <mxGeometry height="48" width="222" x="40" y="478" as="geometry" />
+        </mxCell>
+        <mxCell id="cola" parent="1" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" value="&lt;b&gt;cola.emision-entradas&lt;/b&gt;&lt;br&gt;I4 · ASÍNCRONO · cola" vertex="1">
+          <mxGeometry height="48" width="180" x="278" y="478" as="geometry" />
+        </mxCell>
+        <mxCell id="dlq" parent="1" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" value="&lt;b&gt;DLQ&lt;/b&gt;" vertex="1">
+          <mxGeometry height="48" width="44" x="472" y="478" as="geometry" />
+        </mxCell>
+        <mxCell id="notificaciones" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F4F4;strokeColor=#000000;verticalAlign=top;align=left;spacingLeft=46;spacingTop=4;fontSize=13;" value="&lt;b&gt;ServicioDeNotificaciones · /api/notificaciones · stateless&lt;/b&gt;" vertex="1">
+          <mxGeometry height="104" width="500" x="28" y="622" as="geometry" />
+        </mxCell>
+        <mxCell id="auditoria" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" value="&lt;b&gt;AuditoriaDeComprasMDB&lt;/b&gt;&lt;br&gt;suscripción durable&lt;br&gt;tabla registro_auditoria" vertex="1">
+          <mxGeometry height="62" width="226" x="40" y="652" as="geometry" />
+        </mxCell>
+        <mxCell id="aviso" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" value="&lt;b&gt;AvisoDeCompraMDB&lt;/b&gt;&lt;br&gt;suscripción no durable&lt;br&gt;hoy: aviso en el log" vertex="1">
+          <mxGeometry height="62" width="226" x="290" y="652" as="geometry" />
+        </mxCell>
+        <mxCell id="facturacion" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#F4F4F4;strokeColor=#000000;fontSize=12;dashed=1;dashPattern=6 4;" value="&lt;b&gt;ServicioDeFacturación&lt;/b&gt;&lt;br&gt;/api/facturacion&lt;br&gt;desplegado, solo health" vertex="1">
+          <mxGeometry height="66" width="176" x="648" y="296" as="geometry" />
+        </mxCell>
+        <mxCell id="reintento" parent="1" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;dashed=1;dashPattern=6 4;fontSize=12;" value="cola.reintento-facturacion&lt;br&gt;I3 · ASÍNCRONO · cola" vertex="1">
+          <mxGeometry height="46" width="176" x="648" y="398" as="geometry" />
+        </mxCell>
+        <mxCell id="reventa" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#F4F4F4;strokeColor=#000000;fontSize=12;dashed=1;dashPattern=6 4;" value="&lt;b&gt;ServicioDeReventa&lt;/b&gt;&lt;br&gt;/api/reventa&lt;br&gt;desplegado, solo health" vertex="1">
+          <mxGeometry height="64" width="176" x="648" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="validacion" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#F4F4F4;strokeColor=#000000;fontSize=12;dashed=1;dashPattern=6 4;" value="&lt;b&gt;ServicioDeValidación&lt;/b&gt;&lt;br&gt;/api/validacion&lt;br&gt;desplegado, solo health" vertex="1">
+          <mxGeometry height="64" width="176" x="648" y="600" as="geometry" />
+        </mxCell>
+        <mxCell id="mp" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCDCDC;strokeColor=#000000;strokeWidth=2;fontSize=12;" value="&lt;b&gt;Mercado Pago&lt;/b&gt;&lt;br&gt;pasarela de pagos&lt;br&gt;(partner moderno)" vertex="1">
+          <mxGeometry height="92" width="200" x="968" y="138" as="geometry" />
+        </mxCell>
+        <mxCell id="arca" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#DCDCDC;strokeColor=#000000;strokeWidth=2;fontSize=12;" value="&lt;b&gt;ARCA (ex AFIP)&lt;/b&gt;&lt;br&gt;factura electrónica&lt;br&gt;(sistema legado)" vertex="1">
+          <mxGeometry height="66" width="200" x="968" y="296" as="geometry" />
+        </mxCell>
+        <mxCell id="t_ext" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=13;" value="&lt;b&gt;Sistemas externos&lt;/b&gt;&lt;br&gt;(ninguno conectado todavía)" vertex="1">
+          <mxGeometry height="32" width="197" x="968" y="99" as="geometry" />
+        </mxCell>
+        <mxCell id="t_dlq" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=11.5;" value="5 entregas cada 2 s; después, DLQ" vertex="1">
+          <mxGeometry height="17" width="213" x="286" y="534.5" as="geometry" />
+        </mxCell>
+        <mxCell id="l_i1" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;I1 · SÍNCRONO · REST&lt;/b&gt; (JSON, token JWT)" vertex="1">
+          <mxGeometry height="17" width="255" x="360" y="61" as="geometry" />
+        </mxCell>
+        <mxCell id="l_s2" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;S2 · SÍNCRONO · REST&lt;/b&gt;: Eventos, Ventas, Pagos y Notificaciones → Usuarios (JWKS y token de servicio). Se dibuja una sola flecha" vertex="1">
+          <mxGeometry height="17" width="847" x="28" y="116" as="geometry" />
+        </mxCell>
+        <mxCell id="l_s2f" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;S2&lt;/b&gt;" vertex="1">
+          <mxGeometry height="17" width="13" x="269" y="148" as="geometry" />
+        </mxCell>
+        <mxCell id="l_s1u" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;S1 · SÍNCRONO · REST&lt;/b&gt;&lt;br&gt;GET /api/usuarios/yo" vertex="1">
+          <mxGeometry height="32" width="134" x="118" y="214" as="geometry" />
+        </mxCell>
+        <mxCell id="l_s1e" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;S1 · SÍNCRONO · REST&lt;/b&gt;&lt;br&gt;POST …/cupo (reserva)" vertex="1">
+          <mxGeometry height="32" width="141" x="368" y="214" as="geometry" />
+        </mxCell>
+        <mxCell id="l_s1p" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;S1 · SÍNCRONO · REST&lt;/b&gt;&lt;br&gt;POST /api/v1/pagos" vertex="1">
+          <mxGeometry height="32" width="134" x="596" y="238" as="geometry" />
+        </mxCell>
+        <mxCell id="l_s3f" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;S3 · SÍNCRONO&lt;/b&gt;" vertex="1">
+          <mxGeometry height="17" width="87" x="534" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="l_s3f2" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="REST · pendiente" vertex="1">
+          <mxGeometry height="17" width="108" x="534" y="334" as="geometry" />
+        </mxCell>
+        <mxCell id="l_s3" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;S3 · SÍNCRONO · REST&lt;/b&gt;&lt;br&gt;Reventa y Validación → Ventas&lt;br&gt;(pendiente)" vertex="1">
+          <mxGeometry height="47" width="195" x="608" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="l_i4p" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;I4&lt;/b&gt; publica" vertex="1">
+          <mxGeometry height="17" width="67" x="238" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="l_i4c" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;I4&lt;/b&gt; entrega al MDB" vertex="1">
+          <mxGeometry height="17" width="114" x="454" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="l_i5p" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;I5&lt;/b&gt; publica" vertex="1">
+          <mxGeometry height="17" width="67" x="68" y="412" as="geometry" />
+        </mxCell>
+        <mxCell id="l_i5s" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="&lt;b&gt;I5&lt;/b&gt; una copia para cada suscriptor" vertex="1">
+          <mxGeometry height="17" width="222" x="198" y="570" as="geometry" />
+        </mxCell>
+        <mxCell id="l_i2c" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=11;" value="&lt;b&gt;I2 · SÍNCRONO · REST&lt;/b&gt;" vertex="1">
+          <mxGeometry height="17" width="123" x="843" y="147" as="geometry" />
+        </mxCell>
+        <mxCell id="l_i2c2" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=11;" value="cobro" vertex="1">
+          <mxGeometry height="17" width="31" x="843" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="l_i2w" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=11;" value="&lt;b&gt;I2&lt;/b&gt; · webhook · REST" vertex="1">
+          <mxGeometry height="17" width="117" x="843" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="l_i3" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=11;" value="&lt;b&gt;I3 · SÍNCRONO · SOAP&lt;/b&gt;" vertex="1">
+          <mxGeometry height="17" width="123" x="843" y="309" as="geometry" />
+        </mxCell>
+        <mxCell id="l_i3b" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=11;" value="timeout de 5 s" vertex="1">
+          <mxGeometry height="17" width="86" x="843" y="332" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="Implementado: comprobado en el servidor el 13/10/2026" vertex="1">
+          <mxGeometry height="17" width="356" x="62" y="752" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="Diseñado, pendiente (flecha o caja punteada)" vertex="1">
+          <mxGeometry height="17" width="296" x="482" y="752" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=nowrap;spacing=0;fontSize=12;" value="I1 a I5: integraciones clasificadas en la sección 3 · S1 a S3: llamadas REST entre servicios internos · MDB: componente que consume mensajes" vertex="1">
+          <mxGeometry height="17" width="941" x="12" y="774" as="geometry" />
+        </mxCell>
+        <mxCell id="f_i1" edge="1" parent="1" source="clientes" target="wildfly" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.409;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_s2" edge="1" parent="1" source="eventos" target="usuarios" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_s1u" edge="1" parent="1" source="ventas" target="usuarios" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;exitX=0.164;exitY=0;exitDx=0;exitDy=0;entryX=0.357;entryY=1;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_s1e" edge="1" parent="1" source="ventas" target="eventos" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;exitX=0.664;exitY=0;exitDx=0;exitDy=0;entryX=0.27;entryY=1;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_s1p" edge="1" parent="1" source="ventas" target="pagos" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;exitX=1;exitY=0.196;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="588" y="284" />
+              <mxPoint x="588" y="184" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_s3f" edge="1" parent="1" source="ventas" target="facturacion" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;dashed=1;dashPattern=6 4;exitX=1;exitY=0.607;exitDx=0;exitDy=0;entryX=0;entryY=0.515;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_i3r" edge="1" parent="1" source="facturacion" target="reintento" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;dashed=1;dashPattern=6 4;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_s3rv" edge="1" parent="1" source="reventa" target="ventas" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;dashed=1;dashPattern=6 4;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.911;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="532" />
+              <mxPoint x="600" y="364" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_s3va" edge="1" parent="1" source="validacion" target="ventas" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;dashed=1;dashPattern=6 4;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.911;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="632" />
+              <mxPoint x="600" y="364" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_i4p" edge="1" parent="1" source="publicador" target="cola" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;exitX=0.805;exitY=1;exitDx=0;exitDy=0;entryX=0.761;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="230" y="410" />
+              <mxPoint x="415" y="410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_i4c" edge="1" parent="1" source="cola" target="emision" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;exitX=0.933;exitY=0;exitDx=0;exitDy=0;entryX=0.67;entryY=1;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_i5p" edge="1" parent="1" source="publicador" target="topico" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;exitX=0.085;exitY=1;exitDx=0;exitDy=0;entryX=0.09;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_i5a" edge="1" parent="1" source="topico" target="auditoria" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;exitX=0.09;exitY=1;exitDx=0;exitDy=0;entryX=0.088;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_i5b" edge="1" parent="1" source="topico" target="aviso" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;exitX=0.676;exitY=1;exitDx=0;exitDy=0;entryX=0.664;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="190" y="590" />
+              <mxPoint x="440" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_i2c" edge="1" parent="1" source="pagos" target="mp" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;dashed=1;dashPattern=6 4;exitX=1;exitY=0.304;exitDx=0;exitDy=0;entryX=0;entryY=0.304;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_i2w" edge="1" parent="1" source="mp" target="pagos" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;dashed=1;dashPattern=6 4;exitX=0;exitY=0.739;exitDx=0;exitDy=0;entryX=1;entryY=0.739;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_i3" edge="1" parent="1" source="facturacion" target="arca" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;dashed=1;dashPattern=6 4;exitX=1;exitY=0.485;exitDx=0;exitDy=0;entryX=0;entryY=0.485;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="m1" edge="1" parent="1" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="12" y="760" as="sourcePoint" />
+            <mxPoint x="54" y="760" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2" edge="1" parent="1" style="rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=1.5;dashed=1;dashPattern=6 4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="432" y="760" as="sourcePoint" />
+            <mxPoint x="474" y="760" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

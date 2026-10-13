@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -34,7 +35,9 @@ import jakarta.jms.TextMessage;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
+import com.palco.common.Textos;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
+import com.palco.ventas.LogCapturado;
 import com.palco.ventas.datos.EntradaRepository;
 import com.palco.ventas.datos.VentaRepository;
 import com.palco.ventas.dominio.Venta;
@@ -152,6 +155,32 @@ class EmisionDeEntradasMDBTest {
         // y el broker entrega el mensaje de nuevo. La venta no se toca.
         assertThrows(EJBException.class, () -> mdb.onMessage(recibido));
         verify(ventas, never()).marcarEmitida(anyString());
+    }
+
+    @Test
+    void loQueEscribeEnElLogQuedaEnUnSoloRenglonAunqueElMensajeTraigaUnSaltoDeLinea() throws JMSException {
+        // Inyección en el log: un id con un salto de línea pasa la validación del mensaje, que solo mira
+        // el largo. Sin limpiarlo, quien publica podría hacer aparecer un renglón falso en server.log.
+        String renglonFalso = "\n2026-10-13 14:00:00 INFO [falso] X";
+        String descartado = new PagoConfirmadoMensaje("V-1" + renglonFalso, "user-titular", "ev-1",
+                pagoConfirmado().entradas(), 60_500, Instant.parse("2026-10-16T21:30:00Z")).aJson();
+        // Inválido porque la entrada no tiene titular: el motivo del rechazo nombra el id de la entrada.
+        String invalido = new PagoConfirmadoMensaje(VENTA, "user-titular", "ev-1",
+                List.of(new PagoConfirmadoMensaje.Entrada("T-1" + renglonFalso, "Platea B", null)),
+                60_500, Instant.parse("2026-10-16T21:30:00Z")).aJson();
+        when(ventas.buscarPorId("V-1" + renglonFalso)).thenReturn(Optional.empty());
+
+        try (LogCapturado log = new LogCapturado(EmisionDeEntradasMDB.class)) {
+            mdb.onMessage(mensajeDeTexto(descartado));
+            mdb.onMessage(mensajeDeTexto(invalido));
+
+            assertEquals(2, log.lineas().size());
+            for (String linea : log.lineas()) {
+                assertTrue(linea.chars().noneMatch(Textos::esDeControl), "Tiene un salto de línea: " + linea);
+            }
+            // No se pierde lo que llegó: queda dentro del renglón verdadero.
+            assertTrue(log.lineas().get(0).contains("V-1 2026-10-13 14:00:00 INFO [falso] X"), log.lineas().get(0));
+        }
     }
 
     @Test

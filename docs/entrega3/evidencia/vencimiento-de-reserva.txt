@@ -1,0 +1,15 @@
+﻿Vencimiento de la reserva de una compra sin pagar
+Fecha: 13/10/2026. Servidor: WildFly local, base H2 en memoria.
+Como se produjo: se inicio una compra de 1 entrada con titular@palco.test (POST /api/v1/ventas), no se pago,
+se espero a que pasara el vencimiento informado por el backend (10 minutos) mas el barrido de VencimientoDeReservas,
+y se consulto la venta, el cupo del sector (GET /api/eventos/marea-baja-invitados) y un intento de pago.
+
+1. sector sec-6-1 antes: vendidas=520
+2. iniciar compra -> 201
+   venta V-07b45602 estado=EN_CHECKOUT venceReserva=2026-10-13T16:51:11Z
+3. sector con la reserva: vendidas=521 (esperado 521)
+4. esperando 700 segundos sin pagar...
+5. venta despues del vencimiento -> 200 estado=VENCIDA (esperado VENCIDA)
+6. sector despues: vendidas=520 (esperado 520)
+7. pagar la venta vencida -> 409 (esperado 409) {"type":"/problemas/reserva-vencida","title":"Conflicto","status":409,"detail":"La reserva de esta compra ya no está vigente. Empezá la compra de nuevo.","instance":"/api/v1/ventas/V-07b45602/pagos"}
+RESULTADO: PASA

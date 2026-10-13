@@ -1,41 +1,177 @@
 {
   "info": {
     "name": "Palco API",
+    "description": "API de Palco, la plataforma de venta de entradas con reventa oficial (Desarrollo de Aplicaciones II, UADE). Se corre entera, en orden, con el Runner o con Newman, contra el backend local: las carpetas 1, 2 y 3 son automáticas y se pueden repetir sin reiniciar el servidor. Las subcarpetas \"Pasos manuales\" y \"Pendientes\" quedan fuera de la corrida. La guía está en docs/api/GUIA_POSTMAN.md.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUsuarios",
-      "value": "http://localhost:8080/api/usuarios"
+      "value": "http://localhost:8080/api/usuarios",
+      "type": "string",
+      "description": "Raíz del servicio de Usuarios."
     },
     {
       "key": "baseEventos",
-      "value": "http://localhost:8080/api/eventos"
+      "value": "http://localhost:8080/api/eventos",
+      "type": "string",
+      "description": "Raíz del servicio de Eventos."
     },
     {
       "key": "baseApi",
-      "value": "http://localhost:8080/api/v1"
-    },
-    {
-      "key": "token",
-      "value": ""
-    },
-    {
-      "key": "slug",
-      "value": ""
+      "value": "http://localhost:8080/api/v1",
+      "type": "string",
+      "description": "Raíz de la API versionada (Ventas)."
     },
     {
       "key": "eventoId",
-      "value": ""
+      "value": "ev-1",
+      "type": "string",
+      "description": "Evento de prueba en el que se compra."
     },
     {
       "key": "sectorId",
-      "value": ""
+      "value": "sec-1-4",
+      "type": "string",
+      "description": "Sector de prueba en el que se compra: Platea B, 27.500."
+    },
+    {
+      "key": "codigoVerificacion",
+      "value": "",
+      "type": "string",
+      "description": "MANUAL: el código de 6 dígitos que sale en el log del servidor al registrarse."
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "Token del comprador (titular@palco.test). Lo guardan los login."
+    },
+    {
+      "key": "tokenOrganizador",
+      "value": "",
+      "type": "string",
+      "description": "Token de organizador@palco.test. Lo guarda \"Login organizador\"."
+    },
+    {
+      "key": "tokenStaff",
+      "value": "",
+      "type": "string",
+      "description": "Token de puerta@palco.test. Lo guarda \"Login staff\"."
+    },
+    {
+      "key": "tokenServicio",
+      "value": "",
+      "type": "string",
+      "description": "Token de rol servicio; dura 5 minutos. Lo guarda \"Token de servicio\"."
+    },
+    {
+      "key": "emailRegistro",
+      "value": "",
+      "type": "string",
+      "description": "Email de la cuenta que registra la corrida. Se genera solo."
+    },
+    {
+      "key": "dniRegistro",
+      "value": "",
+      "type": "string",
+      "description": "DNI de la cuenta que registra la corrida. Se genera solo."
+    },
+    {
+      "key": "slug",
+      "value": "",
+      "type": "string",
+      "description": "Slug del primer evento del catálogo. Lo guarda \"Listar eventos\"."
+    },
+    {
+      "key": "eventoCreadoId",
+      "value": "",
+      "type": "string",
+      "description": "Id del evento que crea la corrida. Sale de la respuesta."
+    },
+    {
+      "key": "sectorCreadoId",
+      "value": "",
+      "type": "string",
+      "description": "Id del sector del evento que crea la corrida. Sale de la respuesta."
+    },
+    {
+      "key": "claveVenta",
+      "value": "",
+      "type": "string",
+      "description": "Idempotency-Key de la compra. Se genera en cada corrida."
+    },
+    {
+      "key": "clavePago",
+      "value": "",
+      "type": "string",
+      "description": "Idempotency-Key del pago. Se genera en cada corrida."
+    },
+    {
+      "key": "claveVentaCancelada",
+      "value": "",
+      "type": "string",
+      "description": "Idempotency-Key de la compra que se cancela. Se genera en cada corrida."
+    },
+    {
+      "key": "ventaId",
+      "value": "",
+      "type": "string",
+      "description": "Id de la venta que se paga. Sale de la respuesta."
+    },
+    {
+      "key": "montoTotal",
+      "value": "",
+      "type": "string",
+      "description": "Total de la venta que se paga. Sale de la respuesta."
+    },
+    {
+      "key": "precioUnitario",
+      "value": "",
+      "type": "string",
+      "description": "Precio del sector comprado. Sale de la respuesta."
+    },
+    {
+      "key": "pagoId",
+      "value": "",
+      "type": "string",
+      "description": "Id del pago. Sale de la respuesta."
+    },
+    {
+      "key": "entradaId",
+      "value": "",
+      "type": "string",
+      "description": "Id de la primera entrada de la venta. Sale de la respuesta del pago."
+    },
+    {
+      "key": "codigoQr",
+      "value": "",
+      "type": "string",
+      "description": "Código QR de esa entrada, una vez emitida. Lo va a usar la validación en puerta."
+    },
+    {
+      "key": "intentosEmision",
+      "value": "0",
+      "type": "string",
+      "description": "Contador interno de la espera de la emisión."
+    },
+    {
+      "key": "ventaCanceladaId",
+      "value": "",
+      "type": "string",
+      "description": "Id de la venta que se cancela. Sale de la respuesta."
+    },
+    {
+      "key": "publicacionId",
+      "value": "",
+      "type": "string",
+      "description": "PENDIENTE: id de la publicación de reventa."
     }
   ],
   "item": [
     {
       "name": "1 Usuarios (implementado)",
+      "description": "Registro, login, perfil y claves públicas. Corre entera sin intervención. La subcarpeta \"Pasos manuales\" queda fuera de la corrida: necesita el código de verificación, que solo sale en el log del servidor.",
       "item": [
         {
           "name": "Registro (201)",
@@ -57,25 +193,48 @@
               ],
               "query": []
             },
+            "description": "Registra una cuenta nueva. El email y el DNI se generan en cada corrida, así el request se puede repetir sin reiniciar el servidor. La cuenta queda sin verificar: para verificarla, ver \"Pasos manuales\".",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Ana\",\n  \"apellido\": \"Gomez\",\n  \"dni\": \"30123456\",\n  \"fechaNacimiento\": \"1995-05-10\",\n  \"email\": \"ana@test.com\",\n  \"telefono\": \"1155550000\",\n  \"password\": \"Clave1234\"\n}"
+              "raw": "{\n  \"nombre\": \"Ana\",\n  \"apellido\": \"Gomez\",\n  \"dni\": \"{{dniRegistro}}\",\n  \"fechaNacimiento\": \"1995-05-10\",\n  \"email\": \"{{emailRegistro}}\",\n  \"telefono\": \"1155550000\",\n  \"password\": \"Clave1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Email y DNI nuevos en cada corrida: el servicio rechaza los que ya están registrados.",
+                  "const sufijo = Date.now().toString(36) + Math.floor(Math.random() * 1000);",
+                  "pm.collectionVariables.set('emailRegistro', 'postman-' + sufijo + '@palco.test');",
+                  "pm.collectionVariables.set('dniRegistro', String(50000000 + Math.floor(Math.random() * 49999999)));"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('201', () => pm.response.to.have.status(201));"
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "pm.test('devuelve el email registrado y un mensaje', () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.email).to.eql(pm.collectionVariables.get('emailRegistro'));",
+                  "  pm.expect(r.mensaje).to.be.a('string').and.not.empty;",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Registro invalido (400)",
+          "name": "Registro inválido (400)",
           "request": {
             "method": "POST",
             "header": [
@@ -94,9 +253,15 @@
               ],
               "query": []
             },
+            "description": "Email mal formado y contraseña corta: responde 400 y dice qué campo está mal.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Ana\",\n  \"apellido\": \"Gomez\",\n  \"dni\": \"30123456\",\n  \"fechaNacimiento\": \"1995-05-10\",\n  \"email\": \"mal\",\n  \"telefono\": \"1155550000\",\n  \"password\": \"123\"\n}"
+              "raw": "{\n  \"nombre\": \"Ana\",\n  \"apellido\": \"Gomez\",\n  \"dni\": \"{{dniRegistro}}\",\n  \"fechaNacimiento\": \"1995-05-10\",\n  \"email\": \"mal\",\n  \"telefono\": \"1155550000\",\n  \"password\": \"123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -105,14 +270,25 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('400', () => pm.response.to.have.status(400));"
+                  "pm.test('responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/datos-invalidos', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/datos-invalidos');",
+                  "  pm.expect(p.status).to.eql(400);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "pm.test('errores nombra el email y la contraseña', () => {",
+                  "  pm.expect(pm.response.json().errores).to.include.all.keys('email', 'password');",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Verificar email (200)",
+          "name": "Login con el email sin verificar (409)",
           "request": {
             "method": "POST",
             "header": [
@@ -122,18 +298,24 @@
               }
             ],
             "url": {
-              "raw": "{{baseUsuarios}}/verificacion",
+              "raw": "{{baseUsuarios}}/login",
               "host": [
                 "{{baseUsuarios}}"
               ],
               "path": [
-                "verificacion"
+                "login"
               ],
               "query": []
             },
+            "description": "La cuenta recién registrada todavía no verificó su email: no puede iniciar sesión.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"ana@test.com\",\n  \"codigo\": \"123456\"\n}"
+              "raw": "{\n  \"email\": \"{{emailRegistro}}\",\n  \"password\": \"Clave1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -142,46 +324,16 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200', () => pm.response.to.have.status(200));",
-                  "const s=pm.response.json(); if(s.token) pm.collectionVariables.set('token', s.token);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Reenviar codigo (204)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUsuarios}}/verificacion/reenvio",
-              "host": [
-                "{{baseUsuarios}}"
-              ],
-              "path": [
-                "verificacion",
-                "reenvio"
-              ],
-              "query": []
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"ana@test.com\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('204', () => pm.response.to.have.status(204));"
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/conflicto', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/conflicto');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "pm.test('no entrega un token', () => pm.expect(pm.response.json()).to.not.have.property('token'));"
                 ]
               }
             }
@@ -207,9 +359,15 @@
               ],
               "query": []
             },
+            "description": "Inicia sesión con la cuenta de prueba de comprador, que ya tiene el email y la identidad verificados, y guarda el token en {{token}}.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"ana@test.com\",\n  \"password\": \"Clave1234\"\n}"
+              "raw": "{\n  \"email\": \"titular@palco.test\",\n  \"password\": \"palco1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -218,8 +376,17 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200', () => pm.response.to.have.status(200));",
-                  "pm.collectionVariables.set('token', pm.response.json().token);"
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const sesion = pm.response.json();",
+                  "pm.test('trae el token y cuánto dura', () => {",
+                  "  pm.expect(sesion.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(sesion.expiraEnSegundos).to.be.above(0);",
+                  "});",
+                  "pm.test('la cuenta es titular@palco.test, con rol user', () => {",
+                  "  pm.expect(sesion.usuario.email).to.eql('titular@palco.test');",
+                  "  pm.expect(sesion.usuario.rol).to.eql('user');",
+                  "});",
+                  "pm.collectionVariables.set('token', sesion.token);"
                 ]
               }
             }
@@ -247,7 +414,12 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"ana@test.com\",\n  \"password\": \"incorrecta1\"\n}"
+              "raw": "{\n  \"email\": \"titular@palco.test\",\n  \"password\": \"incorrecta1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -256,7 +428,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('401', () => pm.response.to.have.status(401));"
+                  "pm.test('responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-autenticado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-autenticado');",
+                  "  pm.expect(p.status).to.eql(401);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
                 ]
               }
             }
@@ -289,7 +469,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200', () => pm.response.to.have.status(200));"
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('es el perfil del dueño del token, sin la contraseña', () => {",
+                  "  const u = pm.response.json();",
+                  "  pm.expect(u).to.include.all.keys('id', 'nombre', 'apellido', 'dni', 'email', 'rol', 'identidadVerificada');",
+                  "  pm.expect(u.email).to.eql('titular@palco.test');",
+                  "  pm.expect(u.rol).to.eql('user');",
+                  "  pm.expect(u.identidadVerificada).to.eql(true);",
+                  "  pm.expect(u).to.not.have.any.keys('password', 'passwordHash');",
+                  "});"
                 ]
               }
             }
@@ -317,14 +505,127 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('401', () => pm.response.to.have.status(401));"
+                  "pm.test('responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-autenticado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-autenticado');",
+                  "  pm.expect(p.status).to.eql(401);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "JWKS claves publicas (200)",
+          "name": "Login staff (200) guarda tokenStaff",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/login",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Cuenta de prueba del personal de puerta. El token queda en {{tokenStaff}} para la validación en puerta, que todavía está pendiente.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"puerta@palco.test\",\n  \"password\": \"palco1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const sesion = pm.response.json();",
+                  "pm.test('trae el token y cuánto dura', () => {",
+                  "  pm.expect(sesion.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(sesion.expiraEnSegundos).to.be.above(0);",
+                  "});",
+                  "pm.test('la cuenta es puerta@palco.test, con rol staff', () => {",
+                  "  pm.expect(sesion.usuario.email).to.eql('puerta@palco.test');",
+                  "  pm.expect(sesion.usuario.rol).to.eql('staff');",
+                  "});",
+                  "pm.collectionVariables.set('tokenStaff', sesion.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token de servicio con secreto incorrecto (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/servicios/token",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "servicios",
+                "token"
+              ],
+              "query": []
+            },
+            "description": "El token de rol servicio se pide con el secreto compartido. Con otro secreto responde 401.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"secreto\": \"no-es-el-secreto\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-autenticado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-autenticado');",
+                  "  pm.expect(p.status).to.eql(401);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "JWKS claves públicas (200)",
           "request": {
             "method": "GET",
             "header": [],
@@ -337,7 +638,8 @@
                 "jwks"
               ],
               "query": []
-            }
+            },
+            "description": "La clave pública con la que los demás servicios verifican los tokens."
           },
           "event": [
             {
@@ -345,10 +647,120 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200', () => pm.response.to.have.status(200));",
-                  "pm.test('tiene keys', () => pm.expect(pm.response.json().keys).to.be.an('array'));"
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('trae al menos una clave RSA para firmar', () => {",
+                  "  const claves = pm.response.json().keys;",
+                  "  pm.expect(claves).to.be.an('array').that.is.not.empty;",
+                  "  pm.expect(claves[0].kty).to.eql('RSA');",
+                  "  pm.expect(claves[0].kid).to.be.a('string');",
+                  "});",
+                  "",
+                  "// Último request automático de la carpeta: la corrida sigue en Eventos y saltea \"Pasos manuales\".",
+                  "if (pm.execution && pm.execution.setNextRequest) {",
+                  "  pm.execution.setNextRequest('Listar eventos (200) guarda slug');",
+                  "} else {",
+                  "  postman.setNextRequest('Listar eventos (200) guarda slug');",
+                  "}"
                 ]
               }
+            }
+          ]
+        },
+        {
+          "name": "Pasos manuales (fuera de la corrida)",
+          "description": "No corren solos. Necesitan el código de 6 dígitos, que es aleatorio y solo sale en el log del servidor (\"Código de verificación para <email>: 123456\"). Pasos: correr \"Registro (201)\", buscar el código en el log, cargarlo en la variable codigoVerificacion de la colección y enviar \"Verificar email (200)\". \"Reenviar código (204)\" exige que hayan pasado 30 segundos desde el registro o el último reenvío.",
+          "item": [
+            {
+              "name": "MANUAL · Reenviar código (204)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUsuarios}}/verificacion/reenvio",
+                  "host": [
+                    "{{baseUsuarios}}"
+                  ],
+                  "path": [
+                    "verificacion",
+                    "reenvio"
+                  ],
+                  "query": []
+                },
+                "description": "Pide un código nuevo para la cuenta de \"Registro (201)\". Si pasaron menos de 30 segundos desde el registro responde 409. El código nuevo también sale en el log del servidor.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{emailRegistro}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('responde 204', () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "MANUAL · Verificar email (200)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUsuarios}}/verificacion",
+                  "host": [
+                    "{{baseUsuarios}}"
+                  ],
+                  "path": [
+                    "verificacion"
+                  ],
+                  "query": []
+                },
+                "description": "Antes de enviarlo, cargá en la variable codigoVerificacion el código que salió en el log del servidor. Devuelve la sesión de la cuenta recién verificada.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{emailRegistro}}\",\n  \"codigo\": \"{{codigoVerificacion}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                      "pm.test('devuelve la sesión de la cuenta verificada', () => {",
+                      "  const sesion = pm.response.json();",
+                      "  pm.expect(sesion.token).to.be.a('string').and.not.empty;",
+                      "  pm.expect(sesion.usuario.email).to.eql(pm.collectionVariables.get('emailRegistro'));",
+                      "});"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         }
@@ -356,9 +768,10 @@
     },
     {
       "name": "2 Eventos (implementado)",
+      "description": "Catálogo público, alta de eventos (rol organizer) y cambio de cupo (rol servicio). Corre entera sin intervención: pide sus propios tokens. El cupo se prueba sobre el evento que crea la misma carpeta, así no cambia el de los eventos de la demo.",
       "item": [
         {
-          "name": "Listar eventos",
+          "name": "Listar eventos (200) guarda slug",
           "request": {
             "method": "GET",
             "header": [],
@@ -371,14 +784,17 @@
               "query": [
                 {
                   "key": "categoria",
-                  "value": ""
+                  "value": "Música",
+                  "disabled": true
                 },
                 {
                   "key": "q",
-                  "value": ""
+                  "value": "kiroshi",
+                  "disabled": true
                 }
               ]
-            }
+            },
+            "description": "El catálogo completo. Los filtros categoria y q están en Params, desactivados."
           },
           "event": [
             {
@@ -386,20 +802,26 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200', () => pm.response.to.have.status(200));",
-                  "const j=pm.response.json(); if(j.length) pm.collectionVariables.set('slug', j[0].slug);"
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const lista = pm.response.json();",
+                  "pm.test('devuelve eventos con sus sectores', () => {",
+                  "  pm.expect(lista).to.be.an('array').that.is.not.empty;",
+                  "  pm.expect(lista[0]).to.include.all.keys('id', 'slug', 'titulo', 'categoria', 'venue', 'fechaISO', 'sectores');",
+                  "  pm.expect(lista[0].sectores).to.be.an('array').that.is.not.empty;",
+                  "});",
+                  "pm.collectionVariables.set('slug', lista[0].slug);"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Filtrar por categoria",
+          "name": "Filtrar por categoría (200)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseEventos}}",
+              "raw": "{{baseEventos}}?categoria=Música",
               "host": [
                 "{{baseEventos}}"
               ],
@@ -418,14 +840,19 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200', () => pm.response.to.have.status(200));"
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('todos los eventos son de Música', () => {",
+                  "  const lista = pm.response.json();",
+                  "  pm.expect(lista).to.be.an('array').that.is.not.empty;",
+                  "  lista.forEach((e) => pm.expect(e.categoria).to.eql('Música'));",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Detalle por slug",
+          "name": "Detalle por slug (200)",
           "request": {
             "method": "GET",
             "header": [],
@@ -446,7 +873,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200', () => pm.response.to.have.status(200));"
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('es el evento pedido, con sus sectores', () => {",
+                  "  const e = pm.response.json();",
+                  "  pm.expect(e.slug).to.eql(pm.collectionVariables.get('slug'));",
+                  "  pm.expect(e.sectores[0]).to.include.all.keys('id', 'nombre', 'precio', 'cupo', 'vendidas');",
+                  "});"
                 ]
               }
             }
@@ -474,7 +906,15 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('404', () => pm.response.to.have.status(404));"
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
                 ]
               }
             }
@@ -500,7 +940,12 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"titulo\": \"Evento de prueba\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2026-12-01T21:00:00\",\n  \"descripcion\": \"Prueba Postman\",\n  \"sectores\": [\n    {\n      \"nombre\": \"General\",\n      \"precio\": 10000,\n      \"cupo\": 100\n    }\n  ]\n}"
+              "raw": "{\n  \"titulo\": \"Evento de prueba Postman\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2027-12-31T21:00:00\",\n  \"descripcion\": \"Evento creado por la colección de Postman. Se puede ignorar.\",\n  \"sectores\": [\n    {\n      \"nombre\": \"General\",\n      \"precio\": 10000,\n      \"cupo\": 100\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -509,20 +954,81 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('401', () => pm.response.to.have.status(401));"
+                  "pm.test('responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-autenticado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-autenticado');",
+                  "  pm.expect(p.status).to.eql(401);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Crear evento organizer (201)",
+          "name": "Login organizador (200) guarda tokenOrganizador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/login",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Crear eventos exige rol organizer: se usa la cuenta de prueba de organizador, con su propio token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"organizador@palco.test\",\n  \"password\": \"palco1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const sesion = pm.response.json();",
+                  "pm.test('trae el token y cuánto dura', () => {",
+                  "  pm.expect(sesion.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(sesion.expiraEnSegundos).to.be.above(0);",
+                  "});",
+                  "pm.test('la cuenta es organizador@palco.test, con rol organizer', () => {",
+                  "  pm.expect(sesion.usuario.email).to.eql('organizador@palco.test');",
+                  "  pm.expect(sesion.usuario.rol).to.eql('organizer');",
+                  "});",
+                  "pm.collectionVariables.set('tokenOrganizador', sesion.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear evento, rol organizer (201) guarda eventoCreadoId",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{token}}"
+                "value": "Bearer {{tokenOrganizador}}"
               },
               {
                 "key": "Content-Type",
@@ -537,9 +1043,15 @@
               "path": [],
               "query": []
             },
+            "description": "Crea un evento de prueba con un sector de 100 lugares. Cada corrida agrega uno al catálogo (\"Evento de prueba Postman\", con fecha 31/12/2027 para que quede último): no hay operación para borrarlo; se van al reiniciar el servidor, que vacía la base.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"titulo\": \"Evento de prueba\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2026-12-01T21:00:00\",\n  \"descripcion\": \"Prueba Postman\",\n  \"sectores\": [\n    {\n      \"nombre\": \"General\",\n      \"precio\": 10000,\n      \"cupo\": 100\n    }\n  ]\n}"
+              "raw": "{\n  \"titulo\": \"Evento de prueba Postman\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2027-12-31T21:00:00\",\n  \"descripcion\": \"Evento creado por la colección de Postman. Se puede ignorar.\",\n  \"sectores\": [\n    {\n      \"nombre\": \"General\",\n      \"precio\": 10000,\n      \"cupo\": 100\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -548,21 +1060,35 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('201', () => pm.response.to.have.status(201));",
-                  "pm.test('Location', () => pm.response.to.have.header('Location'));"
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "const creado = pm.response.json();",
+                  "pm.test('Location apunta al evento creado', () => {",
+                  "  const location = pm.response.headers.get('Location');",
+                  "  pm.expect(location, 'falta la cabecera Location').to.be.a('string');",
+                  "  pm.expect(location.endsWith('/api/eventos/' + creado.slug), location).to.be.true;",
+                  "});",
+                  "pm.test('devuelve el evento con su sector sin vender', () => {",
+                  "  pm.expect(creado.id).to.be.a('string').and.not.empty;",
+                  "  pm.expect(creado.titulo).to.eql('Evento de prueba Postman');",
+                  "  pm.expect(creado.sectores).to.have.lengthOf(1);",
+                  "  pm.expect(creado.sectores[0].cupo).to.eql(100);",
+                  "  pm.expect(creado.sectores[0].vendidas).to.eql(0);",
+                  "});",
+                  "pm.collectionVariables.set('eventoCreadoId', creado.id);",
+                  "pm.collectionVariables.set('sectorCreadoId', creado.sectores[0].id);"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Crear evento invalido (400)",
+          "name": "Crear evento inválido (400)",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{token}}"
+                "value": "Bearer {{tokenOrganizador}}"
               },
               {
                 "key": "Content-Type",
@@ -577,9 +1103,15 @@
               "path": [],
               "query": []
             },
+            "description": "Sin título y sin sectores. Va con el token de organizador: el rol se controla antes que el cuerpo, y con el token de un comprador respondería 403.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"titulo\": \"\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2026-12-01T21:00:00\",\n  \"descripcion\": \"Prueba Postman\",\n  \"sectores\": []\n}"
+              "raw": "{\n  \"titulo\": \"\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2027-12-31T21:00:00\",\n  \"descripcion\": \"Evento creado por la colección de Postman. Se puede ignorar.\",\n  \"sectores\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -588,20 +1120,81 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('400', () => pm.response.to.have.status(400));"
+                  "pm.test('responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/datos-invalidos', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/datos-invalidos');",
+                  "  pm.expect(p.status).to.eql(400);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "pm.test('errores nombra el título y los sectores', () => {",
+                  "  pm.expect(pm.response.json().errores).to.include.all.keys('titulo', 'sectores');",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Cambiar cupo, rol servicio (200)",
+          "name": "Token de servicio (200) guarda tokenServicio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/servicios/token",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "servicios",
+                "token"
+              ],
+              "query": []
+            },
+            "description": "Cambiar el cupo es una operación entre servicios (rol servicio). El token se pide con el secreto compartido de desarrollo y dura 5 minutos: por eso se pide justo antes de usarlo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"secreto\": \"palco-desarrollo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const respuesta = pm.response.json();",
+                  "pm.test('trae el token y cuánto dura', () => {",
+                  "  pm.expect(respuesta.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(respuesta.expiraEnSegundos).to.be.above(0);",
+                  "});",
+                  "pm.collectionVariables.set('tokenServicio', respuesta.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cambiar cupo con token de organizador (403)",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{token}}"
+                "value": "Bearer {{tokenOrganizador}}"
               },
               {
                 "key": "Content-Type",
@@ -609,21 +1202,27 @@
               }
             ],
             "url": {
-              "raw": "{{baseEventos}}/{{eventoId}}/sectores/{{sectorId}}/cupo",
+              "raw": "{{baseEventos}}/{{eventoCreadoId}}/sectores/{{sectorCreadoId}}/cupo",
               "host": [
                 "{{baseEventos}}"
               ],
               "path": [
-                "{{eventoId}}",
+                "{{eventoCreadoId}}",
                 "sectores",
-                "{{sectorId}}",
+                "{{sectorCreadoId}}",
                 "cupo"
               ],
               "query": []
             },
+            "description": "El cupo solo lo cambia el rol servicio.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"cantidad\": 2\n}"
+              "raw": "{\n  \"cantidad\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -632,7 +1231,189 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200', () => pm.response.to.have.status(200));"
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-permiso', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-permiso');",
+                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservar cupo, rol servicio (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoCreadoId}}/sectores/{{sectorCreadoId}}/cupo",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoCreadoId}}",
+                "sectores",
+                "{{sectorCreadoId}}",
+                "cupo"
+              ],
+              "query": []
+            },
+            "description": "Cantidad positiva: reserva. Es la llamada que hace Ventas al abrir una compra.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('devuelve el sector con 2 vendidas', () => {",
+                  "  const s = pm.response.json();",
+                  "  pm.expect(s).to.include.all.keys('id', 'nombre', 'precio', 'cupo', 'vendidas');",
+                  "  pm.expect(s.id).to.eql(pm.collectionVariables.get('sectorCreadoId'));",
+                  "  pm.expect(s.precio).to.eql(10000);",
+                  "  pm.expect(s.cupo).to.eql(100);",
+                  "  pm.expect(s.vendidas).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservar más que el cupo (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoCreadoId}}/sectores/{{sectorCreadoId}}/cupo",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoCreadoId}}",
+                "sectores",
+                "{{sectorCreadoId}}",
+                "cupo"
+              ],
+              "query": []
+            },
+            "description": "El sector tiene 100 lugares y 2 reservados: 99 más no entran.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 99\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/conflicto', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/conflicto');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Liberar cupo, rol servicio (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoCreadoId}}/sectores/{{sectorCreadoId}}/cupo",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoCreadoId}}",
+                "sectores",
+                "{{sectorCreadoId}}",
+                "cupo"
+              ],
+              "query": []
+            },
+            "description": "Cantidad negativa: libera. Deja el sector como estaba antes de la reserva.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": -2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('devuelve el sector con 0 vendidas', () => {",
+                  "  const s = pm.response.json();",
+                  "  pm.expect(s).to.include.all.keys('id', 'nombre', 'precio', 'cupo', 'vendidas');",
+                  "  pm.expect(s.id).to.eql(pm.collectionVariables.get('sectorCreadoId'));",
+                  "  pm.expect(s.precio).to.eql(10000);",
+                  "  pm.expect(s.cupo).to.eql(100);",
+                  "  pm.expect(s.vendidas).to.eql(0);",
+                  "});"
                 ]
               }
             }
@@ -641,10 +1422,176 @@
       ]
     },
     {
-      "name": "3 Diseño v1 (por implementar)",
+      "name": "3 Diseño v1 (Ventas implementado)",
+      "description": "La compra completa contra /api/v1: abrir la compra con reserva de cupo, pagarla, ver la venta y la entrada (incluida la emisión asincrónica) y cancelar otra compra. Corre entera sin intervención: empieza con su propio login. Los ids salen de las respuestas y las claves de idempotencia se generan en cada corrida. Cada corrida deja vendidas 2 entradas de Platea B (sec-1-4). La subcarpeta \"Pendientes\" queda fuera de la corrida: reventa y validación en puerta todavía no existen en el backend.",
       "item": [
         {
-          "name": "POST /v1/ventas (201)",
+          "name": "Login comprador (200) guarda token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/login",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Comprar exige rol user y la identidad verificada: se usa la cuenta de prueba titular@palco.test.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"titular@palco.test\",\n  \"password\": \"palco1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const sesion = pm.response.json();",
+                  "pm.test('trae el token y cuánto dura', () => {",
+                  "  pm.expect(sesion.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(sesion.expiraEnSegundos).to.be.above(0);",
+                  "});",
+                  "pm.test('la cuenta es titular@palco.test, con rol user', () => {",
+                  "  pm.expect(sesion.usuario.email).to.eql('titular@palco.test');",
+                  "  pm.expect(sesion.usuario.rol).to.eql('user');",
+                  "});",
+                  "pm.collectionVariables.set('token', sesion.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas sin token (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventoId\": \"{{eventoId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorId}}\",\n      \"cantidad\": 2\n    }\n  ],\n  \"titulares\": [\n    {\n      \"nombre\": \"Ana Gómez\",\n      \"dni\": \"30123456\"\n    },\n    {\n      \"nombre\": \"Luis Pérez\",\n      \"dni\": \"31234567\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-autenticado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-autenticado');",
+                  "  pm.expect(p.status).to.eql(401);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas sin Idempotency-Key (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas"
+              ],
+              "query": []
+            },
+            "description": "La cabecera Idempotency-Key es obligatoria y tiene que ser un UUID. Sin ella no se reserva nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventoId\": \"{{eventoId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorId}}\",\n      \"cantidad\": 2\n    }\n  ],\n  \"titulares\": [\n    {\n      \"nombre\": \"Ana Gómez\",\n      \"dni\": \"30123456\"\n    },\n    {\n      \"nombre\": \"Luis Pérez\",\n      \"dni\": \"31234567\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/datos-invalidos', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/datos-invalidos');",
+                  "  pm.expect(p.status).to.eql(400);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "pm.test('errores nombra la cabecera Idempotency-Key', () => {",
+                  "  pm.expect(pm.response.json().errores).to.have.property('Idempotency-Key');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas con el DNI repetido (422)",
           "request": {
             "method": "POST",
             "header": [
@@ -671,9 +1618,15 @@
               ],
               "query": []
             },
+            "description": "Cada entrada va a nombre de una persona distinta. Es una regla de negocio: responde 422 y no reserva cupo.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"eventoId\": \"ev-1\",\n  \"items\": [\n    {\n      \"sectorId\": \"sec-1-1\",\n      \"cantidad\": 2\n    }\n  ],\n  \"titulares\": [\n    {\n      \"nombre\": \"Ana Gómez\",\n      \"dni\": \"30123456\"\n    },\n    {\n      \"nombre\": \"Luis Pérez\",\n      \"dni\": \"31234567\"\n    }\n  ]\n}"
+              "raw": "{\n  \"eventoId\": \"{{eventoId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorId}}\",\n      \"cantidad\": 2\n    }\n  ],\n  \"titulares\": [\n    {\n      \"nombre\": \"Ana Gómez\",\n      \"dni\": \"30123456\"\n    },\n    {\n      \"nombre\": \"Otra Persona\",\n      \"dni\": \"30123456\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -682,14 +1635,341 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('201', () => pm.response.to.have.status(201));"
+                  "pm.test('responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/dni-repetido', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/dni-repetido');",
+                  "  pm.expect(p.status).to.eql(422);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "POST /v1/ventas/{id}/pagos (201)",
+          "name": "POST /v1/ventas (201) guarda ventaId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{claveVenta}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas"
+              ],
+              "query": []
+            },
+            "description": "Abre la compra: 2 entradas de Platea B (sec-1-4) del evento ev-1, y reserva el cupo por 10 minutos. Con el precio de prueba, 2 × 27.500 más el 10 % de cargo da 60.500.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventoId\": \"{{eventoId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorId}}\",\n      \"cantidad\": 2\n    }\n  ],\n  \"titulares\": [\n    {\n      \"nombre\": \"Ana Gómez\",\n      \"dni\": \"30123456\"\n    },\n    {\n      \"nombre\": \"Luis Pérez\",\n      \"dni\": \"31234567\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Una clave de idempotencia nueva en cada corrida. El request que repite el pedido usa la misma.",
+                  "pm.collectionVariables.set('claveVenta', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const v = pm.response.json();",
+                  "pm.test('la venta trae los campos del contrato', () => {",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v.id).to.match(/^V-[0-9a-f]{8}$/);",
+                  "  pm.expect(v.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
+                  "});",
+                  "pm.test('está EN_CHECKOUT, sin factura, sin pago y sin entradas', () => {",
+                  "  pm.expect(v.estado).to.eql('EN_CHECKOUT');",
+                  "  pm.expect(v.facturaEstado).to.eql('NO_APLICA');",
+                  "  pm.expect(v.pagoId).to.be.null;",
+                  "  pm.expect(v.entradas).to.be.an('array').that.is.empty;",
+                  "});",
+                  "pm.test('el renglón trae el sector, la cantidad y el precio que dio Eventos', () => {",
+                  "  pm.expect(v.items).to.have.lengthOf(1);",
+                  "  pm.expect(v.items[0].sectorId).to.eql(pm.collectionVariables.get('sectorId'));",
+                  "  pm.expect(v.items[0].sector).to.be.a('string').and.not.empty;",
+                  "  pm.expect(v.items[0].cantidad).to.eql(2);",
+                  "  pm.expect(v.items[0].precioUnitario).to.be.above(0);",
+                  "});",
+                  "pm.test('subtotal, cargo de servicio del 10 % y total', () => {",
+                  "  pm.expect(v.subtotal).to.eql(2 * v.items[0].precioUnitario);",
+                  "  pm.expect(v.cargoServicio).to.eql(Math.round(v.subtotal * 0.10));",
+                  "  pm.expect(v.montoTotal).to.eql(v.subtotal + v.cargoServicio);",
+                  "});",
+                  "pm.test('la reserva vence dentro de los próximos 10 minutos, en UTC', () => {",
+                  "  pm.expect(v.venceReserva).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/);",
+                  "  const faltan = Date.parse(v.venceReserva) - Date.now();",
+                  "  pm.expect(faltan).to.be.above(0);",
+                  "  pm.expect(faltan).to.be.at.most(11 * 60 * 1000);",
+                  "});",
+                  "pm.test('_links: self, pagar y cancelar, con rutas sin host', () => {",
+                  "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
+                  "  pm.expect(v._links.pagar).to.eql({ href: '/api/v1/ventas/' + v.id + '/pagos', method: 'POST' });",
+                  "  pm.expect(v._links.cancelar).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'DELETE' });",
+                  "});",
+                  "pm.test('Location apunta a la venta', () => {",
+                  "  const location = pm.response.headers.get('Location');",
+                  "  pm.expect(location, 'falta la cabecera Location').to.be.a('string');",
+                  "  pm.expect(location.endsWith('/api/v1/ventas/' + v.id), location).to.be.true;",
+                  "});",
+                  "pm.test('con el precio de prueba de Platea B el total es 60.500', () => {",
+                  "  pm.expect(v.items[0].precioUnitario).to.eql(27500);",
+                  "  pm.expect(v.subtotal).to.eql(55000);",
+                  "  pm.expect(v.cargoServicio).to.eql(5500);",
+                  "  pm.expect(v.montoTotal).to.eql(60500);",
+                  "});",
+                  "pm.collectionVariables.set('ventaId', v.id);",
+                  "pm.collectionVariables.set('montoTotal', v.montoTotal);",
+                  "pm.collectionVariables.set('precioUnitario', v.items[0].precioUnitario);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas repetido con la misma clave (201, la misma venta)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{claveVenta}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas"
+              ],
+              "query": []
+            },
+            "description": "Idempotencia: repetir el pedido con la misma Idempotency-Key devuelve la venta que ya existe, sin reservar otra vez.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventoId\": \"{{eventoId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorId}}\",\n      \"cantidad\": 2\n    }\n  ],\n  \"titulares\": [\n    {\n      \"nombre\": \"Ana Gómez\",\n      \"dni\": \"30123456\"\n    },\n    {\n      \"nombre\": \"Luis Pérez\",\n      \"dni\": \"31234567\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "const v = pm.response.json();",
+                  "pm.test('la venta trae los campos del contrato', () => {",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v.id).to.match(/^V-[0-9a-f]{8}$/);",
+                  "  pm.expect(v.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
+                  "});",
+                  "pm.test('está EN_CHECKOUT, sin factura, sin pago y sin entradas', () => {",
+                  "  pm.expect(v.estado).to.eql('EN_CHECKOUT');",
+                  "  pm.expect(v.facturaEstado).to.eql('NO_APLICA');",
+                  "  pm.expect(v.pagoId).to.be.null;",
+                  "  pm.expect(v.entradas).to.be.an('array').that.is.empty;",
+                  "});",
+                  "pm.test('el renglón trae el sector, la cantidad y el precio que dio Eventos', () => {",
+                  "  pm.expect(v.items).to.have.lengthOf(1);",
+                  "  pm.expect(v.items[0].sectorId).to.eql(pm.collectionVariables.get('sectorId'));",
+                  "  pm.expect(v.items[0].sector).to.be.a('string').and.not.empty;",
+                  "  pm.expect(v.items[0].cantidad).to.eql(2);",
+                  "  pm.expect(v.items[0].precioUnitario).to.be.above(0);",
+                  "});",
+                  "pm.test('subtotal, cargo de servicio del 10 % y total', () => {",
+                  "  pm.expect(v.subtotal).to.eql(2 * v.items[0].precioUnitario);",
+                  "  pm.expect(v.cargoServicio).to.eql(Math.round(v.subtotal * 0.10));",
+                  "  pm.expect(v.montoTotal).to.eql(v.subtotal + v.cargoServicio);",
+                  "});",
+                  "pm.test('la reserva vence dentro de los próximos 10 minutos, en UTC', () => {",
+                  "  pm.expect(v.venceReserva).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/);",
+                  "  const faltan = Date.parse(v.venceReserva) - Date.now();",
+                  "  pm.expect(faltan).to.be.above(0);",
+                  "  pm.expect(faltan).to.be.at.most(11 * 60 * 1000);",
+                  "});",
+                  "pm.test('_links: self, pagar y cancelar, con rutas sin host', () => {",
+                  "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
+                  "  pm.expect(v._links.pagar).to.eql({ href: '/api/v1/ventas/' + v.id + '/pagos', method: 'POST' });",
+                  "  pm.expect(v._links.cancelar).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'DELETE' });",
+                  "});",
+                  "pm.test('Location apunta a la venta', () => {",
+                  "  const location = pm.response.headers.get('Location');",
+                  "  pm.expect(location, 'falta la cabecera Location').to.be.a('string');",
+                  "  pm.expect(location.endsWith('/api/v1/ventas/' + v.id), location).to.be.true;",
+                  "});",
+                  "pm.test('es la misma venta, no una nueva', () => {",
+                  "  pm.expect(v.id).to.eql(pm.collectionVariables.get('ventaId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/ventas/{id} (200, EN_CHECKOUT)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/{{ventaId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "{{ventaId}}"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const v = pm.response.json();",
+                  "pm.test('la venta trae los campos del contrato', () => {",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v.id).to.match(/^V-[0-9a-f]{8}$/);",
+                  "  pm.expect(v.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
+                  "});",
+                  "pm.test('está EN_CHECKOUT, sin factura, sin pago y sin entradas', () => {",
+                  "  pm.expect(v.estado).to.eql('EN_CHECKOUT');",
+                  "  pm.expect(v.facturaEstado).to.eql('NO_APLICA');",
+                  "  pm.expect(v.pagoId).to.be.null;",
+                  "  pm.expect(v.entradas).to.be.an('array').that.is.empty;",
+                  "});",
+                  "pm.test('el renglón trae el sector, la cantidad y el precio que dio Eventos', () => {",
+                  "  pm.expect(v.items).to.have.lengthOf(1);",
+                  "  pm.expect(v.items[0].sectorId).to.eql(pm.collectionVariables.get('sectorId'));",
+                  "  pm.expect(v.items[0].sector).to.be.a('string').and.not.empty;",
+                  "  pm.expect(v.items[0].cantidad).to.eql(2);",
+                  "  pm.expect(v.items[0].precioUnitario).to.be.above(0);",
+                  "});",
+                  "pm.test('subtotal, cargo de servicio del 10 % y total', () => {",
+                  "  pm.expect(v.subtotal).to.eql(2 * v.items[0].precioUnitario);",
+                  "  pm.expect(v.cargoServicio).to.eql(Math.round(v.subtotal * 0.10));",
+                  "  pm.expect(v.montoTotal).to.eql(v.subtotal + v.cargoServicio);",
+                  "});",
+                  "pm.test('la reserva vence dentro de los próximos 10 minutos, en UTC', () => {",
+                  "  pm.expect(v.venceReserva).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/);",
+                  "  const faltan = Date.parse(v.venceReserva) - Date.now();",
+                  "  pm.expect(faltan).to.be.above(0);",
+                  "  pm.expect(faltan).to.be.at.most(11 * 60 * 1000);",
+                  "});",
+                  "pm.test('_links: self, pagar y cancelar, con rutas sin host', () => {",
+                  "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
+                  "  pm.expect(v._links.pagar).to.eql({ href: '/api/v1/ventas/' + v.id + '/pagos', method: 'POST' });",
+                  "  pm.expect(v._links.cancelar).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'DELETE' });",
+                  "});",
+                  "pm.test('es la venta pedida', () => pm.expect(v.id).to.eql(pm.collectionVariables.get('ventaId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/ventas/{id} inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/V-00000000",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "V-00000000"
+              ],
+              "query": []
+            },
+            "description": "Una venta que no existe y una venta de otro usuario responden lo mismo: 404."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas/{id}/pagos con el cobro rechazado (402)",
           "request": {
             "method": "POST",
             "header": [
@@ -707,20 +1987,26 @@
               }
             ],
             "url": {
-              "raw": "{{baseApi}}/ventas/V-00231/pagos",
+              "raw": "{{baseApi}}/ventas/{{ventaId}}/pagos",
               "host": [
                 "{{baseApi}}"
               ],
               "path": [
                 "ventas",
-                "V-00231",
+                "{{ventaId}}",
                 "pagos"
               ],
               "query": []
             },
+            "description": "El token de prueba tok_rechazado hace que el simulador de cobro rechace el pago. La compra sigue abierta y se puede pagar con otro medio.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"medioDePago\": \"tarjeta\",\n  \"token\": \"tok_test\"\n}"
+              "raw": "{\n  \"medioDePago\": \"tarjeta\",\n  \"token\": \"tok_rechazado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -729,7 +2015,179 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('201', () => pm.response.to.have.status(201));"
+                  "pm.test('responde 402', () => pm.response.to.have.status(402));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/pago-rechazado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/pago-rechazado');",
+                  "  pm.expect(p.status).to.eql(402);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas/{id}/pagos (201) guarda entradaId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{clavePago}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/{{ventaId}}/pagos",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "{{ventaId}}",
+                "pagos"
+              ],
+              "query": []
+            },
+            "description": "Paga la compra con el token de prueba tok_test (aprobado). Devuelve la venta CONFIRMADA con sus entradas, todavía sin código: la emisión es asincrónica.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"medioDePago\": \"tarjeta\",\n  \"token\": \"tok_test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Una clave de idempotencia nueva en cada corrida. El request que repite el pedido usa la misma.",
+                  "pm.collectionVariables.set('clavePago', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const v = pm.response.json();",
+                  "pm.test('es la misma venta, con los campos del contrato', () => {",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v.id).to.eql(pm.collectionVariables.get('ventaId'));",
+                  "  pm.expect(v.facturaEstado).to.eql('NO_APLICA');",
+                  "  pm.expect(v.montoTotal).to.eql(Number(pm.collectionVariables.get('montoTotal')));",
+                  "});",
+                  "pm.test('la venta está CONFIRMADA', () => pm.expect(v.estado).to.eql('CONFIRMADA'));",
+                  "pm.test('trae el id del pago', () => pm.expect(v.pagoId).to.match(/^P-[0-9a-f]{8}$/));",
+                  "pm.test('Location apunta al pago de la venta', () => {",
+                  "  const location = pm.response.headers.get('Location');",
+                  "  pm.expect(location, 'falta la cabecera Location').to.be.a('string');",
+                  "  pm.expect(location.endsWith('/api/v1/ventas/' + v.id + '/pagos/' + v.pagoId), location).to.be.true;",
+                  "});",
+                  "pm.test('trae las dos entradas, una por titular y en el orden del pedido, PENDIENTE_EMISION', () => {",
+                  "  pm.expect(v.entradas).to.have.lengthOf(2);",
+                  "  const titulares = [{\"nombre\":\"Ana Gómez\",\"dni\":\"30123456\"},{\"nombre\":\"Luis Pérez\",\"dni\":\"31234567\"}];",
+                  "  v.entradas.forEach((e, i) => {",
+                  "    pm.expect(e.id).to.match(/^T-[0-9a-f]{8}$/);",
+                  "    pm.expect(e.sector).to.eql(v.items[0].sector);",
+                  "    pm.expect(e.titular).to.eql(titulares[i]);",
+                  "    pm.expect(e.estado).to.eql('PENDIENTE_EMISION');",
+                  "    pm.expect(e._links.self).to.eql({ href: '/api/v1/entradas/' + e.id, method: 'GET' });",
+                  "  });",
+                  "});",
+                  "pm.test('_links: solo self; ya no se puede pagar ni cancelar', () => {",
+                  "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
+                  "  pm.expect(v._links).to.not.have.any.keys('pagar', 'cancelar');",
+                  "});",
+                  "pm.collectionVariables.set('pagoId', v.pagoId);",
+                  "pm.collectionVariables.set('entradaId', v.entradas[0].id);",
+                  "pm.collectionVariables.set('intentosEmision', 0);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas/{id}/pagos repetido con la misma clave (201, el mismo pago)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{clavePago}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/{{ventaId}}/pagos",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "{{ventaId}}",
+                "pagos"
+              ],
+              "query": []
+            },
+            "description": "Idempotencia: repetir el pago con la misma Idempotency-Key no cobra de nuevo. Devuelve la venta como está ahora, que ya puede haber pasado a EMITIDA.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"medioDePago\": \"tarjeta\",\n  \"token\": \"tok_test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "const v = pm.response.json();",
+                  "pm.test('es la misma venta, con los campos del contrato', () => {",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v.id).to.eql(pm.collectionVariables.get('ventaId'));",
+                  "  pm.expect(v.facturaEstado).to.eql('NO_APLICA');",
+                  "  pm.expect(v.montoTotal).to.eql(Number(pm.collectionVariables.get('montoTotal')));",
+                  "});",
+                  "pm.test('la venta está CONFIRMADA o EMITIDA', () => pm.expect(v.estado).to.be.oneOf([\"CONFIRMADA\",\"EMITIDA\"]));",
+                  "pm.test('es el mismo pago: no se cobró dos veces', () => {",
+                  "  pm.expect(v.pagoId).to.eql(pm.collectionVariables.get('pagoId'));",
+                  "});",
+                  "pm.test('son las mismas dos entradas', () => {",
+                  "  pm.expect(v.entradas).to.have.lengthOf(2);",
+                  "  pm.expect(v.entradas[0].id).to.eql(pm.collectionVariables.get('entradaId'));",
+                  "});"
                 ]
               }
             }
@@ -746,16 +2204,17 @@
               }
             ],
             "url": {
-              "raw": "{{baseApi}}/entradas/T-000981",
+              "raw": "{{baseApi}}/entradas/{{entradaId}}",
               "host": [
                 "{{baseApi}}"
               ],
               "path": [
                 "entradas",
-                "T-000981"
+                "{{entradaId}}"
               ],
               "query": []
-            }
+            },
+            "description": "La entrada apenas pagada. Puede estar PENDIENTE_EMISION (sin código) o ya VALIDA, según cuánto tardó el consumidor de la cola."
           },
           "event": [
             {
@@ -763,80 +2222,197 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200', () => pm.response.to.have.status(200));"
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const e = pm.response.json();",
+                  "pm.test('la entrada trae los campos del contrato', () => {",
+                  "  pm.expect(e).to.include.all.keys('id', 'ventaId', 'eventoId', 'sectorId', 'sector', 'titular', 'precioPagado', 'estado', 'codigoQr', 'emitida', '_links');",
+                  "  pm.expect(e.id).to.eql(pm.collectionVariables.get('entradaId'));",
+                  "  pm.expect(e.ventaId).to.eql(pm.collectionVariables.get('ventaId'));",
+                  "  pm.expect(e.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
+                  "  pm.expect(e.sectorId).to.eql(pm.collectionVariables.get('sectorId'));",
+                  "  pm.expect(e.sector).to.be.a('string').and.not.empty;",
+                  "  pm.expect(e.titular).to.eql({\"nombre\":\"Ana Gómez\",\"dni\":\"30123456\"});",
+                  "  pm.expect(e._links.self).to.eql({ href: '/api/v1/entradas/' + e.id, method: 'GET' });",
+                  "});",
+                  "pm.test('precioPagado es el precio del sector, sin el cargo de servicio', () => {",
+                  "  pm.expect(e.precioPagado).to.eql(Number(pm.collectionVariables.get('precioUnitario')));",
+                  "});",
+                  "pm.test('está PENDIENTE_EMISION sin código, o VALIDA con código', () => {",
+                  "  pm.expect(e.estado).to.be.oneOf(['PENDIENTE_EMISION', 'VALIDA']);",
+                  "  if (e.estado === 'PENDIENTE_EMISION') {",
+                  "    pm.expect(e.codigoQr).to.be.null;",
+                  "    pm.expect(e.emitida).to.be.null;",
+                  "  } else {",
+                  "    pm.expect(e.codigoQr).to.be.a('string').and.not.empty;",
+                  "    pm.expect(e.emitida).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/);",
+                  "  }",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "POST /v1/reventas (201)",
+          "name": "GET /v1/entradas/{id} emitida (200, VALIDA con codigoQr)",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
               }
             ],
             "url": {
-              "raw": "{{baseApi}}/reventas",
+              "raw": "{{baseApi}}/entradas/{{entradaId}}",
               "host": [
                 "{{baseApi}}"
               ],
               "path": [
-                "reventas"
+                "entradas",
+                "{{entradaId}}"
               ],
               "query": []
             },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"entradaId\": \"T-000981\",\n  \"precio\": 29000\n}"
-            }
+            "description": "Comprueba el proceso asincrónico: el pago publicó PAGO_CONFIRMADO en la cola y el consumidor emite las entradas. En una corrida espera 1 segundo y, si la entrada todavía no está VALIDA, se repite hasta 10 veces. Enviado a mano no se repite solo: se vuelve a enviar."
           },
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// La emisión es asincrónica: se espera 1 segundo antes de preguntar.",
+                  "setTimeout(() => {}, 1000);"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('201', () => pm.response.to.have.status(201));"
+                  "const MAXIMO_DE_INTENTOS = 10;",
+                  "const intento = Number(pm.collectionVariables.get('intentosEmision') || 0) + 1;",
+                  "const pendiente = pm.response.code === 200 && pm.response.json().estado === 'PENDIENTE_EMISION';",
+                  "",
+                  "if (pendiente && intento < MAXIMO_DE_INTENTOS) {",
+                  "  // Todavía no se emitió: se repite este mismo request, sin evaluar nada.",
+                  "  pm.collectionVariables.set('intentosEmision', intento);",
+                  "  if (pm.execution && pm.execution.setNextRequest) {",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "  } else {",
+                  "    postman.setNextRequest(pm.info.requestName);",
+                  "  }",
+                  "} else {",
+                  "  pm.collectionVariables.set('intentosEmision', 0);",
+                  "  pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "  const e = pm.response.json();",
+                  "  pm.test('la entrada trae los campos del contrato', () => {",
+                  "    pm.expect(e).to.include.all.keys('id', 'ventaId', 'eventoId', 'sectorId', 'sector', 'titular', 'precioPagado', 'estado', 'codigoQr', 'emitida', '_links');",
+                  "    pm.expect(e.id).to.eql(pm.collectionVariables.get('entradaId'));",
+                  "    pm.expect(e.ventaId).to.eql(pm.collectionVariables.get('ventaId'));",
+                  "    pm.expect(e.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
+                  "    pm.expect(e.sectorId).to.eql(pm.collectionVariables.get('sectorId'));",
+                  "    pm.expect(e.sector).to.be.a('string').and.not.empty;",
+                  "    pm.expect(e.titular).to.eql({\"nombre\":\"Ana Gómez\",\"dni\":\"30123456\"});",
+                  "    pm.expect(e._links.self).to.eql({ href: '/api/v1/entradas/' + e.id, method: 'GET' });",
+                  "  });",
+                  "  pm.test('precioPagado es el precio del sector, sin el cargo de servicio', () => {",
+                  "    pm.expect(e.precioPagado).to.eql(Number(pm.collectionVariables.get('precioUnitario')));",
+                  "  });",
+                  "  pm.test('está VALIDA, con su código QR y la fecha de emisión en UTC', () => {",
+                  "    pm.expect(e.estado).to.eql('VALIDA');",
+                  "    pm.expect(e.codigoQr).to.be.a('string').and.not.empty;",
+                  "    pm.expect(e.codigoQr.length).to.be.at.most(200);",
+                  "    pm.expect(e.emitida).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/);",
+                  "  });",
+                  "  pm.collectionVariables.set('codigoQr', e.codigoQr);",
+                  "}"
                 ]
               }
             }
           ]
         },
         {
-          "name": "POST /v1/reventas sobre tope (422)",
+          "name": "GET /v1/ventas/{id} (200, EMITIDA)",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
               }
             ],
             "url": {
-              "raw": "{{baseApi}}/reventas",
+              "raw": "{{baseApi}}/ventas/{{ventaId}}",
               "host": [
                 "{{baseApi}}"
               ],
               "path": [
-                "reventas"
+                "ventas",
+                "{{ventaId}}"
               ],
               "query": []
             },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"entradaId\": \"T-000981\",\n  \"precio\": 33000\n}"
+            "description": "Después de la emisión la venta queda EMITIDA y sus entradas VALIDA."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const v = pm.response.json();",
+                  "pm.test('es la misma venta, con los campos del contrato', () => {",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v.id).to.eql(pm.collectionVariables.get('ventaId'));",
+                  "  pm.expect(v.facturaEstado).to.eql('NO_APLICA');",
+                  "  pm.expect(v.montoTotal).to.eql(Number(pm.collectionVariables.get('montoTotal')));",
+                  "});",
+                  "pm.test('la venta está EMITIDA', () => pm.expect(v.estado).to.eql('EMITIDA'));",
+                  "pm.test('conserva el id del pago', () => pm.expect(v.pagoId).to.eql(pm.collectionVariables.get('pagoId')));",
+                  "pm.test('trae las dos entradas, una por titular y en el orden del pedido, VALIDA', () => {",
+                  "  pm.expect(v.entradas).to.have.lengthOf(2);",
+                  "  const titulares = [{\"nombre\":\"Ana Gómez\",\"dni\":\"30123456\"},{\"nombre\":\"Luis Pérez\",\"dni\":\"31234567\"}];",
+                  "  v.entradas.forEach((e, i) => {",
+                  "    pm.expect(e.id).to.match(/^T-[0-9a-f]{8}$/);",
+                  "    pm.expect(e.sector).to.eql(v.items[0].sector);",
+                  "    pm.expect(e.titular).to.eql(titulares[i]);",
+                  "    pm.expect(e.estado).to.eql('VALIDA');",
+                  "    pm.expect(e._links.self).to.eql({ href: '/api/v1/entradas/' + e.id, method: 'GET' });",
+                  "  });",
+                  "});",
+                  "pm.test('_links: solo self; ya no se puede pagar ni cancelar', () => {",
+                  "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
+                  "  pm.expect(v._links).to.not.have.any.keys('pagar', 'cancelar');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/entradas/{id} inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/entradas/T-00000000",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "entradas",
+                "T-00000000"
+              ],
+              "query": []
             }
           },
           "event": [
@@ -845,15 +2421,22 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('422', () => pm.response.to.have.status(422));",
-                  "pm.test('problem+json', () => pm.response.to.have.header('Content-Type', /problem\\+json/));"
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "DELETE /v1/reventas/{id} (204)",
+          "name": "DELETE /v1/ventas/{id} de una venta paga (409)",
           "request": {
             "method": "DELETE",
             "header": [
@@ -863,16 +2446,17 @@
               }
             ],
             "url": {
-              "raw": "{{baseApi}}/reventas/R-0012",
+              "raw": "{{baseApi}}/ventas/{{ventaId}}",
               "host": [
                 "{{baseApi}}"
               ],
               "path": [
-                "reventas",
-                "R-0012"
+                "ventas",
+                "{{ventaId}}"
               ],
               "query": []
-            }
+            },
+            "description": "Una venta paga no se cancela."
           },
           "event": [
             {
@@ -880,14 +2464,22 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('204', () => pm.response.to.have.status(204));"
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/venta-ya-paga', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/venta-ya-paga');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
                 ]
               }
             }
           ]
         },
         {
-          "name": "POST /v1/validacion/escaneos (200)",
+          "name": "POST /v1/ventas para cancelar (201) guarda ventaCanceladaId",
           "request": {
             "method": "POST",
             "header": [
@@ -896,24 +2488,192 @@
                 "value": "Bearer {{token}}"
               },
               {
+                "key": "Idempotency-Key",
+                "value": "{{claveVentaCancelada}}"
+              },
+              {
                 "key": "Content-Type",
                 "value": "application/json"
               }
             ],
             "url": {
-              "raw": "{{baseApi}}/validacion/escaneos",
+              "raw": "{{baseApi}}/ventas",
               "host": [
                 "{{baseApi}}"
               ],
               "path": [
-                "validacion",
-                "escaneos"
+                "ventas"
               ],
               "query": []
             },
+            "description": "Abre otra compra, de 1 entrada, para probar la cancelación.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"codigoQr\": \"QR-ABC123\"\n}"
+              "raw": "{\n  \"eventoId\": \"{{eventoId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorId}}\",\n      \"cantidad\": 1\n    }\n  ],\n  \"titulares\": [\n    {\n      \"nombre\": \"Ana Gómez\",\n      \"dni\": \"30123456\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Una clave de idempotencia nueva en cada corrida. El request que repite el pedido usa la misma.",
+                  "pm.collectionVariables.set('claveVentaCancelada', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "const v = pm.response.json();",
+                  "pm.test('la venta trae los campos del contrato', () => {",
+                  "  pm.expect(v).to.include.all.keys('id', 'estado', 'facturaEstado', 'eventoId', 'items', 'subtotal', 'cargoServicio', 'montoTotal', 'venceReserva', 'pagoId', 'entradas', '_links');",
+                  "  pm.expect(v.id).to.match(/^V-[0-9a-f]{8}$/);",
+                  "  pm.expect(v.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
+                  "});",
+                  "pm.test('está EN_CHECKOUT, sin factura, sin pago y sin entradas', () => {",
+                  "  pm.expect(v.estado).to.eql('EN_CHECKOUT');",
+                  "  pm.expect(v.facturaEstado).to.eql('NO_APLICA');",
+                  "  pm.expect(v.pagoId).to.be.null;",
+                  "  pm.expect(v.entradas).to.be.an('array').that.is.empty;",
+                  "});",
+                  "pm.test('el renglón trae el sector, la cantidad y el precio que dio Eventos', () => {",
+                  "  pm.expect(v.items).to.have.lengthOf(1);",
+                  "  pm.expect(v.items[0].sectorId).to.eql(pm.collectionVariables.get('sectorId'));",
+                  "  pm.expect(v.items[0].sector).to.be.a('string').and.not.empty;",
+                  "  pm.expect(v.items[0].cantidad).to.eql(1);",
+                  "  pm.expect(v.items[0].precioUnitario).to.be.above(0);",
+                  "});",
+                  "pm.test('subtotal, cargo de servicio del 10 % y total', () => {",
+                  "  pm.expect(v.subtotal).to.eql(1 * v.items[0].precioUnitario);",
+                  "  pm.expect(v.cargoServicio).to.eql(Math.round(v.subtotal * 0.10));",
+                  "  pm.expect(v.montoTotal).to.eql(v.subtotal + v.cargoServicio);",
+                  "});",
+                  "pm.test('la reserva vence dentro de los próximos 10 minutos, en UTC', () => {",
+                  "  pm.expect(v.venceReserva).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/);",
+                  "  const faltan = Date.parse(v.venceReserva) - Date.now();",
+                  "  pm.expect(faltan).to.be.above(0);",
+                  "  pm.expect(faltan).to.be.at.most(11 * 60 * 1000);",
+                  "});",
+                  "pm.test('_links: self, pagar y cancelar, con rutas sin host', () => {",
+                  "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
+                  "  pm.expect(v._links.pagar).to.eql({ href: '/api/v1/ventas/' + v.id + '/pagos', method: 'POST' });",
+                  "  pm.expect(v._links.cancelar).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'DELETE' });",
+                  "});",
+                  "pm.test('Location apunta a la venta', () => {",
+                  "  const location = pm.response.headers.get('Location');",
+                  "  pm.expect(location, 'falta la cabecera Location').to.be.a('string');",
+                  "  pm.expect(location.endsWith('/api/v1/ventas/' + v.id), location).to.be.true;",
+                  "});",
+                  "pm.test('es otra venta, no la que ya se pagó', () => {",
+                  "  pm.expect(v.id).to.not.eql(pm.collectionVariables.get('ventaId'));",
+                  "});",
+                  "pm.collectionVariables.set('ventaCanceladaId', v.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /v1/ventas/{id} (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/{{ventaCanceladaId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "{{ventaCanceladaId}}"
+              ],
+              "query": []
+            },
+            "description": "Cancela la compra sin pagar y devuelve su cupo a Eventos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 204', () => pm.response.to.have.status(204));",
+                  "pm.test('no trae cuerpo', () => pm.expect(pm.response.text()).to.eql(''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /v1/ventas/{id} repetido (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/{{ventaCanceladaId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "{{ventaCanceladaId}}"
+              ],
+              "query": []
+            },
+            "description": "Cancelar es idempotente: repetirlo también responde 204."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/ventas/{id} cancelada (200, CANCELADA)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/{{ventaCanceladaId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "{{ventaCanceladaId}}"
+              ],
+              "query": []
             }
           },
           "event": [
@@ -922,9 +2682,276 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200', () => pm.response.to.have.status(200));"
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const v = pm.response.json();",
+                  "pm.test('la venta está CANCELADA, sin pago y sin entradas', () => {",
+                  "  pm.expect(v.id).to.eql(pm.collectionVariables.get('ventaCanceladaId'));",
+                  "  pm.expect(v.estado).to.eql('CANCELADA');",
+                  "  pm.expect(v.pagoId).to.be.null;",
+                  "  pm.expect(v.entradas).to.be.an('array').that.is.empty;",
+                  "});",
+                  "pm.test('_links: solo self; ya no se puede pagar ni cancelar', () => {",
+                  "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
+                  "  pm.expect(v._links).to.not.have.any.keys('pagar', 'cancelar');",
+                  "});"
                 ]
               }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas/{id}/pagos de una venta cancelada (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/{{ventaCanceladaId}}/pagos",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "{{ventaCanceladaId}}",
+                "pagos"
+              ],
+              "query": []
+            },
+            "description": "Una compra cancelada ya no se puede pagar: hay que empezar otra.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"medioDePago\": \"tarjeta\",\n  \"token\": \"tok_test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/reserva-vencida', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/reserva-vencida');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "",
+                  "// Último request automático de la colección: la corrida termina acá y no entra en \"Pendientes\".",
+                  "if (pm.execution && pm.execution.setNextRequest) {",
+                  "  pm.execution.setNextRequest(null);",
+                  "} else {",
+                  "  postman.setNextRequest(null);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pendientes: reventa y validación (fuera de la corrida)",
+          "description": "Diseñado, pendiente. Estas rutas todavía no existen en el backend: hoy responden 404. La corrida automática termina antes de llegar acá. Reventa (/api/v1/reventas) es de la Ola 3 y validación en puerta (/api/v1/validacion/escaneos), de la Ola 2. Ya usan variables en lugar de ids fijos: entradaId y codigoQr salen de la carpeta 3 y tokenStaff, de \"Login staff\" en la carpeta 1.",
+          "item": [
+            {
+              "name": "PENDIENTE · POST /v1/reventas (201)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseApi}}/reventas",
+                  "host": [
+                    "{{baseApi}}"
+                  ],
+                  "path": [
+                    "reventas"
+                  ],
+                  "query": []
+                },
+                "description": "PENDIENTE (Ola 3). Publica en reventa la entrada comprada, por debajo del tope (precio pagado más 10 %: 30.250 para una entrada de 27.500).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"entradaId\": \"{{entradaId}}\",\n  \"precio\": 29000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                      "pm.test('trae Location', () => pm.response.to.have.header('Location'));",
+                      "if (pm.response.code === 201) {",
+                      "  pm.collectionVariables.set('publicacionId', pm.response.json().id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "PENDIENTE · POST /v1/reventas sobre el tope (422)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseApi}}/reventas",
+                  "host": [
+                    "{{baseApi}}"
+                  ],
+                  "path": [
+                    "reventas"
+                  ],
+                  "query": []
+                },
+                "description": "PENDIENTE (Ola 3). 33.000 supera el tope de 30.250.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"entradaId\": \"{{entradaId}}\",\n  \"precio\": 33000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('responde 422', () => pm.response.to.have.status(422));",
+                      "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "PENDIENTE · DELETE /v1/reventas/{id} (204)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseApi}}/reventas/{{publicacionId}}",
+                  "host": [
+                    "{{baseApi}}"
+                  ],
+                  "path": [
+                    "reventas",
+                    "{{publicacionId}}"
+                  ],
+                  "query": []
+                },
+                "description": "PENDIENTE (Ola 3). Retira la publicación creada dos requests antes."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('responde 204', () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "PENDIENTE · POST /v1/validacion/escaneos (200)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenStaff}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseApi}}/validacion/escaneos",
+                  "host": [
+                    "{{baseApi}}"
+                  ],
+                  "path": [
+                    "validacion",
+                    "escaneos"
+                  ],
+                  "query": []
+                },
+                "description": "PENDIENTE (Ola 2). El personal de puerta escanea el código QR de la entrada. Usa {{tokenStaff}} y el {{codigoQr}} que guardó \"GET /v1/entradas/{id} emitida\".",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigoQr\": \"{{codigoQr}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('responde 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         }

@@ -1,5 +1,6 @@
 package com.palco.ventas.api;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -33,7 +34,7 @@ import com.palco.ventas.negocio.ComprasEnCurso;
 
 /**
  * API REST de las compras, en {@code /api/v1/ventas}: abrir una compra,
- * consultarla, pagarla y cancelarla.
+ * consultarla, pagarla, cancelarla y listar las propias.
  *
  * Es una capa delgada. Revisa la forma del pedido (el cuerpo y la cabecera
  * {@code Idempotency-Key}), saca del token quién es el comprador, delega en
@@ -85,6 +86,22 @@ public class VentasResource {
 
         Enlaces enlaces = new Enlaces(pedido.getBaseUri());
         return Response.created(enlaces.aLaVenta(venta.id())).entity(enlaces.completar(venta)).build();
+    }
+
+    /**
+     * {@code GET /api/v1/ventas}: las compras de quien hace el pedido, de la
+     * más nueva a la más vieja, cada una con sus entradas. De quién son lo
+     * dice el token, no un parámetro: nadie puede pedir las de otro usuario.
+     * Es lo que usa "Mis entradas", que así no depende de lo que recuerde el
+     * navegador. Sin compras responde 200 con una lista vacía.
+     */
+    @GET
+    @RolesAllowed("user")
+    public List<VentaDto> listar(@Context SecurityContext seguridad, @Context UriInfo pedido) {
+        Enlaces enlaces = new Enlaces(pedido.getBaseUri());
+        return compras.listar(Sesion.usuarioId(seguridad)).stream()
+                .map(enlaces::completar)
+                .toList();
     }
 
     /** {@code GET /api/v1/ventas/V-3f9a1c2b}: la venta como está ahora, solo para quien la compró. */

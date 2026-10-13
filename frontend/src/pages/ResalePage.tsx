@@ -75,7 +75,6 @@ export default function ResalePage() {
           ordenId: entradaOriginal?.ordenId ?? '',
           eventoId: eventoCompra.id,
           sectorId: sectorCompra.id,
-          fila: entradaOriginal?.fila ?? '1',
           precioPagado: publicacion.precio,
           titular: { nombre: usuarioActual.nombre, apellido: usuarioActual.apellido, dni: usuarioActual.dni },
           estado: 'valida',

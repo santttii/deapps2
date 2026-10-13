@@ -10,20 +10,29 @@ export interface EntradaConDueno extends Entrada {
   propietarioId: string;
 }
 
+export interface OrdenConDueno extends Orden {
+  compradorId: string;
+}
+
 export interface AppState {
   // Copia del catálogo completo del servidor (GET /api/eventos). No se guarda en el navegador.
   eventos: Evento[];
   catalogo: { estado: 'cargando' | 'listo' | 'error'; error: string };
-  // Lo que todavía no tiene backend: vive en este navegador, asociado al usuario de la sesión.
+  // Lo que vive en este navegador, asociado al usuario de la sesión. Las órdenes y las entradas
+  // compradas son copias de lo que devolvió Ventas (el backend no tiene un listado para pedirlas);
+  // la reventa todavía no tiene backend y es local.
   entradas: EntradaConDueno[];
   publicaciones: Publicacion[];
-  ordenes: Orden[];
+  ordenes: OrdenConDueno[];
   carrito: Carrito | null;
 }
 
 type DatosLocales = Pick<AppState, 'entradas' | 'publicaciones' | 'ordenes' | 'carrito'>;
 
-const STORAGE_KEY = 'palco.state';
+// La "v2" es de cuando la compra pasó a hacerse en el backend: lo guardado con la clave anterior
+// eran compras armadas en el navegador, que el servidor nunca conoció. Por eso se borra.
+const STORAGE_KEY = 'palco.state.v2';
+const STORAGE_KEY_ANTERIOR = 'palco.state';
 
 function cargarEstado(): AppState {
   const inicial: AppState = {
@@ -35,10 +44,9 @@ function cargarEstado(): AppState {
     carrito: null,
   };
   try {
+    localStorage.removeItem(STORAGE_KEY_ANTERIOR);
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return inicial;
-    // De lo guardado se leen solo los datos locales. Un estado de una versión anterior traía
-    // además usuarios y eventos de mentira: se ignoran y desaparecen en el primer guardado.
     const guardado = JSON.parse(raw) as Partial<DatosLocales>;
     return {
       ...inicial,
@@ -69,14 +77,18 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'SET_CARRITO':
       return { ...state, carrito: action.payload };
-    case 'CREAR_ORDEN': {
-      // No se suman las vendidas del evento: el stock que se muestra es el del servidor.
+    case 'GUARDAR_COMPRA': {
+      // Guarda la orden como la devolvió el backend, reemplazando la copia anterior si la había.
+      // De las entradas se agregan solo las que todavía no están: una ya guardada puede tener un
+      // estado local de reventa (publicada, vendida) que el backend no conoce y no hay que pisar.
       const { orden, entradas, compradorId } = action.payload;
-      const nuevasEntradas: EntradaConDueno[] = entradas.map((e) => ({ ...e, propietarioId: compradorId }));
+      const nuevasEntradas: EntradaConDueno[] = entradas
+        .filter((e) => !state.entradas.some((guardada) => guardada.id === e.id))
+        .map((e) => ({ ...e, propietarioId: compradorId }));
       return {
         ...state,
         entradas: [...state.entradas, ...nuevasEntradas],
-        ordenes: [...state.ordenes, orden],
+        ordenes: [...state.ordenes.filter((o) => o.id !== orden.id), { ...orden, compradorId }],
       };
     }
     case 'PUBLICAR_REVENTA': {
@@ -150,8 +162,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pedirCatalogo();
   }, [pedirCatalogo]);
 
-  // Se guardan solo los datos locales. El primer guardado ocurre al montar: ahí se pisa
-  // cualquier estado viejo (que incluía contraseñas en texto plano).
+  // Se guardan solo los datos locales, no el catálogo.
   useEffect(() => {
     const datos: DatosLocales = {
       entradas: state.entradas,

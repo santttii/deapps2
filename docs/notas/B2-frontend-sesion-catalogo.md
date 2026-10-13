@@ -8,7 +8,7 @@ El frontend usa el backend real para ingresar, registrarse (con el código de ve
 
 ## Qué sigue con datos locales y por qué
 
-El checkout, "Mis entradas", la reventa, la puerta y las estadísticas del organizador siguen en el navegador, porque Ventas, Reventa y Validación todavía no existen. Las compras y las publicaciones ahora quedan a nombre del usuario real (su id y su DNI vienen del backend). El checkout llama a una sola función, `confirmarCompra()` en `servicios/ventas.ts`: cuando exista Ventas se cambia su cuerpo y la página no se toca.
+La reventa, la puerta y las estadísticas del organizador siguen en el navegador, porque Reventa y Validación todavía no existen. Las publicaciones quedan a nombre del usuario real (su id y su DNI vienen del backend). La compra dejó de ser local el 13/10: el checkout, la confirmación y "Mis entradas" usan Ventas, y sus decisiones están en `B2-frontend-checkout.md`. Esa nota reemplaza lo que esta dice sobre la compra: la decisión 9 (ahora el stock baja al reservar), la 12 y la "Decisión abierta" (las cuentas nuevas hoy no pueden comprar).
 
 ## Decisiones: qué se eligió, contra qué alternativa y por qué
 
@@ -23,7 +23,7 @@ El checkout, "Mis entradas", la reventa, la puerta y las estadísticas del organ
 9. **Stock.** Se muestra el del servidor, que no baja al comprar hasta que exista Ventas. Sumarlo en el navegador daba números que cambiaban al recargar.
 10. **Salir.** Desde una página privada termina en `/ingresar?next=<esa página>` y no en la portada, porque la ruta protegida redirige antes. Forzar la portada dependía del orden interno de React.
 11. **Parámetro `next`.** Solo se aceptan rutas internas simples, para que un enlace armado por otro no mande a un sitio externo después de ingresar.
-12. **Órdenes.** Una orden es del usuario si tiene una entrada suya comprada, no revendida: la entrada de reventa conserva el número de orden del vendedor.
+12. **Órdenes.** Cada orden guardada en el navegador lleva el id de quien la compró (`compradorId`), igual que cada entrada lleva `propietarioId`. Antes se deducía ("es mía si tiene una entrada mía comprada, no revendida") porque la orden se armaba en el navegador; desde que la devuelve Ventas, el dueño se anota al guardarla.
 13. **Detalle del evento en pantalla angosta.** El selector de entradas se ve en todos los anchos; en angosto queda debajo de la descripción, y el total con el botón "Continuar" van en la barra fija de abajo. Antes el selector se ocultaba por debajo de 768 px y desde un teléfono no se podía comprar. La alternativa era meter los botones "+" y "–" en la barra fija, pero con varios sectores no entran.
 
 ## Correcciones después de la prueba en navegador (09/10)

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -19,6 +20,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Method;
@@ -124,7 +126,7 @@ class ServicioDeVentasTest {
     // ---- Abrir la compra ----
 
     @Test
-    void abrirUnaCompraGuardaLaVentaReservaElCupoYCalculaElTotal() {
+    void abrirUnaCompraReservaElCupoGuardaLaVentaYCalculaElTotal() {
         eventosVende("sec-1-4", "Platea B", 27_500);
 
         VentaDto venta = servicio.iniciarCompra(COMPRADOR, pedido(List.of(item("sec-1-4", 2)), ANA, LUIS), CLAVE);
@@ -141,17 +143,44 @@ class ServicioDeVentasTest {
         assertNull(venta.pagoId());
         assertTrue(venta.entradas().isEmpty());
 
-        // Primero la cabecera con la clave, después la reserva y recién entonces los renglones.
+        // Primero la reserva y recién después la venta, que se guarda una sola vez y ya completa.
         ArgumentCaptor<Venta> guardada = ArgumentCaptor.forClass(Venta.class);
-        InOrder orden = inOrder(ventas, eventos);
-        orden.verify(ventas).guardar(guardada.capture());
+        InOrder orden = inOrder(eventos, ventas);
         orden.verify(eventos).reservarCupo("ev-1", "sec-1-4", 2);
-        orden.verify(ventas).actualizar(guardada.getValue());
+        orden.verify(ventas).guardar(guardada.capture());
+        verifyNoMoreInteractions(ventas);
         assertEquals(venta.id(), guardada.getValue().getId());
         assertEquals(COMPRADOR, guardada.getValue().getCompradorId());
         assertEquals(CLAVE, guardada.getValue().getClaveIdempotencia());
         assertEquals(LocalDateTime.of(2026, 10, 19, 21, 0, 7), guardada.getValue().getCreada());
+        assertEquals(1, guardada.getValue().getItems().size());
+        assertEquals(60_500, guardada.getValue().getMontoTotal());
         verify(eventos, never()).liberarCupo(anyString(), anyString(), anyString(), anyInt());
+    }
+
+    @Test
+    void mientrasSeEsperaAEventosTodaviaNoSeTocoLaBase() {
+        // Si la venta se guardara antes de reservar, la compra esperaría a Eventos con una conexión de la
+        // base tomada. El pool es uno solo para todos los servicios: diez compras así lo dejan sin conexiones.
+        when(eventos.reservarCupo(eq("ev-1"), anyString(), anyInt())).thenAnswer(llamada -> {
+            verifyNoInteractions(ventas);
+            return new Sector(llamada.getArgument(1), "Platea B", 27_500, 2000, 1442);
+        });
+
+        servicio.iniciarCompra(COMPRADOR, pedido(List.of(item("sec-1-4", 1), item("sec-1-1", 1)), ANA, LUIS), CLAVE);
+
+        verify(eventos, times(2)).reservarCupo(eq("ev-1"), anyString(), eq(1));
+        verify(ventas).guardar(any());
+    }
+
+    @Test
+    void abrirLaCompraNoLlevaTransaccionPropia() throws NoSuchMethodException {
+        Method abrir = ServicioDeVentas.class.getMethod("iniciarCompra", String.class, NuevaVentaDto.class,
+                String.class);
+
+        // NOT_SUPPORTED: la única escritura es guardar la venta, que corre en la transacción del repositorio.
+        // Si el guardado falla, esa transacción ya terminó cuando se devuelve el cupo a Eventos.
+        assertEquals(TransactionAttributeType.NOT_SUPPORTED, abrir.getAnnotation(TransactionAttribute.class).value());
     }
 
     @Test
@@ -221,6 +250,45 @@ class ServicioDeVentasTest {
     }
 
     @Test
+    void unNombreConUnSaltoDeLineaUOtroCaracterDeControlEsUnDatoInvalido() {
+        // El nombre viaja en PAGO_CONFIRMADO y termina en el log de quien lo consume: con un salto de
+        // línea, un comprador podría escribir ahí una línea con el formato de las del servidor.
+        datoInvalido("titulares", pedido(List.of(item("sec-1-4", 1)),
+                new TitularDto("Ana Gómez\n2026-10-13 14:00:00,000 INFO  [falso] una línea falsa", "30123456")));
+        datoInvalido("titulares", pedido(List.of(item("sec-1-4", 1)), new TitularDto("Ana\rGómez", "30123456")));
+        datoInvalido("titulares", pedido(List.of(item("sec-1-4", 1)), new TitularDto("Ana\tGómez", "30123456")));
+        datoInvalido("titulares", pedido(List.of(item("sec-1-4", 1)), new TitularDto("Ana\u0000Gómez", "30123456")));
+        // Los separadores de línea de Unicode no son "de control", pero también se ven como otro renglón.
+        datoInvalido("titulares", pedido(List.of(item("sec-1-4", 1)), new TitularDto("Ana\u2028Gómez", "30123456")));
+        datoInvalido("titulares", pedido(List.of(item("sec-1-4", 1)), new TitularDto("Ana\u2029Gómez", "30123456")));
+        verifyNoInteractions(ventas, eventos);
+    }
+
+    @Test
+    void losIdsDelPedidoTampocoLlevanCaracteresDeControl() {
+        // El evento y el sector salen en los avisos del log cuando Eventos no responde.
+        datoInvalido("eventoId", new NuevaVentaDto("ev-1\nfalso", List.of(item("sec-1-4", 1)), List.of(ANA)));
+        datoInvalido("items", pedido(List.of(item("sec-1-4\nfalso", 1)), ANA));
+        verifyNoInteractions(ventas, eventos);
+    }
+
+    @Test
+    void losEspaciosYSaltosDeLineaDeLasPuntasDelNombreSeDescartan() {
+        eventosVende("sec-1-4", "Platea B", 27_500);
+        String ventaId = servicio.iniciarCompra(COMPRADOR,
+                pedido(List.of(item("sec-1-4", 1)), new TitularDto("  Ana Gómez \n", "30123456")), CLAVE).id();
+        Venta confirmada = ventaConfirmada(ventaId);
+        Venta abierta = ventaGuardada();
+        when(ventas.buscarPorId(ventaId)).thenReturn(Optional.of(abierta)).thenReturn(Optional.of(confirmada));
+        when(cobros.cobrar(eq(ventaId), anyLong(), anyString(), anyString(), anyString())).thenReturn(APROBADO);
+        when(ventas.confirmar(ventaId, PAGO_ID, AHORA)).thenReturn(true);
+
+        servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO);
+
+        assertEquals("Ana Gómez", entradasGuardadas.get(0).getTitularNombre());
+    }
+
+    @Test
     void unaCantidadEnCeroONegativaNuncaLlegaAEventos() {
         // Una cantidad negativa le pediría a Eventos que libere cupo: se rechaza antes.
         datoInvalido("items", pedido(List.of(item("sec-1-4", 0))));
@@ -248,15 +316,22 @@ class ServicioDeVentasTest {
     // ---- Lo que puede fallar después de validar ----
 
     @Test
-    void siElCompradorYaUsoLaClaveNoSeReservaNada() {
+    void siOtroPedidoConLaMismaClaveGuardoPrimeroSeDevuelveLoQueEsteReservo() {
+        // Dos pedidos con la misma clave a la vez: los dos reservan y la base deja guardar a uno solo.
+        eventosVende("sec-1-4", "Platea B", 27_500);
         doThrow(new ErroresDeNegocio.Conflicto(VentaRepository.TIPO_CLAVE_REPETIDA, "Ya existe una compra con esa clave."))
                 .when(ventas).guardar(any());
 
         ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
                 () -> servicio.iniciarCompra(COMPRADOR, pedido(List.of(item("sec-1-4", 2)), ANA, LUIS), CLAVE));
 
+        // El conflicto sale tal cual: con él, ComprasEnCurso devuelve la venta que guardó el otro pedido.
         assertEquals(VentaRepository.TIPO_CLAVE_REPETIDA, error.tipo());
-        verifyNoInteractions(eventos);
+        String ventaId = idDeLaVentaGuardada();
+        verify(eventos).liberarCupo(ventaId, "ev-1", "sec-1-4", 2);
+        // Y esta instancia no quedó atada a ninguna venta.
+        assertFalse(servicio.cancelarCompra());
+        verify(ventas, never()).cancelar(anyString());
     }
 
     @Test
@@ -270,11 +345,11 @@ class ServicioDeVentasTest {
                         pedido(List.of(item("sec-1-4", 2), item("sec-1-3", 1)), ANA, LUIS, EVA), CLAVE));
 
         assertEquals("cupo-agotado", error.tipo());
-        String ventaId = idDeLaVentaGuardada();
-        verify(eventos).liberarCupo(ventaId, "ev-1", "sec-1-4", 2);
+        verify(eventos).liberarCupo(anyString(), eq("ev-1"), eq("sec-1-4"), eq(2));
         // El sector que falló no se devuelve: no llegó a reservarse.
         verify(eventos, never()).liberarCupo(anyString(), anyString(), eq("sec-1-3"), anyInt());
-        verify(ventas, never()).actualizar(any());
+        // Y de la venta no se guardó nada: no hay nada que deshacer en la base.
+        verifyNoInteractions(ventas);
     }
 
     @Test
@@ -286,9 +361,9 @@ class ServicioDeVentasTest {
         assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> servicio.iniciarCompra(COMPRADOR,
                 pedido(List.of(item("sec-1-4", 2), item("sec-1-1", 1)), ANA, LUIS, EVA), CLAVE));
 
-        String ventaId = idDeLaVentaGuardada();
         verify(eventos, times(1)).liberarCupo(anyString(), anyString(), anyString(), anyInt());
-        verify(eventos).liberarCupo(ventaId, "ev-1", "sec-1-4", 2);
+        verify(eventos).liberarCupo(anyString(), eq("ev-1"), eq("sec-1-4"), eq(2));
+        verifyNoInteractions(ventas);
     }
 
     @Test
@@ -308,7 +383,7 @@ class ServicioDeVentasTest {
         eventosVende("sec-1-4", "Platea B", 27_500);
         eventosVende("sec-1-1", "Popular", 9_000);
         IllegalStateException fallaDeLaBase = new IllegalStateException("se cayó la base");
-        doThrow(fallaDeLaBase).when(ventas).actualizar(any());
+        doThrow(fallaDeLaBase).when(ventas).guardar(any());
 
         IllegalStateException relanzada = assertThrows(IllegalStateException.class, () -> servicio.iniciarCompra(
                 COMPRADOR, pedido(List.of(item("sec-1-4", 2), item("sec-1-1", 1)), ANA, LUIS, EVA), CLAVE));
@@ -391,6 +466,8 @@ class ServicioDeVentasTest {
     }
 
     // ---- Pagar ----
+    // Que la venta no esté cancelada, vencida por el barrido ni paga lo revisa ComprasEnCurso con la base,
+    // antes de llamar a la instancia: esos casos están en ComprasEnCursoTest.
 
     @Test
     void pagarCobraConfirmaLaVentaCreaLasEntradasYPublicaElMensajeUnaSolaVez() {
@@ -408,9 +485,10 @@ class ServicioDeVentasTest {
         assertEquals("CONFIRMADA", venta.estado());
         assertEquals(PAGO_ID, venta.pagoId());
 
-        // Primero se cobra el total de la venta guardada; recién después se escribe.
+        // Primero se cobra el total que la instancia calculó al abrir la compra; recién después se toca la base.
         InOrder orden = inOrder(cobros, ventas, entradas);
         orden.verify(cobros).cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO);
+        orden.verify(ventas).buscarPorId(ventaId);
         orden.verify(ventas).confirmar(ventaId, PAGO_ID, AHORA);
         orden.verify(entradas).guardar(any());
 
@@ -452,6 +530,26 @@ class ServicioDeVentasTest {
     }
 
     @Test
+    void mientrasSeEsperaElCobroTodaviaNoSeTocoLaBase() {
+        // Si la venta se leyera antes de cobrar, la transacción del pago esperaría a Pagos con una conexión
+        // de la base tomada. Por eso el total y el vencimiento salen del estado de la instancia.
+        String ventaId = compraAbierta();
+        Venta confirmada = ventaConfirmada(ventaId);
+        Venta abierta = ventaGuardada();
+        when(ventas.buscarPorId(ventaId)).thenReturn(Optional.of(abierta)).thenReturn(Optional.of(confirmada));
+        when(ventas.confirmar(ventaId, PAGO_ID, AHORA)).thenReturn(true);
+        when(cobros.cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO)).thenAnswer(llamada -> {
+            // Hasta acá, lo único que se le pidió a la base fue guardar la venta, al abrir la compra.
+            verifyNoMoreInteractions(ventas);
+            return APROBADO;
+        });
+
+        assertEquals("CONFIRMADA", servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO).estado());
+
+        verify(ventas).confirmar(ventaId, PAGO_ID, AHORA);
+    }
+
+    @Test
     void conVariosSectoresLosTitularesSeRepartenEnElOrdenDelPedido() {
         eventosVende("sec-1-4", "Platea B", 27_500);
         eventosVende("sec-1-1", "Popular", 9_005);
@@ -485,8 +583,7 @@ class ServicioDeVentasTest {
         Venta abierta = ventaGuardada();
         Venta confirmada = ventaConfirmada(ventaId);
         when(ventas.buscarPorId(ventaId))
-                .thenReturn(Optional.of(abierta))      // primer intento
-                .thenReturn(Optional.of(abierta))      // segundo intento
+                .thenReturn(Optional.of(abierta))      // segundo intento, ya con el cobro aprobado
                 .thenReturn(Optional.of(confirmada));  // la respuesta del segundo
         when(cobros.cobrar(eq(ventaId), eq(60_500L), anyString(), anyString(), anyString()))
                 .thenReturn(RECHAZADO)
@@ -498,6 +595,8 @@ class ServicioDeVentasTest {
 
         assertEquals("pago-rechazado", rechazo.tipo());
         assertTrue(rechazo.getMessage().contains("fondos_insuficientes"), rechazo.getMessage());
+        // Un cobro rechazado ni siquiera lee la base.
+        verify(ventas, never()).buscarPorId(anyString());
         verify(ventas, never()).confirmar(anyString(), anyString(), any());
         verifyNoInteractions(entradas);
         assertTrue(publicados.isEmpty());
@@ -513,9 +612,7 @@ class ServicioDeVentasTest {
 
     @Test
     void conLaReservaVencidaNoSeCobra() {
-        String ventaId = compraAbierta();
-        Venta abierta = ventaGuardada();
-        when(ventas.buscarPorId(ventaId)).thenReturn(Optional.of(abierta));
+        compraAbierta();
         // La reserva valía hasta las 21:10:07: a esa hora exacta ya está vencida.
         servicio.reloj = Clock.fixed(Instant.parse("2026-10-19T21:10:07Z"), ZoneOffset.UTC);
 
@@ -523,6 +620,8 @@ class ServicioDeVentasTest {
                 () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
 
         assertEquals("reserva-vencida", error.tipo());
+        // La instancia lo sabe por su propio estado: no le pregunta a la base.
+        verify(ventas, never()).buscarPorId(anyString());
         nadaSeCobroNiSeEscribio();
     }
 
@@ -538,33 +637,6 @@ class ServicioDeVentasTest {
         when(ventas.confirmar(ventaId, PAGO_ID, justoAntes)).thenReturn(true);
 
         assertEquals("CONFIRMADA", servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO).estado());
-    }
-
-    @Test
-    void unaVentaCanceladaOVencidaNoSeCobra() {
-        String ventaId = compraAbierta();
-        Venta cancelada = ventaEnEstado(EstadoVenta.CANCELADA);
-        Venta vencida = ventaEnEstado(EstadoVenta.VENCIDA);
-        when(ventas.buscarPorId(ventaId)).thenReturn(Optional.of(cancelada)).thenReturn(Optional.of(vencida));
-
-        assertEquals("reserva-vencida", assertThrows(ErroresDeNegocio.Conflicto.class,
-                () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO)).tipo());
-        assertEquals("reserva-vencida", assertThrows(ErroresDeNegocio.Conflicto.class,
-                () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO)).tipo());
-        nadaSeCobroNiSeEscribio();
-    }
-
-    @Test
-    void unaVentaYaPagaNoSeCobraOtraVez() {
-        String ventaId = compraAbierta();
-        Venta paga = ventaEnEstado(EstadoVenta.CONFIRMADA);
-        when(ventas.buscarPorId(ventaId)).thenReturn(Optional.of(paga));
-
-        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
-                () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
-
-        assertEquals("venta-ya-paga", error.tipo());
-        nadaSeCobroNiSeEscribio();
     }
 
     @Test
@@ -591,6 +663,47 @@ class ServicioDeVentasTest {
         verify(ventas, never()).confirmar(anyString(), anyString(), any());
         verifyNoInteractions(entradas);
         assertTrue(publicados.isEmpty());
+    }
+
+    @Test
+    void repetirLaClaveDeUnCobroSinResultadoValeAunqueLaReservaHayaVencido() {
+        String ventaId = compraAbierta();
+        Venta abierta = ventaGuardada();
+        Venta confirmada = ventaConfirmada(ventaId);
+        when(ventas.buscarPorId(ventaId)).thenReturn(Optional.of(abierta)).thenReturn(Optional.of(confirmada));
+        // El primer intento queda sin resultado: Pagos pudo haber cobrado. El segundo trae ese pago.
+        when(cobros.cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO))
+                .thenThrow(new ErroresDeNegocio.SinRespuesta("El servicio de pagos no respondió."))
+                .thenReturn(APROBADO);
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
+
+        // El reintento llega dos minutos después de vencida la reserva, que valía hasta las 21:10:07.
+        servicio.reloj = Clock.fixed(Instant.parse("2026-10-19T21:12:07Z"), ZoneOffset.UTC);
+        LocalDateTime tarde = LocalDateTime.of(2026, 10, 19, 21, 12, 7);
+        when(ventas.confirmar(ventaId, PAGO_ID, tarde)).thenReturn(true);
+
+        // La instancia reconoce la clave: no exige la reserva vigente y la venta se confirma con ese pago.
+        assertEquals("CONFIRMADA", servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO).estado());
+
+        verify(ventas).confirmar(ventaId, PAGO_ID, tarde);
+        assertEquals(1, publicados.size());
+    }
+
+    @Test
+    void conLaReservaVencidaUnaClaveQueNoSeMandoACobrarNoSeCobra() {
+        String ventaId = compraAbierta();
+        when(cobros.cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO))
+                .thenThrow(new ErroresDeNegocio.SinRespuesta("El servicio de pagos no respondió."));
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
+        servicio.reloj = Clock.fixed(Instant.parse("2026-10-19T21:12:07Z"), ZoneOffset.UTC);
+
+        // Otra clave no repite aquel cobro: es un pago nuevo, y para ese la reserva ya venció.
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.confirmarCompra(CON_TARJETA, "otra-clave-de-pago"));
+
+        assertEquals("reserva-vencida", error.tipo());
+        verify(cobros, times(1)).cobrar(anyString(), anyLong(), anyString(), anyString(), anyString());
+        verify(ventas, never()).confirmar(anyString(), anyString(), any());
     }
 
     @Test
@@ -675,10 +788,13 @@ class ServicioDeVentasTest {
 
         VentaDto dto = ServicioDeVentas.aDto(venta);
 
+        // Las dos fechas salen como instante en UTC: cuándo se abrió la compra y hasta cuándo vale la reserva.
+        assertEquals("2026-10-19T21:00:00Z", dto.creada());
         assertEquals("2026-10-19T21:10:00Z", dto.venceReserva());
-        // Los enlaces salen vacíos del negocio: los completa el recurso REST.
-        assertEquals(List.of(new EntradaDeVentaDto("T-9c41d07e", "Platea B", ANA, "PENDIENTE_EMISION", Map.of())),
-                dto.entradas());
+        // Cada entrada trae su sector, lo que se pagó por ella (sin el cargo de servicio) y su código, que
+        // todavía no tiene. Los enlaces salen vacíos del negocio: los completa el recurso REST.
+        assertEquals(List.of(new EntradaDeVentaDto("T-9c41d07e", "sec-1-4", "Platea B", ANA, 27_500,
+                "PENDIENTE_EMISION", null, Map.of())), dto.entradas());
         assertTrue(dto.enlaces().isEmpty());
     }
 

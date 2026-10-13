@@ -25,6 +25,7 @@ import jakarta.inject.Inject;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.ReglasDeNegocio;
+import com.palco.common.Textos;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.common.mensajeria.PublicadorPagoConfirmado;
 import com.palco.ventas.api.Dtos.EntradaDeVentaDto;
@@ -51,8 +52,10 @@ import com.palco.ventas.negocio.externos.ResultadoDeCobro;
  * entre el pedido que abre la compra y el que la paga o la cancela. Guarda lo
  * que todavía no está en la base: cuál es su venta y a nombre de quién va cada
  * entrada (los titulares). Las entradas recién se crean cuando se aprueba el
- * pago; hasta entonces esos datos viven solo acá. Un stateless no serviría:
- * el pago podría caer en otra instancia del pool, que no conoce a los titulares.
+ * pago; hasta entonces esos datos viven solo acá. Guarda además lo que hace
+ * falta para cobrar sin leer la base: el total y hasta cuándo vale la reserva.
+ * Un stateless no serviría: el pago podría caer en otra instancia del pool,
+ * que no conoce a los titulares.
  *
  * El ciclo de vida lo maneja el contenedor, no este código:
  * <ul>
@@ -78,12 +81,23 @@ import com.palco.ventas.negocio.externos.ResultadoDeCobro;
  * {@code passivationCapable = false}: la instancia no se guarda en disco. La
  * conversación dura como mucho lo que dura la reserva.
  *
- * Las transacciones son declarativas: cada operación corre en una transacción
- * que abre y cierra el contenedor ({@code REQUIRED}). Ante un error de negocio
+ * Las transacciones son declarativas: las abre y las cierra el contenedor,
+ * según la anotación de cada operación. Pagar y cancelar corren en una
+ * transacción ({@code REQUIRED}). Abrir la compra no ({@code NOT_SUPPORTED}):
+ * lo que hace es llamar a Eventos, y su única escritura es guardar la venta,
+ * que corre en la transacción corta del repositorio. Ante un error de negocio
  * ({@code ErroresDeNegocio}, que son excepciones de aplicación con rollback)
  * la transacción se deshace y la instancia sigue viva. Ante cualquier otra
  * excepción el contenedor además descarta la instancia. La transacción que
  * más importa es la del pago: está explicada en {@link #confirmarCompra}.
+ *
+ * Una regla vale para todas las operaciones: mientras se espera a otro
+ * servicio (Eventos al reservar, Pagos al cobrar) no se retiene una conexión
+ * de la base. Todos los servicios del servidor comparten un solo pool de 10
+ * conexiones, y el servicio al que se llama necesita una para contestar. Si
+ * cada compra esperara con una conexión tomada, diez compras a la vez se
+ * quedarían con todo el pool y nadie podría contestarles. Por eso las
+ * llamadas a otros servicios van primero y la base se toca después.
  */
 @Stateful(passivationCapable = false)
 @StatefulTimeout(value = ReglasDeNegocio.MINUTOS_RESERVA, unit = TimeUnit.MINUTES)
@@ -107,7 +121,7 @@ public class ServicioDeVentas implements IVentas {
     @Inject
     ClienteDeEventos eventos;
 
-    /** Quién cobra. Es una interfaz: hoy la implementa un simulador y después un cliente del servicio de Pagos. */
+    /** Quién cobra. Es una interfaz: acá no se sabe si es el servicio de Pagos o el simulador; lo elige FabricaDeCobros. */
     @Inject
     Cobros cobros;
 
@@ -129,6 +143,19 @@ public class ServicioDeVentas implements IVentas {
     /** A nombre de quién va cada entrada, en el orden del pedido. Todavía no están en la base. */
     private List<TitularDto> titulares = List.of();
 
+    /** Lo que se cobra. Se calculó al abrir la compra, con los precios que devolvió Eventos, y no cambia más. */
+    private long montoTotal;
+
+    /** Hasta cuándo vale la reserva, en UTC. Es el mismo valor que quedó guardado en la venta. */
+    private LocalDateTime venceReserva;
+
+    /**
+     * La clave del último intento de pago que esta instancia mandó a cobrar;
+     * null si todavía no mandó ninguno. Sirve para reconocer un reintento sin
+     * leer la base: ver {@link #exigirReservaVigente}.
+     */
+    private String claveDelUltimoCobro;
+
     @PostConstruct
     void alCrear() {
         LOG.info("Compra en curso: el contenedor creó la " + instancia() + ".");
@@ -149,8 +176,21 @@ public class ServicioDeVentas implements IVentas {
         }
     }
 
+    /**
+     * Abre la compra en tres pasos: validar, reservar el cupo y guardar la
+     * venta. La venta se guarda al final, en una sola escritura, y no antes
+     * de reservar: así ninguna llamada a Eventos espera con una conexión de la
+     * base tomada (la regla está en el comentario de la clase).
+     *
+     * No lleva transacción propia ({@code NOT_SUPPORTED}). Con Eventos no hay
+     * nada que una transacción de esta base pueda deshacer, y la única
+     * escritura es {@code ventas.guardar}, que corre en la transacción corta
+     * del repositorio: la venta y sus renglones se guardan juntos o no se
+     * guarda nada. Si el guardado falla, esa transacción ya terminó cuando
+     * acá se devuelve el cupo.
+     */
     @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    @TransactionAttribute(TransactionAttributeType.NOT_SUPPORTED)
     public VentaDto iniciarCompra(String compradorId, NuevaVentaDto nueva, String claveIdempotencia) {
         if (ventaId != null) {
             // Cada instancia lleva una sola compra: para otra compra, ComprasEnCurso pide otra instancia.
@@ -160,25 +200,24 @@ public class ServicioDeVentas implements IVentas {
         // 1. Se valida todo antes de tocar la base o llamar a Eventos.
         validar(nueva);
 
-        // 2. Se guarda la cabecera de la venta con la clave de idempotencia. Si el comprador ya usó
-        //    esa clave, falla acá (Conflicto "clave-repetida"), antes de reservar nada.
+        // La venta se arma en memoria: todavía no se guarda nada.
         LocalDateTime ahora = ahora();
         Venta venta = new Venta(nuevoId(), compradorId, nueva.eventoId(), claveIdempotencia, ahora,
                 ahora.plusMinutes(ReglasDeNegocio.MINUTOS_RESERVA));
-        ventas.guardar(venta);
 
-        // 3. Se reserva sector por sector. La respuesta de Eventos trae el nombre y el precio.
-        // 4. Con eso se completan los renglones; la venta recalcula subtotal, cargo de servicio y total.
         try {
+            // 2. Se reserva sector por sector. La respuesta de Eventos trae el nombre y el precio: con
+            //    eso se suma el renglón, y la venta recalcula subtotal, cargo de servicio y total.
             for (ItemPedidoDto item : nueva.items()) {
                 Sector sector = eventos.reservarCupo(venta.getEventoId(), item.sectorId(), item.cantidad());
                 venta.agregarItem(item.sectorId(), sector.nombre(), sector.precio(), item.cantidad());
             }
-            ventas.actualizar(venta);
+            // 3. Se guarda la venta completa, con sus renglones. Si otro pedido con la misma clave de
+            //    idempotencia llegó a la vez y guardó primero, falla acá (Conflicto "clave-repetida").
+            ventas.guardar(venta);
         } catch (RuntimeException e) {
-            // Con Eventos no hay transacción: lo que ya reservó quedó confirmado allá y el rollback de
-            // esta base no lo deshace. Se devuelve a mano y se relanza la excepción; el rollback borra
-            // la cabecera de la venta.
+            // Con Eventos no hay transacción: lo que ya se reservó quedó confirmado allá. Se devuelve
+            // a mano y se relanza la excepción. De esta venta no quedó nada guardado.
             devolverCupo(venta);
             throw e;
         }
@@ -188,16 +227,21 @@ public class ServicioDeVentas implements IVentas {
         this.titulares = nueva.titulares().stream()
                 .map(titular -> new TitularDto(titular.nombre().strip(), titular.dni()))
                 .toList();
-        LOG.info("Compra " + ventaId + " abierta por " + compradorId + ": total " + venta.getMontoTotal()
-                + ", reserva hasta " + enUtc(venta.getVenceReserva()) + " (" + instancia() + ").");
+        this.montoTotal = venta.getMontoTotal();
+        this.venceReserva = venta.getVenceReserva();
+        LOG.info("Compra " + ventaId + " abierta por " + compradorId + ": total " + montoTotal
+                + ", reserva hasta " + enUtc(venceReserva) + " (" + instancia() + ").");
         return aDto(venta);
     }
 
     /**
      * Cobra la compra y, si el cobro se aprueba, la confirma. Son tres pasos:
      * <ol>
-     * <li>Validar, sin escribir nada: la compra tiene que seguir abierta y con
-     * la reserva vigente.</li>
+     * <li>Validar, sin tocar la base: esta instancia tiene que tener una
+     * compra abierta y la reserva vigente (salvo que el pedido repita un cobro
+     * que quedó sin resultado). Lo sabe por su propio estado. Que
+     * la venta siga {@code EN_CHECKOUT} ya lo aseguró {@link ComprasEnCurso}
+     * antes de llamar acá, al anotar en la venta el intento de pago.</li>
      * <li>Cobrar. Es una llamada hacia afuera: un rollback de esta base no
      * devuelve la plata. Por eso va antes de escribir: si el cobro se rechaza,
      * todavía no hay nada que deshacer.</li>
@@ -213,6 +257,12 @@ public class ServicioDeVentas implements IVentas {
      * mensaje de una venta que no se confirmó. El mensaje sale del servidor
      * recién cuando la transacción termina bien.
      *
+     * Durante los dos primeros pasos la transacción ya está abierta, pero
+     * todavía no tomó ninguna conexión de la base: la toma con la primera
+     * consulta, que está en el tercer paso. Por eso el total y el vencimiento
+     * salen del estado de la instancia y no de una lectura: así el cobro no
+     * espera a Pagos con una conexión retenida.
+     *
      * No es un commit en dos fases: la base confirma primero y el broker de
      * mensajes después. Si el servidor se cayera justo entre los dos, quedaría
      * una venta {@code CONFIRMADA} con sus entradas sin emitir y sin mensaje.
@@ -226,27 +276,32 @@ public class ServicioDeVentas implements IVentas {
     @Remove(retainIfException = true)
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     public VentaDto confirmarCompra(NuevoPagoDto pago, String claveIdempotencia) {
-        // 1. Validar. Solo lee.
-        Venta venta = ventaParaPagar();
+        // 1. Validar. Mira solo el estado de la instancia: no lee la base.
+        exigirReservaVigente(claveIdempotencia);
 
-        // 2. Cobrar. El monto sale de la venta guardada, no del pedido de pago.
-        ResultadoDeCobro cobro = cobros.cobrar(ventaId, venta.getMontoTotal(), pago.medioDePago(), pago.token(),
+        // 2. Cobrar. El monto es el total que se calculó al abrir la compra, no viene en el pedido de pago.
+        //    Antes se recuerda la clave: si el cobro queda sin resultado, repetirla vale aunque venza la reserva.
+        claveDelUltimoCobro = claveIdempotencia;
+        ResultadoDeCobro cobro = cobros.cobrar(ventaId, montoTotal, pago.medioDePago(), pago.token(),
                 claveIdempotencia);
         if (!cobro.aprobado()) {
-            LOG.info("Compra " + ventaId + ": el cobro fue rechazado (" + cobro.motivo() + "). Sigue abierta ("
-                    + instancia() + ").");
+            // El motivo lo escribió quien cobra (otro servicio): al log va en un solo renglón.
+            LOG.info("Compra " + ventaId + ": el cobro fue rechazado (" + Textos.enUnaLinea(cobro.motivo())
+                    + "). Sigue abierta (" + instancia() + ").");
             throw new ErroresDeNegocio.PagoRechazado("El pago fue rechazado (" + cobro.motivo()
                     + "). Podés probar con otro medio de pago.");
         }
 
         // 3. Confirmar, crear las entradas y publicar: las tres cosas en la transacción de este método.
+        //    Recién acá se toca la base. La venta se lee para conocer sus renglones.
+        Venta venta = ventas.buscarPorId(ventaId).orElseThrow();
         LocalDateTime ahora = ahora();
         if (!ventas.confirmar(ventaId, cobro.pagoId(), ahora)) {
             // No debería pasar: antes de llamar acá, ComprasEnCurso anota en la venta la clave de este pago,
             // y con esa marca nadie la puede cancelar ni vencer. Si pasa, hay un cobro aprobado para una
             // venta que ya no está abierta. No es un error del comprador ni se arregla reintentando: se
             // deja en el log con el id del pago, para devolverlo, y sale como una falla inesperada.
-            LOG.severe("El cobro " + cobro.pagoId() + " se aprobó pero la venta " + ventaId
+            LOG.severe("El cobro " + Textos.enUnaLinea(cobro.pagoId()) + " se aprobó pero la venta " + ventaId
                     + " ya no estaba EN_CHECKOUT: hay que devolver ese cobro.");
             throw new IllegalStateException("La venta " + ventaId + " se cobró pero ya no estaba abierta.");
         }
@@ -255,9 +310,10 @@ public class ServicioDeVentas implements IVentas {
         // Una sola vez por venta: solo llega hasta acá quien pasó la venta a CONFIRMADA con su UPDATE.
         publicador.publicar(mensaje(venta, nuevas, ahora));
 
-        LOG.info("Compra " + ventaId + " confirmada con el pago " + cobro.pagoId() + ". Entradas creadas: "
+        LOG.info("Compra " + ventaId + " confirmada con el pago " + Textos.enUnaLinea(cobro.pagoId())
+                + ". Entradas creadas: "
                 + nuevas.size() + ". PAGO_CONFIRMADO publicado en la misma transacción (" + instancia() + ").");
-        // La venta que se leyó al principio quedó vieja: se la vuelve a leer para responder.
+        // La venta que se leyó antes de confirmar quedó vieja: se la vuelve a leer para responder.
         return aDto(ventas.buscarPorId(ventaId).orElseThrow());
     }
 
@@ -333,6 +389,12 @@ public class ServicioDeVentas implements IVentas {
                     || titular.nombre().strip().length() > LARGO_MAXIMO_NOMBRE) {
                 throw new ErroresDeNegocio.DatosInvalidos("titulares", "Ingresá el nombre y apellido de cada titular.");
             }
+            // El nombre viaja en el mensaje PAGO_CONFIRMADO y quien lo consume lo escribe en su log:
+            // con un salto de línea adentro, un comprador podría hacer aparecer ahí una línea falsa.
+            if (tieneCaracteresDeControl(titular.nombre().strip())) {
+                throw new ErroresDeNegocio.DatosInvalidos("titulares",
+                        "El nombre de cada titular va en una sola línea, sin saltos de línea ni caracteres de control.");
+            }
             // La regla del DNI está en un solo lugar: es la misma del registro de usuarios y del mensaje.
             if (!ReglasDeNegocio.esDniValido(titular.dni())) {
                 throw new ErroresDeNegocio.DatosInvalidos("titulares", "El DNI de cada titular debe tener 7 u 8 dígitos.");
@@ -344,8 +406,20 @@ public class ServicioDeVentas implements IVentas {
         }
     }
 
+    /** Los ids del pedido (evento y sector) también salen en el log, así que tampoco llevan caracteres de control. */
     private static boolean noEsUnId(String id) {
-        return id == null || id.isBlank() || id.length() > LARGO_MAXIMO_ID;
+        return id == null || id.isBlank() || id.length() > LARGO_MAXIMO_ID || tieneCaracteresDeControl(id);
+    }
+
+    /**
+     * Dice si el texto tiene un salto de línea, un tabulador u otro carácter
+     * de control, o uno de los dos separadores de línea de Unicode. Qué
+     * cuenta como carácter de control está en un solo lugar,
+     * {@code Textos.esDeControl}: es la misma regla con la que los servicios
+     * limpian lo que escriben en el log.
+     */
+    private static boolean tieneCaracteresDeControl(String texto) {
+        return texto.chars().anyMatch(Textos::esDeControl);
     }
 
     /**
@@ -353,7 +427,8 @@ public class ServicioDeVentas implements IVentas {
      * Mientras se arma la compra son exactamente los sectores que respondieron
      * bien: el renglón se agrega recién después de la respuesta. Un sector
      * cuya llamada no respondió no está, y no se devuelve, porque no se sabe
-     * si la reserva se aplicó.
+     * si la reserva se aplicó. Cuando se llama, de esta venta no hay nada
+     * guardado: su id sirve solo para reconocer el aviso en el log.
      */
     private void devolverCupo(Venta venta) {
         for (VentaItem item : venta.getItems()) {
@@ -361,23 +436,36 @@ public class ServicioDeVentas implements IVentas {
         }
     }
 
-    /** La venta de esta compra, si todavía se puede pagar. Solo lee. */
-    private Venta ventaParaPagar() {
+    /**
+     * Comprueba que esta instancia tenga una compra abierta con la reserva
+     * vigente, mirando solo su estado: no lee la base. Es la misma condición
+     * de {@code Venta.reservaVencida}.
+     *
+     * La reserva vigente no se exige si la clave es la del último intento que
+     * esta instancia mandó a cobrar. Ese pedido repite un cobro del que no se
+     * supo el resultado, y {@link ComprasEnCurso} solo lo deja llegar hasta
+     * acá si la venta sigue marcada con esa clave: con la marca nadie pudo
+     * cancelarla ni vencerla, así que su cupo sigue reservado. Si se exigiera,
+     * un cobro que Pagos sí hizo quedaría sin venta apenas vence la reserva.
+     */
+    private void exigirReservaVigente(String claveIdempotencia) {
+        // Sin venta, esta instancia no llegó a abrir una compra: no hay nada que pagar.
         if (ventaId == null) {
-            // Esta instancia no llegó a abrir una compra: no hay nada que pagar.
             throw reservaVencida();
         }
-        Venta venta = ventas.buscarPorId(ventaId).orElseThrow(ServicioDeVentas::reservaVencida);
-        exigirQueSePuedaPagar(venta, ahora());
-        return venta;
+        boolean reintento = claveIdempotencia.equals(claveDelUltimoCobro);
+        if (!reintento && !ahora().isBefore(venceReserva)) {
+            throw reservaVencida();
+        }
     }
 
     /**
      * La regla de qué venta se puede pagar, escrita una sola vez: tiene que
      * estar {@code EN_CHECKOUT} y con la reserva vigente en el instante
      * {@code ahora}. Si no, lanza 409 {@code venta-ya-paga} o 409
-     * {@code reserva-vencida} (venció o se canceló). La usa también
-     * {@link ComprasEnCurso}, antes de anotar el intento de pago.
+     * {@code reserva-vencida} (venció o se canceló). La usa
+     * {@link ComprasEnCurso} con la venta leída de la base, antes de anotar
+     * el intento de pago.
      */
     static void exigirQueSePuedaPagar(Venta venta, LocalDateTime ahora) {
         if (venta.estaPaga()) {
@@ -467,12 +555,13 @@ public class ServicioDeVentas implements IVentas {
                 .map(i -> new ItemDto(i.getSectorId(), i.getSector(), i.getCantidad(), i.getPrecioUnitario()))
                 .toList();
         List<EntradaDeVentaDto> entradas = v.getEntradas().stream()
-                .map(e -> new EntradaDeVentaDto(e.getId(), e.getSector(),
-                        new TitularDto(e.getTitularNombre(), e.getTitularDni()), e.getEstado().name(), Map.of()))
+                .map(e -> new EntradaDeVentaDto(e.getId(), e.getSectorId(), e.getSector(),
+                        new TitularDto(e.getTitularNombre(), e.getTitularDni()), e.getPrecioPagado(),
+                        e.getEstado().name(), e.getCodigoQr(), Map.of()))
                 .toList();
         return new VentaDto(v.getId(), v.getEstado().name(), v.getFacturaEstado().name(), v.getEventoId(), items,
-                v.getSubtotal(), v.getCargoServicio(), v.getMontoTotal(), enUtc(v.getVenceReserva()), v.getPagoId(),
-                entradas, Map.of());
+                v.getSubtotal(), v.getCargoServicio(), v.getMontoTotal(), enUtc(v.getCreada()),
+                enUtc(v.getVenceReserva()), v.getPagoId(), entradas, Map.of());
     }
 
     /**

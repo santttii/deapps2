@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 import jakarta.jms.Message;
 import jakarta.jms.MessageListener;
 
+import com.palco.common.Textos;
 import com.palco.common.mensajeria.DestinosJms;
 import com.palco.common.mensajeria.MensajeInvalido;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
@@ -44,10 +45,11 @@ public class AvisoDeCompraMDB implements MessageListener {
             mensaje = PagoConfirmadoMensaje.desdeJson(LectorDeMensajes.texto(recibido));
         } catch (MensajeInvalido e) {
             // Sin excepción ni rollback: el mensaje queda consumido y no vuelve.
-            LOG.warning("AvisoDeCompra: se descarta un mensaje inválido. " + e.getMessage());
+            LOG.warning("AvisoDeCompra: se descarta un mensaje inválido. " + Textos.enUnaLinea(e.getMessage()));
             return;
         }
         notificaciones.enviarConfirmacion(mensaje);
-        LOG.info("AvisoDeCompra: aviso enviado por la venta " + mensaje.ventaId() + ".");
+        // El id viene en el mensaje: va al log en un solo renglón (ver Textos.enUnaLinea).
+        LOG.info("AvisoDeCompra: aviso enviado por la venta " + Textos.enUnaLinea(mensaje.ventaId()) + ".");
     }
 }

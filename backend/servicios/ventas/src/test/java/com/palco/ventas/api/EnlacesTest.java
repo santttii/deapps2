@@ -128,10 +128,11 @@ class EnlacesTest {
     private static VentaDto venta(EstadoVenta estado, List<EntradaDeVentaDto> entradas) {
         return new VentaDto(VENTA, estado.name(), "NO_APLICA", "ev-1",
                 List.of(new ItemDto("sec-1-4", "Platea B", 2, 27_500)), 55_000, 5_500, 60_500,
-                "2026-10-19T21:10:00Z", null, entradas, Map.of());
+                "2026-10-19T21:00:00Z", "2026-10-19T21:10:00Z", null, entradas, Map.of());
     }
 
     private static EntradaDeVentaDto entrada(String id, String nombre, String dni) {
-        return new EntradaDeVentaDto(id, "Platea B", new TitularDto(nombre, dni), "PENDIENTE_EMISION", Map.of());
+        return new EntradaDeVentaDto(id, "sec-1-4", "Platea B", new TitularDto(nombre, dni), 27_500,
+                "PENDIENTE_EMISION", null, Map.of());
     }
 }

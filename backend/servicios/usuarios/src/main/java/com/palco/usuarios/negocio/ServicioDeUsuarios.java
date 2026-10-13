@@ -25,6 +25,7 @@ import jakarta.persistence.PersistenceContext;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.ReglasDeNegocio;
+import com.palco.common.Textos;
 import com.palco.common.seguridad.TokenDeServicio;
 import com.palco.usuarios.api.Dtos.LoginDto;
 import com.palco.usuarios.api.Dtos.RegistroDto;
@@ -245,7 +246,8 @@ public class ServicioDeUsuarios implements IUsuarios {
         LocalDateTime ahora = LocalDateTime.now();
         codigo.renovar(sha256(numero), ahora, ahora.plus(VIGENCIA_CODIGO));
         // TODO(ServicioDeNotificaciones): mandarlo por email. Mientras tanto queda en el log del servidor.
-        LOG.info("Código de verificación para " + usuario.getEmail() + ": " + numero);
+        // El email lo escribió quien se registra: al log va en un solo renglón (ver Textos.enUnaLinea).
+        LOG.info("Código de verificación para " + Textos.enUnaLinea(usuario.getEmail()) + ": " + numero);
     }
 
     private Optional<Usuario> buscarPorEmail(String email) {

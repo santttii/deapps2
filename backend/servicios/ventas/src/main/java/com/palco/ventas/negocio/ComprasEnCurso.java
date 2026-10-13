@@ -2,6 +2,7 @@ package com.palco.ventas.negocio;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -30,6 +31,7 @@ import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.dominio.VentaItem;
 import com.palco.ventas.negocio.externos.ClienteDeEventos;
 import com.palco.ventas.negocio.externos.ClienteDeUsuarios;
+import com.palco.ventas.negocio.externos.CobroNoRealizado;
 
 /**
  * La puerta de entrada a las compras: los recursos REST hablan solo con esta
@@ -65,7 +67,9 @@ import com.palco.ventas.negocio.externos.ClienteDeUsuarios;
  * El índice vive en la memoria de este servidor: redesplegar Ventas lo vacía.
  * Las ventas siguen en la base; una compra que quedó sin instancia se puede
  * consultar y cancelar igual, pero ya no se puede pagar, porque los titulares
- * vivían en la instancia. Si nadie la cancela, la vence el barrido.
+ * vivían en la instancia. Si nadie la cancela, la vence el barrido. La
+ * excepción es la compra que había quedado con un intento de pago sin
+ * resultado: no se cancela ni vence, y hay que resolverla a mano.
  */
 @ApplicationScoped
 public class ComprasEnCurso {
@@ -76,6 +80,9 @@ public class ComprasEnCurso {
             "Hay otra operación en curso sobre esta compra. Probá de nuevo en unos segundos.";
 
     private static final String HAY_UN_PAGO_EN_CURSO = "Hay un pago en curso para esta compra. Esperá a que termine.";
+
+    private static final String HAY_UN_PAGO_SIN_RESULTADO = "Esta compra tiene un pago del que no se conoce el"
+            + " resultado. No pagues de nuevo ni empieces otra compra por estas entradas: puede que ya se haya cobrado.";
 
     /** El nombre con el que el servidor publica el componente de la compra dentro de este WAR. */
     static final String JNDI_DE_LA_COMPRA = "java:module/ServicioDeVentas!com.palco.ventas.negocio.IVentas";
@@ -123,7 +130,7 @@ public class ComprasEnCurso {
             return ServicioDeVentas.aDto(anterior.get());
         }
 
-        // Solo compra quien verificó su identidad. Se consulta antes de abrir la transacción de la compra.
+        // Solo compra quien verificó su identidad. Se consulta antes de pedir una instancia y de reservar nada.
         if (!usuarios.yo(tokenDelComprador).identidadVerificada()) {
             throw new ErroresDeNegocio.SinPermiso(TiposDeProblema.IDENTIDAD_NO_VERIFICADA,
                     "Tenés que verificar tu identidad antes de comprar.");
@@ -140,7 +147,8 @@ public class ComprasEnCurso {
             if (e instanceof ErroresDeNegocio.Conflicto conflicto
                     && VentaRepository.TIPO_CLAVE_REPETIDA.equals(conflicto.tipo())) {
                 // Dos pedidos con la misma clave llegaron a la vez y los dos pasaron la primera búsqueda.
-                // La restricción única de la base dejó guardar a uno solo: vale esa venta.
+                // La restricción única de la base dejó guardar a uno solo: vale esa venta. El que
+                // perdió ya devolvió el cupo que había reservado, antes de lanzar el conflicto.
                 return ventas.buscarPorClave(compradorId, claveIdempotencia)
                         .map(ServicioDeVentas::aDto)
                         .orElseThrow(() -> e);
@@ -152,6 +160,22 @@ public class ComprasEnCurso {
     /** La venta, solo si es del comprador que la pide. */
     public VentaDto obtener(String compradorId, String ventaId) {
         return ServicioDeVentas.aDto(delComprador(compradorId, ventaId));
+    }
+
+    /**
+     * Las compras del comprador que las pide, de la más nueva a la más vieja,
+     * cada una con sus entradas. Vienen todas, en cualquier estado: también
+     * las canceladas y las vencidas. Las de otro usuario no aparecen nunca,
+     * porque se buscan por el comprador del token. Si no compró nada, la
+     * lista viene vacía.
+     *
+     * Se leen de la base: no dependen de que la compra tenga su instancia viva
+     * ni de lo que recuerde el navegador.
+     */
+    public List<VentaDto> listar(String compradorId) {
+        return ventas.buscarPorComprador(compradorId).stream()
+                .map(ServicioDeVentas::aDto)
+                .toList();
     }
 
     /**
@@ -184,6 +208,12 @@ public class ComprasEnCurso {
      * pago u otra llamada en curso; 402 {@code pago-rechazado}; y 504
      * {@code sin-respuesta} si quien cobra no contestó: en ese caso se
      * reintenta con la misma clave.
+     *
+     * Ese reintento vale aunque la reserva haya vencido, mientras viva la
+     * instancia de la compra: la marca siguió reteniendo el cupo. Si la
+     * instancia ya no está, la venta marcada no tiene salida por la API:
+     * responde 409 {@code operacion-en-curso} con el aviso de no pagar de
+     * nuevo, nunca {@code reserva-vencida}, y deja un WARNING.
      */
     public VentaDto pagar(String compradorId, String ventaId, NuevoPagoDto pago, String clavePago) {
         LocalDateTime ahora = ServicioDeVentas.ahoraEnUtc(reloj);
@@ -194,21 +224,32 @@ public class ComprasEnCurso {
             // Es el mismo pedido de pago, que llegó otra vez: no se cobra de nuevo.
             return ServicioDeVentas.aDto(venta);
         }
-        ServicioDeVentas.exigirQueSePuedaPagar(venta, ahora);
+        // Una venta abierta que ya trae anotada una clave de pago tuvo un intento del que no se supo el
+        // resultado (por ejemplo, uno que terminó en 504). Si la clave es la de este pedido, lo repite.
+        boolean conPagoSinResultado = venta.getEstado() == EstadoVenta.EN_CHECKOUT && venta.getClavePago() != null;
+        boolean reintento = conPagoSinResultado && clavePago.equals(venta.getClavePago());
         IVentas compra = enCurso.get(ventaId);
-        if (compra == null) {
-            // Sin instancia no están los titulares: se redesplegó el servicio o el servidor la descartó.
-            // No se anota nada: la venta queda como estaba y, si nadie la cancela, vence sola.
-            throw ServicioDeVentas.reservaVencida();
+        if (conPagoSinResultado) {
+            // Un reintento no exige la reserva vigente: la marca de aquel intento sigue reteniendo el cupo.
+            // Lo que no puede faltar es la instancia, que es la que tiene los titulares.
+            boolean sePuedeSeguir = compra != null && (reintento || !venta.reservaVencida(ahora));
+            if (!sePuedeSeguir) {
+                throw pagoSinResultado(ventaId, venta.getClavePago());
+            }
+        } else {
+            ServicioDeVentas.exigirQueSePuedaPagar(venta, ahora);
+            if (compra == null) {
+                // Sin instancia no están los titulares: se redesplegó el servicio o el servidor la descartó.
+                // No se anota nada: la venta queda sin marca y, si nadie la cancela, la vence el barrido.
+                throw ServicioDeVentas.reservaVencida();
+            }
         }
-        // Si la venta ya traía anotada esta misma clave, este pedido repite un intento de pago del que
-        // no se supo el resultado (por ejemplo, uno que terminó en 504).
-        boolean reintento = clavePago.equals(venta.getClavePago());
 
         ocupar(ventaId);
         try {
-            // 2. Se anota la clave de este intento. El UPDATE exige que la venta siga EN_CHECKOUT, con la
-            //    reserva vigente y sin la clave de otro intento.
+            // 2. Se anota la clave de este intento. El UPDATE exige que la venta siga EN_CHECKOUT y sin la
+            //    clave de otro intento. La reserva vigente la exige solo si todavía no había una clave: en
+            //    un reintento la clave ya está anotada y el UPDATE confirma que sigue ahí.
             if (!ventas.guardarClaveDePago(ventaId, clavePago, ahora)) {
                 // No cambió ninguna fila: se vuelve a leer la venta para saber por qué.
                 ServicioDeVentas.exigirQueSePuedaPagar(delComprador(compradorId, ventaId), ahora);
@@ -262,7 +303,10 @@ public class ComprasEnCurso {
         }
     }
 
-    /** Quita del índice la referencia de una compra que ya terminó. La llama el {@code @PreDestroy} de la instancia. */
+    /**
+     * Quita del índice la referencia de una compra que ya terminó. La llaman
+     * el {@code @PreDestroy} de la instancia y el barrido, cuando vence la venta.
+     */
     public void olvidar(String ventaId) {
         enCurso.remove(ventaId);
     }
@@ -313,6 +357,9 @@ public class ComprasEnCurso {
      * (quien cobra no contestó, o una falla inesperada) se deja: la venta
      * queda {@code EN_CHECKOUT} con su cupo, a la vista para revisarla. Si
      * quien cobra no contestó, el comprador reintenta con la misma clave.
+     *
+     * En un reintento la marca no se quita aunque este pedido no haya
+     * cobrado: del intento anterior con esa clave no se sabe el resultado.
      */
     private VentaDto cobrarYConfirmar(IVentas compra, String ventaId, NuevoPagoDto pago, String clavePago,
             boolean reintento) {
@@ -327,15 +374,24 @@ public class ComprasEnCurso {
             //    medio de pago, cancelar o vencer.
             ventas.borrarClaveDePago(ventaId, clavePago);
             throw e;
+        } catch (CobroNoRealizado e) {
+            // Quien cobra avisó que el pedido se frenó antes del cobro (por ejemplo, Pagos no está
+            // desplegado): este pedido no cobró. El comprador recibe el mismo 504 y puede reintentar.
+            quitarMarcaSinCobro(ventaId, clavePago, reintento);
+            throw e;
         } catch (NoSuchEJBException e) {
             // El servidor ya había destruido la instancia: la llamada no entró, así que no se cobró.
             enCurso.remove(ventaId);
             quitarMarcaSinCobro(ventaId, clavePago, reintento);
-            throw ServicioDeVentas.reservaVencida();
+            throw reintento ? pagoSinResultado(ventaId, clavePago) : ServicioDeVentas.reservaVencida();
         } catch (ErroresDeNegocio.Conflicto e) {
             if (TiposDeProblema.RESERVA_VENCIDA.equals(e.tipo())) {
                 // La reserva venció justo entre la marca y la revisión de la instancia, que es anterior al cobro.
                 quitarMarcaSinCobro(ventaId, clavePago, reintento);
+                if (reintento) {
+                    // La marca del intento anterior sigue puesta: tampoco acá se invita a comprar de nuevo.
+                    throw pagoSinResultado(ventaId, clavePago);
+                }
             }
             throw e;
         } catch (ConcurrentAccessException e) {
@@ -357,6 +413,21 @@ public class ComprasEnCurso {
         if (!reintento) {
             ventas.borrarClaveDePago(ventaId, clavePago);
         }
+    }
+
+    /**
+     * El error de una compra que quedó con un intento de pago sin resultado y
+     * que ya no se puede pagar: venció la reserva o no está la instancia que
+     * guardaba los titulares. No es {@code reserva-vencida}: ese mensaje
+     * invita a empezar otra compra, y puede que esta ya se haya cobrado. Por
+     * la API no tiene salida, así que deja un WARNING con la venta y la clave
+     * anotada, que es el dato para buscar ese pago en Pagos.
+     */
+    private static ErroresDeNegocio.Conflicto pagoSinResultado(String ventaId, String claveAnotada) {
+        LOG.warning("La venta " + ventaId + " quedó con un intento de pago sin resultado (clave " + claveAnotada
+                + ") y ya no se puede pagar: venció la reserva o no está la instancia de la compra. Hay que"
+                + " resolverla a mano: el pago, si existe, está en la tabla pagos.pago con esa clave.");
+        return new ErroresDeNegocio.Conflicto(TiposDeProblema.OPERACION_EN_CURSO, HAY_UN_PAGO_SIN_RESULTADO);
     }
 
     /**

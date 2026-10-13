@@ -313,9 +313,10 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
       inválido (hoy llega sin ellas y el navegador avisa "blocked by CORS
       policy"). Después, sacar de `api.ts` la consulta a `/health` que lo
       compensa.
-- [ ] Manejo de datos del servidor: por ahora `fetch` con `useEffect` y
-      `useState`, sin librería. Revisar TanStack Query al conectar Ventas (el
-      estado "emitiendo entradas" necesita consultar repetidamente).
+- [x] Manejo de datos del servidor: `fetch` con `useEffect` y `useState`, sin
+      librería. Al conectar Ventas se revisó TanStack Query y no hizo falta: el
+      estado "emitiendo entradas" se resolvió con un `setTimeout` (una consulta
+      por segundo, hasta 30).
 - [ ] Tipos del front generados desde la API (MicroProfile OpenAPI de WildFly
       + generador de tipos TypeScript). Por ahora se traducen a mano en
       `src/servicios/*.ts`.
@@ -327,26 +328,34 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
         09/10, con el código leído del log del servidor.
   - [x] `CREAR_EVENTO` → `POST /api/eventos`. Probado en navegador contra el
         backend el 09/10.
-  - [ ] `SET_CARRITO` + `CREAR_ORDEN` → checkout de `ServicioDeVentas` + pago
-        (el enganche está en `src/servicios/ventas.ts`).
-    - [ ] Antes, decidir cómo compra una cuenta nueva: el registro la deja
-          con `identidadVerificada` en falso, el backend no tiene cómo
-          cambiarlo y Ventas responde 403 `identidad-no-verificada`
-          (ver `docs/notas/B2-frontend-sesion-catalogo.md`).
+  - [x] `SET_CARRITO` + `CREAR_ORDEN` → checkout de `ServicioDeVentas` + pago
+        (`src/servicios/ventas.ts`; `CREAR_ORDEN` pasó a ser `GUARDAR_COMPRA`,
+        que guarda en el navegador lo que devolvió el backend). Probado en
+        navegador contra el backend el 13/10
+        (ver `docs/notas/B2-frontend-checkout.md`).
+    - [ ] Decidir cómo compra una cuenta nueva: el registro la deja con
+          `identidadVerificada` en falso, el backend no tiene cómo cambiarlo
+          y Ventas responde 403 `identidad-no-verificada`. Mientras tanto el
+          checkout lo avisa al entrar, sin pedir los titulares, y solo compra
+          `titular@palco.test` (ver `docs/notas/B2-frontend-checkout.md`,
+          decisión 6).
   - [ ] `PUBLICAR_REVENTA`, `RETIRAR_PUBLICACION`, `COMPRAR_REVENTA` → `/api/publicaciones/*`
   - [ ] `MARCAR_ENTRADA_USADA` → `/api/validacion/escaneos`
-- [ ] Checkout por pasos contra el bean stateful (cada paso es una llamada).
-- [ ] Confirmación con estado "emitiendo entradas…" hasta que la emisión
+- [x] Checkout por pasos contra el backend (cada paso es una llamada): al
+      terminar "Titulares" se inicia la compra y en "Pago" se paga o se cancela.
+- [x] Confirmación con estado "emitiendo entradas…" hasta que la emisión
       asíncrona termine.
-- [ ] Countdown del checkout sincronizado con el vencimiento real.
+- [x] Countdown del checkout sincronizado con el vencimiento real.
 - [~] Estados de carga, error y vacío en cada pantalla: hechos en catálogo,
-      detalle, ingreso, registro, crear evento y las pantallas que esperan el
-      catálogo. Checkout y reventa siguen con `sleep()`.
-- [~] Errores de validación del servidor en los formularios: hechos en
-      ingreso, registro y crear evento. Falta el checkout.
+      detalle, ingreso, registro, crear evento, checkout, confirmación y las
+      pantallas que esperan el catálogo. La reventa sigue con `sleep()`.
+- [x] Errores de validación del servidor en los formularios: hechos en
+      ingreso, registro, crear evento y checkout.
 - [~] Sacar la persistencia de `palco.state` en `localStorage`: ya no guarda
-      sesión, usuarios ni eventos. Quedan entradas, órdenes, publicaciones y
-      carrito hasta tener Ventas y Reventa.
+      sesión, usuarios ni eventos. Ahora es `palco.state.v2`: las órdenes y
+      las entradas son copias de lo que devolvió Ventas (falta un listado en
+      el backend para dejar de guardarlas) y quedan las publicaciones y el
+      carrito hasta tener Reventa.
 - [x] `ProtectedRoute` basado en la sesión real (token guardado, confirmado
       con `GET /api/usuarios/yo`).
 - [~] Borrar `src/data/events.ts` y `src/data/listings.ts`: `events.ts` ya no

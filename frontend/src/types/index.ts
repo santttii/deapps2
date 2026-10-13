@@ -36,12 +36,13 @@ export interface Entrada {
   ordenId: string;
   eventoId: string;
   sectorId: string;
-  fila: string;
   precioPagado: number;
   titular: Asistente;
   estado: EstadoEntrada;
   origen: OrigenEntrada;
   emitidaISO: string;
+  // Lo que lleva el QR. Lo genera Ventas al emitir; las entradas de reventa local no lo tienen.
+  codigoQr?: string;
 }
 
 export type EstadoPublicacion = 'activa' | 'vendida' | 'retirada';
@@ -76,16 +77,22 @@ export interface OrdenItem {
   precioUnitario: number;
 }
 
+// Estados de una venta en el backend, en minúsculas. 'en_checkout' es la reserva sin pagar;
+// 'confirmada' es paga con las entradas todavía emitiéndose; 'emitida' es con las entradas listas.
+export type EstadoOrden = 'en_checkout' | 'confirmada' | 'emitida' | 'cancelada' | 'vencida';
+
+// La venta del backend vista por el frontend. Los importes los calcula el servidor.
 export interface Orden {
   id: string;
+  estado: EstadoOrden;
   eventoId: string;
   items: OrdenItem[];
-  asistentes: Asistente[];
   subtotal: number;
   servicio: number;
   total: number;
-  medioPago: MedioPago;
+  venceReservaISO: string; // hasta cuándo se puede pagar
   creadaISO: string;
+  entradaIds: string[]; // vacío hasta que se paga
 }
 
 export const TOPE_REVENTA = 0.1;

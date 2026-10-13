@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 800" width="1180" height="800" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="12" role="img" aria-labelledby="titulo descripcion">
+<title id="titulo">Palco: arquitectura de integración (SOA) al 13/10/2026</title>
+<desc id="descripcion">Componentes internos desplegados en WildFly, broker ActiveMQ Artemis embebido con una cola y un tópico, y dos sistemas externos. Las flechas llenas están implementadas y comprobadas; las flechas y las cajas punteadas están diseñadas y pendientes.</desc>
+<defs><marker id="punta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#000"/></marker></defs>
+<rect x="0" y="0" width="1180" height="800" fill="#ffffff"/>
+<rect x="180" y="10" width="340" height="40" rx="6" fill="#f4f4f4" stroke="#000" stroke-width="1.2"/>
+<text x="350" y="34" text-anchor="middle" font-size="12.5" font-weight="700">Clientes: SPA en React · Postman · curl</text>
+<rect x="12" y="86" width="826" height="654" rx="4" fill="#ffffff" stroke="#000" stroke-width="2"/>
+<text x="24" y="106" font-size="13" font-weight="700">WildFly 41 · API REST de Palco: 8 servicios, un WAR cada uno</text>
+<rect x="28" y="138" width="230" height="60" rx="6" fill="#f4f4f4" stroke="#000" stroke-width="1.2"/>
+<text x="143" y="164.5" text-anchor="middle" font-size="12.5" font-weight="700">ServicioDeUsuarios</text>
+<text x="143" y="179.5" text-anchor="middle" font-size="12">/api/usuarios · stateless</text>
+<rect x="298" y="138" width="230" height="60" rx="6" fill="#f4f4f4" stroke="#000" stroke-width="1.2"/>
+<text x="413" y="164.5" text-anchor="middle" font-size="12.5" font-weight="700">ServicioDeEventos</text>
+<text x="413" y="179.5" text-anchor="middle" font-size="12">/api/eventos · stateless</text>
+<rect x="648" y="138" width="176" height="92" rx="6" fill="#f4f4f4" stroke="#000" stroke-width="1.2"/>
+<text x="736" y="165.5" text-anchor="middle" font-size="12.5" font-weight="700">ServicioDePagos</text>
+<text x="736" y="180.5" text-anchor="middle" font-size="12">/api/v1/pagos · stateless</text>
+<text x="736" y="195.5" text-anchor="middle" font-size="12">PasarelaDePagos:</text>
+<text x="736" y="210.5" text-anchor="middle" font-size="12">PagosFake (simulada)</text>
+<rect x="28" y="262" width="500" height="112" rx="4" fill="#f4f4f4" stroke="#000" stroke-width="1.2"/>
+<text x="40" y="282" font-size="13" font-weight="700">ServicioDeVentas · /api/v1 · stateful</text>
+<rect x="40" y="304" width="236" height="56" rx="6" fill="#ffffff" stroke="#000" stroke-width="1.2"/>
+<text x="158" y="328.5" text-anchor="middle" font-size="12.5" font-weight="700">confirmarCompra()</text>
+<text x="158" y="343.5" text-anchor="middle" font-size="12">publica PAGO_CONFIRMADO</text>
+<rect x="304" y="304" width="212" height="56" rx="6" fill="#ffffff" stroke="#000" stroke-width="1.2"/>
+<text x="410" y="328.5" text-anchor="middle" font-size="12.5" font-weight="700">EmisionDeEntradasMDB</text>
+<text x="410" y="343.5" text-anchor="middle" font-size="12">único consumidor de la cola</text>
+<rect x="28" y="446" width="500" height="110" rx="4" fill="#e6e6e6" stroke="#000" stroke-width="1.2"/>
+<text x="76" y="466" font-size="13" font-weight="700">Broker ActiveMQ Artemis embebido en WildFly (JMS)</text>
+<rect x="40" y="478" width="222" height="48" rx="12" fill="#ffffff" stroke="#000" stroke-width="1.2"/>
+<text x="151" y="498.5" text-anchor="middle" font-size="12.5" font-weight="700">topico.compra-confirmada</text>
+<text x="151" y="513.5" text-anchor="middle" font-size="12">I5 · ASÍNCRONO · tópico</text>
+<rect x="278" y="478" width="180" height="48" rx="12" fill="#ffffff" stroke="#000" stroke-width="1.2"/>
+<text x="368" y="498.5" text-anchor="middle" font-size="12.5" font-weight="700">cola.emision-entradas</text>
+<text x="368" y="513.5" text-anchor="middle" font-size="12">I4 · ASÍNCRONO · cola</text>
+<rect x="472" y="478" width="44" height="48" rx="12" fill="#ffffff" stroke="#000" stroke-width="1.2"/>
+<text x="494" y="506" text-anchor="middle" font-size="12.5" font-weight="700">DLQ</text>
+<rect x="28" y="622" width="500" height="104" rx="4" fill="#f4f4f4" stroke="#000" stroke-width="1.2"/>
+<text x="76" y="642" font-size="13" font-weight="700">ServicioDeNotificaciones · /api/notificaciones · stateless</text>
+<rect x="40" y="652" width="226" height="62" rx="6" fill="#ffffff" stroke="#000" stroke-width="1.2"/>
+<text x="153" y="672" text-anchor="middle" font-size="12.5" font-weight="700">AuditoriaDeComprasMDB</text>
+<text x="153" y="687" text-anchor="middle" font-size="12">suscripción durable</text>
+<text x="153" y="702" text-anchor="middle" font-size="12">tabla registro_auditoria</text>
+<rect x="290" y="652" width="226" height="62" rx="6" fill="#ffffff" stroke="#000" stroke-width="1.2"/>
+<text x="403" y="672" text-anchor="middle" font-size="12.5" font-weight="700">AvisoDeCompraMDB</text>
+<text x="403" y="687" text-anchor="middle" font-size="12">suscripción no durable</text>
+<text x="403" y="702" text-anchor="middle" font-size="12">hoy: aviso en el log</text>
+<rect x="648" y="296" width="176" height="66" rx="6" fill="#f4f4f4" stroke="#000" stroke-width="1.2" stroke-dasharray="6 4"/>
+<text x="736" y="318" text-anchor="middle" font-size="12.5" font-weight="700">ServicioDeFacturación</text>
+<text x="736" y="333" text-anchor="middle" font-size="12">/api/facturacion</text>
+<text x="736" y="348" text-anchor="middle" font-size="12">desplegado, solo health</text>
+<rect x="648" y="398" width="176" height="46" rx="12" fill="#ffffff" stroke="#000" stroke-width="1.2" stroke-dasharray="6 4"/>
+<text x="736" y="417.5" text-anchor="middle" font-size="12">cola.reintento-facturacion</text>
+<text x="736" y="432.5" text-anchor="middle" font-size="12">I3 · ASÍNCRONO · cola</text>
+<rect x="648" y="500" width="176" height="64" rx="6" fill="#f4f4f4" stroke="#000" stroke-width="1.2" stroke-dasharray="6 4"/>
+<text x="736" y="521" text-anchor="middle" font-size="12.5" font-weight="700">ServicioDeReventa</text>
+<text x="736" y="536" text-anchor="middle" font-size="12">/api/reventa</text>
+<text x="736" y="551" text-anchor="middle" font-size="12">desplegado, solo health</text>
+<rect x="648" y="600" width="176" height="64" rx="6" fill="#f4f4f4" stroke="#000" stroke-width="1.2" stroke-dasharray="6 4"/>
+<text x="736" y="621" text-anchor="middle" font-size="12.5" font-weight="700">ServicioDeValidación</text>
+<text x="736" y="636" text-anchor="middle" font-size="12">/api/validacion</text>
+<text x="736" y="651" text-anchor="middle" font-size="12">desplegado, solo health</text>
+<rect x="968" y="138" width="200" height="92" rx="6" fill="#dcdcdc" stroke="#000" stroke-width="2"/>
+<text x="1068" y="173" text-anchor="middle" font-size="12.5" font-weight="700">Mercado Pago</text>
+<text x="1068" y="188" text-anchor="middle" font-size="12">pasarela de pagos</text>
+<text x="1068" y="203" text-anchor="middle" font-size="12">(partner moderno)</text>
+<rect x="968" y="296" width="200" height="66" rx="6" fill="#dcdcdc" stroke="#000" stroke-width="2"/>
+<text x="1068" y="318" text-anchor="middle" font-size="12.5" font-weight="700">ARCA (ex AFIP)</text>
+<text x="1068" y="333" text-anchor="middle" font-size="12">factura electrónica</text>
+<text x="1068" y="348" text-anchor="middle" font-size="12">(sistema legado)</text>
+<path d="M350,50 L350,86" fill="none" stroke="#000" stroke-width="1.6" marker-end="url(#punta)"/>
+<path d="M298,168 L258,168" fill="none" stroke="#000" stroke-width="1.6" marker-end="url(#punta)"/>
+<path d="M110,262 L110,198" fill="none" stroke="#000" stroke-width="1.6" marker-end="url(#punta)"/>
+<path d="M360,262 L360,198" fill="none" stroke="#000" stroke-width="1.6" marker-end="url(#punta)"/>
+<path d="M528,284 L588,284 L588,184 L648,184" fill="none" stroke="#000" stroke-width="1.6" marker-end="url(#punta)"/>
+<path d="M528,330 L648,330" fill="none" stroke="#000" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#punta)"/>
+<path d="M736,362 L736,398" fill="none" stroke="#000" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#punta)"/>
+<path d="M648,532 L600,532 L600,364 L528,364" fill="none" stroke="#000" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#punta)"/>
+<path d="M648,632 L600,632 L600,532" fill="none" stroke="#000" stroke-width="1.6" stroke-dasharray="6 4"/>
+<path d="M230,360 L230,410 L415,410 L415,478" fill="none" stroke="#000" stroke-width="1.6" marker-end="url(#punta)"/>
+<path d="M446,478 L446,360" fill="none" stroke="#000" stroke-width="1.6" marker-end="url(#punta)"/>
+<path d="M60,360 L60,478" fill="none" stroke="#000" stroke-width="1.6" marker-end="url(#punta)"/>
+<path d="M60,526 L60,652" fill="none" stroke="#000" stroke-width="1.6" marker-end="url(#punta)"/>
+<path d="M190,526 L190,590 L440,590 L440,652" fill="none" stroke="#000" stroke-width="1.6" marker-end="url(#punta)"/>
+<path d="M824,166 L968,166" fill="none" stroke="#000" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#punta)"/>
+<path d="M968,206 L824,206" fill="none" stroke="#000" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#punta)"/>
+<path d="M824,328 L968,328" fill="none" stroke="#000" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#punta)"/>
+<path d="M12,760 L54,760" fill="none" stroke="#000" stroke-width="1.6" marker-end="url(#punta)"/>
+<path d="M432,760 L474,760" fill="none" stroke="#000" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#punta)"/>
+<text x="968" y="112" font-size="13"><tspan font-weight="700">Sistemas externos</tspan></text>
+<text x="968" y="127" font-size="13">(ninguno conectado todavía)</text>
+<text x="286" y="546" font-size="11.5">5 entregas cada 2 s; después, DLQ</text>
+<text x="360" y="73" font-size="12"><tspan font-weight="700">I1 · SÍNCRONO · REST</tspan> (JSON, token JWT)</text>
+<text x="28" y="128" font-size="12"><tspan font-weight="700">S2 · SÍNCRONO · REST</tspan>: Eventos, Ventas, Pagos y Notificaciones → Usuarios (JWKS y token de servicio). Se dibuja una sola flecha</text>
+<text x="269" y="160" font-size="12"><tspan font-weight="700">S2</tspan></text>
+<text x="118" y="226" font-size="12"><tspan font-weight="700">S1 · SÍNCRONO · REST</tspan></text>
+<text x="118" y="241" font-size="12">GET /api/usuarios/yo</text>
+<text x="368" y="226" font-size="12"><tspan font-weight="700">S1 · SÍNCRONO · REST</tspan></text>
+<text x="368" y="241" font-size="12">POST …/cupo (reserva)</text>
+<text x="596" y="250" font-size="12"><tspan font-weight="700">S1 · SÍNCRONO · REST</tspan></text>
+<text x="596" y="265" font-size="12">POST /api/v1/pagos</text>
+<text x="534" y="322" font-size="12"><tspan font-weight="700">S3 · SÍNCRONO</tspan></text>
+<text x="534" y="346" font-size="12">REST · pendiente</text>
+<text x="608" y="462" font-size="12"><tspan font-weight="700">S3 · SÍNCRONO · REST</tspan></text>
+<text x="608" y="477" font-size="12">Reventa y Validación → Ventas</text>
+<text x="608" y="492" font-size="12">(pendiente)</text>
+<text x="238" y="402" font-size="12"><tspan font-weight="700">I4</tspan> publica</text>
+<text x="454" y="432" font-size="12"><tspan font-weight="700">I4</tspan> entrega al MDB</text>
+<text x="68" y="424" font-size="12"><tspan font-weight="700">I5</tspan> publica</text>
+<text x="198" y="582" font-size="12"><tspan font-weight="700">I5</tspan> una copia para cada suscriptor</text>
+<text x="843" y="158" font-size="11"><tspan font-weight="700">I2 · SÍNCRONO · REST</tspan></text>
+<text x="843" y="181" font-size="11">cobro</text>
+<text x="843" y="221" font-size="11"><tspan font-weight="700">I2</tspan> · webhook · REST</text>
+<text x="843" y="320" font-size="11"><tspan font-weight="700">I3 · SÍNCRONO · SOAP</tspan></text>
+<text x="843" y="343" font-size="11">timeout de 5 s</text>
+<text x="62" y="764" font-size="12">Implementado: comprobado en el servidor el 13/10/2026</text>
+<text x="482" y="764" font-size="12">Diseñado, pendiente (flecha o caja punteada)</text>
+<text x="12" y="786" font-size="12">I1 a I5: integraciones clasificadas en la sección 3 · S1 a S3: llamadas REST entre servicios internos · MDB: componente que consume mensajes</text>
+</svg>

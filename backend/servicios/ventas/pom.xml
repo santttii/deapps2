@@ -17,6 +17,11 @@
 
     <dependencies>
         <dependency>
+            <!-- ConfigProvider, para leer palco.ventas.cobros. La versión y el scope los fija el pom padre. -->
+            <groupId>org.eclipse.microprofile.config</groupId>
+            <artifactId>microprofile-config-api</artifactId>
+        </dependency>
+        <dependency>
             <!-- Dobles de prueba para testear el negocio sin servidor. La versión y el alcance (test) vienen del pom padre. -->
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>

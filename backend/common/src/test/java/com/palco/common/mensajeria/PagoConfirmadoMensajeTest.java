@@ -3,12 +3,14 @@ package com.palco.common.mensajeria;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -107,6 +109,19 @@ class PagoConfirmadoMensajeTest {
     void unTextoNuloVacioNullOQueNoEsJsonEsInvalido() {
         for (String texto : Arrays.asList(null, "", "   ", "null", "esto no es json", "{", "[1, 2]", "\"hola\"", "42")) {
             assertThrows(MensajeInvalido.class, () -> PagoConfirmadoMensaje.desdeJson(texto), "Texto: " + texto);
+        }
+    }
+
+    @Test
+    void unJsonCortadoDentroDeUnCampoDesconocidoEsInvalidoYNoDejaColgadoAlQueLee() {
+        // Con estos textos JSON-B, solo, no lanza error ni termina: el consumidor se quedaría
+        // girando para siempre, sin reintentos ni DLQ. Por eso el test tiene un tiempo máximo.
+        String cortadoEnUnCampoExtra = ejemplo().aJson().replaceFirst("\\}$", ",\"extra\":{\"x\":1");
+
+        for (String texto : List.of("{\"a\":{", "{\"a\":[", cortadoEnUnCampoExtra)) {
+            assertTimeoutPreemptively(Duration.ofSeconds(5),
+                    () -> assertThrows(MensajeInvalido.class, () -> PagoConfirmadoMensaje.desdeJson(texto)),
+                    "Texto: " + texto);
         }
     }
 

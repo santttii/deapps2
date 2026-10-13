@@ -1,0 +1,100 @@
+Palco - compras y pagos simultáneos contra ServicioDeVentas
+Tomas del 13/10/2026 (hora de Argentina, UTC-3), en el WildFly de desarrollo, con los 8 servicios desplegados.
+
+QUÉ MUESTRA
+Todos los servicios del servidor comparten un pool de 10 conexiones a la base (PalcoDS, max-pool-size=10). Hasta las
+14:20, abrir una compra guardaba la venta ANTES de llamar a Eventos: su transacción esperaba la respuesta con una
+conexión tomada, y Eventos necesita otra del mismo pool para contestar. Con 10 compras en ese punto a la vez, nadie
+podía avanzar hasta que se cumplían los 5 segundos de espera. La versión de Ventas desplegada a las 14:20 reserva
+primero y guarda después, y al pagar no lee la base antes de cobrar: mientras espera a otro servicio no retiene
+ninguna conexión.
+
+Este archivo tiene dos partes:
+  ANTES    Lo que quedó en el log del servidor de una ráfaga de 80 compras a las 13:48:57. La ráfaga la corrió la
+           revisión de Ventas con un guion que no está en el repo (80 POST /api/v1/ventas a la vez, cada uno con su
+           clave, 1 entrada de sec-4-2 del evento ev-4). Acá están solo los conteos del log, con el comando de cada uno.
+  DESPUÉS  La salida, sin retocar, de docs/entrega3/evidencia/compras-simultaneas.mjs, corrido a las 14:27, y los
+           mismos conteos del log.
+Para el pago no hay ANTES: no se midió, porque la ráfaga frena todo el servidor mientras dura.
+
+----------------------------------------------------------------------
+ANTES (13:48:57, versión anterior de Ventas)
+Las tres cuentas salen del log del servidor, entre las 13:48:55 y las 13:49:10:
+
+$ L=backend/servidor/target/server/standalone/log/server.log
+$ awk '$2>="13:48:55" && $2<="13:49:10"' $L | grep -c "abierta por"            # compras que se abrieron
+28
+$ awk '$2>="13:48:55" && $2<="13:49:10"' $L | grep -c "Eventos no respondió"   # reservas que no tuvieron respuesta
+20
+$ awk '$2>="13:48:55" && $2<="13:49:10"' $L | grep -c "Usuarios no respondió"  # consultas del comprador sin respuesta
+32
+$ awk '$2>="13:48:55" && $2<="13:49:10"' $L | grep "Eventos no respondió" | cut -c12-19 | sort | uniq -c   # en qué segundo
+     10 13:49:03
+     10 13:49:08
+$ awk '$2>="13:48:55" && $2<="13:49:10"' $L | grep "Eventos no respondió" | head -1
+2026-10-13 13:49:03,127 WARNING [com.palco.ventas.negocio.externos.ClienteDeEventos] (default task-162) Eventos no respondió al cambiar el cupo del sector sec-4-2: RESTEASY004655: Unable to invoke request: java.net.SocketTimeoutException: Read timed out
+
+Cómo se lee: de las 80 compras se abrieron 28 y 52 terminaron en 504 sin-respuesta (20 esperando a Eventos y 32
+esperando a Usuarios). Los avisos de Eventos salieron de a 10, que es el tamaño del pool, a los 5 y a los 10 segundos
+de empezar: son los dos turnos de 10 compras que se quedaron con todas las conexiones. La revisión midió además que,
+después de cancelar las 28 ventas, en el sector quedaron 20 lugares tomados sin venta: Eventos aplicó esas 20
+reservas cuando Ventas ya había dejado de esperar.
+
+----------------------------------------------------------------------
+DESPUÉS (14:27, versión de Ventas desplegada a las 14:20)
+$ node docs/entrega3/evidencia/compras-simultaneas.mjs
+
+Palco - compras y pagos simultáneos. Salida de docs/entrega3/evidencia/compras-simultaneas.mjs
+Fecha: 13/10/2026 14:27:13 (hora local)
+
+1. 80 compras abiertas a la vez, cada una con su clave. Se espera: 80 respuestas 201 y vendidas +80.
+   respuestas: { '201': 80 } | tardó 304 ms en total
+   vendidas del sector: 4896 -> 4976
+   después de cancelarlas: { '204': 80 } | vendidas: 4896 (se espera 4896)
+
+2. 20 pedidos a la vez con la misma clave. Se espera: 20 respuestas 201 con el mismo id y vendidas +1.
+   respuestas: { '201': 20 } | ventas distintas: [ 'V-12b09720' ] | tardó 87 ms en total
+   vendidas del sector: 4896 -> 4897
+   cancelar esa venta: 204 | vendidas: 4896 (se espera 4896)
+
+3. 30 compras abiertas y pagadas todas a la vez. Se espera: 30 respuestas 201 y las 30 ventas EMITIDAS.
+   respuestas: { '201': 30 } | tardó 184 ms en total
+   tres segundos después: { EMITIDA: 30 } | entradas: { VALIDA: 30 }
+   primera y última venta: V-d5460556 V-3da7cb90
+
+Terminó a las 14:27:21. En el log del servidor no tiene que haber ninguna línea nueva con "no respondió".
+
+Los mismos conteos del log, entre las 14:27:13 y las 14:27:22:
+
+$ awk '$2>="14:27:13" && $2<="14:27:22"' $L | grep -c "abierta por"                      # 80 + 1 + 30
+111
+$ awk '$2>="14:27:13" && $2<="14:27:22"' $L | grep -c "no respondió"
+0
+$ awk '$2>="14:27:13" && $2<="14:27:22"' $L | grep "abierta por" | cut -c12-21 | sort | uniq -c   # en qué décima de segundo se abrieron
+     30 14:27:13,5
+     50 14:27:13,6
+      1 14:27:15,9
+      7 14:27:17,8
+     23 14:27:17,9
+$ awk '$2>="14:27:13" && $2<="14:27:22"' $L | grep -c "PAGO_CONFIRMADO publicado"        # los 30 pagos
+30
+$ awk '$2>="14:27:13" && $2<="14:27:22"' $L | grep -c "que no llegó a abrir una venta"   # caso 2: los que perdieron
+19
+$ awk '$2>="14:27:13" && $2<="14:27:22"' $L | grep -c "venta_clave_idempotencia_unica"   # caso 2: los INSERT que rechazó la base
+19
+
+Cómo se lee:
+  - Caso 1: las 80 compras se abrieron en dos décimas de segundo, sin ningún aviso, y el cupo volvió a su valor.
+  - Caso 2: los 20 pedidos con la misma clave llegaron a la vez. Los 20 reservaron un lugar y la base dejó guardar a
+    uno solo (la restricción única de comprador y clave). Los otros 19 devolvieron el lugar que habían reservado y
+    respondieron con la venta del que ganó: por eso hay un solo id y las vendidas subieron 1. Cada INSERT rechazado
+    deja en el log dos líneas WARN de Hibernate (HHH000247 y "Unique index or primary key violation"): es lo esperado.
+  - Caso 3: los 30 pagos pasaron a la vez, el triple de las conexiones del pool.
+
+LÍMITES DE ESTA TOMA
+  - No se probó con más de 80 compras ni con más de 60 pagos a la vez (los 60 se corrieron aparte, a las 14:24, con
+    el mismo resultado: 60 respuestas 201 en 510 ms; esa salida no se guardó). El límite siguiente no se buscó.
+  - Para el pago no se midió la versión anterior (ver arriba).
+  - Si Eventos no llega a responder una reserva (servidor saturado o caído), Ventas sigue sin saber si se aplicó y
+    no la devuelve: puede quedar un lugar sin vender. El aviso del log ahora dice evento, sector y cantidad.
+  - El log del servidor se pierde al rotar: los conteos de arriba son los de ese día.

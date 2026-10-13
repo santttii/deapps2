@@ -1,8 +1,12 @@
 package com.palco.common.mensajeria;
 
+import java.io.StringReader;
 import java.time.Instant;
 import java.util.List;
 
+import jakarta.json.Json;
+import jakarta.json.JsonException;
+import jakarta.json.JsonReader;
 import jakarta.json.bind.Jsonb;
 import jakarta.json.bind.JsonbBuilder;
 import jakarta.json.bind.JsonbException;
@@ -58,6 +62,15 @@ public record PagoConfirmadoMensaje(String ventaId, String compradorId, String e
     public static PagoConfirmadoMensaje desdeJson(String json) {
         if (json == null || json.isBlank()) {
             throw new MensajeInvalido("El mensaje está vacío.");
+        }
+        // Antes de convertirlo se lee el texto entero con el lector estándar de JSON (JSON-P), que
+        // avisa si está incompleto. Hace falta porque JSON-B, con un JSON cortado dentro de un campo
+        // que el mensaje no conoce (por ejemplo {"extra":{ ), no lanza error ni termina: el
+        // consumidor quedaría girando para siempre, sin reintentos ni DLQ.
+        try (JsonReader lector = Json.createReader(new StringReader(json))) {
+            lector.readValue();
+        } catch (JsonException e) {
+            throw new MensajeInvalido("El mensaje no es un JSON de PAGO_CONFIRMADO.", e);
         }
         PagoConfirmadoMensaje mensaje;
         try {

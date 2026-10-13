@@ -1,96 +1,173 @@
-import { ErrorApi, comprobarSesion } from '../lib/api';
-import { calcularServicio, sleep } from '../lib/format';
+import { pedir } from '../lib/api';
 import { soloDigitosDNI } from '../lib/validate';
 import type { CarritoItem } from '../store/actions';
-import type { Asistente, Entrada, Evento, MedioPago, Orden } from '../types';
+import {
+  MINUTOS_RESERVA,
+  type Asistente,
+  type Entrada,
+  type EstadoEntrada,
+  type EstadoOrden,
+  type MedioPago,
+  type Orden,
+} from '../types';
 
-// Enganche del checkout con ServicioDeVentas (/api/ventas). Ese servicio todavía no está
-// implementado en el backend, así que hoy la compra se arma en el navegador. Cuando exista,
-// cambia el cuerpo de confirmarCompra() por la llamada real: CheckoutPage ya la espera con
-// await y ya muestra el error si falla.
+// Una función por operación de ServicioDeVentas (/api/v1). Todas piden sesión con rol user.
 //
-// Las demás operaciones del checkout se agregan acá cuando Ventas las ofrezca, una función por
-// operación: reservar (se llamará desde continuarCheckout() de EventPage), cancelar (desde el
-// modal "Se liberó tu reserva" de CheckoutPage) y consultar el estado de emisión (desde
-// ConfirmationPage). No se crean vacías ahora para no inventar un contrato que todavía no existe.
+// La compra tiene dos pedidos que cambian algo: iniciar (reserva el cupo 10 minutos) y pagar.
+// Los dos viajan con una clave de idempotencia: si el mismo pedido llega dos veces con la misma
+// clave (doble clic, reintento después de un corte), el backend no lo hace dos veces y devuelve
+// la misma venta.
 
-export interface TitularCompra {
-  sectorId: string;
-  precio: number;
-  // Vacíos cuando el comprador eligió "asignar después".
-  nombre: string;
-  apellido: string;
-  dni: string;
-}
-
-export interface DatosCompra {
-  evento: Evento;
+export interface NuevaCompra {
+  eventoId: string;
   items: CarritoItem[];
-  titulares: TitularCompra[]; // uno por entrada
+  titulares: Asistente[]; // uno por entrada, en el orden de items
+}
+
+export interface DatosDePago {
   medioPago: MedioPago;
+  token: string; // lo que devolvería la pasarela de pagos; ver tokenDePrueba()
 }
 
-export interface CompraConfirmada {
-  orden: Orden;
-  entradas: Entrada[];
+// Así llega una venta del backend. Solo se declaran los campos que el frontend usa.
+interface VentaDelServidor {
+  id: string;
+  estado: string; // EN_CHECKOUT, CONFIRMADA, EMITIDA, CANCELADA o VENCIDA
+  eventoId: string;
+  items: { sectorId: string; cantidad: number; precioUnitario: number }[];
+  subtotal: number;
+  cargoServicio: number;
+  montoTotal: number;
+  venceReserva: string;
+  entradas: { id: string }[];
 }
 
-function generarId(prefijo: string, largo: number): string {
-  const alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let out = '';
-  for (let i = 0; i < largo; i++) out += alfabeto[Math.floor(Math.random() * alfabeto.length)];
-  return `${prefijo}-${out}`;
+// Así llega una entrada del backend (GET /api/v1/entradas/{id}).
+interface EntradaDelServidor {
+  id: string;
+  ventaId: string;
+  eventoId: string;
+  sectorId: string;
+  precioPagado: number;
+  titular: { nombre: string; dni: string };
+  estado: string; // PENDIENTE_EMISION, VALIDA, USADA, PUBLICADA, VENDIDA o ANULADA
+  emitida: string | null; // null mientras no se emitió
+  codigoQr: string | null; // null mientras no se emitió
 }
 
-export async function confirmarCompra(datos: DatosCompra): Promise<CompraConfirmada> {
-  const { evento, items, titulares, medioPago } = datos;
-
-  // Comprar exige una sesión vigente, aunque la compra todavía se arme en el navegador. Cuando
-  // esto llame a Ventas, la comprobación la hace pedir() con conSesion y estas líneas se van.
-  if (!comprobarSesion()) throw new ErrorApi(401, 'Tenés que iniciar sesión.');
-
-  // Demora simulada del pago, hasta que exista el backend.
-  await sleep(1400);
-
-  const idOrden = `A-${Math.floor(10000 + Math.random() * 89999)}`;
-  const ahora = new Date().toISOString();
-  const subtotal = titulares.reduce((acc, t) => acc + t.precio, 0);
-  const servicio = calcularServicio(subtotal);
-
-  const asistentes: Asistente[] = titulares.map((t) => ({
-    nombre: t.nombre,
-    apellido: t.apellido,
-    dni: soloDigitosDNI(t.dni),
-  }));
-
-  const orden: Orden = {
-    id: idOrden,
-    eventoId: evento.id,
-    items: items.map((it) => ({
+// Único lugar donde una venta del servidor pasa al tipo del frontend.
+function aOrden(venta: VentaDelServidor): Orden {
+  // El backend no manda la fecha de la compra: se calcula desde el vencimiento de la reserva.
+  const creada = new Date(Date.parse(venta.venceReserva) - MINUTOS_RESERVA * 60_000);
+  return {
+    id: venta.id,
+    estado: venta.estado.toLowerCase() as EstadoOrden,
+    eventoId: venta.eventoId,
+    items: venta.items.map((it) => ({
       sectorId: it.sectorId,
       cantidad: it.cantidad,
-      precioUnitario: evento.sectores.find((s) => s.id === it.sectorId)?.precio ?? 0,
+      precioUnitario: it.precioUnitario,
     })),
-    asistentes,
-    subtotal,
-    servicio,
-    total: subtotal + servicio,
-    medioPago,
-    creadaISO: ahora,
+    subtotal: venta.subtotal,
+    servicio: venta.cargoServicio,
+    total: venta.montoTotal,
+    venceReservaISO: venta.venceReserva,
+    creadaISO: creada.toISOString(),
+    entradaIds: venta.entradas.map((e) => e.id),
   };
+}
 
-  const entradas: Entrada[] = titulares.map((t, i) => ({
-    id: generarId('PLC', 6),
-    ordenId: idOrden,
-    eventoId: evento.id,
-    sectorId: t.sectorId,
-    fila: String(1 + (i % 30)),
-    precioPagado: t.precio,
-    titular: asistentes[i],
-    estado: 'valida',
+// Único lugar donde una entrada del servidor pasa al tipo del frontend.
+function aEntrada(entrada: EntradaDelServidor): Entrada {
+  return {
+    id: entrada.id,
+    ordenId: entrada.ventaId,
+    eventoId: entrada.eventoId,
+    sectorId: entrada.sectorId,
+    precioPagado: entrada.precioPagado,
+    // El backend guarda nombre y apellido juntos y no hay forma segura de volver a separarlos.
+    titular: { nombre: entrada.titular.nombre, apellido: '', dni: entrada.titular.dni },
+    // Las entradas se piden cuando la venta ya está emitida: a esa altura ya no están pendientes.
+    estado: entrada.estado.toLowerCase() as EstadoEntrada,
     origen: 'compra',
-    emitidaISO: ahora,
-  }));
+    emitidaISO: entrada.emitida ?? '',
+    codigoQr: entrada.codigoQr ?? undefined,
+  };
+}
 
-  return { orden, entradas };
+function rutaDeVenta(ordenId: string): string {
+  return `/api/v1/ventas/${encodeURIComponent(ordenId)}`;
+}
+
+// Clave de idempotencia nueva. El backend exige un UUID.
+export function nuevaClave(): string {
+  return crypto.randomUUID();
+}
+
+// Reserva el cupo por 10 minutos. Los titulares viajan acá y después no se pueden cambiar.
+// El precio no se manda: lo pone el backend.
+export async function iniciarCompra(datos: NuevaCompra, clave: string): Promise<Orden> {
+  const venta = await pedir<VentaDelServidor>('/api/v1/ventas', {
+    metodo: 'POST',
+    cuerpo: {
+      eventoId: datos.eventoId,
+      items: datos.items.map((it) => ({ sectorId: it.sectorId, cantidad: it.cantidad })),
+      titulares: datos.titulares.map((t) => ({
+        nombre: `${t.nombre.trim()} ${t.apellido.trim()}`,
+        dni: soloDigitosDNI(t.dni),
+      })),
+    },
+    conSesion: true,
+    claveIdempotencia: clave,
+  });
+  return aOrden(venta);
+}
+
+export async function obtenerOrden(ordenId: string): Promise<Orden> {
+  return aOrden(await pedir<VentaDelServidor>(rutaDeVenta(ordenId), { conSesion: true }));
+}
+
+// Devuelve la orden ya confirmada. Las entradas se emiten unos segundos después: hasta entonces
+// la orden queda en 'confirmada' y hay que volver a consultarla.
+export async function pagarCompra(ordenId: string, pago: DatosDePago, clave: string): Promise<Orden> {
+  const venta = await pedir<VentaDelServidor>(`${rutaDeVenta(ordenId)}/pagos`, {
+    metodo: 'POST',
+    cuerpo: { medioDePago: pago.medioPago, token: pago.token },
+    conSesion: true,
+    claveIdempotencia: clave,
+  });
+  return aOrden(venta);
+}
+
+// Cancela una compra sin pagar y devuelve el cupo. Repetirlo no falla.
+export async function cancelarCompra(ordenId: string): Promise<void> {
+  await pedir<void>(rutaDeVenta(ordenId), { metodo: 'DELETE', conSesion: true });
+}
+
+// Cancela sin esperar ni avisar, para cuando el usuario abandona la compra. Si falla no pasa
+// nada: la reserva vence sola a los 10 minutos.
+export function soltarReserva(ordenId: string): void {
+  cancelarCompra(ordenId).catch(() => {});
+}
+
+export async function obtenerEntrada(entradaId: string): Promise<Entrada> {
+  const entrada = await pedir<EntradaDelServidor>(`/api/v1/entradas/${encodeURIComponent(entradaId)}`, {
+    conSesion: true,
+  });
+  return aEntrada(entrada);
+}
+
+// La venta trae sus entradas resumidas (sin sector, precio ni QR): se pide cada una por su id.
+export function obtenerEntradas(orden: Orden): Promise<Entrada[]> {
+  return Promise.all(orden.entradaIds.map(obtenerEntrada));
+}
+
+// Simula el SDK de la pasarela de pagos, que en un sistema real convierte los datos de la tarjeta
+// en un token: así la tarjeta nunca viaja a nuestro backend. Como el cobro es simulado, los
+// últimos cuatro dígitos eligen el resultado, para poder mostrar cada caso en la demo.
+export function tokenDePrueba(medioPago: MedioPago, numeroTarjeta: string): string {
+  const digitos = numeroTarjeta.replace(/\D/g, '');
+  if (medioPago === 'tarjeta' && digitos.endsWith('0002')) return 'tok_rechazado';
+  if (medioPago === 'tarjeta' && digitos.endsWith('0504')) return 'tok_sin_respuesta';
+  return 'tok_test';
 }
