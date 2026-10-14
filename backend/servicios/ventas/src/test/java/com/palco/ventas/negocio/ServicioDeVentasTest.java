@@ -611,6 +611,24 @@ class ServicioDeVentasTest {
     }
 
     @Test
+    void siPagosNoAceptaLaClaveSePideUnaClaveNuevaYNoOtroMedioDePago() {
+        String ventaId = compraAbierta();
+        when(cobros.cobrar(eq(ventaId), eq(60_500L), anyString(), anyString(), anyString()))
+                .thenReturn(new ResultadoDeCobro(null, ResultadoDeCobro.RECHAZADO,
+                        ResultadoDeCobro.MOTIVO_CLAVE_REUTILIZADA));
+
+        ErroresDeNegocio.PagoRechazado rechazo = assertThrows(ErroresDeNegocio.PagoRechazado.class,
+                () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
+
+        assertEquals("pago-rechazado", rechazo.tipo());
+        assertTrue(rechazo.getMessage().contains("Idempotency-Key nueva"), rechazo.getMessage());
+        // No manda a cambiar la tarjeta ni dice que la clave exista en otra venta.
+        assertFalse(rechazo.getMessage().contains("medio de pago"), rechazo.getMessage());
+        assertFalse(rechazo.getMessage().contains("otra venta"), rechazo.getMessage());
+        verifyNoInteractions(entradas);
+    }
+
+    @Test
     void conLaReservaVencidaNoSeCobra() {
         compraAbierta();
         // La reserva valía hasta las 21:10:07: a esa hora exacta ya está vencida.

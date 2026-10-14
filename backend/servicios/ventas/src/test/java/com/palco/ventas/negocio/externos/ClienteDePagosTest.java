@@ -14,7 +14,9 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.json.bind.JsonbBuilder;
 
@@ -34,6 +36,9 @@ class ClienteDePagosTest {
 
     private static final String CLAVE = "5d3c1f0e-8a4b-4c7d-9e2f-1a2b3c4d5e6f";
 
+    /** La que le llega a Pagos: el id de la venta adelante de la clave del comprador. */
+    private static final String CLAVE_EN_PAGOS = "V-3f9a1c2b:" + CLAVE;
+
     private static final String APROBADO_JSON = """
             {"estado":"APROBADO","idExterno":"fake-5d3c1f0e","monto":60500,"motivo":null,
              "pagoId":"P-598c58a0","ventaId":"V-3f9a1c2b"}""";
@@ -41,6 +46,19 @@ class ClienteDePagosTest {
     private static final String RECHAZADO_JSON = """
             {"estado":"RECHAZADO","idExterno":"fake-5d3c1f0e","monto":60500,"motivo":"fondos_insuficientes",
              "pagoId":"P-bfb417fa","ventaId":"V-3f9a1c2b"}""";
+
+    /** El 409 de Pagos cuando la clave ya se usó con otra venta u otro monto: no cobró. */
+    private static final String CLAVE_REUTILIZADA_JSON = """
+            {"type":"/problemas/clave-reutilizada","title":"Conflicto","status":409,
+             "detail":"Esa clave de idempotencia ya se usó para otra venta o con otro monto."}""";
+
+    /**
+     * El 409 de Pagos cuando dos pedidos con la misma clave chocaron al guardar y
+     * no pudo releer el pago que ganó: ese otro pedido sí pudo haber cobrado.
+     */
+    private static final String PAGO_DUPLICADO_JSON = """
+            {"type":"/problemas/pago-duplicado","title":"Conflicto","status":409,
+             "detail":"Ya existe un pago con esos datos."}""";
 
     /** Una llamada a Pagos, como la recibió el doble. */
     private record Llamada(String cuerpo, String claveIdempotencia, String tokenDeServicio) {
@@ -101,7 +119,7 @@ class ClienteDePagosTest {
     }
 
     @Test
-    void mandaLaVentaElMontoYElMedioDePagoConElTokenDeServicioYLaMismaClave() {
+    void mandaLaVentaElMontoYElMedioDePagoConElTokenDeServicioYLaClaveAtadaALaVenta() {
         pagos.responde(201, APROBADO_JSON);
 
         cobrar();
@@ -111,7 +129,7 @@ class ClienteDePagosTest {
         // El cuerpo se vuelve a leer como JSON: así el test no depende del orden de los campos.
         assertEquals(new Pedido("V-3f9a1c2b", 60_500, "tarjeta", "tok_test"),
                 JsonbBuilder.create().fromJson(llamada.cuerpo(), Pedido.class));
-        assertEquals(CLAVE, llamada.claveIdempotencia());
+        assertEquals(CLAVE_EN_PAGOS, llamada.claveIdempotencia());
         assertEquals("token-1", llamada.tokenDeServicio());
     }
 
@@ -195,7 +213,7 @@ class ClienteDePagosTest {
         assertEquals("token-2", pagos.llamadas.get(1).tokenDeServicio());
         // El reintento es el mismo pedido: mismo cuerpo y misma clave, para que Pagos no cobre dos veces.
         assertEquals(pagos.llamadas.get(0).cuerpo(), pagos.llamadas.get(1).cuerpo());
-        assertEquals(CLAVE, pagos.llamadas.get(1).claveIdempotencia());
+        assertEquals(CLAVE_EN_PAGOS, pagos.llamadas.get(1).claveIdempotencia());
     }
 
     @Test
@@ -234,7 +252,7 @@ class ClienteDePagosTest {
 
     @Test
     void unaClaveQueYaSeUsoParaOtraVentaEsUnRechazoSinPago() {
-        pagos.responde(409, null);
+        pagos.responde(409, CLAVE_REUTILIZADA_JSON);
 
         ResultadoDeCobro resultado = cobrar();
 
@@ -253,5 +271,92 @@ class ClienteDePagosTest {
         assertFalse(resultado.aprobado());
         assertEquals("datos_invalidos", resultado.motivo());
         assertNull(resultado.pagoId());
+    }
+
+    @Test
+    void unPagoDuplicadoNoEsUnRechazoSinoElCobroQueYaGuardoPagos() {
+        // El reintento de un cobro que quedó sin respuesta choca con el pedido original, que sí cobró.
+        pagos.responde(409, PAGO_DUPLICADO_JSON);
+        pagos.responde(201, APROBADO_JSON);
+
+        ResultadoDeCobro resultado = cobrar();
+
+        // Con la misma clave, Pagos devuelve el pago guardado: la venta se confirma con ese pago.
+        assertTrue(resultado.aprobado());
+        assertEquals("P-598c58a0", resultado.pagoId());
+        assertEquals(2, pagos.llamadas.size());
+        assertEquals(pagos.llamadas.get(0).cuerpo(), pagos.llamadas.get(1).cuerpo());
+        assertEquals(CLAVE_EN_PAGOS, pagos.llamadas.get(1).claveIdempotencia());
+    }
+
+    @Test
+    void siElPagoDuplicadoSeRepiteNoSeSabeSiSeCobro() {
+        pagos.responde(409, PAGO_DUPLICADO_JSON);
+        pagos.responde(409, PAGO_DUPLICADO_JSON);
+
+        // Nunca un rechazo: la venta tiene que quedar marcada para reintentar con la misma clave.
+        noSeSabeSiSeCobro();
+        assertEquals(2, pagos.llamadas.size());
+    }
+
+    @Test
+    void unCuatrocientosNueveSinTipoConocidoNoSeLeeComoRechazo() {
+        pagos.responde(409, null);
+        pagos.responde(409, null);
+
+        noSeSabeSiSeCobro();
+    }
+
+    /**
+     * Imita la regla de Pagos sobre la clave: es única en todo el servicio,
+     * no por comprador. La misma clave con la misma venta devuelve el pago
+     * guardado; con otra venta, 409 {@code clave-reutilizada}.
+     */
+    private static class PagosConClaveUnica extends ClienteDePagos {
+        final Map<String, String> ventaPorClave = new HashMap<>();
+        final List<String> clavesRecibidas = new ArrayList<>();
+
+        @Override
+        Respuesta enviar(String cuerpo, String claveIdempotencia, String tokenDeServicio) {
+            clavesRecibidas.add(claveIdempotencia);
+            String ventaId = JsonbBuilder.create().fromJson(cuerpo, Pedido.class).ventaId();
+            String duenia = ventaPorClave.putIfAbsent(claveIdempotencia, ventaId);
+            if (duenia != null && !duenia.equals(ventaId)) {
+                return new Respuesta(409, CLAVE_REUTILIZADA_JSON);
+            }
+            return new Respuesta(201, """
+                    {"estado":"APROBADO","monto":60500,"pagoId":"P-%s","ventaId":"%s"}"""
+                    .formatted(ventaId.substring(2), ventaId));
+        }
+    }
+
+    @Test
+    void dosCompradoresConLaMismaClaveNoChocanEnPagos() {
+        // En Ventas la clave es única por comprador: dos personas pueden mandar la misma, cada una para su venta.
+        PagosConClaveUnica pagosReal = new PagosConClaveUnica();
+        pagosReal.tokenDeServicio = token;
+
+        ResultadoDeCobro deAna = pagosReal.cobrar("V-aaaaaaaa", 60_500, "tarjeta", "tok_test", CLAVE);
+        ResultadoDeCobro deBeto = pagosReal.cobrar("V-bbbbbbbb", 60_500, "tarjeta", "tok_test", CLAVE);
+
+        assertTrue(deAna.aprobado());
+        assertTrue(deBeto.aprobado(), "el segundo comprador no tiene que chocar con la clave del primero");
+        assertEquals("P-bbbbbbbb", deBeto.pagoId());
+        // A Pagos le llegan dos claves distintas, cada una atada a su venta.
+        assertEquals(List.of("V-aaaaaaaa:" + CLAVE, "V-bbbbbbbb:" + CLAVE), pagosReal.clavesRecibidas);
+    }
+
+    @Test
+    void elMismoCobroRepetidoLlegaAPagosConLaMismaClave() {
+        // El reintento después de un 504: misma venta y misma clave. Pagos tiene que reconocerla.
+        PagosConClaveUnica pagosReal = new PagosConClaveUnica();
+        pagosReal.tokenDeServicio = token;
+
+        ResultadoDeCobro primero = pagosReal.cobrar("V-aaaaaaaa", 60_500, "tarjeta", "tok_test", CLAVE);
+        ResultadoDeCobro reintento = pagosReal.cobrar("V-aaaaaaaa", 60_500, "tarjeta", "tok_test", CLAVE);
+
+        assertEquals(primero.pagoId(), reintento.pagoId());
+        assertEquals(pagosReal.clavesRecibidas.get(0), pagosReal.clavesRecibidas.get(1));
+        assertEquals(1, pagosReal.ventaPorClave.size());
     }
 }

@@ -53,6 +53,13 @@ public class ClienteDeEventos {
     public record Sector(String id, String nombre, long precio, int cupo, int vendidas) {
     }
 
+    /** El {@code type} del 409 con el que Eventos dice que el evento ya empezó y no reserva más. */
+    static final String TIPO_EVENTO_FINALIZADO = "/problemas/evento-finalizado";
+
+    /** De un error de Eventos (Problem Details) solo se lee el {@code type}. */
+    public record Problema(String type) {
+    }
+
     /** Lo que se mira de una respuesta HTTP: el código de estado y el cuerpo como texto. */
     record Respuesta(int estado, String cuerpo) {
     }
@@ -65,7 +72,8 @@ public class ClienteDeEventos {
     /**
      * Reserva {@code cantidad} lugares del sector y devuelve el sector, con su
      * nombre y su precio. Lanza 422 {@code sector-inexistente} si Eventos no
-     * conoce ese sector, 409 {@code cupo-agotado} si no quedan lugares y 504
+     * conoce ese sector, 409 {@code evento-finalizado} si el evento ya empezó,
+     * 409 {@code cupo-agotado} si no quedan lugares y 504
      * {@code sin-respuesta} si Eventos no contesta o contesta otra cosa. En
      * ese último caso no se sabe si la reserva se aplicó.
      */
@@ -115,7 +123,9 @@ public class ClienteDeEventos {
             case 200 -> respuesta.cuerpo();
             case 404 -> throw new ErroresDeNegocio.ReglaIncumplida(TiposDeProblema.SECTOR_INEXISTENTE,
                     "El evento no tiene ese sector.");
-            case 409 -> throw new ErroresDeNegocio.Conflicto(TiposDeProblema.CUPO_AGOTADO, cantidad > 0
+            case 409 -> throw TIPO_EVENTO_FINALIZADO.equals(tipoDeProblema(respuesta.cuerpo()))
+                    ? new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_FINALIZADO, "Ese evento ya empezó o terminó")
+                    : new ErroresDeNegocio.Conflicto(TiposDeProblema.CUPO_AGOTADO, cantidad > 0
                     ? "No quedan suficientes entradas en ese sector."
                     : "Eventos no aceptó la devolución: el sector no tiene tantas entradas vendidas.");
             default -> {
@@ -162,9 +172,10 @@ public class ClienteDeEventos {
                 .request(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .post(Entity.entity(cuerpo, MediaType.APPLICATION_JSON))) {
-            // El cuerpo solo interesa en un 200: de un error se mira el código y nada más.
+            // El cuerpo interesa en un 200 (el sector) y en un 409 (el type dice si es cupo o evento
+            // finalizado). De los demás errores se mira el código y nada más.
             int estado = respuesta.getStatus();
-            return new Respuesta(estado, estado == 200 ? respuesta.readEntity(String.class) : null);
+            return new Respuesta(estado, estado == 200 || estado == 409 ? respuesta.readEntity(String.class) : null);
         } catch (ProcessingException e) {
             // Sin conexión o se cumplió el tiempo de espera: no se sabe si Eventos llegó a aplicar el cambio.
             // El aviso lleva el evento, el sector y el cuerpo enviado (la cantidad: positiva es una reserva,
@@ -173,6 +184,19 @@ public class ClienteDeEventos {
                     + ", sector " + Textos.enUnaLinea(sectorId) + ", pedido " + cuerpo
                     + ". No se sabe si lo aplicó. Motivo: " + Textos.enUnaLinea(e.getMessage()));
             throw new ErroresDeNegocio.SinRespuesta("El servicio de eventos no responde. Probá de nuevo.");
+        }
+    }
+
+    /** El {@code type} de un error de Eventos, o null si el cuerpo no lo trae. */
+    private static String tipoDeProblema(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            Problema problema = JSONB.fromJson(json, Problema.class);
+            return problema == null ? null : problema.type();
+        } catch (JsonbException e) {
+            return null;
         }
     }
 

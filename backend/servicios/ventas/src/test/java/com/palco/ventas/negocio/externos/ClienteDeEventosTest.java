@@ -104,6 +104,30 @@ class ClienteDeEventosTest {
     }
 
     @Test
+    void unEventoQueYaEmpezoEsUnConflictoDeEventoFinalizado() {
+        eventos.responde(409, """
+                {"type":"/problemas/evento-finalizado","title":"Conflicto","status":409,
+                 "detail":"El evento ya empezó: no se venden más entradas."}""");
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> eventos.reservarCupo("ev-1", "sec-1-4", 2));
+
+        assertEquals("evento-finalizado", error.tipo());
+        assertEquals("Ese evento ya empezó o terminó", error.getMessage());
+    }
+
+    @Test
+    void unConflictoDeCupoConCuerpoSigueSiendoCupoAgotado() {
+        eventos.responde(409, """
+                {"type":"/problemas/cupo-agotado","title":"Conflicto","status":409,"detail":"Sin lugar."}""");
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> eventos.reservarCupo("ev-1", "sec-1-4", 2));
+
+        assertEquals("cupo-agotado", error.tipo());
+    }
+
+    @Test
     void cualquierOtroCodigoEsSinRespuesta() {
         eventos.responde(500, null);
 

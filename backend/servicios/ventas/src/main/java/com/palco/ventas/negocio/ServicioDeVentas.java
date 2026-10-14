@@ -288,8 +288,7 @@ public class ServicioDeVentas implements IVentas {
             // El motivo lo escribió quien cobra (otro servicio): al log va en un solo renglón.
             LOG.info("Compra " + ventaId + ": el cobro fue rechazado (" + Textos.enUnaLinea(cobro.motivo())
                     + "). Sigue abierta (" + instancia() + ").");
-            throw new ErroresDeNegocio.PagoRechazado("El pago fue rechazado (" + cobro.motivo()
-                    + "). Podés probar con otro medio de pago.");
+            throw new ErroresDeNegocio.PagoRechazado(detalleDelRechazo(cobro.motivo()));
         }
 
         // 3. Confirmar, crear las entradas y publicar: las tres cosas en la transacción de este método.
@@ -526,6 +525,19 @@ public class ServicioDeVentas implements IVentas {
     /** El instante de un reloj, en UTC y sin fracción de segundo: no depende de la zona horaria del servidor. */
     static LocalDateTime ahoraEnUtc(Clock reloj) {
         return LocalDateTime.ofInstant(reloj.instant(), ZoneOffset.UTC).truncatedTo(ChronoUnit.SECONDS);
+    }
+
+    /**
+     * El texto del 402. Si Pagos no aceptó la clave del intento
+     * ({@code clave_reutilizada}), lo que hay que cambiar es la clave y no la
+     * tarjeta: el texto no menciona otra venta ni otro medio de pago.
+     */
+    static String detalleDelRechazo(String motivo) {
+        if (ResultadoDeCobro.MOTIVO_CLAVE_REUTILIZADA.equals(motivo)) {
+            return "El pago no se procesó porque la clave de idempotencia de este intento no es válida."
+                    + " Reintentá con una Idempotency-Key nueva.";
+        }
+        return "El pago fue rechazado (" + motivo + "). Podés probar con otro medio de pago.";
     }
 
     private static String nuevoId() {

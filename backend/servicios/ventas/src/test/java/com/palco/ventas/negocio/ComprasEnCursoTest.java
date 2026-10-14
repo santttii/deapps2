@@ -167,6 +167,55 @@ class ComprasEnCursoTest {
     }
 
     @Test
+    void laMismaClaveConOtroPedidoEsUnConflictoYNoAbreNada() {
+        // La clave ya se usó para dos entradas de Platea B; ahora llega con tres.
+        when(ventas.buscarPorClave(COMPRADOR, CLAVE)).thenReturn(Optional.of(ventaEnCheckout(COMPRADOR)));
+        NuevaVentaDto otroPedido = new NuevaVentaDto("ev-1", List.of(new ItemPedidoDto("sec-1-4", 3)),
+                List.of(new TitularDto("Ana Gómez", "30123456"), new TitularDto("Luis Pérez", "31234567"),
+                        new TitularDto("Eva Ruiz", "32345678")));
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> compras.iniciar(COMPRADOR, TOKEN, otroPedido, CLAVE));
+
+        assertEquals("clave-reutilizada", error.tipo());
+        assertEquals("Esa clave ya se usó para otra compra", error.getMessage());
+        assertEquals(0, instanciasPedidas);
+        verifyNoInteractions(usuarios, eventos);
+    }
+
+    @Test
+    void laMismaClaveConOtroEventoUOtroSectorTambienEsUnConflicto() {
+        when(ventas.buscarPorClave(COMPRADOR, CLAVE)).thenReturn(Optional.of(ventaEnCheckout(COMPRADOR)));
+        NuevaVentaDto otroEvento = new NuevaVentaDto("ev-2", PEDIDO.items(), PEDIDO.titulares());
+        NuevaVentaDto otroSector = new NuevaVentaDto("ev-1", List.of(new ItemPedidoDto("sec-1-3", 2)),
+                PEDIDO.titulares());
+
+        for (NuevaVentaDto pedido : List.of(otroEvento, otroSector)) {
+            ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                    () -> compras.iniciar(COMPRADOR, TOKEN, pedido, CLAVE));
+            assertEquals("clave-reutilizada", error.tipo());
+        }
+        assertEquals(0, instanciasPedidas);
+    }
+
+    @Test
+    void siDosPedidosDistintosConLaMismaClaveLleganALaVezElQuePerdioEsUnConflicto() {
+        NuevaVentaDto otroPedido = new NuevaVentaDto("ev-1", List.of(new ItemPedidoDto("sec-1-4", 1)),
+                List.of(new TitularDto("Ana Gómez", "30123456")));
+        when(ventas.buscarPorClave(COMPRADOR, CLAVE))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(ventaEnCheckout(COMPRADOR)));
+        when(instancia.iniciarCompra(COMPRADOR, otroPedido, CLAVE)).thenThrow(
+                new ErroresDeNegocio.Conflicto(VentaRepository.TIPO_CLAVE_REPETIDA, "Ya existe una compra con esa clave."));
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> compras.iniciar(COMPRADOR, TOKEN, otroPedido, CLAVE));
+
+        assertEquals("clave-reutilizada", error.tipo());
+        verify(instancia).cancelarCompra();
+    }
+
+    @Test
     void siDosPedidosConLaMismaClaveLleganALaVezValeLaVentaQueGuardoElOtro() {
         // La primera búsqueda no la encuentra; cuando la instancia quiere guardar, el otro pedido ya ganó.
         when(ventas.buscarPorClave(COMPRADOR, CLAVE))
@@ -603,6 +652,52 @@ class ComprasEnCursoTest {
     }
 
     @Test
+    void sinInstanciaElPagoCancelaLaVentaYDevuelveElCupoAntesDeResponder() {
+        // El mensaje dice "Empezá la compra de nuevo": para que sea cierto, la venta no puede seguir
+        // reteniendo el cupo hasta el barrido.
+        when(ventas.buscarPorId(VENTA)).thenReturn(Optional.of(ventaEnCheckout(COMPRADOR)));
+        when(ventas.cancelar(VENTA)).thenReturn(true);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> compras.pagar(COMPRADOR, VENTA, CON_TARJETA, CLAVE_DEL_PAGO));
+
+        assertEquals("reserva-vencida", error.tipo());
+        verify(ventas).cancelar(VENTA);
+        verify(eventos).liberarCupo(VENTA, "ev-1", "sec-1-4", 2);
+    }
+
+    @Test
+    void sinInstanciaSiOtroPedidoYaCerroLaVentaNoSeDevuelveElCupoDosVeces() {
+        when(ventas.buscarPorId(VENTA)).thenReturn(Optional.of(ventaEnCheckout(COMPRADOR)));
+        when(ventas.cancelar(VENTA)).thenReturn(false);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> compras.pagar(COMPRADOR, VENTA, CON_TARJETA, CLAVE_DEL_PAGO));
+
+        assertEquals("reserva-vencida", error.tipo());
+        verify(eventos, never()).liberarCupo(anyString(), anyString(), anyString(), anyInt());
+    }
+
+    @Test
+    void siElServidorYaDestruyoLaInstanciaAlPagarTambienSeCancelaYSeDevuelveElCupo() {
+        when(ventas.buscarPorId(VENTA)).thenReturn(Optional.of(ventaEnCheckout(COMPRADOR)));
+        when(ventas.guardarClaveDePago(VENTA, CLAVE_DEL_PAGO, AL_PAGAR)).thenReturn(true);
+        when(ventas.cancelar(VENTA)).thenReturn(true);
+        when(instancia.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO))
+                .thenThrow(new NoSuchEJBException("la instancia ya no existe"));
+        compras.enCurso.put(VENTA, instancia);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> compras.pagar(COMPRADOR, VENTA, CON_TARJETA, CLAVE_DEL_PAGO));
+
+        assertEquals("reserva-vencida", error.tipo());
+        InOrder orden = inOrder(ventas, eventos);
+        orden.verify(ventas).borrarClaveDePago(VENTA, CLAVE_DEL_PAGO);
+        orden.verify(ventas).cancelar(VENTA);
+        orden.verify(eventos).liberarCupo(VENTA, "ev-1", "sec-1-4", 2);
+    }
+
+    @Test
     void unaVentaCanceladaOVencidaNoSePaga() {
         Venta cancelada = ventaEnEstado(EstadoVenta.CANCELADA);
         Venta vencida = ventaEnEstado(EstadoVenta.VENCIDA);
@@ -958,6 +1053,9 @@ class ComprasEnCursoTest {
         when(venta.getFacturaEstado()).thenReturn(EstadoFactura.NO_APLICA);
         when(venta.getCreada()).thenReturn(AHORA);
         when(venta.getVenceReserva()).thenReturn(AHORA.plusMinutes(10));
+        // El mismo evento y los mismos renglones que PEDIDO: repetirlo con esa clave es el mismo pedido.
+        when(venta.getEventoId()).thenReturn("ev-1");
+        when(venta.getItems()).thenReturn(ventaEnCheckout(COMPRADOR).getItems());
         return venta;
     }
 

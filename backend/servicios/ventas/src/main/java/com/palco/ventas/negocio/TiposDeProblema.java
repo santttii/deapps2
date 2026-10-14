@@ -29,6 +29,15 @@ public final class TiposDeProblema {
     /** 409: no quedan lugares suficientes en el sector. */
     public static final String CUPO_AGOTADO = "cupo-agotado";
 
+    /** 409: el evento ya empezó o terminó; Eventos no reserva más lugares. */
+    public static final String EVENTO_FINALIZADO = "evento-finalizado";
+
+    /**
+     * 409: la clave de idempotencia ya abrió otra compra, con otro evento u
+     * otros renglones. Repetir el mismo pedido no es esto: devuelve la venta.
+     */
+    public static final String CLAVE_REUTILIZADA = "clave-reutilizada";
+
     /** 403: el comprador todavía no verificó su identidad. */
     public static final String IDENTIDAD_NO_VERIFICADA = "identidad-no-verificada";
 

@@ -67,7 +67,8 @@ import com.palco.ventas.negocio.externos.CobroNoRealizado;
  * El índice vive en la memoria de este servidor: redesplegar Ventas lo vacía.
  * Las ventas siguen en la base; una compra que quedó sin instancia se puede
  * consultar y cancelar igual, pero ya no se puede pagar, porque los titulares
- * vivían en la instancia. Si nadie la cancela, la vence el barrido. La
+ * vivían en la instancia. Si el comprador intenta pagarla, se cancela en ese
+ * momento y devuelve su cupo; si nadie la toca, la vence el barrido. La
  * excepción es la compra que había quedado con un intento de pago sin
  * resultado: no se cancela ni vence, y hay que resolverla a mano.
  */
@@ -117,7 +118,10 @@ public class ComprasEnCurso {
 
     /**
      * Abre una compra. Repetir el pedido con la misma clave de idempotencia
-     * devuelve la venta que ya existe, sin reservar otra vez.
+     * devuelve la venta que ya existe, sin reservar otra vez. Si la clave ya
+     * abrió una compra distinta (otro evento, otros sectores u otras
+     * cantidades) lanza 409 {@code clave-reutilizada}: devolver aquella venta
+     * le haría creer al comprador que se reservó lo que pidió ahora.
      *
      * @param compradorId       el usuario del token (claim "sub")
      * @param tokenDelComprador el token tal cual llegó en el pedido, sin la palabra "Bearer"
@@ -127,7 +131,7 @@ public class ComprasEnCurso {
         // Un pedido repetido: se devuelve la venta como está hoy, sin crear otra instancia ni reservar.
         Optional<Venta> anterior = ventas.buscarPorClave(compradorId, claveIdempotencia);
         if (anterior.isPresent()) {
-            return ServicioDeVentas.aDto(anterior.get());
+            return ServicioDeVentas.aDto(mismoPedido(anterior.get(), nueva));
         }
 
         // Solo compra quien verificó su identidad. Se consulta antes de pedir una instancia y de reservar nada.
@@ -150,7 +154,7 @@ public class ComprasEnCurso {
                 // La restricción única de la base dejó guardar a uno solo: vale esa venta. El que
                 // perdió ya devolvió el cupo que había reservado, antes de lanzar el conflicto.
                 return ventas.buscarPorClave(compradorId, claveIdempotencia)
-                        .map(ServicioDeVentas::aDto)
+                        .map(ganadora -> ServicioDeVentas.aDto(mismoPedido(ganadora, nueva)))
                         .orElseThrow(() -> e);
             }
             throw e;
@@ -203,7 +207,8 @@ public class ComprasEnCurso {
      *
      * Lanza 404 si la venta no existe o es de otro usuario; 409
      * {@code reserva-vencida} si ya no se puede pagar (venció, se canceló o el
-     * servicio perdió la instancia de esa compra); 409 {@code venta-ya-paga}
+     * servicio perdió la instancia de esa compra; en ese último caso la venta
+     * se cancela y devuelve el cupo antes de responder); 409 {@code venta-ya-paga}
      * si se pagó con otra clave; 409 {@code operacion-en-curso} si hay otro
      * pago u otra llamada en curso; 402 {@code pago-rechazado}; y 504
      * {@code sin-respuesta} si quien cobra no contestó: en ese caso se
@@ -240,8 +245,8 @@ public class ComprasEnCurso {
             ServicioDeVentas.exigirQueSePuedaPagar(venta, ahora);
             if (compra == null) {
                 // Sin instancia no están los titulares: se redesplegó el servicio o el servidor la descartó.
-                // No se anota nada: la venta queda sin marca y, si nadie la cancela, la vence el barrido.
-                throw ServicioDeVentas.reservaVencida();
+                // La respuesta invita a empezar de nuevo, así que la venta se cierra ya y suelta su cupo.
+                throw compraPerdida(venta);
             }
         }
 
@@ -383,7 +388,11 @@ public class ComprasEnCurso {
             // El servidor ya había destruido la instancia: la llamada no entró, así que no se cobró.
             enCurso.remove(ventaId);
             quitarMarcaSinCobro(ventaId, clavePago, reintento);
-            throw reintento ? pagoSinResultado(ventaId, clavePago) : ServicioDeVentas.reservaVencida();
+            if (reintento) {
+                throw pagoSinResultado(ventaId, clavePago);
+            }
+            // Ya sin la marca de este intento, la venta se cierra como cuando no hay instancia.
+            throw ventas.buscarPorId(ventaId).map(this::compraPerdida).orElseGet(ServicioDeVentas::reservaVencida);
         } catch (ErroresDeNegocio.Conflicto e) {
             if (TiposDeProblema.RESERVA_VENCIDA.equals(e.tipo())) {
                 // La reserva venció justo entre la marca y la revisión de la instancia, que es anterior al cobro.
@@ -403,6 +412,46 @@ public class ComprasEnCurso {
             enCurso.remove(ventaId);
             throw e;
         }
+    }
+
+    /**
+     * Cierra una compra vigente que perdió su instancia (se redesplegó el
+     * servicio o el servidor la descartó) y devuelve el 409
+     * {@code reserva-vencida} que se le responde al comprador. Sin los
+     * titulares no se puede pagar, y el mensaje le dice que empiece de nuevo:
+     * para que eso sea cierto, la venta pasa a {@code CANCELADA} con el mismo
+     * UPDATE condicional de {@link #cancelar} y, si este pedido fue el que la
+     * cerró, su cupo vuelve a Eventos. Si el UPDATE no cambió nada, la cerró
+     * otro pedido (o tiene la marca de otro intento de pago) y el cupo no se
+     * toca: lo devuelve quien la cerró.
+     */
+    private ErroresDeNegocio.Conflicto compraPerdida(Venta venta) {
+        if (ventas.cancelar(venta.getId())) {
+            LOG.info("Venta " + venta.getId() + " cancelada al pagar porque su compra ya no tenía instancia:"
+                    + " se devuelve el cupo a Eventos.");
+            devolverCupo(venta);
+        }
+        return ServicioDeVentas.reservaVencida();
+    }
+
+    /**
+     * La venta de una clave de idempotencia ya usada, si el pedido es el
+     * mismo: mismo evento y mismos renglones (sector y cantidad, en el mismo
+     * orden). Si no, lanza 409 {@code clave-reutilizada}. Los titulares no se
+     * comparan porque no se guardan en la base: viven en la instancia.
+     */
+    private static Venta mismoPedido(Venta anterior, NuevaVentaDto nueva) {
+        List<String> guardados = anterior.getItems().stream()
+                .map(item -> item.getSectorId() + "x" + item.getCantidad())
+                .toList();
+        List<String> pedidos = nueva.items().stream()
+                .map(item -> item.sectorId() + "x" + item.cantidad())
+                .toList();
+        if (!anterior.getEventoId().equals(nueva.eventoId()) || !guardados.equals(pedidos)) {
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.CLAVE_REUTILIZADA,
+                    "Esa clave ya se usó para otra compra");
+        }
+        return anterior;
     }
 
     /**
