@@ -17,8 +17,8 @@
 
     <dependencies>
         <dependency>
-            <!-- Dobles de prueba de lo que en producción pone el servidor: el EntityManager y el
-                 token del pedido. Versión y alcance (test) vienen del pom padre. -->
+            <!-- Dobles de prueba de lo que en producción pone el servidor: el EntityManager y las
+                 claves JWT. Versión y alcance (test) vienen del pom padre. -->
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
         </dependency>

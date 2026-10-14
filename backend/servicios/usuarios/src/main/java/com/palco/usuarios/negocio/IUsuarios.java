@@ -8,7 +8,6 @@ import com.palco.usuarios.api.Dtos.RegistroPendienteDto;
 import com.palco.usuarios.api.Dtos.SesionDto;
 import com.palco.usuarios.api.Dtos.TokenDeServicioDto;
 import com.palco.usuarios.api.Dtos.UsuarioDto;
-import com.palco.usuarios.api.Dtos.VerificacionDeIdentidadDto;
 import com.palco.usuarios.api.Dtos.VerificacionDto;
 
 /**
@@ -22,7 +21,10 @@ public interface IUsuarios {
     /** Crea la cuenta sin verificar y manda el código de 6 dígitos al email. */
     RegistroPendienteDto registrar(RegistroDto registro);
 
-    /** Valida el código; si es correcto activa la cuenta y devuelve la sesión. */
+    /**
+     * Valida el código; si es correcto completa el registro (email e identidad
+     * verificados) y devuelve la sesión.
+     */
     SesionDto verificarEmail(VerificacionDto verificacion);
 
     /** Manda un código nuevo (como mucho uno cada 30 segundos). */
@@ -33,16 +35,6 @@ public interface IUsuarios {
 
     /** Datos del usuario dueño del token. */
     UsuarioDto obtener(String usuarioId);
-
-    /**
-     * Deja verificada la identidad del usuario dueño del token, que es lo que
-     * Ventas exige para comprar. Repetirlo no cambia nada.
-     *
-     * Es una SIMULACIÓN: no revisa ningún documento. La respuesta lo dice
-     * ({@code simulada}). El día que exista un servicio de validación de
-     * documentos, se lo llama desde acá y la operación no cambia de forma.
-     */
-    VerificacionDeIdentidadDto verificarIdentidad(String usuarioId);
 
     /**
      * Credenciales de cliente: si el secreto es el que comparten los servicios,

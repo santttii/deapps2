@@ -75,7 +75,10 @@ public class Usuario {
         this.emailVerificado = true;
     }
 
-    /** Desde acá el usuario puede comprar: Ventas exige la identidad verificada. */
+    /**
+     * Desde acá el usuario puede comprar: Ventas exige la identidad verificada.
+     * Se marca al completar el registro (ver {@code ServicioDeUsuarios.verificarEmail}).
+     */
     public void marcarIdentidadVerificada() {
         this.identidadVerificada = true;
     }
