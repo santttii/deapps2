@@ -1,58 +1,313 @@
 openapi: 3.1.0
 info:
   title: Palco API
-  version: 1.0.0
+  version: 1.1.0
   description: >
     API REST de Palco, plataforma de venta de entradas con reventa oficial (tope +10%).
-    Montos en pesos enteros. Fechas ISO 8601 con zona horaria. Errores en formato Problem Details (RFC 9457).
+    Montos en pesos enteros. Fechas ISO 8601: las de Ventas en UTC (`2026-10-14T18:53:50Z`); la fecha del evento,
+    en hora local del lugar y sin zona (`2026-12-26T17:00:00`). Errores en formato Problem Details (RFC 9457),
+    con `type` de la forma `/problemas/<tipo>`.
+
+
+    Cada servicio es un WAR con su propia raíz: Usuarios en `/api/usuarios`, Eventos en `/api/eventos`, Ventas en
+    `/api/v1` (recursos `ventas` y `entradas`) y Pagos en `/api/v1/pagos`. Usuarios y Eventos todavía no pasaron a
+    `/api/v1`. Las rutas de abajo son relativas a `/api`.
+    Reventa, Validación y Facturación están desplegados y solo responden `GET /api/<servicio>/health`.
+    Notificaciones expone operaciones internas de desarrollo (`/api/notificaciones/pruebas/*`, `auditoria`) que no
+    forman parte de este contrato.
 servers:
-  - url: https://api.palco.example/api/v1
-    description: Base versionada en la URI
+  - url: http://localhost:8080/api
+    description: Desarrollo (WildFly local)
+  - url: https://api.palco.example/api
+    description: Producción (ejemplo)
 security:
   - bearerAuth: []
 tags:
+  - name: usuarios
   - name: eventos
   - name: ventas
+  - name: pagos
+    description: Uso interno. Solo lo llama Ventas, con un token de rol `servicio`.
   - name: reventas
 
 paths:
+  /usuarios/registro:
+    post:
+      tags: [usuarios]
+      summary: Registrar una cuenta y mandar el código de verificación por email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Registro' }
+      responses:
+        '201':
+          description: Cuenta creada sin verificar; el código se manda al email
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistroPendiente' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+
+  /usuarios/verificacion:
+    post:
+      tags: [usuarios]
+      summary: Confirmar el email con el código de 6 dígitos e iniciar la sesión
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Verificacion' }
+      responses:
+        '200':
+          description: Email verificado; devuelve la sesión
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sesion' }
+        '400':
+          description: Código incorrecto, vencido o con demasiados intentos (`errores.codigo`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '409':
+          description: El email ya estaba verificado (`/problemas/conflicto`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /usuarios/verificacion/reenvio:
+    post:
+      tags: [usuarios]
+      summary: Pedir un código de verificación nuevo
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Reenvio' }
+      responses:
+        '204':
+          description: Código reenviado
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '409':
+          description: Hay que esperar 30 segundos entre un pedido y otro (`/problemas/conflicto`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /usuarios/login:
+    post:
+      tags: [usuarios]
+      summary: Iniciar sesión con email y contraseña
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Login' }
+      responses:
+        '200':
+          description: Sesión iniciada; el token dura 8 horas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sesion' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401':
+          description: Email o contraseña incorrectos (`/problemas/no-autenticado`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '409':
+          description: La cuenta todavía no verificó su email (`/problemas/conflicto`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /usuarios/yo:
+    get:
+      tags: [usuarios]
+      summary: Datos del usuario del token
+      description: Roles `user`, `organizer` o `staff`. Ventas lo consulta antes de iniciar una compra.
+      responses:
+        '200':
+          description: Usuario autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usuario' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /usuarios/servicios/token:
+    post:
+      tags: [usuarios]
+      summary: Emitir un token de rol `servicio` para las llamadas entre servicios
+      description: No pide token; lo protege el secreto compartido. El token dura 5 minutos.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Secreto' }
+      responses:
+        '200':
+          description: Token emitido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenDeServicio' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401':
+          description: El secreto no es correcto (`/problemas/no-autenticado`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /usuarios/jwks:
+    get:
+      tags: [usuarios]
+      summary: Clave pública para verificar los tokens (JWKS)
+      description: Los demás servicios la usan para validar la firma RS256 de los tokens.
+      security: []
+      responses:
+        '200':
+          description: Conjunto de claves en formato JWK Set (RFC 7517)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+
+  /eventos:
+    get:
+      tags: [eventos]
+      summary: Catálogo de eventos
+      security: []                       # catálogo público
+      parameters:
+        - name: categoria
+          in: query
+          required: false
+          schema: { type: string, example: Música }
+        - name: q
+          in: query
+          required: false
+          description: Texto a buscar en el título o el lugar, sin distinguir mayúsculas ni acentos
+          schema: { type: string }
+      responses:
+        '200':
+          description: Eventos que cumplen los filtros (lista vacía si no hay)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Evento' }
+        '400':
+          description: La categoría no existe (`/problemas/datos-invalidos`, `errores.categoria`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+    post:
+      tags: [eventos]
+      summary: Crear un evento con sus sectores
+      description: Requiere rol `organizer`. El evento queda a nombre de quien lo crea.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevoEvento' }
+      responses:
+        '201':
+          description: Evento creado
+          headers:
+            Location:
+              schema: { type: string, example: http://localhost:8080/api/eventos/recital-de-prueba }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Evento' }
+        '400':
+          description: >
+            Cuerpo ausente o mal formado, o campos inválidos (`/problemas/datos-invalidos`, con `errores` por campo).
+            Una `fechaISO` que no es futura responde con `errores.fechaISO`
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
   /eventos/{slug}:
     get:
       tags: [eventos]
       summary: Detalle de un evento con sus sectores y cupo disponible
+      description: >
+        La respuesta todavía no lleva `ETag` ni atiende `If-None-Match` (304). Diseñado, pendiente: no implementado
+        al 14/10.
       security: []                       # catálogo público
       parameters:
         - name: slug
           in: path
           required: true
           schema: { type: string, example: atletico-norte-racing-sur }
-        - name: If-None-Match
-          in: header
-          required: false
-          schema: { type: string }
-          description: ETag de la última copia; si no cambió responde 304 sin cuerpo.
       responses:
         '200':
           description: Evento encontrado
-          headers:
-            ETag:
-              schema: { type: string }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Evento' }
-        '304':
-          description: Sin cambios, usar la copia local
         '404':
           description: Evento inexistente
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
 
-  /ventas:
+  /eventos/{eventoId}/sectores/{sectorId}/cupo:
+    post:
+      tags: [eventos]
+      summary: Reservar o liberar lugares de un sector
+      description: >
+        Requiere rol `servicio`: lo llama Ventas. `cantidad` positiva suma vendidas (reserva) y negativa las resta
+        (libera). La actualización es atómica en la base: dos pedidos por el último lugar no pueden pasar los dos.
+      parameters:
+        - name: eventoId
+          in: path
+          required: true
+          schema: { type: string, example: ev-1 }
+        - name: sectorId
+          in: path
+          required: true
+          schema: { type: string, example: sec-1-1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CambioCupo' }
+      responses:
+        '200':
+          description: Sector con el cupo actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sector' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: >
+            No quedan lugares o se quiere liberar más de lo vendido (`/problemas/conflicto`), o se quiere reservar
+            cupo de un evento que ya empezó (`/problemas/evento-finalizado`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /v1/ventas:
     post:
       tags: [ventas]
       summary: Iniciar una compra y reservar el cupo durante 10 minutos
-      description: Requiere rol `user` con identidad verificada. Es idempotente por `Idempotency-Key`.
+      description: >
+        Requiere rol `user`. Ventas consulta `GET /usuarios/yo` con el token del comprador y rechaza la compra si la
+        cuenta figura sin identidad verificada. Es idempotente por `Idempotency-Key`.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -65,40 +320,107 @@ paths:
           description: Compra iniciada, cupo reservado
           headers:
             Location:
-              schema: { type: string, example: /api/v1/ventas/V-00231 }
+              schema: { type: string, example: http://localhost:8080/api/v1/ventas/V-3f9a1c2b }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Venta' }
         '400':
-          description: Cuerpo mal formado o campos inválidos
+          description: Cuerpo mal formado, campos inválidos o `Idempotency-Key` ausente o que no es UUID (`/problemas/datos-invalidos`)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
-        '403': { $ref: '#/components/responses/SinPermiso' }
+        '403':
+          description: El rol no es `user` (`/problemas/sin-permiso`) o la cuenta no tiene la identidad verificada (`/problemas/identidad-no-verificada`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
         '409':
-          description: El sector no tiene cupo suficiente
+          description: >
+            El sector no tiene cupo suficiente (`/problemas/cupo-agotado`), el evento ya empezó
+            (`/problemas/evento-finalizado`), la misma clave está en uso por un pedido que todavía no terminó
+            (`/problemas/operacion-en-curso`) o la misma clave ya abrió una compra con otro pedido
+            (`/problemas/clave-reutilizada`)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
         '422':
-          description: Viola una regla de negocio (más de 6 entradas, DNI repetido)
+          description: >
+            Viola una regla de negocio: más de 6 entradas (`/problemas/maximo-de-entradas`), DNI repetido
+            (`/problemas/dni-repetido`), titulares que no coinciden con la cantidad (`/problemas/titulares-no-coinciden`)
+            o sector que no es del evento (`/problemas/sector-inexistente`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: /problemas/maximo-de-entradas
+                title: Regla de negocio incumplida
+                status: 422
+                detail: Se pueden comprar hasta 6 entradas por compra.
+                instance: /api/v1/ventas
+        '504': { $ref: '#/components/responses/SinRespuesta' }
+    get:
+      tags: [ventas]
+      summary: Compras del usuario autenticado
+      description: >
+        Requiere rol `user`. Devuelve las ventas del dueño del token (claim `sub`), de la más nueva a la más vieja, en
+        todos los estados y con sus entradas. No recibe id de usuario, así que nadie puede pedir las de otro. Sin
+        paginación ni filtros.
+      responses:
+        '200':
+          description: Lista de compras (vacía si no compró nada)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Venta' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /v1/ventas/{ventaId}:
+    parameters:
+      - $ref: '#/components/parameters/VentaId'
+    get:
+      tags: [ventas]
+      summary: Estado de una compra propia
+      description: Requiere rol `user`. Una venta de otro usuario responde 404, para no revelar que existe.
+      responses:
+        '200':
+          description: Venta encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Venta' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+    delete:
+      tags: [ventas]
+      summary: Cancelar una compra en checkout y liberar el cupo
+      description: Requiere rol `user`. Repetirlo sobre una venta ya cancelada o vencida también responde 204.
+      responses:
+        '204':
+          description: Venta cancelada
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: La venta ya está paga (`/problemas/venta-ya-paga`) o tiene un pago en curso (`/problemas/operacion-en-curso`)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
 
-  /ventas/{ventaId}/pagos:
+  /v1/ventas/{ventaId}/pagos:
     post:
       tags: [ventas]
       summary: Pagar una compra en checkout
       description: >
-        Cobra con Mercado Pago (REST), factura con ARCA (SOAP, timeout 5 s) y publica `PAGO_CONFIRMADO`
-        (cola de emisión + tópico). Si ARCA no responde, el pago igualmente se crea y la factura queda `PENDIENTE`.
+        Requiere rol `user`. Ventas cobra con `POST /v1/pagos` (pasarela simulada, por REST) y, si el pago se aprueba,
+        publica `PAGO_CONFIRMADO` en la misma transacción (cola `emisionEntradas` y tópico `compraConfirmada`); las
+        entradas se emiten de forma asincrónica. Es idempotente por `Idempotency-Key`.
+        La factura con ARCA (SOAP) y el cobro con Mercado Pago están diseñados, pendientes: no implementados al
+        14/10; por eso `facturaEstado` queda en `NO_APLICA`.
       parameters:
-        - name: ventaId
-          in: path
-          required: true
-          schema: { type: string, example: V-00231 }
+        - $ref: '#/components/parameters/VentaId'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -110,27 +432,123 @@ paths:
           description: Pago aprobado. La venta queda CONFIRMADA y las entradas se emiten de forma asincrónica.
           headers:
             Location:
-              schema: { type: string, example: /api/v1/ventas/V-00231/pagos/P-0087 }
+              schema: { type: string, example: http://localhost:8080/api/v1/ventas/V-3f9a1c2b/pagos/P-8c21d0e4 }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Venta' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
         '402':
-          description: Pago rechazado por la pasarela
+          description: Pago rechazado por la pasarela (`/problemas/pago-rechazado`). La venta sigue en checkout.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
         '409':
-          description: La reserva venció o la venta ya está paga
+          description: >
+            La reserva venció (`/problemas/reserva-vencida`), la venta ya está paga (`/problemas/venta-ya-paga`) o hay
+            otro pago en curso o sin resultado (`/problemas/operacion-en-curso`). Si la compra seguía vigente pero
+            perdió su instancia, antes de responder `reserva-vencida` la venta pasa a `CANCELADA` y el cupo vuelve a
+            Eventos
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '504':
+          description: >
+            La pasarela no respondió a tiempo (`/problemas/sin-respuesta`). No se sabe si el cobro se hizo: hay que
+            consultar la venta antes de reintentar.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
 
-  /reventas:
+  /v1/entradas/{entradaId}:
+    get:
+      tags: [ventas]
+      summary: Detalle de una entrada propia
+      description: Requiere rol `user`. Una entrada de otro usuario responde 404.
+      parameters:
+        - name: entradaId
+          in: path
+          required: true
+          schema: { type: string, example: T-d8e62a1e }
+      responses:
+        '200':
+          description: Entrada encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Entrada' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /v1/pagos:
+    post:
+      tags: [pagos]
+      summary: Cobrar un monto con la pasarela
+      description: >
+        Requiere rol `servicio`. Pasarela simulada: el token `tok_test` aprueba, `tok_rechazado` rechaza y
+        `tok_sin_respuesta` no responde. Un rechazo no es un error: responde 201 con `estado` `RECHAZADO`.
+        Repetir la misma `Idempotency-Key` con el mismo pedido devuelve el pago ya resuelto.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, maxLength: 80 }
+          description: Clave por intento de cobro. Ventas manda la misma que recibió en el pago.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevoCobro' }
+      responses:
+        '201':
+          description: Pago resuelto, aprobado o rechazado
+          headers:
+            Location:
+              schema: { type: string, example: http://localhost:8080/api/v1/pagos/P-8c21d0e4 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pago' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '409':
+          description: >
+            La clave ya se usó con otro pedido (`/problemas/clave-reutilizada`) o ya existe un pago con esos datos
+            (`/problemas/pago-duplicado`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '504': { $ref: '#/components/responses/SinRespuesta' }
+
+  /v1/pagos/{pagoId}:
+    get:
+      tags: [pagos]
+      summary: Consultar un pago
+      description: Requiere rol `servicio`.
+      parameters:
+        - name: pagoId
+          in: path
+          required: true
+          schema: { type: string, example: P-8c21d0e4 }
+      responses:
+        '200':
+          description: Pago encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pago' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /v1/reventas:
     post:
       tags: [reventas]
       summary: Publicar una entrada propia en la reventa oficial
-      description: Requiere ser el titular verificado. El precio no puede superar pagado + 10% ni bajar de 50%.
+      description: >
+        Diseñado, pendiente: no implementado al 14/10 (el servicio de Reventa solo responde `GET /api/reventa/health`).
+        Requiere ser el titular verificado. El precio no puede superar pagado + 10% ni bajar de 50%.
       requestBody:
         required: true
         content:
@@ -166,7 +584,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Token RS256 emitido por /sesiones (ServicioDeUsuarios); el rol viaja en el claim `groups`.
+      description: >
+        Token RS256 emitido por `POST /usuarios/login` o `POST /usuarios/verificacion` (ServicioDeUsuarios); el rol
+        viaja en el claim `groups` (`user`, `organizer`, `staff`). Las llamadas entre servicios usan un token de rol
+        `servicio` emitido por `POST /usuarios/servicios/token`.
 
   parameters:
     IdempotencyKey:
@@ -175,20 +596,46 @@ components:
       required: true
       schema: { type: string, format: uuid }
       description: UUID por intento lógico. Repetir la clave devuelve la misma respuesta sin duplicar la operación.
+    VentaId:
+      name: ventaId
+      in: path
+      required: true
+      schema: { type: string, example: V-3f9a1c2b }
 
   responses:
+    DatosInvalidos:
+      description: Cuerpo ausente o mal formado, o campos inválidos (`/problemas/datos-invalidos`, con `errores` por campo)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problema' }
+          example:
+            type: /problemas/datos-invalidos
+            title: Datos inválidos
+            status: 400
+            detail: Hay datos inválidos.
+            instance: /api/usuarios/registro
+            errores:
+              email: Ingresá un email válido.
     NoAutenticado:
-      description: Falta el token o es inválido
+      description: Falta el token o es inválido (`/problemas/no-autenticado`)
+      headers:
+        WWW-Authenticate:
+          schema: { type: string, example: Bearer }
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problema' }
     SinPermiso:
-      description: El rol del token no puede hacer esta operación
+      description: El rol del token no puede hacer esta operación (`/problemas/sin-permiso`)
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problema' }
     NoEncontrado:
-      description: El recurso no existe o no pertenece al usuario
+      description: El recurso no existe o no pertenece al usuario (`/problemas/no-encontrado`)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problema' }
+    SinRespuesta:
+      description: Un servicio del que depende la operación no respondió a tiempo (`/problemas/sin-respuesta`)
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problema' }
@@ -209,6 +656,74 @@ components:
           description: Errores de validación por campo (extensión propia)
       additionalProperties: true
 
+    Registro:
+      type: object
+      required: [nombre, apellido, dni, fechaNacimiento, email, password]
+      properties:
+        nombre: { type: string, example: Ana }
+        apellido: { type: string, example: Gómez }
+        dni: { type: string, pattern: '^\d{7,8}$', example: '30123456' }
+        fechaNacimiento: { type: string, format: date, description: Mayor de 16 años, example: '1995-04-20' }
+        email: { type: string, format: email, maxLength: 200 }
+        telefono: { type: string, maxLength: 30 }
+        password: { type: string, minLength: 8, description: 'Al menos 8 caracteres, con letras y números' }
+
+    RegistroPendiente:
+      type: object
+      properties:
+        email: { type: string }
+        mensaje: { type: string }
+
+    Verificacion:
+      type: object
+      required: [email, codigo]
+      properties:
+        email: { type: string }
+        codigo: { type: string, pattern: '^\d{6}$', example: '123456' }
+
+    Reenvio:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string }
+
+    Login:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, example: titular@palco.test }
+        password: { type: string }
+
+    Sesion:
+      type: object
+      properties:
+        token: { type: string, description: JWT RS256 }
+        expiraEnSegundos: { type: integer, format: int64, example: 28800 }
+        usuario: { $ref: '#/components/schemas/Usuario' }
+
+    Usuario:
+      type: object
+      properties:
+        id: { type: string, example: user-titular }
+        nombre: { type: string }
+        apellido: { type: string }
+        dni: { type: string }
+        email: { type: string }
+        rol: { type: string, enum: [user, organizer, staff] }
+        identidadVerificada: { type: boolean }
+
+    Secreto:
+      type: object
+      required: [secreto]
+      properties:
+        secreto: { type: string }
+
+    TokenDeServicio:
+      type: object
+      properties:
+        token: { type: string }
+        expiraEnSegundos: { type: integer, format: int64, example: 300 }
+
     Sector:
       type: object
       properties:
@@ -221,41 +736,76 @@ components:
     Evento:
       type: object
       properties:
-        id: { type: string }
+        id: { type: string, example: ev-1 }
         slug: { type: string }
         titulo: { type: string }
         categoria: { type: string, example: Música }
         venue: { type: string }
-        fechaISO: { type: string, format: date-time }
+        fechaISO: { type: string, description: 'Fecha y hora local del evento, sin zona', example: '2026-12-26T17:00:00' }
         descripcion: { type: string }
+        destacado: { type: boolean }
+        imagenUrl: { type: [string, 'null'] }
         sectores:
           type: array
           items: { $ref: '#/components/schemas/Sector' }
+
+    NuevoSector:
+      type: object
+      required: [nombre, precio, cupo]
+      properties:
+        nombre: { type: string, maxLength: 120 }
+        precio: { type: integer, format: int64, minimum: 1 }
+        cupo: { type: integer, minimum: 1 }
+
+    NuevoEvento:
+      type: object
+      required: [titulo, categoria, venue, fechaISO, descripcion, sectores]
+      properties:
+        titulo: { type: string, maxLength: 200 }
+        categoria: { type: string, description: Una de las categorías del catálogo, example: Música }
+        venue: { type: string, maxLength: 200 }
+        fechaISO: { type: string, description: 'Fecha y hora local, sin zona', example: '2026-12-26T21:00:00' }
+        descripcion: { type: string, maxLength: 2000 }
+        imagenUrl: { type: string, maxLength: 1000 }
+        sectores:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/NuevoSector' }
+
+    CambioCupo:
+      type: object
+      required: [cantidad]
+      properties:
+        cantidad: { type: integer, description: 'Positiva reserva, negativa libera', example: 2 }
 
     Titular:
       type: object
       required: [nombre, dni]
       properties:
-        nombre: { type: string, example: Ana Gómez }
+        nombre: { type: string, maxLength: 200, example: Ana Gómez }
         dni: { type: string, pattern: '^\d{7,8}$', example: '30123456' }
 
     ItemVenta:
       type: object
       required: [sectorId, cantidad]
       properties:
-        sectorId: { type: string, example: sec-1-1 }
-        cantidad: { type: integer, minimum: 1, maximum: 6 }
+        sectorId: { type: string, maxLength: 40, example: sec-1-1 }
+        cantidad: { type: integer, minimum: 1, description: El total de la compra no puede pasar de 6 entradas }
+        sector: { type: string, readOnly: true, example: Platea A }
+        precioUnitario: { type: integer, format: int64, readOnly: true, example: 27500 }
 
     NuevaVenta:
       type: object
       required: [eventoId, items, titulares]
       properties:
-        eventoId: { type: string, example: ev-1 }
+        eventoId: { type: string, maxLength: 40, example: ev-1 }
         items:
           type: array
+          minItems: 1
           items: { $ref: '#/components/schemas/ItemVenta' }
         titulares:
           type: array
+          minItems: 1
           description: Un titular nominativo por entrada
           items: { $ref: '#/components/schemas/Titular' }
 
@@ -263,28 +813,89 @@ components:
       type: object
       required: [medioDePago, token]
       properties:
-        medioDePago: { type: string, example: tarjeta }
-        token: { type: string, description: Token de tarjeta generado por el SDK de la pasarela }
+        medioDePago: { type: string, maxLength: 40, example: tarjeta }
+        token:
+          type: string
+          maxLength: 200
+          description: Token de tarjeta generado por el SDK de la pasarela
+          example: tok_test
+
+    Enlaces:
+      type: object
+      description: Enlaces HATEOAS a las operaciones que el recurso admite en su estado actual
+      additionalProperties:
+        type: object
+        properties:
+          href: { type: string }
+          method: { type: string }
+
+    EntradaDeVenta:
+      type: object
+      properties:
+        id: { type: string, example: T-d8e62a1e }
+        sectorId: { type: string }
+        sector: { type: string }
+        titular: { $ref: '#/components/schemas/Titular' }
+        precioPagado: { type: integer, format: int64, description: Precio del sector sin el cargo de servicio; es la base del tope de reventa }
+        estado:
+          type: string
+          enum: [PENDIENTE_EMISION, VALIDA, USADA, PUBLICADA, VENDIDA, ANULADA]
+        codigoQr: { type: [string, 'null'], description: Vacío hasta que la entrada se emite }
+        _links: { $ref: '#/components/schemas/Enlaces' }
+
+    Entrada:
+      allOf:
+        - $ref: '#/components/schemas/EntradaDeVenta'
+        - type: object
+          properties:
+            ventaId: { type: string }
+            eventoId: { type: string }
+            emitida: { type: [string, 'null'], format: date-time }
 
     Venta:
       type: object
       properties:
-        id: { type: string, example: V-00231 }
+        id: { type: string, example: V-3f9a1c2b }
         estado:
           type: string
           enum: [EN_CHECKOUT, CONFIRMADA, EMITIDA, CANCELADA, VENCIDA]
         facturaEstado:
           type: string
           enum: [NO_APLICA, AUTORIZADA, PENDIENTE, RECHAZADA]
+        eventoId: { type: string, example: ev-1 }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ItemVenta' }
+        subtotal: { type: integer, format: int64, example: 55000 }
+        cargoServicio: { type: integer, format: int64, description: 10% del subtotal, example: 5500 }
         montoTotal: { type: integer, format: int64, example: 60500 }
+        creada: { type: string, format: date-time }
         venceReserva: { type: string, format: date-time }
-        _links:
-          type: object
-          additionalProperties:
-            type: object
-            properties:
-              href: { type: string }
-              method: { type: string }
+        pagoId: { type: [string, 'null'], example: P-8c21d0e4 }
+        entradas:
+          type: array
+          description: Vacía hasta que el pago se aprueba
+          items: { $ref: '#/components/schemas/EntradaDeVenta' }
+        _links: { $ref: '#/components/schemas/Enlaces' }
+
+    NuevoCobro:
+      type: object
+      required: [ventaId, monto, medioDePago, token]
+      properties:
+        ventaId: { type: string, maxLength: 40, example: V-3f9a1c2b }
+        monto: { type: integer, format: int64, minimum: 1, example: 60500 }
+        medioDePago: { type: string, maxLength: 40, example: tarjeta }
+        token: { type: string, maxLength: 200, example: tok_test }
+
+    Pago:
+      type: object
+      properties:
+        pagoId: { type: string, example: P-8c21d0e4 }
+        ventaId: { type: string }
+        monto: { type: integer, format: int64 }
+        estado: { type: string, enum: [APROBADO, RECHAZADO] }
+        motivo: { type: [string, 'null'], example: fondos_insuficientes }
+        idExterno: { type: [string, 'null'] }
 
     NuevaPublicacion:
       type: object

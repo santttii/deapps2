@@ -2,7 +2,9 @@
 
 La colección `docs/api/palco-api.postman_collection.json` se corre entera, en orden y sin intervención, contra el backend local. Se puede repetir las veces que haga falta sin reiniciar el servidor.
 
-Última comprobación: 13/10/2026, con Newman 6.2.3 contra WildFly en `http://localhost:8080`. Resultado de la corrida completa, con el servidor recién armado desde cero: 48 requests, 186 tests, 0 fallados.
+La colección no se edita a mano: la genera `scripts/postman/generar.js` (sección 12).
+
+Última comprobación: 14/10/2026, con Newman 6.2.3 contra WildFly en `http://localhost:8080`, con un servidor desplegado antes de que existiera la segunda cuenta compradora (`otro.titular@palco.test`): 53 requests y 201 tests ejecutados, con 9 tests fallados y un script cortado, todos en los tres requests que usan esa cuenta (su login responde 401 porque la cuenta todavía no está en la base). El resto, 0 fallados. Esos tres requests se comprobaron aparte con una cuenta compradora recién registrada y verificada en lugar de la nueva: la carpeta 3 dio 30 requests, 140 tests, 0 fallados. Después de esa comprobación la carpeta 3 sumó un request ("misma clave con otro pedido", 409 `clave-reutilizada`, 3 tests), que todavía no corrió contra el servidor: necesita el WAR nuevo de Ventas. Con el servidor redesplegado, el resultado esperado de la corrida completa es 54 requests y 206 tests, 0 fallados (sección 7).
 
 ## 1. Qué hace falta
 
@@ -17,9 +19,9 @@ La colección `docs/api/palco-api.postman_collection.json` se corre entera, en o
 
 | Carpeta | Requests de la corrida | Qué prueba |
 |---|---|---|
-| **1 Usuarios (implementado)** | 12 | Registro, registro inválido, login (comprador y staff), login incorrecto, login sin verificar el email, perfil con y sin token, verificación de identidad (simulada) con y sin token, token de servicio con secreto incorrecto, JWKS |
+| **1 Usuarios (implementado)** | 10 | Registro, registro inválido, login (comprador y staff), login incorrecto, login sin verificar el email, perfil con y sin token, token de servicio con secreto incorrecto, JWKS |
 | **2 Eventos (implementado)** | 13 | Listar, filtrar, detalle, 404, crear evento sin token, con rol organizer e inválido, y cambio de cupo con rol servicio (reservar, pasarse del cupo, liberar) |
-| **3 Diseño v1 (Ventas implementado)** | 23 | La compra contra `/api/v1`: abrir la compra con reserva de cupo, idempotencia, pago rechazado, pago aprobado, venta y entrada, emisión asincrónica de la entrada, listado de las compras propias (con y sin token) y cancelación |
+| **3 Diseño v1 (Ventas implementado)** | 31 | La compra contra `/api/v1`: abrir la compra con reserva de cupo, idempotencia (también la misma clave con otro pedido, 409), pago rechazado, pago aprobado, venta y entrada, emisión asincrónica de la entrada, listado de las compras propias (con y sin token), aislamiento entre usuarios, control de rol y cancelación |
 
 Además hay dos subcarpetas que **quedan fuera de la corrida**:
 
@@ -32,13 +34,14 @@ Los nombres de los requests dicen el resultado esperado: el código entre parén
 
 ## 4. Cuentas de prueba
 
-Las crea el backend al arrancar. La contraseña de las tres es `palco1234`.
+Las crea el backend al arrancar (migraciones `V2__usuarios_de_prueba.sql` y `V3__segundo_comprador_de_prueba.sql` de Usuarios). La contraseña de todas es `palco1234`.
 
 | Rol | Cuenta | Para qué se usa | Variable donde queda el token |
 |---|---|---|---|
-| `user` (comprador) | `titular@palco.test` | Perfil y todas las compras. Tiene el email y la identidad verificados | `token` |
-| `organizer` | `organizador@palco.test` | Crear eventos | `tokenOrganizador` |
-| `staff` | `puerta@palco.test` | Validación en puerta (pendiente) | `tokenStaff` |
+| `user` (comprador) | `titular@palco.test` | Perfil y todas las compras | `token` |
+| `user` (comprador) | `otro.titular@palco.test` | Aislamiento: no ve las compras de `titular@palco.test` | `tokenOtroComprador` |
+| `organizer` | `organizador@palco.test` | Crear eventos; en Ventas, el 403 por rol | `tokenOrganizador` |
+| `staff` | `puerta@palco.test` | Validación en puerta (pendiente); en Ventas, el 403 por rol | `tokenStaff` |
 | `servicio` | No es una cuenta: `POST /api/usuarios/servicios/token` con `{"secreto":"palco-desarrollo"}` | Cambiar el cupo de un sector | `tokenServicio` (dura 5 minutos) |
 
 Cada request manda el token de su rol en la cabecera `Authorization: Bearer {{...}}`. No hay que copiar tokens a mano: los guardan los requests de login.
@@ -47,15 +50,27 @@ Cada request manda el token de su rol en la cabecera `Authorization: Bearer {{..
 
 La colección va de arriba hacia abajo: **1 Usuarios → 2 Eventos → 3 Diseño v1**. Dentro de cada carpeta el orden importa, porque cada request usa lo que guardó uno anterior:
 
-1. **Usuarios.** "Registro (201)" genera un email y un DNI nuevos. "Login (200) guarda token" entra con `titular@palco.test` y guarda `token`; lo usan "Mi perfil (200)" y "Verificar mi identidad (200, simulada)".
+1. **Usuarios.** "Registro (201)" genera un email y un DNI nuevos. "Login (200) guarda token" entra con `titular@palco.test` y guarda `token`; lo usa "Mi perfil (200)".
 2. **Eventos.** "Listar eventos" guarda `slug` para el detalle. "Login organizador" guarda `tokenOrganizador` para crear el evento. "Crear evento" guarda `eventoCreadoId` y `sectorCreadoId`, y "Token de servicio" guarda `tokenServicio`: con los tres se prueba el cupo sobre el evento recién creado, sin tocar los eventos de la demo.
-3. **Ventas.** "Login comprador" guarda `token`. "POST /v1/ventas (201)" guarda `ventaId`; el pago guarda `pagoId` y `entradaId`; después se consultan la entrada y la venta, y "GET /v1/ventas mis compras (200)" comprueba que esa venta figure en el listado del comprador, con sus entradas y sus códigos. Al final se abre otra compra y se cancela.
+3. **Ventas.** "Login comprador" guarda `token`. "POST /v1/ventas (201)" guarda `ventaId`; el pago guarda `pagoId` y `entradaId`; después se consultan la entrada y la venta, y "GET /v1/ventas mis compras (200)" comprueba que esa venta figure en el listado del comprador, con sus entradas y sus códigos, y guarda los ids de sus ventas en `ventasDelTitular`. Después vienen el aislamiento y el control de rol (abajo). Al final se abre otra compra y se cancela.
+
+**Aislamiento entre usuarios y control de rol.** Son los requests que muestran que cada comprador ve solo lo suyo y que Ventas atiende solo al rol `user`:
+
+| Request | Con qué token | Responde | Por qué |
+|---|---|---|---|
+| "Login segunda cuenta compradora (200)" | — | 200 | Guarda `tokenOtroComprador` (`otro.titular@palco.test`) |
+| "GET /v1/ventas/{id} de otro comprador (404)" | `tokenOtroComprador` | 404 `no-encontrado` | La venta del titular, pedida por otra cuenta. Ventas responde igual que a una venta que no existe, así no se puede saber si el id existe; el cuerpo trae solo los campos del error |
+| "GET /v1/ventas de otro comprador (200, sin ventas del titular)" | `tokenOtroComprador` | 200 | Ninguna de las ventas de `ventasDelTitular` aparece en la lista: de quién son lo dice el token |
+| "GET /v1/ventas con token de organizador (403)" | `tokenOrganizador` | 403 `sin-permiso` | Token válido, rol equivocado: es 403, no 401 |
+| "GET /v1/ventas/{id} con token de staff (403)" | `tokenStaff` | 403 `sin-permiso` | La venta existe, pero el rol `staff` no la puede consultar |
+
+La carpeta 3 pide de nuevo los tokens de organizador y de staff ("Login organizador en Ventas" y "Login staff en Ventas"), para poder correrse sola.
 
 Cada carpeta empieza pidiendo sus propios tokens, así que también se puede correr una sola.
 
 La compra de la carpeta 3 es de 2 entradas de Platea B (`sec-1-4`) del evento `ev-1`: 2 × 27.500 más el 10 % de cargo de servicio da 60.500.
 
-**La verificación de identidad es simulada.** `POST /api/usuarios/yo/identidad` deja verificada la identidad del dueño del token, que es lo que Ventas exige para comprar. No revisa ningún documento, y la respuesta lo dice: `"simulada": true`, con un `detalle` que lo explica. No lleva cuerpo. La corrida lo llama con `titular@palco.test`, que ya estaba verificada: repetirlo no cambia nada. Una cuenta recién registrada tiene que llamarlo una vez antes de comprar; si no, `POST /v1/ventas` le responde 403 `identidad-no-verificada`.
+**Para comprar alcanza con el registro.** Ventas solo le vende a una cuenta con `identidadVerificada` en verdadero, y la cuenta queda así cuando completa el registro, al verificar el email con el código (sección 8). No hay un paso aparte. Una cuenta que se registró y no verificó el email no puede iniciar sesión, así que tampoco comprar.
 
 **Cada venta trae su fecha y sus entradas completas.** La venta suma `creada` (cuándo se abrió, en UTC), y cada entrada dentro de la venta trae `sectorId`, `precioPagado` y `codigoQr` (`null` hasta que se emite), para no tener que pedir cada entrada por separado.
 
@@ -70,14 +85,15 @@ Están en la colección → pestaña **Variables**. Solo las tres primeras filas
 | `baseUsuarios`, `baseEventos`, `baseApi` | `http://localhost:8080/api/usuarios`, `…/api/eventos`, `…/api/v1` | A mano, si el backend está en otra dirección |
 | `eventoId`, `sectorId` | `ev-1`, `sec-1-4` | A mano. Son el evento y el sector que se compran. Si los cambiás, el test del total 60.500 deja de valer |
 | `codigoVerificacion` | vacío | A mano, solo para el paso manual de verificar el email |
-| `token`, `tokenOrganizador`, `tokenStaff`, `tokenServicio` | vacío | Los requests de login y "Token de servicio" |
+| `token`, `tokenOtroComprador`, `tokenOrganizador`, `tokenStaff`, `tokenServicio` | vacío | Los requests de login y "Token de servicio" |
 | `emailRegistro`, `dniRegistro` | vacío | "Registro (201)", antes de enviarse |
 | `slug` | vacío | "Listar eventos" |
 | `eventoCreadoId`, `sectorCreadoId` | vacío | "Crear evento, rol organizer (201)" |
-| `claveVenta`, `clavePago`, `claveVentaCancelada` | vacío | El request que abre la compra o paga, antes de enviarse: un UUID nuevo en cada corrida. El request "repetido" manda la misma clave |
+| `claveVenta`, `clavePago`, `claveVentaCancelada` | vacío | El request que abre la compra o paga, antes de enviarse: un UUID nuevo en cada corrida. El request "repetido" y el de "misma clave con otro pedido" mandan la misma clave |
 | `ventaId`, `montoTotal`, `precioUnitario` | vacío | "POST /v1/ventas (201)" |
 | `pagoId`, `entradaId` | vacío | "POST /v1/ventas/{id}/pagos (201)" |
 | `codigoQr` | vacío | "GET /v1/entradas/{id} emitida" |
+| `ventasDelTitular` | vacío | "GET /v1/ventas mis compras (200)": los ids de las ventas de `titular@palco.test`, en JSON |
 | `ventaCanceladaId` | vacío | "POST /v1/ventas para cancelar (201)" |
 | `intentosEmision` | `0` | Contador interno de la espera de la emisión |
 | `publicacionId` | vacío | Pendiente: la va a cargar el request de reventa |
@@ -92,9 +108,9 @@ No hay ids fijos: los `V-…`, `T-…` y `P-…` salen de las respuestas.
 2. Dejá todos los requests tildados y en el orden en que están. No hace falta poner demora ni iteraciones.
 3. `Run Palco API`.
 
-Tienen que ejecutarse 48 requests, todos con sus tests en verde. Los 6 de las subcarpetas "Pasos manuales" y "Pendientes" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
+Tienen que ejecutarse 54 requests, todos con sus tests en verde. Los 6 de las subcarpetas "Pasos manuales" y "Pendientes" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
 
-La corrida del 13/10/2026 se comprobó con Newman, que usa el mismo motor que el Runner. Falta repetirla una vez en la ventana de Postman para sacar la captura.
+La corrida se comprobó con Newman, que usa el mismo motor que el Runner. Falta repetirla una vez en la ventana de Postman, con el servidor redesplegado (para que exista `otro.titular@palco.test`), para sacar la captura.
 
 ### Con Newman (línea de comandos)
 
@@ -118,17 +134,19 @@ Para correr una sola carpeta se agrega `--folder` con el nombre exacto:
 npx newman run "<ruta de la colección>" --folder "3 Diseño v1 (Ventas implementado)"
 ```
 
-Resultado esperado de la corrida completa (comprobado el 13/10/2026, dos veces seguidas, con el servidor recién armado):
+Resultado esperado de la corrida completa, con el servidor redesplegado:
 
 ```
 │              iterations │                 1 │                0 │
-│                requests │                48 │                0 │
-│            test-scripts │                48 │                0 │
+│                requests │                54 │                0 │
+│            test-scripts │                54 │                0 │
 │      prerequest-scripts │                 5 │                0 │
-│              assertions │               186 │                0 │
+│              assertions │               206 │                0 │
 ```
 
-Por carpeta: Usuarios 12 requests y 36 tests; Eventos 13 y 34; Ventas 23 y 116. Si la emisión tarda más de un segundo, el request que la espera se repite y el total de requests sube; el de tests no cambia.
+Por carpeta: Usuarios 10 requests y 29 tests; Eventos 13 y 34; Ventas 31 y 143.
+
+Contra un servidor desplegado antes de agregar `otro.titular@palco.test` (comprobado el 14/10/2026) fallan exactamente los tres requests que usan esa cuenta: su login responde 401 y los dos que siguen reciben 401 en lugar de 404 y 200. Son 9 tests fallados y un script cortado, con 201 tests ejecutados. Se arregla redesplegando Usuarios, que corre la migración nueva. Si la emisión tarda más de un segundo, el request que la espera se repite y el total de requests sube; el de tests no cambia.
 
 ### Qué deja cada corrida en el servidor
 
@@ -138,6 +156,8 @@ La base es en memoria: todo esto desaparece al reiniciar WildFly.
 - Un evento "Evento de prueba Postman" en el catálogo, con fecha 31/12/2027 para que quede último. No hay operación para borrar eventos.
 - Una venta `EMITIDA` de `titular@palco.test` con 2 entradas de Platea B: el sector `sec-1-4` queda con 2 lugares vendidos más. El pago publica un mensaje `PAGO_CONFIRMADO`, que deja una fila en la auditoría de Notificaciones.
 - Una venta `CANCELADA`, que devuelve su lugar.
+
+La segunda cuenta compradora solo lee: no deja nada.
 
 ### Si algo falla y no es un error de la API
 
@@ -159,7 +179,7 @@ Por eso estos dos requests no pueden correr solos. Están en **1 Usuarios → Pa
 1. Enviá "Registro (201)" (o corré la carpeta 1). El email queda en `emailRegistro`.
 2. Buscá el código en el log de WildFly.
 3. Cargalo en la variable `codigoVerificacion` de la colección y guardá.
-4. Enviá "MANUAL · Verificar email (200)". Responde la sesión de la cuenta nueva.
+4. Enviá "MANUAL · Verificar email (200)". Responde la sesión de la cuenta nueva, con `identidadVerificada` en verdadero: el registro quedó completo y la cuenta ya puede comprar.
 
 "MANUAL · Reenviar código (204)" pide un código nuevo para esa cuenta, que también sale en el log. Hay que esperar 30 segundos desde el registro o desde el reenvío anterior: antes responde 409.
 
@@ -227,6 +247,14 @@ pm.collectionVariables.set('claveVenta', pm.variables.replaceIn('{{$guid}}'));
 
 Los tests no se aflojan para que pasen. Si el backend responde distinto del contrato (`docs/planes/00-contratos-compartidos.md`, sección 6), el test queda en rojo y se avisa.
 
-## 12. Exportar
+## 12. Regenerar la colección
 
-Click derecho en la colección → `Export` → Collection v2.1. Antes de guardar el archivo en el repo, revisá que las variables de los tokens hayan quedado vacías.
+El JSON de la colección sale de `scripts/postman/generar.js`: los requests, los tests y las variables se cambian ahí, y después se regenera desde la raíz del repo (hace falta Node, sin paquetes de npm):
+
+```bash
+node scripts/postman/generar.js
+```
+
+Escribe `docs/api/palco-api.postman_collection.json` y dice cuántos requests tiene en total (hoy 60: los 54 de la corrida y los 6 de "Pasos manuales" y "Pendientes"). Con una ruta como argumento la escribe en otro lado, por ejemplo para compararla con la del repo. Los tokens quedan vacíos, porque los guardan los requests de login.
+
+Si se cambia algo desde la ventana de Postman, hay que pasarlo al generador: la próxima regeneración pisa el archivo.
