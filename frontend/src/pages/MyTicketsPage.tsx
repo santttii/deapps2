@@ -3,13 +3,39 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useApp } from '../store/AppContext';
 import { useToast } from '../components/ToastProvider';
 import { calcularMinimoReventa, calcularTope, fecha, fechaHora, formatearDNI, money } from '../lib/format';
-import { obtenerEntradas, obtenerOrden } from '../servicios/ventas';
-import { HORAS_LIMITE_REVENTA } from '../types';
+import { mensajeDeError } from '../lib/api';
+import { listarCompras } from '../servicios/ventas';
+import { HORAS_LIMITE_REVENTA, type EstadoOrden, type Orden } from '../types';
 import QRCode from '../components/QRCode';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import ProgressBar from '../components/ProgressBar';
+import StatusMessage from '../components/StatusMessage';
 import PageTransition from '../components/PageTransition';
+
+// Mientras una compra paga espera la emisión (unos segundos), el listado se vuelve a pedir.
+const PAUSA_EMISION_MS = 2000;
+const MAX_CONSULTAS_EMISION = 15;
+
+function hora(iso: string): string {
+  return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+}
+
+// Cómo se muestra cada compra que no tiene entradas emitidas.
+const ESTADO_DE_COMPRA: Record<Exclude<EstadoOrden, 'emitida'>, { etiqueta: string; texto: (o: Orden) => string }> = {
+  en_checkout: {
+    etiqueta: 'En curso',
+    texto: (o) =>
+      Date.parse(o.venceReservaISO) > Date.now()
+        ? `Lugares reservados hasta las ${hora(o.venceReservaISO)}. Todavía no tiene un pago aprobado.`
+        : 'Venció el plazo para pagar. Si quedó un pago sin resultado, los lugares siguen reservados hasta que se confirme.',
+  },
+  confirmada: { etiqueta: 'Pagada', texto: () => 'El pago se aprobó y las entradas se están emitiendo.' },
+  cancelada: { etiqueta: 'Cancelada', texto: () => 'La compra se canceló sin pagar.' },
+  vencida: { etiqueta: 'Vencida', texto: () => 'La reserva venció sin pago.' },
+};
+
+type Carga = { fase: 'cargando' } | { fase: 'error'; mensaje: string } | { fase: 'lista'; compras: Orden[] };
 
 export default function MyTicketsPage() {
   const { state, dispatch, usuarioActual } = useApp();
@@ -17,63 +43,117 @@ export default function MyTicketsPage() {
   const [indice, setIndice] = useState(0);
   const [precioReventa, setPrecioReventa] = useState('');
   const [errorPrecio, setErrorPrecio] = useState('');
+  const [carga, setCarga] = useState<Carga>({ fase: 'cargando' });
+  const [vueltas, setVueltas] = useState(0); // sube con "Reintentar"
 
-  // El backend no tiene un listado de las entradas del usuario: se muestran las que este navegador
-  // guardó al terminar cada compra (más las de la reventa, que es local). Los eventos vienen del
-  // servidor: si un evento ya no existe allá (la base de desarrollo se reinicia), sus entradas no
-  // se muestran.
-  const misEntradas = useMemo(
-    () =>
-      state.entradas.filter(
-        (e) => e.propietarioId === usuarioActual?.id && state.eventos.some((ev) => ev.id === e.eventoId),
-      ),
-    [state.entradas, state.eventos, usuarioActual],
-  );
-
-  // Compras pagas cuyas entradas todavía no se guardaron: el usuario se fue de la confirmación
-  // antes de que terminara la emisión. Se guardan los ids juntos en un texto para que el efecto
-  // de abajo corra solo cuando esa lista cambia.
+  // Las compras salen de Ventas (GET /api/v1/ventas): las del usuario de la sesión, de la más
+  // nueva a la más vieja y en todos los estados. Las entradas emitidas se copian al estado local
+  // porque la reventa todavía es local. Si hay una compra paga emitiéndose, se vuelve a pedir.
   const compradorId = usuarioActual?.id;
-  const idsPendientes = state.ordenes
-    .filter((o) => o.compradorId === compradorId && o.estado === 'confirmada')
-    .map((o) => o.id)
-    .join(',');
-  const comprasPendientes = idsPendientes ? idsPendientes.split(',').length : 0;
-
-  // Al abrir la página se le pregunta al backend por cada una. Si ya está emitida, se guardan sus
-  // entradas y aparecen solas. Si falla o sigue emitiéndose no se hace nada: se vuelve a
-  // preguntar la próxima vez que se abra la página.
   useEffect(() => {
-    if (!compradorId || !idsPendientes) return;
+    if (!compradorId) return;
     let vigente = true;
-    idsPendientes.split(',').forEach(async (ordenId) => {
+    let temporizador: ReturnType<typeof setTimeout> | undefined;
+    let consultas = 0;
+    const consultar = async () => {
+      consultas += 1;
       try {
-        const orden = await obtenerOrden(ordenId);
-        if (orden.estado !== 'emitida') return;
-        const entradas = await obtenerEntradas(orden);
-        if (vigente) dispatch({ type: 'GUARDAR_COMPRA', payload: { orden, entradas, compradorId } });
-      } catch {
-        // Se reintenta en la próxima visita.
+        const recibidas = await listarCompras();
+        if (!vigente) return;
+        const emitidas = recibidas.flatMap((o) => o.entradas.filter((e) => e.codigoQr));
+        dispatch({ type: 'GUARDAR_ENTRADAS', payload: { entradas: emitidas, compradorId } });
+        setCarga({ fase: 'lista', compras: recibidas });
+        if (recibidas.some((o) => o.estado === 'confirmada') && consultas < MAX_CONSULTAS_EMISION) {
+          temporizador = setTimeout(consultar, PAUSA_EMISION_MS);
+        }
+      } catch (error) {
+        if (vigente) setCarga({ fase: 'error', mensaje: mensajeDeError(error) });
       }
-    });
+    };
+    consultar();
     return () => {
       vigente = false;
+      clearTimeout(temporizador);
     };
-  }, [idsPendientes, compradorId, dispatch]);
+  }, [compradorId, vueltas, dispatch]);
+
+  const compras = useMemo(() => (carga.fase === 'lista' ? carga.compras : []), [carga]);
+
+  // Las entradas emitidas son las que devolvió Ventas, en su orden (de la compra más nueva a la más
+  // vieja) y con el estado local de reventa encima; después van las compradas en la reventa local.
+  // Si el evento ya no está en el catálogo (la base de desarrollo se reinicia), no se muestra.
+  const misEntradas = useMemo(() => {
+    const propias = state.entradas.filter(
+      (e) => e.propietarioId === usuarioActual?.id && state.eventos.some((ev) => ev.id === e.eventoId),
+    );
+    const porId = new Map(propias.map((e) => [e.id, e]));
+    const deVentas = compras
+      .flatMap((o) => o.entradas.filter((e) => e.codigoQr))
+      .flatMap((e) => porId.get(e.id) ?? []);
+    return [...deVentas, ...propias.filter((e) => e.origen === 'reventa')];
+  }, [compras, state.entradas, state.eventos, usuarioActual]);
 
   if (!usuarioActual) return null;
 
-  const avisoDeEmision = comprasPendientes > 0 && (
-    <p role="status" className="mb-6 border-l-2 border-accent pl-2 text-sm text-ink">
-      Emitiendo las entradas de {comprasPendientes} {comprasPendientes === 1 ? 'compra' : 'compras'}…
-    </p>
+  if (carga.fase !== 'lista') {
+    return (
+      <PageTransition>
+        <div className="mx-auto max-w-[1240px] px-7 py-10">
+          {carga.fase === 'error' ? (
+            <StatusMessage
+              titulo="No pudimos traer tus compras"
+              texto={carga.mensaje}
+              accion="Reintentar"
+              onAccion={() => {
+                setCarga({ fase: 'cargando' });
+                setVueltas((n) => n + 1);
+              }}
+            />
+          ) : (
+            <p role="status" className="text-sm text-muted">
+              Cargando tus compras…
+            </p>
+          )}
+        </div>
+      </PageTransition>
+    );
+  }
+
+  // Compras sin entradas emitidas: en curso, pagas emitiéndose, canceladas o vencidas.
+  const otrasCompras = compras.filter((o) => o.estado !== 'emitida');
+  const seccionOtrasCompras = otrasCompras.length > 0 && (
+    <section className="mt-12" aria-labelledby="otras-compras">
+      <h2 id="otras-compras" className="text-xl font-semibold tracking-tight text-ink">
+        Compras en curso, canceladas o vencidas
+      </h2>
+      <ul className="mt-4 flex flex-col gap-2">
+        {otrasCompras.map((o) => {
+          const estado = ESTADO_DE_COMPRA[o.estado as Exclude<EstadoOrden, 'emitida'>];
+          const evento = state.eventos.find((ev) => ev.id === o.eventoId);
+          return (
+            <li key={o.id} data-compra={o.id} className="border border-wire px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-ink">
+                  {evento?.titulo ?? o.eventoId} · orden #{o.id} · {money(o.total)}
+                </span>
+                <span className="font-mono-label text-[10px] text-accent">{estado.etiqueta}</span>
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                {fecha(o.creadaISO)} · {estado.texto(o)}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 
   if (misEntradas.length === 0) {
     return (
       <PageTransition>
-        <div className="mx-auto max-w-[1240px] px-7 py-16 text-center">
-          {avisoDeEmision || <p className="text-lg text-graphite">Todavía no tenés entradas.</p>}
+        <div className="mx-auto max-w-[1240px] px-7 py-16">
+          <p className="text-center text-lg text-graphite">Todavía no tenés entradas emitidas.</p>
+          {seccionOtrasCompras}
         </div>
       </PageTransition>
     );
@@ -146,8 +226,8 @@ export default function MyTicketsPage() {
   }
 
   const historial = [
-    ...state.ordenes
-      .filter((o) => o.compradorId === usuarioActual.id)
+    ...compras
+      .filter((o) => o.estado === 'emitida')
       .map((o) => ({ texto: `Compra · orden #${o.id} · ${money(o.total)}`, fechaISO: o.creadaISO })),
     ...misEntradas
       .filter((e) => e.estado === 'usada')
@@ -160,7 +240,6 @@ export default function MyTicketsPage() {
   return (
     <PageTransition>
       <div className="mx-auto max-w-[1240px] px-7 py-10">
-        {avisoDeEmision}
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
           <div>
             {misEntradas.length > 1 && (
@@ -277,6 +356,7 @@ export default function MyTicketsPage() {
             </div>
           </div>
         </div>
+        {seccionOtrasCompras}
       </div>
     </PageTransition>
   );

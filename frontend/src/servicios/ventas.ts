@@ -2,7 +2,6 @@ import { pedir } from '../lib/api';
 import { soloDigitosDNI } from '../lib/validate';
 import type { CarritoItem } from '../store/actions';
 import {
-  MINUTOS_RESERVA,
   type Asistente,
   type Entrada,
   type EstadoEntrada,
@@ -29,6 +28,16 @@ export interface DatosDePago {
   token: string; // lo que devolvería la pasarela de pagos; ver tokenDePrueba()
 }
 
+// Así llega una entrada dentro de la venta. Trae sector, precio y código: no hace falta pedirla aparte.
+interface EntradaDeVentaDelServidor {
+  id: string;
+  sectorId: string;
+  precioPagado: number;
+  titular: { nombre: string; dni: string };
+  estado: string; // PENDIENTE_EMISION, VALIDA, USADA, PUBLICADA, VENDIDA o ANULADA
+  codigoQr: string | null; // null hasta la emisión
+}
+
 // Así llega una venta del backend. Solo se declaran los campos que el frontend usa.
 interface VentaDelServidor {
   id: string;
@@ -38,27 +47,33 @@ interface VentaDelServidor {
   subtotal: number;
   cargoServicio: number;
   montoTotal: number;
+  creada: string;
   venceReserva: string;
-  entradas: { id: string }[];
+  entradas: EntradaDeVentaDelServidor[];
+  // Lo que se puede hacer con la venta en su estado actual: "pagar" y "cancelar" vienen solo
+  // mientras está EN_CHECKOUT.
+  _links?: Record<string, { href: string; method: string }>;
 }
 
-// Así llega una entrada del backend (GET /api/v1/entradas/{id}).
-interface EntradaDelServidor {
-  id: string;
-  ventaId: string;
-  eventoId: string;
-  sectorId: string;
-  precioPagado: number;
-  titular: { nombre: string; dni: string };
-  estado: string; // PENDIENTE_EMISION, VALIDA, USADA, PUBLICADA, VENDIDA o ANULADA
-  emitida: string | null; // null mientras no se emitió
-  codigoQr: string | null; // null mientras no se emitió
+// Único lugar donde una entrada del servidor pasa al tipo del frontend.
+function aEntrada(venta: VentaDelServidor, entrada: EntradaDeVentaDelServidor): Entrada {
+  return {
+    id: entrada.id,
+    ordenId: venta.id,
+    eventoId: venta.eventoId,
+    sectorId: entrada.sectorId,
+    precioPagado: entrada.precioPagado,
+    // El backend guarda nombre y apellido juntos y no hay forma segura de volver a separarlos.
+    titular: { nombre: entrada.titular.nombre, apellido: '', dni: entrada.titular.dni },
+    estado: entrada.estado.toLowerCase() as EstadoEntrada,
+    origen: 'compra',
+    emitidaISO: venta.creada,
+    codigoQr: entrada.codigoQr ?? undefined,
+  };
 }
 
 // Único lugar donde una venta del servidor pasa al tipo del frontend.
 function aOrden(venta: VentaDelServidor): Orden {
-  // El backend no manda la fecha de la compra: se calcula desde el vencimiento de la reserva.
-  const creada = new Date(Date.parse(venta.venceReserva) - MINUTOS_RESERVA * 60_000);
   return {
     id: venta.id,
     estado: venta.estado.toLowerCase() as EstadoOrden,
@@ -72,26 +87,9 @@ function aOrden(venta: VentaDelServidor): Orden {
     servicio: venta.cargoServicio,
     total: venta.montoTotal,
     venceReservaISO: venta.venceReserva,
-    creadaISO: creada.toISOString(),
-    entradaIds: venta.entradas.map((e) => e.id),
-  };
-}
-
-// Único lugar donde una entrada del servidor pasa al tipo del frontend.
-function aEntrada(entrada: EntradaDelServidor): Entrada {
-  return {
-    id: entrada.id,
-    ordenId: entrada.ventaId,
-    eventoId: entrada.eventoId,
-    sectorId: entrada.sectorId,
-    precioPagado: entrada.precioPagado,
-    // El backend guarda nombre y apellido juntos y no hay forma segura de volver a separarlos.
-    titular: { nombre: entrada.titular.nombre, apellido: '', dni: entrada.titular.dni },
-    // Las entradas se piden cuando la venta ya está emitida: a esa altura ya no están pendientes.
-    estado: entrada.estado.toLowerCase() as EstadoEntrada,
-    origen: 'compra',
-    emitidaISO: entrada.emitida ?? '',
-    codigoQr: entrada.codigoQr ?? undefined,
+    creadaISO: venta.creada,
+    entradas: venta.entradas.map((e) => aEntrada(venta, e)),
+    sePuedePagar: !!venta._links?.pagar,
   };
 }
 
@@ -123,6 +121,12 @@ export async function iniciarCompra(datos: NuevaCompra, clave: string): Promise<
   return aOrden(venta);
 }
 
+// Las compras del usuario de la sesión, de la más nueva a la más vieja, en todos los estados.
+export async function listarCompras(): Promise<Orden[]> {
+  const ventas = await pedir<VentaDelServidor[]>('/api/v1/ventas', { conSesion: true });
+  return ventas.map(aOrden);
+}
+
 export async function obtenerOrden(ordenId: string): Promise<Orden> {
   return aOrden(await pedir<VentaDelServidor>(rutaDeVenta(ordenId), { conSesion: true }));
 }
@@ -148,18 +152,6 @@ export async function cancelarCompra(ordenId: string): Promise<void> {
 // nada: la reserva vence sola a los 10 minutos.
 export function soltarReserva(ordenId: string): void {
   cancelarCompra(ordenId).catch(() => {});
-}
-
-export async function obtenerEntrada(entradaId: string): Promise<Entrada> {
-  const entrada = await pedir<EntradaDelServidor>(`/api/v1/entradas/${encodeURIComponent(entradaId)}`, {
-    conSesion: true,
-  });
-  return aEntrada(entrada);
-}
-
-// La venta trae sus entradas resumidas (sin sector, precio ni QR): se pide cada una por su id.
-export function obtenerEntradas(orden: Orden): Promise<Entrada[]> {
-  return Promise.all(orden.entradaIds.map(obtenerEntrada));
 }
 
 // Simula el SDK de la pasarela de pagos, que en un sistema real convierte los datos de la tarjeta

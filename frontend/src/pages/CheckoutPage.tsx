@@ -11,7 +11,6 @@ import {
   nuevaClave,
   obtenerOrden,
   pagarCompra,
-  soltarReserva,
   tokenDePrueba,
   type NuevaCompra,
 } from '../servicios/ventas';
@@ -24,7 +23,7 @@ import {
   formatearNumeroTarjeta,
   soloDigitosDNI,
 } from '../lib/validate';
-import { MINUTOS_RESERVA, type Evento, type MedioPago, type Orden, type Usuario } from '../types';
+import { MINUTOS_RESERVA, type EstadoOrden, type Evento, type MedioPago, type Orden, type Usuario } from '../types';
 import Stepper from '../components/Stepper';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -38,6 +37,12 @@ import PageTransition from '../components/PageTransition';
 //   2. Pago: con la reserva hecha corre la cuenta regresiva. Se paga o se cancela.
 // El id de la venta queda en el carrito (carrito.ordenId): por eso recargar la página, o irse y
 // volver, retoma la misma compra en el paso de pago.
+//
+// Un pago que termina sin resultado (504 o sin conexión) no se da por rechazado ni por perdido:
+// la página le pregunta a Ventas cómo quedó la venta y dice lo que contesta. Si sigue EN_CHECKOUT
+// no se sabe si se cobró, y Ventas la mantiene tomada (la marca del intento de pago impide
+// cancelarla o vencerla hasta que se resuelva). Por eso ahí la página no suelta la reserva ni dice
+// que se liberó nada.
 
 interface FilaTitular {
   sectorId: string;
@@ -48,7 +53,23 @@ interface FilaTitular {
   dni: string;
 }
 
-const MENSAJE_PAGO_SIN_CONFIRMAR = 'No pudimos confirmar el pago. Reintentá: no se cobra dos veces.';
+// Lo que dice el modal cuando la compra ya no sigue. Cada texto corresponde a un estado que
+// informó Ventas: solo se dice que los lugares se liberaron cuando la venta quedó cancelada o vencida.
+type Cierre = Extract<EstadoOrden, 'cancelada' | 'vencida'> | 'no_existe';
+const TEXTO_DE_CIERRE: Record<Cierre, { titulo: string; texto: string }> = {
+  vencida: {
+    titulo: 'Venció tu reserva',
+    texto: `La reserva dura ${MINUTOS_RESERVA} minutos y venció sin un pago aprobado: los lugares volvieron a la venta. Volvé a elegir tus entradas.`,
+  },
+  cancelada: {
+    titulo: 'La compra se canceló',
+    texto: 'La compra quedó cancelada sin un pago aprobado y los lugares volvieron a la venta. Volvé a elegir tus entradas.',
+  },
+  no_existe: {
+    titulo: 'La compra ya no está disponible',
+    texto: 'No encontramos esta compra entre las tuyas. Volvé a elegir tus entradas.',
+  },
+};
 
 // Una fila por entrada del carrito. La primera queda a nombre de quien compra.
 function filasIniciales(carrito: Carrito | null, evento: Evento | undefined, comprador: Usuario | null): FilaTitular[] {
@@ -109,7 +130,14 @@ export default function CheckoutPage() {
   // La venta que devolvió el backend al reservar. null mientras no hay reserva.
   const [orden, setOrden] = useState<Orden | null>(null);
   const [segundosRestantes, setSegundosRestantes] = useState(0);
-  const [reservaLiberada, setReservaLiberada] = useState(false);
+  // Por qué terminó la compra, según Ventas; null mientras sigue.
+  const [cierre, setCierre] = useState<Cierre | null>(null);
+  // Se cumplió el plazo de la reserva pero Ventas la sigue teniendo abierta (por ejemplo, con un
+  // pago sin resultado iniciado en otra pestaña): los lugares siguen tomados.
+  const [abiertaFueraDePlazo, setAbiertaFueraDePlazo] = useState(false);
+  const [consultando, setConsultando] = useState(false);
+  // Evita que la cuenta regresiva dispare el cierre más de una vez.
+  const cerrandoPorPlazo = useRef(false);
 
   // Si al entrar el carrito ya tenía una reserva (se recargó la página o se volvió al checkout),
   // se retoma esa compra en lugar de empezar otra.
@@ -126,11 +154,6 @@ export default function CheckoutPage() {
   const [sinCupo, setSinCupo] = useState(false);
   // Clave de idempotencia del último pedido de reserva, junto con el pedido que se mandó.
   const ultimoPedido = useRef<{ clave: string; pedido: string } | null>(null);
-  // Ventas solo le vende a una cuenta con la identidad verificada (si no, responde 403
-  // 'identidad-no-verificada') y una cuenta recién creada no la tiene. El usuario de la sesión ya
-  // trae ese dato: si es falso se avisa al entrar, en lugar de dejar cargar los titulares para
-  // fallar al final. Igual decide el backend: su 403 se sigue mostrando como cualquier otro error.
-  const sinIdentidad = usuarioActual?.identidadVerificada === false;
 
   const [medioPago, setMedioPago] = useState<MedioPago>('pasarela');
   const [tarjeta, setTarjeta] = useState({ numero: '', vencimiento: '', cvv: '', titular: '' });
@@ -138,8 +161,9 @@ export default function CheckoutPage() {
   const [pagando, setPagando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const [errorPago, setErrorPago] = useState('');
-  // Hubo un intento de pago del que no se supo el resultado: el botón pasa a "Reintentar pago".
-  const [pagoSinConfirmar, setPagoSinConfirmar] = useState(false);
+  // El último pago no tuvo resultado: se guarda en el carrito para que sobreviva a recargar.
+  const pagoSinResultado = carrito?.pagoSinResultado ?? null;
+  const sinResultado = !!pagoSinResultado || abiertaFueraDePlazo;
 
   // Pasa al paso de pago con la reserva que devolvió el backend. El desfase se recibe por
   // parámetro porque al reservar se acaba de medir y todavía no está en el carrito de este render.
@@ -148,12 +172,45 @@ export default function CheckoutPage() {
     setSegundosRestantes(segundosHasta(reserva.venceReservaISO, desfase));
   }
 
-  // La reserva ya no sirve (venció, se canceló o el backend la perdió): se quita del carrito y se
-  // avisa. El carrito nunca se pone en null acá: la página caería en su propio <Navigate to="/">.
-  function liberarReserva() {
-    if (carrito) dispatch({ type: 'SET_CARRITO', payload: { ...carrito, ordenId: null, clavePago: null } });
+  // La compra terminó (Ventas la dio por cancelada o vencida, o no la encuentra): se quita del
+  // carrito y se avisa por qué. El carrito nunca se pone en null acá: la página caería en su
+  // propio <Navigate to="/">.
+  function cerrarCompra(motivo: Cierre) {
+    if (carrito) {
+      dispatch({
+        type: 'SET_CARRITO',
+        payload: { ...carrito, ordenId: null, clavePago: null, pagoSinResultado: null },
+      });
+    }
     setOrden(null);
-    setReservaLiberada(true);
+    setCierre(motivo);
+  }
+
+  // Lleva la pantalla al estado que informó Ventas. Es lo único que decide qué se le dice al
+  // usuario después de un pago sin resultado o de cumplirse el plazo.
+  function aplicarEstado(recibida: Orden) {
+    if (recibida.estado === 'en_checkout') {
+      mostrarPago(recibida, desfaseReloj);
+    } else if (recibida.estado === 'confirmada' || recibida.estado === 'emitida') {
+      // El pago se aprobó (también puede ser el que había quedado sin resultado).
+      navigate(`/confirmacion/${recibida.id}`, { replace: true });
+    } else {
+      cerrarCompra(recibida.estado);
+    }
+  }
+
+  // "Ver estado": consulta la venta y muestra lo que contesta Ventas.
+  async function consultarEstado(ordenId: string) {
+    setConsultando(true);
+    setErrorPago('');
+    try {
+      aplicarEstado(await obtenerOrden(ordenId));
+    } catch (error) {
+      if (error instanceof ErrorApi && error.estado === 404) cerrarCompra('no_existe');
+      else setErrorPago(`No pudimos consultar el estado de la compra: ${mensajeDeError(error)}`);
+    } finally {
+      setConsultando(false);
+    }
   }
 
   // Retomar la compra que quedó a medias: se le pregunta al backend cómo está.
@@ -162,20 +219,11 @@ export default function CheckoutPage() {
     let vigente = true;
     obtenerOrden(ordenARetomar)
       .then((recibida) => {
-        if (!vigente) return;
-        if (recibida.estado === 'en_checkout') {
-          mostrarPago(recibida, desfaseReloj);
-        } else if (recibida.estado === 'confirmada' || recibida.estado === 'emitida') {
-          // Ya estaba paga (se recargó justo después de pagar): va directo a la confirmación.
-          dispatch({ type: 'GUARDAR_COMPRA', payload: { orden: recibida, entradas: [], compradorId: usuarioActual.id } });
-          navigate(`/confirmacion/${recibida.id}`, { replace: true });
-        } else {
-          liberarReserva(); // cancelada o vencida
-        }
+        if (vigente) aplicarEstado(recibida);
       })
       .catch((error: unknown) => {
         if (!vigente) return;
-        if (error instanceof ErrorApi && error.estado === 404) liberarReserva();
+        if (error instanceof ErrorApi && error.estado === 404) cerrarCompra('no_existe');
         else setErrorAlRetomar(mensajeDeError(error));
       });
     return () => {
@@ -185,22 +233,49 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ordenARetomar, reintentosDeRetomar]);
 
-  // Cuenta regresiva de la reserva. Al llegar a cero se suelta la reserva (así el cupo vuelve ya,
-  // sin esperar a que el backend la venza) y se avisa. Con un pago en vuelo no se toca nada: si
-  // la reserva venció, lo dice la respuesta del pago.
+  // Cuenta regresiva de la reserva. Al llegar a cero se cancela la compra (así el cupo vuelve ya,
+  // sin esperar al barrido del backend) y se consulta cómo quedó: el aviso sale de esa respuesta.
+  // Con un pago en vuelo o sin resultado no se toca nada: Ventas retiene la venta hasta saber si
+  // se cobró, y la cancelación respondería 409.
   useEffect(() => {
-    if (!orden) return;
+    if (!orden || sinResultado) return;
     const intervalo = setInterval(() => {
       const restantes = segundosHasta(orden.venceReservaISO, desfaseReloj);
       setSegundosRestantes(restantes);
-      if (restantes === 0 && !pagando) {
-        soltarReserva(orden.id);
-        liberarReserva();
+      if (restantes === 0 && !pagando && !cerrandoPorPlazo.current) {
+        cerrandoPorPlazo.current = true;
+        cerrarPorPlazo(orden.id);
       }
     }, 1000);
     return () => clearInterval(intervalo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orden, pagando]);
+  }, [orden, pagando, sinResultado]);
+
+  async function cerrarPorPlazo(ordenId: string) {
+    try {
+      await cancelarCompra(ordenId);
+    } catch {
+      // Si no se pudo cancelar (por ejemplo, 409 por un pago en curso), lo dice la consulta.
+    }
+    try {
+      const recibida = await obtenerOrden(ordenId);
+      if (recibida.estado === 'cancelada' || recibida.estado === 'vencida') {
+        // La canceló este pedido o el barrido del backend: en los dos casos, por el plazo.
+        cerrarCompra('vencida');
+        return;
+      }
+      // Sigue abierta después del plazo: no se libera nada ni se dice que se liberó.
+      if (recibida.estado === 'en_checkout') setAbiertaFueraDePlazo(true);
+      aplicarEstado(recibida);
+    } catch (error) {
+      if (error instanceof ErrorApi && error.estado === 404) {
+        cerrarCompra('no_existe');
+      } else {
+        setAbiertaFueraDePlazo(true);
+        setErrorPago(`No pudimos consultar el estado de la compra: ${mensajeDeError(error)}`);
+      }
+    }
+  }
 
   if (!carrito || !evento) return <Navigate to="/" replace />;
 
@@ -289,8 +364,8 @@ export default function CheckoutPage() {
       // El pedido ya tuvo respuesta: esa clave no se vuelve a usar.
       ultimoPedido.current = null;
       if (reserva.estado !== 'en_checkout') {
-        // Solo pasa si se reintentó con la misma clave una reserva que mientras tanto venció.
-        setReservaLiberada(true);
+        // Solo pasa si se reintentó con la misma clave una reserva que mientras tanto se cerró.
+        aplicarEstado(reserva);
         return;
       }
       // La clave del pago nace con la reserva y se guarda en el carrito, igual que el desfase
@@ -318,41 +393,40 @@ export default function CheckoutPage() {
     }
   }
 
+  // Paga, o repite el pago que quedó sin resultado: en ese caso van los mismos datos y la misma
+  // clave, así Ventas lo reconoce como el mismo pedido y no cobra dos veces.
   async function pagar() {
-    if (!carrito?.clavePago || !orden || !usuarioActual || pagando || !validarPago()) return;
+    if (!carrito?.clavePago || !orden || !usuarioActual || pagando) return;
+    if (!pagoSinResultado && !validarPago()) return;
+    const datos = pagoSinResultado ?? { medioPago, token: tokenDePrueba(medioPago, tarjeta.numero) };
     setErrorPago('');
     setPagando(true);
     try {
-      const paga = await pagarCompra(
-        orden.id,
-        { medioPago, token: tokenDePrueba(medioPago, tarjeta.numero) },
-        carrito.clavePago,
-      );
-      // Queda anotada en el navegador como compra del usuario. Las entradas se guardan después,
-      // cuando termina la emisión.
-      dispatch({ type: 'GUARDAR_COMPRA', payload: { orden: paga, entradas: [], compradorId: usuarioActual.id } });
+      const paga = await pagarCompra(orden.id, datos, carrito.clavePago);
       navigate(`/confirmacion/${paga.id}`);
     } catch (error) {
       const tipo = error instanceof ErrorApi ? error.tipo : '';
       const estado = error instanceof ErrorApi ? error.estado : 0;
       if (tipo === 'venta-ya-paga') {
         navigate(`/confirmacion/${orden.id}`);
-      } else if (tipo === 'reserva-vencida' || estado === 404) {
-        soltarReserva(orden.id);
-        liberarReserva();
+      } else if (estado === 404) {
+        cerrarCompra('no_existe');
+      } else if (tipo === 'reserva-vencida') {
+        // Ya no se puede pagar: se cancela para devolver el cupo y se muestra cómo quedó.
+        await cancelarCompra(orden.id).catch(() => {});
+        await consultarEstado(orden.id);
       } else if (tipo === 'pago-rechazado') {
         // El backend confirmó que no cobró: el próximo intento es otro pago y lleva otra clave.
-        dispatch({ type: 'SET_CARRITO', payload: { ...carrito, clavePago: nuevaClave() } });
-        setPagoSinConfirmar(false);
+        dispatch({ type: 'SET_CARRITO', payload: { ...carrito, clavePago: nuevaClave(), pagoSinResultado: null } });
         setErrorPago(mensajeDeError(error));
       } else if (estado === 0 || estado >= 500) {
-        // Sin respuesta (504), sin conexión o error del servidor: no se sabe si se cobró. Se
-        // reintenta con la MISMA clave, así el backend no cobra dos veces; además es la única
-        // forma de destrabar una venta que quedó con un pago sin resultado.
-        setPagoSinConfirmar(true);
-        setErrorPago(MENSAJE_PAGO_SIN_CONFIRMAR);
+        // Sin respuesta (504), sin conexión o error del servidor: no se sabe si se cobró. Se anota
+        // el pago para poder repetirlo con la misma clave y se consulta cómo quedó la venta.
+        dispatch({ type: 'SET_CARRITO', payload: { ...carrito, pagoSinResultado: datos } });
+        await consultarEstado(orden.id);
       } else {
-        // 'operacion-en-curso' y el resto: el mensaje del backend. La clave no cambia.
+        // 'operacion-en-curso' (otro pago en curso, o un pago sin resultado que ya no se puede
+        // repetir) y el resto: el mensaje del backend. La clave no cambia.
         setErrorPago(mensajeDeError(error));
       }
     } finally {
@@ -389,8 +463,9 @@ export default function CheckoutPage() {
       <div className="mx-auto max-w-[1240px] px-7 py-10">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Checkout</h1>
-          {/* La cuenta regresiva aparece recién cuando hay una reserva que pueda vencer. */}
-          {orden && (
+          {/* La cuenta regresiva aparece recién cuando hay una reserva que pueda vencer. Con un
+              pago sin resultado no corre: Ventas retiene la venta hasta saber si se cobró. */}
+          {orden && !sinResultado && (
             <p className={`font-mono-label text-sm ${timerCritico ? 'text-accent' : 'text-muted'}`}>
               Reserva: {minutos}:{segundos.toString().padStart(2, '0')}
             </p>
@@ -402,17 +477,7 @@ export default function CheckoutPage() {
 
         <div className="mt-8 grid grid-cols-1 gap-10 md:grid-cols-[1fr_320px]">
           <div>
-            {/* El backend todavía no tiene cómo verificar la identidad: no hay un paso para ofrecer. */}
-            {paso === 0 && sinIdentidad && (
-              <StatusMessage
-                titulo="Falta verificar tu identidad"
-                texto="Para comprar entradas hace falta una cuenta con la identidad verificada, y Palco todavía no tiene ese paso. Por ahora solo puede comprar la cuenta de prueba titular@palco.test."
-                accion="Volver al evento"
-                onAccion={() => navigate(rutaDelEvento)}
-              />
-            )}
-
-            {paso === 0 && !sinIdentidad && (
+            {paso === 0 && (
               <div className="flex flex-col gap-5">
                 {titulares.map((t, i) => {
                   const err = erroresTitulares[i] ?? {};
@@ -492,7 +557,53 @@ export default function CheckoutPage() {
               )
             )}
 
-            {paso === 1 && orden && (
+            {paso === 1 && orden && sinResultado && (
+              <div className="flex flex-col gap-5" data-estado="pago-sin-resultado">
+                <div className="border border-accent p-5">
+                  <p className="text-lg font-medium text-ink">
+                    {pagoSinResultado ? 'No sabemos si el pago se acreditó' : 'Tu compra sigue abierta'}
+                  </p>
+                  <p className="mt-2 text-sm text-graphite">
+                    {pagoSinResultado
+                      ? 'El cobro no tuvo respuesta. Tus lugares siguen reservados mientras se confirma el resultado: no pagues con otro medio ni empieces otra compra por estas entradas.'
+                      : 'Terminó el plazo de la reserva, pero la compra sigue abierta: puede haber un pago sin resultado. Tus lugares siguen reservados hasta que se resuelva.'}
+                  </p>
+                  <p className="font-mono-label mt-3 text-[11px] text-muted">Orden #{orden.id}</p>
+                </div>
+
+                {errorPago && (
+                  <p role="alert" aria-live="polite" className="border-l-2 border-accent pl-2 text-xs text-ink">
+                    {errorPago}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap gap-3">
+                  {/* Solo si Ventas todavía ofrece pagar la venta y hay un pago para repetir tal cual. */}
+                  {pagoSinResultado && orden.sePuedePagar && (
+                    <Button loading={pagando} loadingText="Reintentando…" disabled={consultando} onClick={pagar}>
+                      Reintentar pago
+                    </Button>
+                  )}
+                  <Button
+                    variant="secondary"
+                    loading={consultando}
+                    loadingText="Consultando…"
+                    disabled={pagando}
+                    onClick={() => consultarEstado(orden.id)}
+                  >
+                    Ver estado
+                  </Button>
+                  <Button variant="secondary" disabled={pagando} onClick={() => navigate('/mis-entradas')}>
+                    Ir a Mis entradas
+                  </Button>
+                  <Button variant="secondary" disabled={pagando} onClick={() => navigate('/')}>
+                    Volver al catálogo
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {paso === 1 && orden && !sinResultado && (
               <div className="flex flex-col gap-5">
                 <p className="text-xs text-muted">
                   Tus lugares están reservados. Para cambiar los titulares, cancelá la compra y
@@ -577,7 +688,7 @@ export default function CheckoutPage() {
 
                 <div className="flex flex-wrap gap-3">
                   <Button loading={pagando} loadingText="Procesando pago…" disabled={cancelando} onClick={pagar}>
-                    {pagoSinConfirmar ? 'Reintentar pago' : 'Pagar y confirmar'}
+                    Pagar y confirmar
                   </Button>
                   <Button
                     variant="secondary"
@@ -625,11 +736,12 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      <Modal abierto={reservaLiberada} onCerrar={() => navigate(rutaDelEvento)} titulo="Se liberó tu reserva">
-        <p className="text-sm text-graphite">
-          La reserva dura {MINUTOS_RESERVA} minutos y la de esta compra ya no está vigente:
-          liberamos los lugares. Volvé a elegir tus entradas.
-        </p>
+      <Modal
+        abierto={cierre !== null}
+        onCerrar={() => navigate(rutaDelEvento)}
+        titulo={cierre ? TEXTO_DE_CIERRE[cierre].titulo : ''}
+      >
+        <p className="text-sm text-graphite">{cierre && TEXTO_DE_CIERRE[cierre].texto}</p>
         <Button className="mt-5 w-full" onClick={() => navigate(rutaDelEvento)}>
           Volver al evento
         </Button>

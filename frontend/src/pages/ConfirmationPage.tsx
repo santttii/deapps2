@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useApp } from '../store/AppContext';
 import { ErrorApi } from '../lib/api';
 import { fecha, formatearDNI, money } from '../lib/format';
-import { obtenerEntradas, obtenerOrden } from '../servicios/ventas';
+import { obtenerOrden } from '../servicios/ventas';
 import type { Entrada, Orden } from '../types';
 import QRCode from '../components/QRCode';
 import Button from '../components/Button';
@@ -55,14 +55,12 @@ export default function ConfirmationPage() {
           setFase('no_disponible'); // sin pagar, cancelada o vencida: no hay nada que confirmar
           return;
         }
-        // Las entradas se piden recién cuando están emitidas: antes no tienen código QR.
-        const emitidas = recibida.estado === 'emitida' ? await obtenerEntradas(recibida) : [];
-        if (!vigente) return;
-        // El navegador anota la compra con los datos del backend: es lo que lee "Mis entradas".
-        dispatch({ type: 'GUARDAR_COMPRA', payload: { orden: recibida, entradas: emitidas, compradorId } });
         setOrden(recibida);
+        // La venta trae sus entradas; se muestran cuando está emitida, porque antes no tienen QR.
         if (recibida.estado === 'emitida') {
-          setEntradas(emitidas);
+          // Copia para la reventa, que todavía es local.
+          dispatch({ type: 'GUARDAR_ENTRADAS', payload: { entradas: recibida.entradas, compradorId } });
+          setEntradas(recibida.entradas);
           setFase('lista');
           return;
         }

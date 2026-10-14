@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import type { Action, Carrito } from './actions';
-import type { Entrada, Evento, Orden, Publicacion, Usuario } from '../types';
+import type { Entrada, Evento, Publicacion, Usuario } from '../types';
 import { publicacionesIniciales } from '../data/listings';
 import { mensajeDeError } from '../lib/api';
 import { listarEventos } from '../servicios/eventos';
@@ -10,24 +10,20 @@ export interface EntradaConDueno extends Entrada {
   propietarioId: string;
 }
 
-export interface OrdenConDueno extends Orden {
-  compradorId: string;
-}
-
 export interface AppState {
   // Copia del catálogo completo del servidor (GET /api/eventos). No se guarda en el navegador.
   eventos: Evento[];
   catalogo: { estado: 'cargando' | 'listo' | 'error'; error: string };
-  // Lo que vive en este navegador, asociado al usuario de la sesión. Las órdenes y las entradas
-  // compradas son copias de lo que devolvió Ventas (el backend no tiene un listado para pedirlas);
-  // la reventa todavía no tiene backend y es local.
+  // Lo que vive en este navegador, asociado al usuario de la sesión. La reventa todavía no tiene
+  // backend y es local: por eso se guarda una copia de las entradas emitidas que devolvió Ventas,
+  // con el estado de reventa que les da este navegador. Qué compras tiene el usuario no se guarda
+  // acá: "Mis entradas" se lo pide a Ventas cada vez.
   entradas: EntradaConDueno[];
   publicaciones: Publicacion[];
-  ordenes: OrdenConDueno[];
   carrito: Carrito | null;
 }
 
-type DatosLocales = Pick<AppState, 'entradas' | 'publicaciones' | 'ordenes' | 'carrito'>;
+type DatosLocales = Pick<AppState, 'entradas' | 'publicaciones' | 'carrito'>;
 
 // La "v2" es de cuando la compra pasó a hacerse en el backend: lo guardado con la clave anterior
 // eran compras armadas en el navegador, que el servidor nunca conoció. Por eso se borra.
@@ -40,7 +36,6 @@ function cargarEstado(): AppState {
     catalogo: { estado: 'cargando', error: '' },
     entradas: [],
     publicaciones: publicacionesIniciales,
-    ordenes: [],
     carrito: null,
   };
   try {
@@ -52,13 +47,15 @@ function cargarEstado(): AppState {
       ...inicial,
       entradas: guardado.entradas ?? [],
       publicaciones: guardado.publicaciones ?? publicacionesIniciales,
-      ordenes: guardado.ordenes ?? [],
       carrito: guardado.carrito ?? null,
     };
   } catch {
     return inicial;
   }
 }
+
+// Estados de una entrada que hoy solo cambia este navegador (reventa y control de acceso locales).
+const ESTADOS_LOCALES: Entrada['estado'][] = ['publicada', 'vendida', 'usada'];
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -77,19 +74,21 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'SET_CARRITO':
       return { ...state, carrito: action.payload };
-    case 'GUARDAR_COMPRA': {
-      // Guarda la orden como la devolvió el backend, reemplazando la copia anterior si la había.
-      // De las entradas se agregan solo las que todavía no están: una ya guardada puede tener un
-      // estado local de reventa (publicada, vendida) que el backend no conoce y no hay que pisar.
-      const { orden, entradas, compradorId } = action.payload;
-      const nuevasEntradas: EntradaConDueno[] = entradas
+    case 'GUARDAR_ENTRADAS': {
+      // Agrega las que no estaban. Una que ya estaba toma los datos del backend, salvo que este
+      // navegador le haya cambiado el estado: publicada o vendida en la reventa local, o usada en
+      // el control de acceso local. El backend todavía no conoce esos cambios y no hay que pisarlos.
+      const { entradas, compradorId } = action.payload;
+      const recibidas = new Map(entradas.map((e) => [e.id, e]));
+      const actualizadas = state.entradas.map((guardada) => {
+        const recibida = recibidas.get(guardada.id);
+        if (!recibida || ESTADOS_LOCALES.includes(guardada.estado)) return guardada;
+        return { ...recibida, propietarioId: guardada.propietarioId };
+      });
+      const nuevas: EntradaConDueno[] = entradas
         .filter((e) => !state.entradas.some((guardada) => guardada.id === e.id))
         .map((e) => ({ ...e, propietarioId: compradorId }));
-      return {
-        ...state,
-        entradas: [...state.entradas, ...nuevasEntradas],
-        ordenes: [...state.ordenes.filter((o) => o.id !== orden.id), { ...orden, compradorId }],
-      };
+      return { ...state, entradas: [...actualizadas, ...nuevas] };
     }
     case 'PUBLICAR_REVENTA': {
       const publicaciones = [...state.publicaciones, action.payload];
@@ -167,7 +166,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const datos: DatosLocales = {
       entradas: state.entradas,
       publicaciones: state.publicaciones,
-      ordenes: state.ordenes,
       carrito: state.carrito,
     };
     try {
@@ -175,7 +173,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch {
       // Sin almacenamiento disponible los datos locales duran hasta recargar la página.
     }
-  }, [state.entradas, state.publicaciones, state.ordenes, state.carrito]);
+  }, [state.entradas, state.publicaciones, state.carrito]);
 
   const value = useMemo(
     () => ({ state, dispatch, usuarioActual, recargarCatalogo }),

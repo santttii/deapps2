@@ -28,7 +28,8 @@ export interface Asistente {
   dni: string;
 }
 
-export type EstadoEntrada = 'valida' | 'usada' | 'publicada' | 'vendida' | 'anulada';
+// 'pendiente_emision' es la entrada de una compra paga que todavía no tiene código QR.
+export type EstadoEntrada = 'pendiente_emision' | 'valida' | 'usada' | 'publicada' | 'vendida' | 'anulada';
 export type OrigenEntrada = 'compra' | 'reventa';
 
 export interface Entrada {
@@ -40,6 +41,8 @@ export interface Entrada {
   titular: Asistente;
   estado: EstadoEntrada;
   origen: OrigenEntrada;
+  // Cuándo se obtuvo la entrada. En una compra es la fecha de la venta: Ventas no informa la hora
+  // de emisión en el listado.
   emitidaISO: string;
   // Lo que lleva el QR. Lo genera Ventas al emitir; las entradas de reventa local no lo tienen.
   codigoQr?: string;
@@ -66,7 +69,6 @@ export interface Usuario {
   dni: string;
   email: string;
   rol: Rol;
-  identidadVerificada: boolean;
 }
 
 export type MedioPago = 'pasarela' | 'tarjeta' | 'transferencia';
@@ -92,7 +94,9 @@ export interface Orden {
   total: number;
   venceReservaISO: string; // hasta cuándo se puede pagar
   creadaISO: string;
-  entradaIds: string[]; // vacío hasta que se paga
+  entradas: Entrada[]; // vacío hasta que se paga
+  // El backend ofrece el enlace "pagar": la venta sigue EN_CHECKOUT y admite un pedido de pago.
+  sePuedePagar: boolean;
 }
 
 export const TOPE_REVENTA = 0.1;

@@ -1,4 +1,4 @@
-import type { Entrada, Evento, Orden, Publicacion } from '../types';
+import type { Entrada, Evento, MedioPago, Publicacion } from '../types';
 
 export interface CarritoItem {
   sectorId: string;
@@ -19,6 +19,10 @@ export interface Carrito {
   // navegador está adelantado). Se mide al reservar y lo usa la cuenta regresiva de esa reserva;
   // sin reserva no se usa.
   desfaseReloj: number;
+  // El último pago de esa venta terminó sin resultado (504 o sin conexión): no se sabe si se cobró.
+  // Guarda con qué se pagó, para repetir el mismo pedido con la misma clave. El token es el que
+  // entrega la pasarela, no los datos de la tarjeta. Sin un pago así queda undefined o null.
+  pagoSinResultado?: { medioPago: MedioPago; token: string } | null;
 }
 
 export type Action =
@@ -27,9 +31,10 @@ export type Action =
   | { type: 'CATALOGO_CARGADO'; payload: Evento[] }
   | { type: 'CATALOGO_FALLO'; payload: string }
   | { type: 'EVENTO_RECIBIDO'; payload: Evento }
-  // Compra: el navegador recuerda qué compró el usuario; los datos son los del backend (Ventas).
+  // Compra en curso. Las compras hechas no se guardan: se piden a Ventas (GET /api/v1/ventas).
   | { type: 'SET_CARRITO'; payload: Carrito | null }
-  | { type: 'GUARDAR_COMPRA'; payload: { orden: Orden; entradas: Entrada[]; compradorId: string } }
+  // Entradas emitidas que llegaron de Ventas. Se copian para la reventa, que todavía es local.
+  | { type: 'GUARDAR_ENTRADAS'; payload: { entradas: Entrada[]; compradorId: string } }
   // Datos locales: lo que todavía no tiene backend.
   | { type: 'PUBLICAR_REVENTA'; payload: Publicacion }
   | { type: 'RETIRAR_PUBLICACION'; payload: { publicacionId: string } }
