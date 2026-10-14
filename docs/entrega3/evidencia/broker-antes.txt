@@ -9,7 +9,7 @@ Antes de los comandos de este archivo se definieron estas variables (los tokens 
 
 ----------------------------------------------------------------------
 Cola, tópico y DLQ antes de la compra
-Fecha: 2026-10-13 15:45:52 -0300
+Fecha: 2026-10-14 17:56:46 -0300
 Comando:
     "$CLI" --connect --commands="$B/jms-queue=cola.emision-entradas:read-resource(include-runtime=true),$B/jms-topic=topico.compra-confirmada:read-resource(include-runtime=true),$B/jms-queue=DLQ:read-attribute(name=message-count)"
 Salida:

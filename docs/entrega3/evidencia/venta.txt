@@ -1,5 +1,5 @@
 Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico
-Qué muestra: la venta V-91934f4a unos segundos después del pago: pasó de CONFIRMADA a EMITIDA y sus dos entradas están VALIDA, cada una con su código. Lo hizo EmisionDeEntradasMDB al consumir el mensaje de la cola.
+Qué muestra: la venta V-25d98b55 unos segundos después del pago: pasó de CONFIRMADA a EMITIDA y sus dos entradas están VALIDA, cada una con su código. Lo hizo EmisionDeEntradasMDB al consumir el mensaje de la cola.
 Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados. Lo escribió docs/entrega3/evidencia/tomar-evidencia.sh.
 
 Antes de los comandos de este archivo se definieron estas variables (los tokens no se guardan acá):
@@ -9,30 +9,30 @@ Antes de los comandos de este archivo se definieron estas variables (los tokens 
 
 ----------------------------------------------------------------------
 La venta, consultada por su comprador
-Fecha: 2026-10-13 15:46:00 -0300
+Fecha: 2026-10-14 17:56:53 -0300
 Comando:
-    curl -s -H "Authorization: Bearer $T" localhost:8080/api/v1/ventas/V-91934f4a | node -p "JSON.stringify(JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")),null,2)"
+    curl -s -H "Authorization: Bearer $T" localhost:8080/api/v1/ventas/V-25d98b55 | node -p "JSON.stringify(JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")),null,2)"
 Salida:
 {
   "_links": {
     "self": {
-      "href": "/api/v1/ventas/V-91934f4a",
+      "href": "/api/v1/ventas/V-25d98b55",
       "method": "GET"
     }
   },
   "cargoServicio": 5500,
-  "creada": "2026-10-13T18:45:53Z",
+  "creada": "2026-10-14T20:56:47Z",
   "entradas": [
     {
       "_links": {
         "self": {
-          "href": "/api/v1/entradas/T-3b438461",
+          "href": "/api/v1/entradas/T-126c2e33",
           "method": "GET"
         }
       },
-      "codigoQr": "b185a1b3-29e7-4503-b55d-897ee53057dc",
+      "codigoQr": "18a0d22d-4df6-4d8c-903e-4f343bfd31ee",
       "estado": "VALIDA",
-      "id": "T-3b438461",
+      "id": "T-126c2e33",
       "precioPagado": 27500,
       "sector": "Platea B",
       "sectorId": "sec-1-4",
@@ -44,13 +44,13 @@ Salida:
     {
       "_links": {
         "self": {
-          "href": "/api/v1/entradas/T-50e62a72",
+          "href": "/api/v1/entradas/T-72d36133",
           "method": "GET"
         }
       },
-      "codigoQr": "2aa9f25b-987b-4736-ac95-b51378ad7391",
+      "codigoQr": "7563dc19-f8c5-423e-b826-388f1285cf60",
       "estado": "VALIDA",
-      "id": "T-50e62a72",
+      "id": "T-72d36133",
       "precioPagado": 27500,
       "sector": "Platea B",
       "sectorId": "sec-1-4",
@@ -63,7 +63,7 @@ Salida:
   "estado": "EMITIDA",
   "eventoId": "ev-1",
   "facturaEstado": "NO_APLICA",
-  "id": "V-91934f4a",
+  "id": "V-25d98b55",
   "items": [
     {
       "cantidad": 2,
@@ -73,7 +73,7 @@ Salida:
     }
   ],
   "montoTotal": 60500,
-  "pagoId": "P-8c25143c",
+  "pagoId": "P-dbe21ef4",
   "subtotal": 55000,
-  "venceReserva": "2026-10-13T18:55:53Z"
+  "venceReserva": "2026-10-14T21:06:47Z"
 }

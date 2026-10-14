@@ -1,5 +1,5 @@
 Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico
-Qué muestra: la entrada T-3b438461 de la venta V-91934f4a después de la emisión: estado VALIDA, con su código QR (codigoQr) y su fecha de emisión en UTC (emitida). Al volver el pago estaba PENDIENTE_EMISION y sin código (ver compra.txt).
+Qué muestra: la entrada T-126c2e33 de la venta V-25d98b55 después de la emisión: estado VALIDA, con su código QR (codigoQr) y su fecha de emisión en UTC (emitida). Al volver el pago estaba PENDIENTE_EMISION y sin código (ver compra.txt).
 Dónde se corrió: raíz del repo, en Git Bash, con WildFly levantado y los 8 servicios desplegados. Lo escribió docs/entrega3/evidencia/tomar-evidencia.sh.
 
 Antes de los comandos de este archivo se definieron estas variables (los tokens no se guardan acá):
@@ -9,22 +9,22 @@ Antes de los comandos de este archivo se definieron estas variables (los tokens 
 
 ----------------------------------------------------------------------
 La entrada, consultada por su comprador
-Fecha: 2026-10-13 15:46:00 -0300
+Fecha: 2026-10-14 17:56:53 -0300
 Comando:
-    curl -s -H "Authorization: Bearer $T" localhost:8080/api/v1/entradas/T-3b438461 | node -p "JSON.stringify(JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")),null,2)"
+    curl -s -H "Authorization: Bearer $T" localhost:8080/api/v1/entradas/T-126c2e33 | node -p "JSON.stringify(JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")),null,2)"
 Salida:
 {
   "_links": {
     "self": {
-      "href": "/api/v1/entradas/T-3b438461",
+      "href": "/api/v1/entradas/T-126c2e33",
       "method": "GET"
     }
   },
-  "codigoQr": "b185a1b3-29e7-4503-b55d-897ee53057dc",
-  "emitida": "2026-10-13T18:45:55Z",
+  "codigoQr": "18a0d22d-4df6-4d8c-903e-4f343bfd31ee",
+  "emitida": "2026-10-14T20:56:48Z",
   "estado": "VALIDA",
   "eventoId": "ev-1",
-  "id": "T-3b438461",
+  "id": "T-126c2e33",
   "precioPagado": 27500,
   "sector": "Platea B",
   "sectorId": "sec-1-4",
@@ -32,5 +32,5 @@ Salida:
     "dni": "30123456",
     "nombre": "Ana Gomez"
   },
-  "ventaId": "V-91934f4a"
+  "ventaId": "V-25d98b55"
 }

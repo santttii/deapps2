@@ -9,30 +9,30 @@ Antes de los comandos de este archivo se definieron estas variables (los tokens 
 
 ----------------------------------------------------------------------
 1. Abrir la compra: 2 entradas de Platea B (sec-1-4) del evento ev-1
-Fecha: 2026-10-13 15:45:54 -0300
+Fecha: 2026-10-14 17:56:47 -0300
 Comando:
     K1=$(node -e "console.log(crypto.randomUUID())"); curl -s -i -X POST localhost:8080/api/v1/ventas -H "Authorization: Bearer $T" -H "Content-Type: application/json" -H "Idempotency-Key: $K1" -d "{\"eventoId\":\"ev-1\",\"items\":[{\"sectorId\":\"sec-1-4\",\"cantidad\":2}],\"titulares\":[{\"nombre\":\"Ana Gomez\",\"dni\":\"30123456\"},{\"nombre\":\"Luis Perez\",\"dni\":\"31234567\"}]}"
 Salida:
 HTTP/1.1 201 Created
 Connection: keep-alive
-Location: http://localhost:8080/api/v1/ventas/V-91934f4a
+Location: http://localhost:8080/api/v1/ventas/V-25d98b55
 Transfer-Encoding: chunked
 Content-Type: application/json
-Date: Tue, 13 Oct 2026 18:45:54 GMT
+Date: Wed, 14 Oct 2026 20:56:47 GMT
 
-{"_links":{"self":{"href":"/api/v1/ventas/V-91934f4a","method":"GET"},"pagar":{"href":"/api/v1/ventas/V-91934f4a/pagos","method":"POST"},"cancelar":{"href":"/api/v1/ventas/V-91934f4a","method":"DELETE"}},"cargoServicio":5500,"creada":"2026-10-13T18:45:53Z","entradas":[],"estado":"EN_CHECKOUT","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-91934f4a","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":null,"subtotal":55000,"venceReserva":"2026-10-13T18:55:53Z"}
+{"_links":{"self":{"href":"/api/v1/ventas/V-25d98b55","method":"GET"},"pagar":{"href":"/api/v1/ventas/V-25d98b55/pagos","method":"POST"},"cancelar":{"href":"/api/v1/ventas/V-25d98b55","method":"DELETE"}},"cargoServicio":5500,"creada":"2026-10-14T20:56:47Z","entradas":[],"estado":"EN_CHECKOUT","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-25d98b55","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":null,"subtotal":55000,"venceReserva":"2026-10-14T21:06:47Z"}
 
 ----------------------------------------------------------------------
-2. Pagar la compra V-91934f4a (pasarela simulada: tok_test aprueba)
-Fecha: 2026-10-13 15:45:55 -0300
+2. Pagar la compra V-25d98b55 (pasarela simulada: tok_test aprueba)
+Fecha: 2026-10-14 17:56:48 -0300
 Comando:
-    K2=$(node -e "console.log(crypto.randomUUID())"); curl -s -i -X POST localhost:8080/api/v1/ventas/V-91934f4a/pagos -H "Authorization: Bearer $T" -H "Content-Type: application/json" -H "Idempotency-Key: $K2" -d "{\"medioDePago\":\"tarjeta\",\"token\":\"tok_test\"}"
+    K2=$(node -e "console.log(crypto.randomUUID())"); curl -s -i -X POST localhost:8080/api/v1/ventas/V-25d98b55/pagos -H "Authorization: Bearer $T" -H "Content-Type: application/json" -H "Idempotency-Key: $K2" -d "{\"medioDePago\":\"tarjeta\",\"token\":\"tok_test\"}"
 Salida:
 HTTP/1.1 201 Created
 Connection: keep-alive
-Location: http://localhost:8080/api/v1/ventas/V-91934f4a/pagos/P-8c25143c
+Location: http://localhost:8080/api/v1/ventas/V-25d98b55/pagos/P-dbe21ef4
 Transfer-Encoding: chunked
 Content-Type: application/json
-Date: Tue, 13 Oct 2026 18:45:55 GMT
+Date: Wed, 14 Oct 2026 20:56:48 GMT
 
-{"_links":{"self":{"href":"/api/v1/ventas/V-91934f4a","method":"GET"}},"cargoServicio":5500,"creada":"2026-10-13T18:45:53Z","entradas":[{"_links":{"self":{"href":"/api/v1/entradas/T-3b438461","method":"GET"}},"codigoQr":null,"estado":"PENDIENTE_EMISION","id":"T-3b438461","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"30123456","nombre":"Ana Gomez"}},{"_links":{"self":{"href":"/api/v1/entradas/T-50e62a72","method":"GET"}},"codigoQr":null,"estado":"PENDIENTE_EMISION","id":"T-50e62a72","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"31234567","nombre":"Luis Perez"}}],"estado":"CONFIRMADA","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-91934f4a","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":"P-8c25143c","subtotal":55000,"venceReserva":"2026-10-13T18:55:53Z"}
+{"_links":{"self":{"href":"/api/v1/ventas/V-25d98b55","method":"GET"}},"cargoServicio":5500,"creada":"2026-10-14T20:56:47Z","entradas":[{"_links":{"self":{"href":"/api/v1/entradas/T-126c2e33","method":"GET"}},"codigoQr":null,"estado":"PENDIENTE_EMISION","id":"T-126c2e33","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"30123456","nombre":"Ana Gomez"}},{"_links":{"self":{"href":"/api/v1/entradas/T-72d36133","method":"GET"}},"codigoQr":null,"estado":"PENDIENTE_EMISION","id":"T-72d36133","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"31234567","nombre":"Luis Perez"}}],"estado":"CONFIRMADA","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-25d98b55","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":"P-dbe21ef4","subtotal":55000,"venceReserva":"2026-10-14T21:06:47Z"}

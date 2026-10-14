@@ -3,7 +3,7 @@ Salida de docs/entrega3/evidencia/reproducir.sh, corrido desde la raíz del repo
 
 ----------------------------------------------------------------------
 0. Configuración del broker, leída del servidor en marcha
-Fecha: 2026-10-13 15:46:06 -0300
+Fecha: 2026-10-14 17:56:56 -0300
 Valores, en orden: versión de WildFly; versión de ActiveMQ Artemis; el broker guarda los mensajes en disco
 (persistence-enabled); entregas antes de la DLQ (max-delivery-attempts); espera entre entregas en milisegundos
 (redelivery-delay); cola de mensajes fallidos (dead-letter-address); modo de la fábrica de conexiones que
@@ -20,70 +20,70 @@ publica java:/JmsXA (transaction); nombres JNDI de esa fábrica (entries).
         "java:jboss/DefaultJMSConnectionFactory"
     ]
 Suscripciones del tópico (sin la lista de conexiones de cada una):
+            "queueName" => "5e452653-e78f-42dc-bcf0-0c99dea8edcf",
+            "durable" => false,
+            "clientID" => "ActiveMQ",
+            "selector" => "tipoEvento = 'PAGO_CONFIRMADO'",
+            "name" => "ActiveMQ"
             "queueName" => "palco-auditoria.compras-confirmadas",
             "durable" => true,
             "clientID" => "palco-auditoria",
             "selector" => "tipoEvento = 'PAGO_CONFIRMADO'",
             "name" => "compras-confirmadas"
-            "queueName" => "b7f328c7-1296-43df-96e0-3e8bb11977f7",
-            "durable" => false,
-            "clientID" => "ActiveMQ",
-            "selector" => "tipoEvento = 'PAGO_CONFIRMADO'",
-            "name" => "ActiveMQ"
 
 ----------------------------------------------------------------------
 1. Contadores del broker antes de la compra
-Fecha: 2026-10-13 15:46:15 -0300
+Fecha: 2026-10-14 17:57:02 -0300
 cola: agregados=1 pendientes=0 consumidores=15 | tópico: agregados=2 suscripciones=2 durables=1 | DLQ: pendientes=0
 
 ----------------------------------------------------------------------
 2. Abrir la compra: POST /api/v1/ventas (2 entradas de Platea B, sec-1-4, del evento ev-1)
-Fecha: 2026-10-13 15:46:20 -0300
+Fecha: 2026-10-14 17:57:05 -0300
 HTTP/1.1 201 Created
-Location: http://localhost:8080/api/v1/ventas/V-3c150ebb
-{"_links":{"self":{"href":"/api/v1/ventas/V-3c150ebb","method":"GET"},"pagar":{"href":"/api/v1/ventas/V-3c150ebb/pagos","method":"POST"},"cancelar":{"href":"/api/v1/ventas/V-3c150ebb","method":"DELETE"}},"cargoServicio":5500,"creada":"2026-10-13T18:46:20Z","entradas":[],"estado":"EN_CHECKOUT","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-3c150ebb","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":null,"subtotal":55000,"venceReserva":"2026-10-13T18:56:20Z"}
+Location: http://localhost:8080/api/v1/ventas/V-e022b63c
+{"_links":{"self":{"href":"/api/v1/ventas/V-e022b63c","method":"GET"},"pagar":{"href":"/api/v1/ventas/V-e022b63c/pagos","method":"POST"},"cancelar":{"href":"/api/v1/ventas/V-e022b63c","method":"DELETE"}},"cargoServicio":5500,"creada":"2026-10-14T20:57:05Z","entradas":[],"estado":"EN_CHECKOUT","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-e022b63c","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":null,"subtotal":55000,"venceReserva":"2026-10-14T21:07:05Z"}
 
 ----------------------------------------------------------------------
-3. Pagar la compra V-3c150ebb: POST /api/v1/ventas/V-3c150ebb/pagos (pasarela simulada: tok_test aprueba; quién cobra, en el paso 6)
-Fecha: 2026-10-13 15:46:21 -0300
+3. Pagar la compra V-e022b63c: POST /api/v1/ventas/V-e022b63c/pagos (pasarela simulada: tok_test aprueba; quién cobra, en el paso 6)
+Fecha: 2026-10-14 17:57:05 -0300
 HTTP/1.1 201 Created
-Location: http://localhost:8080/api/v1/ventas/V-3c150ebb/pagos/P-6d48cf81
-{"_links":{"self":{"href":"/api/v1/ventas/V-3c150ebb","method":"GET"}},"cargoServicio":5500,"creada":"2026-10-13T18:46:20Z","entradas":[{"_links":{"self":{"href":"/api/v1/entradas/T-364f302b","method":"GET"}},"codigoQr":null,"estado":"PENDIENTE_EMISION","id":"T-364f302b","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"30123456","nombre":"Ana Gomez"}},{"_links":{"self":{"href":"/api/v1/entradas/T-daeff830","method":"GET"}},"codigoQr":null,"estado":"PENDIENTE_EMISION","id":"T-daeff830","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"31234567","nombre":"Luis Perez"}}],"estado":"CONFIRMADA","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-3c150ebb","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":"P-6d48cf81","subtotal":55000,"venceReserva":"2026-10-13T18:56:20Z"}
+Location: http://localhost:8080/api/v1/ventas/V-e022b63c/pagos/P-cb9578d8
+{"_links":{"self":{"href":"/api/v1/ventas/V-e022b63c","method":"GET"}},"cargoServicio":5500,"creada":"2026-10-14T20:57:05Z","entradas":[{"_links":{"self":{"href":"/api/v1/entradas/T-58f48393","method":"GET"}},"codigoQr":null,"estado":"PENDIENTE_EMISION","id":"T-58f48393","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"30123456","nombre":"Ana Gomez"}},{"_links":{"self":{"href":"/api/v1/entradas/T-89635f3d","method":"GET"}},"codigoQr":null,"estado":"PENDIENTE_EMISION","id":"T-89635f3d","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"31234567","nombre":"Luis Perez"}}],"estado":"CONFIRMADA","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-e022b63c","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":"P-cb9578d8","subtotal":55000,"venceReserva":"2026-10-14T21:07:05Z"}
 
 ----------------------------------------------------------------------
-4. Tres segundos después: GET /api/v1/ventas/V-3c150ebb y GET /api/v1/entradas/T-364f302b
-Fecha: 2026-10-13 15:46:25 -0300
-{"_links":{"self":{"href":"/api/v1/ventas/V-3c150ebb","method":"GET"}},"cargoServicio":5500,"creada":"2026-10-13T18:46:20Z","entradas":[{"_links":{"self":{"href":"/api/v1/entradas/T-364f302b","method":"GET"}},"codigoQr":"83078c69-be61-429c-9e37-54f7ef12a06f","estado":"VALIDA","id":"T-364f302b","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"30123456","nombre":"Ana Gomez"}},{"_links":{"self":{"href":"/api/v1/entradas/T-daeff830","method":"GET"}},"codigoQr":"7da80240-89ca-40c1-aac4-04e7994f64be","estado":"VALIDA","id":"T-daeff830","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"31234567","nombre":"Luis Perez"}}],"estado":"EMITIDA","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-3c150ebb","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":"P-6d48cf81","subtotal":55000,"venceReserva":"2026-10-13T18:56:20Z"}
-{"_links":{"self":{"href":"/api/v1/entradas/T-364f302b","method":"GET"}},"codigoQr":"83078c69-be61-429c-9e37-54f7ef12a06f","emitida":"2026-10-13T18:46:21Z","estado":"VALIDA","eventoId":"ev-1","id":"T-364f302b","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"30123456","nombre":"Ana Gomez"},"ventaId":"V-3c150ebb"}
+4. Tres segundos después: GET /api/v1/ventas/V-e022b63c y GET /api/v1/entradas/T-58f48393
+Fecha: 2026-10-14 17:57:09 -0300
+{"_links":{"self":{"href":"/api/v1/ventas/V-e022b63c","method":"GET"}},"cargoServicio":5500,"creada":"2026-10-14T20:57:05Z","entradas":[{"_links":{"self":{"href":"/api/v1/entradas/T-58f48393","method":"GET"}},"codigoQr":"d6c0000e-68c5-4adc-9212-dcc45d53e86a","estado":"VALIDA","id":"T-58f48393","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"30123456","nombre":"Ana Gomez"}},{"_links":{"self":{"href":"/api/v1/entradas/T-89635f3d","method":"GET"}},"codigoQr":"9ae4dfda-6af3-4b06-834d-0c92b82bb156","estado":"VALIDA","id":"T-89635f3d","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"31234567","nombre":"Luis Perez"}}],"estado":"EMITIDA","eventoId":"ev-1","facturaEstado":"NO_APLICA","id":"V-e022b63c","items":[{"cantidad":2,"precioUnitario":27500,"sector":"Platea B","sectorId":"sec-1-4"}],"montoTotal":60500,"pagoId":"P-cb9578d8","subtotal":55000,"venceReserva":"2026-10-14T21:07:05Z"}
+{"_links":{"self":{"href":"/api/v1/entradas/T-58f48393","method":"GET"}},"codigoQr":"d6c0000e-68c5-4adc-9212-dcc45d53e86a","emitida":"2026-10-14T20:57:06Z","estado":"VALIDA","eventoId":"ev-1","id":"T-58f48393","precioPagado":27500,"sector":"Platea B","sectorId":"sec-1-4","titular":{"dni":"30123456","nombre":"Ana Gomez"},"ventaId":"V-e022b63c"}
 
 ----------------------------------------------------------------------
 5. Contadores del broker después de la compra, y la diferencia
-Fecha: 2026-10-13 15:46:25 -0300
+Fecha: 2026-10-14 17:57:10 -0300
 cola: agregados=2 pendientes=0 consumidores=15 | tópico: agregados=4 suscripciones=2 durables=1 | DLQ: pendientes=0
 diferencia: cola agregados +1 (se espera +1) | tópico agregados +2 (se espera +2, una copia por suscripción) | DLQ +0 (se espera +0)
 
 ----------------------------------------------------------------------
-6. Líneas del log del servidor con el id de la venta: grep -n V-3c150ebb backend/servidor/target/server/standalone/log/server.log
-Fecha: 2026-10-13 15:46:31 -0300
-3119:2026-10-13 15:46:20,548 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra V-3c150ebb abierta por user-titular: total 60500, reserva hasta 2026-10-13T18:56:20Z (instancia 4e73b599).
-3120:2026-10-13 15:46:21,519 INFO  [com.palco.pagos.negocio.ServicioDePagos] (default task-3) Pago P-6d48cf81 de la venta V-3c150ebb: APROBADO (pasarela fake).
-3121:2026-10-13 15:46:21,559 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra V-3c150ebb confirmada con el pago P-6d48cf81. Entradas creadas: 2. PAGO_CONFIRMADO publicado en la misma transacción (instancia 4e73b599).
-3122:2026-10-13 15:46:21,583 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra en curso: el contenedor destruye la instancia 4e73b599 de la venta V-3c150ebb.
-3123:2026-10-13 15:46:21,592 INFO  [com.palco.notificaciones.negocio.ServicioDeNotificaciones] (Thread-1 (activemq-client-global)) Aviso al comprador user-titular: tu compra V-3c150ebb quedó confirmada. Evento ev-1, 2 entradas: Platea B (Ana Gomez), Platea B (Luis Perez). Total: $60500.
-3124:2026-10-13 15:46:21,594 INFO  [com.palco.notificaciones.mensajeria.AvisoDeCompraMDB] (Thread-1 (activemq-client-global)) AvisoDeCompra: aviso enviado por la venta V-3c150ebb.
-3125:2026-10-13 15:46:21,607 INFO  [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-1 (activemq-client-global)) AuditoriaDeCompras: procesado el mensaje de la venta V-3c150ebb.
-3126:2026-10-13 15:46:21,624 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-0 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-3c150ebb. Entradas emitidas: 2. La venta pasó a EMITIDA.
+6. Líneas del log del servidor con el id de la venta: grep -n V-e022b63c backend/servidor/target/server/standalone/log/server.log
+Fecha: 2026-10-14 17:57:12 -0300
+687:2026-10-14 17:57:05,415 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra V-e022b63c abierta por user-titular: total 60500, reserva hasta 2026-10-14T21:07:05Z (instancia 34a33c7f).
+688:2026-10-14 17:57:06,093 INFO  [com.palco.pagos.negocio.ServicioDePagos] (default task-3) Pago P-cb9578d8 de la venta V-e022b63c: APROBADO (pasarela fake).
+689:2026-10-14 17:57:06,107 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra V-e022b63c confirmada con el pago P-cb9578d8. Entradas creadas: 2. PAGO_CONFIRMADO publicado en la misma transacción (instancia 34a33c7f).
+690:2026-10-14 17:57:06,216 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra en curso: el contenedor destruye la instancia 34a33c7f de la venta V-e022b63c.
+691:2026-10-14 17:57:06,246 INFO  [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-2 (activemq-client-global)) AuditoriaDeCompras: procesado el mensaje de la venta V-e022b63c.
+692:2026-10-14 17:57:06,252 INFO  [com.palco.notificaciones.negocio.ServicioDeNotificaciones] (Thread-1 (activemq-client-global)) Aviso al comprador user-titular: tu compra V-e022b63c quedó confirmada. Evento ev-1, 2 entradas: Platea B (Ana Gomez), Platea B (Luis Perez). Total: $60500.
+693:2026-10-14 17:57:06,253 INFO  [com.palco.notificaciones.mensajeria.AvisoDeCompraMDB] (Thread-1 (activemq-client-global)) AvisoDeCompra: aviso por la venta V-e022b63c registrado en el log; no se envía: no hay proveedor de correo.
+694:2026-10-14 17:57:06,265 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-0 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-e022b63c. Entradas emitidas: 2. La venta pasó a EMITIDA.
 Quién cobra: última línea de FabricaDeCobros en el log (se escribe en el primer cobro después de cada despliegue de Ventas)
-3110:2026-10-13 15:45:54,992 INFO  [com.palco.ventas.negocio.externos.FabricaDeCobros] (default task-2) Cobros: Ventas cobra llamando al servicio de Pagos (POST /api/v1/pagos). Para usar el simulador local: palco.ventas.cobros=fake.
+678:2026-10-14 17:56:48,129 INFO  [com.palco.ventas.negocio.externos.FabricaDeCobros] (default task-2) Cobros: Ventas cobra llamando al servicio de Pagos (POST /api/v1/pagos). Para usar el simulador local: palco.ventas.cobros=fake.
 
 ----------------------------------------------------------------------
 7. Fila de auditoría de esa venta: GET /api/notificaciones/auditoria (rol servicio), filtrada por ventaId
-Fecha: 2026-10-13 15:46:31 -0300
-{"compradorId":"user-titular","eventoId":"ev-1","mensajeId":"ID:623e08e5-c736-11f1-9d59-0a0027000009","montoTotal":60500,"recibidoEn":"2026-10-13T18:46:21Z","tipoEvento":"PAGO_CONFIRMADO","ventaId":"V-3c150ebb"}
+Fecha: 2026-10-14 17:57:12 -0300
+{"compradorId":"user-titular","eventoId":"ev-1","mensajeId":"ID:d05ed137-c811-11f1-b9dc-0a0027000009","montoTotal":60500,"recibidoEn":"2026-10-14T20:57:06Z","tipoEvento":"PAGO_CONFIRMADO","ventaId":"V-e022b63c"}
 
 ----------------------------------------------------------------------
 8. Transacción deshecha: POST /api/notificaciones/pruebas/pago-confirmado-con-falla (publica y después lanza un error)
-Fecha: 2026-10-13 15:46:31 -0300
+Fecha: 2026-10-14 17:57:12 -0300
 antes:   cola: agregados=2 pendientes=0 consumidores=15 | tópico: agregados=4 suscripciones=2 durables=1 | DLQ: pendientes=0
 HTTP/1.1 409 Conflict
 Content-Type: application/problem+json
@@ -95,7 +95,7 @@ líneas nuevas de los tres consumidores en el log: 0 (se espera 0)
 
 ----------------------------------------------------------------------
 9. Control por rol: la misma operación según quién llama (sin token, comprador y rol servicio)
-Fecha: 2026-10-13 15:46:43 -0300
+Fecha: 2026-10-14 17:57:20 -0300
 GET  /api/notificaciones/auditoria, sin token:              401 (se espera 401)
 GET  /api/notificaciones/auditoria, token de comprador:     403 (se espera 403)
 GET  /api/notificaciones/auditoria, token de rol servicio:  200 (se espera 200)
@@ -104,13 +104,13 @@ POST /api/v1/pagos, token de comprador:                     403 (se espera 403)
 
 ----------------------------------------------------------------------
 10. Reserva de cupo: vendidas de Platea B (sec-1-4) en GET /api/eventos, al abrir y al cancelar una compra de 1 entrada
-Fecha: 2026-10-13 15:46:44 -0300
+Fecha: 2026-10-14 17:57:22 -0300
 antes de abrir la compra:        vendidas=1444
-con la compra V-4c307412 abierta: vendidas=1445 (se espera 1445)
-DELETE /api/v1/ventas/V-4c307412:   204
+con la compra V-b4f57b33 abierta: vendidas=1445 (se espera 1445)
+DELETE /api/v1/ventas/V-b4f57b33:   204
 después de cancelarla:           vendidas=1444 (se espera 1444)
-Líneas del log con el id de esa venta: grep -n V-4c307412 backend/servidor/target/server/standalone/log/server.log
-3128:2026-10-13 15:46:45,865 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-3) Compra V-4c307412 abierta por user-titular: total 30250, reserva hasta 2026-10-13T18:56:45Z (instancia 6b91d323).
-3129:2026-10-13 15:46:46,545 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-3) Compra V-4c307412 cancelada (instancia 6b91d323).
-3130:2026-10-13 15:46:46,547 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-3) Compra en curso: el contenedor destruye la instancia 6b91d323 de la venta V-4c307412.
-3131:2026-10-13 15:46:46,548 INFO  [com.palco.ventas.negocio.ComprasEnCurso] (default task-3) Venta V-4c307412 cancelada por su comprador: se devuelve el cupo a Eventos.
+Líneas del log con el id de esa venta: grep -n V-b4f57b33 backend/servidor/target/server/standalone/log/server.log
+696:2026-10-14 17:57:23,030 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra V-b4f57b33 abierta por user-titular: total 30250, reserva hasta 2026-10-14T21:07:23Z (instancia 3cfa52c5).
+697:2026-10-14 17:57:23,628 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra V-b4f57b33 cancelada (instancia 3cfa52c5).
+698:2026-10-14 17:57:23,629 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra en curso: el contenedor destruye la instancia 3cfa52c5 de la venta V-b4f57b33.
+699:2026-10-14 17:57:23,629 INFO  [com.palco.ventas.negocio.ComprasEnCurso] (default task-2) Venta V-b4f57b33 cancelada por su comprador: se devuelve el cupo a Eventos.

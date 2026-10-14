@@ -1,6 +1,6 @@
 # Entrega Parcial N.º 2 (23/10/2026, a confirmar) — carpeta de la entrega
 
-Acá está el documento técnico de la entrega y todo lo que lo respalda. Describe el estado del servidor de desarrollo el 13/10/2026 entre las 15:45 y las 15:54, armado desde cero ese día con código que en ese momento no tenía commit. Antes de entregar hay que volver a correr los tres guiones de `evidencia/` (`tomar-evidencia.sh`, `reproducir.sh` y `suscriptor-durable.sh`) con el servidor armado desde el commit del tag `entrega-parcial-2`, que todavía no existe.
+Acá está el documento técnico de la entrega y todo lo que lo respalda. Describe el estado del servidor de desarrollo el 14/10/2026 entre las 17:56 y las 18:00, armado desde cero ese día desde el commit `580dd05`, el del tag `entrega-parcial-2`.
 
 ## Qué hay en la carpeta
 
@@ -29,9 +29,7 @@ Además, la sección 5 lista las diferencias con la Entrega Parcial N.º 1, los 
 El detalle de cada punto está en `docs/notas/docs-entrega3.md`.
 
 - `Diagrama_Integracion_SOA.drawio.png`: la exportación del diagrama desde app.diagrams.net.
-- `Entrega_Parcial_2_Integracion.docx` y `.pdf`: están en la carpeta, pero son anteriores a la última revisión del `.md` (evidencia de las 15:45 y suscriptor durable). Hay que volver a exportarlos antes de subirlos.
 - `evidencia/postman-runner.png`: la captura de la corrida de la colección de Postman.
 - Confirmar con la cátedra la fecha de la entrega. El grupo cursa en la comisión de los viernes y la consigna, escrita para la del lunes, dice 19/10. El cronograma de los viernes no nombra este checkpoint: se toma el viernes 23/10/2026, cuatro días después como las otras fechas, y así figura en la carátula. También falta confirmar la hora límite: las 13:30 de la consigna son de la comisión del lunes.
-- Lo que el documento marca como pendiente en dos comentarios, junto a la carátula: la fecha de la entrega, y el tag con la evidencia tomada desde ese commit.
-- Volver a correr `node scripts/pruebas/escenarios.mjs` contra el servidor armado desde el tag y guardar su salida en `evidencia/integracion-13-escenarios.txt`: la salida guardada es de una versión anterior, con la verificación de identidad que Usuarios ya no pide (escenario 5). Después, sacar esa aclaración de la fila S1 de 3.2 y de la sección 4.8 del documento.
+- Lo que el documento marca como pendiente en un comentario junto a la carátula: la fecha de la entrega.
 - Los anexos (documentación funcional, manual de usuario y prototipo): no se hicieron. La consigna no los pide para esta entrega y la consulta a la cátedra todavía no tiene respuesta.

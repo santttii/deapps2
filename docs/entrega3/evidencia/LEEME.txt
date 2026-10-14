@@ -1,7 +1,8 @@
 Palco - Entrega Parcial N.º 2 - evidencia del proceso asincrónico
-Fecha de las tomas: 13/10/2026 (hora de Argentina, UTC-3). Casi todo se volvió a tomar entre las 15:45 y las 15:50,
-con el servidor armado desde cero ("mvn clean install", BUILD SUCCESS a las 15:17) y recién reiniciado (15:45): la
-compra de la toma es la primera compra de ese servidor. Lo que quedó de tomas anteriores está marcado más abajo.
+Fecha de las tomas: 14/10/2026 (hora de Argentina, UTC-3), entre las 17:56 y las 18:00, con el servidor armado desde
+cero desde el commit 580dd05, el del tag entrega-parcial-2 (BUILD SUCCESS; en marcha a las 17:55 con los 8 WAR): la
+compra de la toma es la primera compra de ese servidor. Lo que quedó de tomas anteriores, del 13/10, está marcado más
+abajo.
 
 QUÉ PROCESO SE MUESTRA
 Cuando se aprueba un pago, Ventas publica el mensaje PAGO_CONFIRMADO en el broker (ActiveMQ Artemis, embebido en
@@ -10,18 +11,18 @@ WildFly), en la misma transacción que deja la venta CONFIRMADA. El mensaje va a
     entradas (PENDIENTE_EMISION -> VALIDA, con su código QR) y pasa la venta de CONFIRMADA a EMITIDA.
   - el tópico topico.compra-confirmada, que entrega una copia a cada suscriptor: AvisoDeCompraMDB y
     AuditoriaDeComprasMDB, en Notificaciones.
-En todas las tomas de la tarde Ventas cobra llamando a ServicioDePagos (POST /api/v1/pagos), que guarda el pago; la
-pasarela de Pagos es simulada (PagosFake).
+En las tomas del 14/10, y en la repetición de compras-simultaneas.txt del 13/10, Ventas cobra llamando a
+ServicioDePagos (POST /api/v1/pagos), que guarda el pago; la pasarela de Pagos es simulada (PagosFake).
 
 CÓMO LEER CADA ARCHIVO
 Cada archivo dice arriba qué muestra y, por cada paso, la fecha, el comando exacto y su salida sin retocar. Los
 comandos se corrieron desde la raíz del repo, en Git Bash. Los tokens de sesión no se guardan: cada archivo trae el
 comando con el que se pidieron. El servidor escribe su log en hora local (UTC-3); las fechas que devuelve la API están
-en UTC y terminan en Z. Tres archivos de la mañana traen menos: mensajes-pendientes.txt tiene un paso resumido,
+en UTC y terminan en Z. Tres archivos de la mañana del 13/10 traen menos: mensajes-pendientes.txt tiene un paso resumido,
 mensaje-repetido-y-reintentos.txt es la salida de un guion que no está en el repo, y vencimiento-de-reserva.txt es un
 resumen sin los comandos.
 
-LA COMPRA DE LA TOMA (15:45: venta V-91934f4a, pago P-8c25143c, entradas T-3b438461 y T-50e62a72)
+LA COMPRA DE LA TOMA (14/10, 17:56: venta V-25d98b55, pago P-dbe21ef4, entradas T-126c2e33 y T-72d36133)
 La escribe tomar-evidencia.sh, que se puede repetir:  bash docs/entrega3/evidencia/tomar-evidencia.sh
   1. broker-antes.txt            Cola, tópico y DLQ antes de la compra (todo en 0: el servidor recién arrancaba).
   2. compra.txt                  Abrir la compra (201, EN_CHECKOUT) y pagarla (201, CONFIRMADA, entradas PENDIENTE_EMISION).
@@ -32,10 +33,10 @@ La escribe tomar-evidencia.sh, que se puede repetir:  bash docs/entrega3/evidenc
   6. server-log-extracto.txt     Las líneas del log con el id de la venta: la compra, el pago que guardó
                                  ServicioDePagos y los tres consumidores.
   7. auditoria.txt               La fila que guardó auditoría por ese mensaje.
-Desde esta toma la venta trae su fecha de creación ("creada") y cada entrada dentro de la venta trae sectorId,
-precioPagado y codigoQr.
+La venta trae su fecha de creación ("creada") y cada entrada dentro de la venta trae sectorId, precioPagado y
+codigoQr.
 
-GUION QUE REPITE TODO EL PROCESO (15:46: venta V-3c150ebb, pago P-6d48cf81, entrada T-364f302b)
+GUION QUE REPITE TODO EL PROCESO (14/10, 17:56: venta V-e022b63c, pago P-cb9578d8, entrada T-58f48393)
   reproducir.sh                       bash docs/entrega3/evidencia/reproducir.sh
                                       Lee la configuración del broker, hace una compra, muestra la venta y la entrada,
                                       compara los contadores, busca la venta en el log y en la auditoría, y prueba que
@@ -51,7 +52,7 @@ GUION QUE REPITE TODO EL PROCESO (15:46: venta V-3c150ebb, pago P-6d48cf81, entr
                                       de comprador, 200 con token de servicio). Paso 10: vendidas del sector antes de
                                       abrir una compra, con la compra abierta (+1) y después de cancelarla.
 
-SUSCRIPCIÓN DURABLE (15:48: venta V-95a3a988 y mensaje de prueba prueba-d4239bf7)
+SUSCRIPCIÓN DURABLE (14/10, 17:57: venta V-2f682d6d y mensaje de prueba prueba-377393d9)
   suscriptor-durable.sh               bash docs/entrega3/evidencia/suscriptor-durable.sh
                                       Detiene el suscriptor de auditoría (stop-delivery), publica dos mensajes (una
                                       compra real y uno de prueba) y lo reanuda (start-delivery). Auditoría queda
@@ -60,31 +61,31 @@ SUSCRIPCIÓN DURABLE (15:48: venta V-95a3a988 y mensaje de prueba prueba-d4239bf
                                       suscripción durable y no hay filas, mientras el aviso (no durable) y la emisión
                                       siguen trabajando; al reanudarla aparecen las 2 filas y no queda nada pendiente.
 
-COMPRAS Y PAGOS SIMULTÁNEOS
+COMPRAS Y PAGOS SIMULTÁNEOS (13/10; no se repitió el 14/10)
   compras-simultaneas.mjs             node docs/entrega3/evidencia/compras-simultaneas.mjs
                                       Abre 80 compras a la vez, manda 20 pedidos a la vez con la misma clave de
                                       idempotencia y paga 30 compras a la vez. Deja 30 ventas EMITIDAS de 1 entrada
                                       (sec-2-1 del evento ev-2); el resto queda cancelado.
   compras-simultaneas.txt             Tres partes. ANTES: lo que quedó en el log de una ráfaga de 80 compras con una
                                       versión anterior de Ventas (28 abiertas y 52 sin respuesta). DESPUÉS: la salida
-                                      del guion a las 14:27. REPETIDO a las 15:49, con el servidor armado desde cero:
+                                      del guion a las 14:27. REPETIDO a las 15:49, con el servidor de ese día:
                                       80, 20 y 30 respuestas 201, y 16 pagos en el mismo instante con la prueba de
                                       backend/servicios/ventas/src/test/en-vivo/pagos-simultaneos.mjs.
                                       No es parte del proceso asincrónico: muestra que Ventas no retiene una conexión
                                       de la base mientras espera a Eventos o a Pagos.
 
-LOS 13 ESCENARIOS DE LA INTEGRACIÓN (15:51 a 15:54)
+LOS 13 ESCENARIOS DE LA INTEGRACIÓN (14/10, 17:58 a 18:00)
   integracion-13-escenarios.txt       La salida de la prueba de integración del backend: compra completa,
                                       idempotencia, pago rechazado, reglas de negocio, seguridad, cancelación y
                                       toda la mensajería (un mensaje por pago, mensaje repetido, los dos
                                       suscriptores, el escenario del taller con stop-delivery y start-delivery,
                                       suscripción durable, mensaje inválido hasta la DLQ y transacción deshecha).
-                                      181 comprobaciones, todas bien. Se repite con  node scripts/pruebas/
+                                      177 comprobaciones, todas bien. Se repite con  node scripts/pruebas/
                                       escenarios.mjs  (ver scripts/LEEME.md). A diferencia de mensaje-repetido-y-
                                       reintentos.txt, no cambió código: el mensaje repetido y el inválido en la
                                       cola se lograron moviendo mensajes entre colas con jboss-cli.
 
-LO QUE QUEDA DE LAS TOMAS DE LA MAÑANA (servidor anterior; su log ya no existe, porque el armado limpio lo borra)
+LO QUE QUEDA DE LAS TOMAS DE LA MAÑANA DEL 13/10 (servidor anterior; su log ya no existe, porque el armado limpio lo borra)
   venta-inexistente.txt               El mensaje de una venta que no existe se descarta con un aviso; no vuelve a la
                                       cola ni va a la DLQ. Se repite con el endpoint de prueba de Notificaciones.
   mensajes-pendientes.txt             La cola tenía 64 mensajes esperando antes de que existiera el consumidor; al
@@ -95,19 +96,16 @@ LO QUE QUEDA DE LAS TOMAS DE LA MAÑANA (servidor anterior; su log ya no existe,
                                       cobraba con su simulador local.
   vencimiento-de-reserva.txt          Una compra sin pagar (V-07b45602) pasa a VENCIDA a los 10 minutos, las vendidas
                                       del sector vuelven de 521 a 520 y pagarla después responde 409. Es un resumen:
-                                      no trae los comandos. No se repitió a la tarde: exige esperar 10 minutos.
+                                      no trae los comandos. No se repitió después: exige esperar 10 minutos.
 
 LÍMITES DE ESTA TOMA
   - No se mueve plata: la pasarela es simulada (PagosFake, token tok_test). No hay ninguna llamada a Mercado Pago.
-  - Las tomas de la tarde se hicieron con el árbol de trabajo del 13/10 a las 15:17, que todavía tenía cambios sin
-    commit (entre ellos, la verificación de identidad en Usuarios). Antes de entregar hay que repetirlas con el
-    servidor armado desde el commit del tag entrega-parcial-2: son tres comandos
-    (tomar-evidencia.sh, reproducir.sh y suscriptor-durable.sh) y después hay que pasar los ids nuevos a este archivo
-    y al documento.
-  - Mientras se tomaban, otra prueba compraba en el mismo servidor con la cuenta titular@palco.test (se ve en el
-    log: ventas que no son de estos guiones). Por eso suscriptor-durable.sh cuenta aparte las ventas ajenas. Las
-    diferencias de los contadores de reproduccion.txt y de la compra de la toma dieron justas: en esos segundos no
-    hubo otra compra.
+  - Las tomas del 14/10 se hicieron con el código del commit 580dd05 (tag entrega-parcial-2). compras-simultaneas.txt
+    y los archivos de la mañana del 13/10 son de servidores anteriores, con código anterior a ese commit.
+  - suscriptor-durable.sh y los 13 escenarios cuentan aparte las ventas ajenas, por si otra prueba compra en el mismo
+    servidor. En las tomas del 14/10 no hubo otras compras: los contadores cuadran de un guion al siguiente (la cola
+    llega a 4 mensajes agregados al empezar los 13 escenarios: la compra de la toma, la de reproducir.sh y la compra
+    y el mensaje de prueba de suscriptor-durable.sh).
   - La base es H2 en memoria: las ventas de la toma se pierden al reiniciar WildFly. El broker sí guarda sus mensajes.
   - No se probó una caída del servidor entre el commit de la base y el del broker.
   - Los contadores "messages-added" son acumulados desde que arrancó el servidor: lo que importa es la diferencia
