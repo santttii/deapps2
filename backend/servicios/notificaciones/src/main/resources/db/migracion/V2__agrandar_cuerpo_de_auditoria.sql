@@ -1,0 +1,13 @@
+-- La columna cuerpo pasa de varchar(4000) a varchar(100000).
+--
+-- El contrato de PAGO_CONFIRMADO no limita el largo del nombre del titular ni del sector:
+-- Ventas acepta nombres de hasta 200 caracteres y Eventos sectores de hasta 120, y JSON
+-- escribe cada comilla como \" (dos caracteres). Con 6 entradas el cuerpo podía pasar de
+-- 4000: el INSERT fallaba, el mensaje se reintentaba y terminaba en la DLQ sin fila de
+-- auditoría aunque la venta se hubiera emitido bien. 100000 deja margen de sobra incluso si
+-- cada carácter se escribiera como \uXXXX (seis caracteres).
+--
+-- Sigue siendo varchar, y no text, porque en H2 text es un CLOB y la entidad lo mapea como
+-- String común. "set data type" es la forma estándar: la aceptan H2 (modo PostgreSQL) y
+-- PostgreSQL, y en las dos conserva el not null.
+alter table registro_auditoria alter column cuerpo set data type varchar(100000);

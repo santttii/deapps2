@@ -21,7 +21,9 @@ import com.palco.notificaciones.negocio.PruebasDeMensajeria;
  * API REST de ServicioDeNotificaciones, en {@code /api/notificaciones}. Es
  * interna y de desarrollo, y por eso no figura en la OpenAPI: sirve para
  * disparar la mensajería sin hacer una compra y para ver qué registró
- * auditoría.
+ * auditoría. Los endpoints {@code /pruebas/*} son solo para desarrollo: qué
+ * implica tenerlos desplegados y cómo se separarían para producción está en
+ * {@link PruebasDeMensajeria}.
  *
  * Todo pide rol {@code servicio}: con un rol humano, cualquier organizador
  * podría publicar pagos falsos. Ese rol solo lo consigue quien tiene el secreto

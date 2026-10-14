@@ -19,7 +19,7 @@ public class ServicioDeNotificaciones implements INotificaciones {
 
     @Override
     public void enviarConfirmacion(PagoConfirmadoMensaje mensaje) {
-        // TODO(09/11): mandarlo por email. El mensaje trae compradorId y no el email:
+        // TODO: mandarlo por email. El mensaje trae compradorId y no el email:
         // hay que pedírselo a Usuarios. Mientras tanto el aviso queda en el log del servidor.
         LOG.info(textoDelAviso(mensaje));
     }

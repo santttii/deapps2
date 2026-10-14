@@ -15,6 +15,9 @@ import jakarta.persistence.Table;
 @Table(name = "registro_auditoria")
 public class RegistroDeAuditoria {
 
+    /** Largo de la columna {@code cuerpo} (V2__agrandar_cuerpo_de_auditoria.sql). */
+    public static final int LARGO_MAXIMO_CUERPO = 100_000;
+
     /**
      * El {@code JMSMessageID}. El broker conserva el mismo id cuando reentrega
      * un mensaje, así que como clave primaria impide registrarlo dos veces.
@@ -38,8 +41,11 @@ public class RegistroDeAuditoria {
     @Column(name = "monto_total", nullable = false)
     private long montoTotal;
 
-    /** El JSON tal como llegó. */
-    @Column(nullable = false, length = 4000)
+    /**
+     * El JSON tal como llegó. El largo es el de la migración V2: el contrato no
+     * limita el nombre del titular ni del sector, así que 4000 no alcanzaba.
+     */
+    @Column(nullable = false, length = RegistroDeAuditoria.LARGO_MAXIMO_CUERPO)
     private String cuerpo;
 
     /** Hora UTC en que se registró, truncada a segundos. */

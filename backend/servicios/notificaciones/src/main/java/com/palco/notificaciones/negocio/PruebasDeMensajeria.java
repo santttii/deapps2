@@ -25,6 +25,20 @@ import com.palco.common.mensajeria.PublicadorPagoConfirmado;
  * hacer una compra. Es una herramienta de desarrollo: por eso no tiene una
  * interfaz {@code I...} como los componentes de negocio.
  *
+ * Solo para desarrollo. Va en el mismo WAR que se despliega y la usan los
+ * endpoints {@code /pruebas/*} con un token de rol {@code servicio} (la demo,
+ * los guiones de evidencia y la colección de Postman). Lo que publica es
+ * indistinguible de una venta real para los suscriptores del tópico: ni el
+ * aviso ni la auditoría verifican que la venta exista en Ventas, así que cada
+ * prueba deja un aviso en el log y una fila en {@code registro_auditoria} con
+ * un {@code ventaId} que empieza con "prueba-". Solo la cola los filtra: el
+ * consumidor de Ventas descarta la venta que no encuentra.
+ *
+ * Para producción se separaría en dos pasos: habilitar estos endpoints con
+ * una variable de entorno (apagados si falta, con 404 para que no se sepa que
+ * existen) y excluir del listado de auditoría las filas cuyo {@code ventaId}
+ * empieza con {@link #PREFIJO_DE_PRUEBA}.
+ *
  * Stateless: cada prueba arma su mensaje y no depende de la anterior.
  *
  * Es un Session Bean, y no código suelto en el recurso REST, porque el

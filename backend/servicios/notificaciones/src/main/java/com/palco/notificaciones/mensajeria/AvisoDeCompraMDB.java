@@ -50,6 +50,9 @@ public class AvisoDeCompraMDB implements MessageListener {
         }
         notificaciones.enviarConfirmacion(mensaje);
         // El id viene en el mensaje: va al log en un solo renglón (ver Textos.enUnaLinea).
-        LOG.info("AvisoDeCompra: aviso enviado por la venta " + Textos.enUnaLinea(mensaje.ventaId()) + ".");
+        // No dice "enviado": todavía no hay proveedor de correo y el aviso solo
+        // queda en el log (ver ServicioDeNotificaciones).
+        LOG.info("AvisoDeCompra: aviso por la venta " + Textos.enUnaLinea(mensaje.ventaId())
+                + " registrado en el log; no se envía: no hay proveedor de correo.");
     }
 }
