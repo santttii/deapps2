@@ -1,4 +1,4 @@
-# Palco — guía para agentes
+# Palco — guía del proyecto
 
 Trabajo práctico de Desarrollo de Aplicaciones II (UADE). Plataforma de venta de entradas con reventa oficial
 (tope +10%). Lo evalúa una cátedra: **cada decisión tiene que poder defenderse por escrito y en vivo**, así que
@@ -6,7 +6,8 @@ preferí código simple y justificado antes que código ingenioso.
 
 ## Antes de tocar nada
 1. Leé `TODO.md` (estado por fases) y `docs/PLAN_AGENTES.md` (qué te toca y qué no).
-2. Trabajá solo en los módulos que tu tarea nombra. Si necesitás cambiar otro módulo, parate y avisá.
+2. Trabajá solo en los módulos que tu tarea nombra. Si necesitás cambiar otro módulo, frená y acordalo antes con su
+   dueño o dueña.
 3. `backend/common` es compartido: no lo modifiques salvo que tu tarea lo diga explícitamente.
 
 ## Fechas de la comisión (viernes)
@@ -20,8 +21,8 @@ lunes: **sus fechas no son las nuestras**. Usá las de esta tabla, que sale del 
 | **06/11** | Entrega del diseño del TP Obligatorio | No figura. Qué se entrega: a confirmar con la cátedra |
 | **13/11** | 2.ª Entrega PARCIAL | Entrega Obligatoria N.º 2 — 2.º Parcial (09/11): con defensa oral. El plan viejo la llamaba "Entrega 4" |
 | **20/11** | 3.er Check point TPO | No figura. Qué se entrega: a confirmar con la cátedra |
-| **27/11** | Prueba del TP Obligatorio | Entrega Final (30/11 en el detalle de la consigna). Es el límite para tener el sistema completo funcionando |
-| 04/12 y 11/12 | Recuperatorio o final adelantado, y final regular | — |
+| **27/11** | Prueba del TP Obligatorio | No figura con ese nombre. Qué se hace ese día: a confirmar con la cátedra. Se toma como límite para tener el sistema completo funcionando, que es lo que pide la Entrega Final |
+| 04/12 y 11/12 | Recuperatorio o final adelantado, y final regular | Entrega Final: el encabezado de la consigna da 04/12 u 11/12 y el detalle, 30/11. En cuál se defiende: a confirmar con la cátedra |
 
 - El 16/10, el 23/10 y el 30/10 hay clase ("Desarrollo de una aplicación integrada").
 - El 23/10 sale del patrón de las demás fechas: las del viernes caen cuatro días después de las del lunes. Es la
@@ -36,9 +37,12 @@ lunes: **sus fechas no son las nuestras**. Usá las de esta tabla, que sale del 
 
 ## Stack y estructura
 - Backend: Jakarta EE 11 sobre WildFly 41, Java 25, Maven. **8 WAR independientes** en `backend/servicios/*`,
-  uno por componente, cada uno con su API en `/api/<servicio>` y su esquema de base. Se hablan solo por REST o JMS,
-  nunca por clases del otro servicio.
-- Frontend: React + Vite + TypeScript en `frontend/` (hoy con datos mock en `localStorage`).
+  uno por componente, cada uno con su esquema de base. Se hablan solo por REST o JMS, nunca por clases del otro
+  servicio. Rutas: Usuarios, Eventos y Notificaciones en `/api/<servicio>`; Ventas en `/api/v1` (`/ventas`,
+  `/entradas`) y Pagos en `/api/v1/pagos`. Los servicios nuevos van bajo `/api/v1`. Validación, Reventa y
+  Facturación solo tienen `/api/<servicio>/health`.
+- Frontend: React + Vite + TypeScript en `frontend/`. Sesión, catálogo, alta de eventos y compra usan el backend;
+  reventa, puerta y estadísticas del organizador siguen con datos locales (`localStorage` y datos fijos).
 - Base: H2 en modo PostgreSQL en desarrollo, Supabase (PostgreSQL) después. Migraciones Flyway en
   `src/main/resources/db/migracion` de cada servicio; el SQL tiene que correr en las dos bases.
 
@@ -53,20 +57,22 @@ lunes: **sus fechas no son las nuestras**. Usá las de esta tabla, que sale del 
 - Cada componente se justifica como stateless o stateful, y el comentario de la clase dice por qué.
 - Mensajería: contrato en `docs/superpowers/specs/mensajeria-pago-confirmado.md`. No lo cambies sin avisar.
 
-## Cómo verificar (no declares terminado sin correr esto)
+## Cómo verificar (no des nada por terminado sin correr esto)
 ```bash
 cd backend && mvn -q test                # tests
 cd backend && ./dev.sh                   # levanta WildFly con los 8 servicios
-curl localhost:8080/api/<servicio>/health
+curl localhost:8080/api/<servicio>/health    # Ventas: /api/v1/health; Pagos: /api/v1/pagos/health
 cd frontend && npm run lint && npm run build
 ```
-Si no podés correr algo, decilo explícitamente en tu reporte; no lo des por probado.
+En Windows: `dev.sh` y los guiones de `scripts/` y `docs/entrega3/evidencia/` corren en Git Bash, con `JAVA_HOME`
+apuntando a un JDK 25; Maven también corre desde PowerShell con `mvn -f backend\pom.xml test`.
+Si no podés correr algo, decilo explícitamente al avisar que terminaste; no lo des por probado.
 
 ## Git
 - Una rama por tarea: `feat/<servicio>-<tema>`. Commits chicos, en español, formato `tipo: qué cambió`.
 - Los commits los hace la persona dueña de la tarea con su propia identidad de git (la cátedra revisa la
-  participación de cada integrante). No cambies `user.name` / `user.email`.
+  participación de cada integrante). Nadie commitea con el `user.name` / `user.email` de otra persona.
 - No hagas `push --force`, no reescribas historia, no commitees secretos (`.env`, certificados, tokens).
 
-## Al terminar, reportá
-Qué hiciste, qué archivos tocaste, cómo lo probaste (comando + resultado real), qué quedó pendiente o dudoso.
+## Al terminar una tarea, avisá al grupo
+Qué cambió, qué archivos se tocaron, cómo se probó (comando + resultado real) y qué quedó pendiente o dudoso.

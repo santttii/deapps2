@@ -1,10 +1,10 @@
 # Plan A4 · docs-entrega3 — Documento de la Entrega Parcial N.º 2 (23/10, a confirmar)
 
-- **Dueño:** Joaquin Molina, con Santiago Loto. **Rama:** el brief nombra `docs/entrega3`; se trabaja en el árbol actual (`master`) y las ramas y los commits los maneja solo Santiago.
+- **Dueño:** Joaquin Molina, con Santiago Loto. **Rama:** `PLAN_AGENTES.md` nombra `docs/entrega3`; se trabaja en el árbol actual (`master`) y las ramas y los commits los maneja solo Santiago.
 - **Toca:** `docs/entrega3/` y `docs/notas/docs-entrega3.md`. No toca código, `docs/api` ni `README.md`.
 - **Depende de:** T2, A2 y A1 hasta `EmisionDeEntradasMDB` (evidencia), T3 (capturas) y T4 (captura de Postman). No depende de A3 ni de B1.
 - **Dependen de este plan:** C5 (documento del 13/11) y el Revisor.
-- **Fechas:** el grupo cursa en la comisión de los viernes y la consigna está escrita para la del lunes. La consigna fecha esta entrega el lunes 19/10 y el cronograma de los viernes no la nombra: se toma como fecha de trabajo el viernes 23/10/2026, cuatro días después como las otras fechas de la comisión, y **falta confirmarla con la cátedra**. La entrega obligatoria con defensa es el viernes 13/11 (09/11 en la consigna). Las fechas internas de este plan que todavía no pasaron (el corte del estado, el paso a Word y la subida) se corrieron los mismos cuatro días; si el calendario de `docs/PLAN_AGENTES.md` dice otra cosa, vale ese.
+- **Fechas:** el grupo cursa en la comisión de los viernes y la consigna está escrita para la del lunes. La consigna fecha esta entrega el lunes 19/10 y el cronograma de los viernes no la nombra: se toma como fecha de trabajo el viernes 23/10/2026, cuatro días después como las otras fechas de la comisión, y **falta confirmarla con la cátedra**. La entrega obligatoria con defensa es el viernes 13/11 (09/11 en la consigna). Las fechas internas de este plan que todavía no pasaron son las del calendario de `docs/PLAN_AGENTES.md`: el corte del estado, el tag y la evidencia final, el miércoles 14/10; el paso a Word y el PDF, el jueves 15/10; y la subida, el jueves 22/10. Si ese calendario cambia, vale ese.
 
 A1 a C5 son las tareas de `docs/PLAN_AGENTES.md`; T0 a T5, los pasos transversales de `docs/planes/00-contratos-compartidos.md` (acá, "contratos"), que explica las siglas de Jakarta EE. Otras: SOA, arquitectura orientada a servicios; SPA, el frontend (aplicación web de una sola página); SOAP, servicio web con XML y un contrato llamado WSDL; ESB, un producto de "bus" que centraliza integraciones; Runner, la función de Postman que corre toda la colección.
 
@@ -21,24 +21,24 @@ La consigna (`consigna.txt`, líneas 83 a 91) llama a esta instancia "Entrega Pa
 
 **Para el 23/10**
 - **Núcleo (camino crítico):** un PDF de 5 a 6 páginas con las secciones 0 a 6.
-- **Anexos A (funcional) y B (manual), cortos:** no bloquean el núcleo. Se empiezan después de la primera evidencia; lo que no esté listo el martes 20/10 no entra, y no se hacen si la cátedra responde que no hacen falta (decisión 1).
+- **Anexos A (funcional) y B (manual), cortos:** no bloquean el núcleo. Se empiezan después de la primera evidencia; lo que no esté listo el miércoles 14/10 no entra, y no se hacen si la cátedra responde que no hacen falta (decisión 1).
 - **Anexo C:** media página con el enlace a la SPA. El Figma no se hace salvo que la cátedra lo confirme.
 
-**Para el 13/11 (C5):** el núcleo crece a 8 a 12 páginas, con un diagrama de secuencia por integración (cinco), SOAP con su WSDL, la tabla de fallas de la transacción y la declaración de uso de IA, que ahí es obligatoria.
+**Para el 13/11 (C5):** el núcleo crece a 8 a 12 páginas, con un diagrama de secuencia por integración (cinco), SOAP con su WSDL, la tabla de fallas de la transacción y la declaración que la consigna pide en las entregas obligatorias, que redacta el grupo.
 
 ### Índice del documento principal
 
-El estado de cada integración es "Implementado" o "Diseñado, pendiente" y se completa el 20/10 mirando el código y el servidor, nunca los planes. "Tras el MDB" es cuando A2 y A1 llegan a `EmisionDeEntradasMDB` (lunes 12/10). Las secciones 1, 5 y 6 se escriben de cero.
+El estado de cada integración es "Implementado" o "Diseñado, pendiente" y se completa el 14/10 mirando el código y el servidor, nunca los planes. "Tras el MDB" es cuando A2 y A1 llegan a `EmisionDeEntradasMDB` (lunes 12/10). Las secciones 1, 5 y 6 se escriben de cero.
 
 | § | Contenido | Fuente | Cuándo |
 |---|---|---|---|
-| 0 | Carátula: enlace al repo y tag `entrega-parcial-2` | `git remote` | 21/10 |
+| 0 | Carátula: enlace al repo y tag `entrega-parcial-2` | `git remote` | 15/10 |
 | 1 | Qué pide la entrega y dónde está cada punto | Consigna | Ya |
 | 2 | Diagrama, modelo de integración y `ServicioDeUsuarios` como servicio reutilizable | Drawio de `docs/entrega1/`; clase 6; diagramas de las clases 8 y 9 | Ya |
-| 3 | Clasificación por flecha: tipo, criterio, qué pasa si el otro lado no responde y estado | Clases 6, 8 y 9 (`docs/clases/`) y 10 (`actividad_integradora_clase10/`); `openapi.yaml` | Ya; estado, 20/10 |
-| 4 | Dos procesos que dispara `PAGO_CONFIRMADO`, "Emisión de entradas" (cola) y "Aviso y auditoría de la compra" (tópico): broker, mensaje, consumidores, garantía transaccional, cómo reproducirlo y evidencia | Contratos §4; contrato del mensaje; notas de A1 y A2; `GUIA_POSTMAN.md` | Broker y mensaje, ya; resto, tras el MDB; evidencia final, 20/10 |
+| 3 | Clasificación por flecha: tipo, criterio, qué pasa si el otro lado no responde y estado | Clases 6, 8 y 9 (`docs/clases/`) y 10 (`actividad_integradora_clase10/`); `openapi.yaml` | Ya; estado, 14/10 |
+| 4 | Dos procesos que dispara `PAGO_CONFIRMADO`, "Emisión de entradas" (cola) y "Aviso y auditoría de la compra" (tópico): broker, mensaje, consumidores, garantía transaccional, cómo reproducirlo y evidencia | Contratos §4; contrato del mensaje; notas de A1 y A2; `GUIA_POSTMAN.md` | Broker y mensaje, ya; resto, tras el MDB; evidencia final, 14/10 |
 | 5 | Diferencias con documentos anteriores | Tabla de abajo; contratos §8.3 | Ya |
-| 6 | Qué es real y qué simulado; pendientes del 13/11; uso de IA | Contratos §2 | Ya; ajuste, 20/10 |
+| 6 | Qué es real y qué simulado; pendientes del 13/11; la declaración que la consigna pide en las entregas obligatorias, que redacta el grupo | Contratos §2 | Ya; ajuste, 14/10 |
 
 ### Diagrama: nodos y flechas
 
@@ -87,22 +87,22 @@ Son 12 capturas de 1280 de ancho, en `capturas/NN-recorrido-pantalla.png`, borra
 
 Todas están pendientes de aprobación; el plan se escribe con la recomendada.
 
-1. **Alcance (P12 de contratos).** (a) Solo el núcleo. (b) Todo obligatorio, como dice el brief: ata la entrega a capturas y a un Figma. (c) Núcleo como camino crítico; anexos A y B cortos después de la primera evidencia, con corte el 20/10; sin Figma, con la SPA como prototipo; Santiago lo consulta hoy por Teams y, si la cátedra dice que no hacen falta, no se hacen. **Recomendada: (c).** La consigna no los pide, pero los apuntes del grupo sobre la clase 10, en Notion, los anotan para esta entrega ("19/10 Entrega 3 (mensajería asincrónica real en vivo + documentación funcional, manual de usuario y Figma)"), y el tablero tiene las tarjetas "Redactar documentación funcional + manual de usuario" (Parcial N.º 2, Joaquin, límite 17/10) y "Armar prototipo navegable en Figma". Con (c) el núcleo no espera la respuesta de la cátedra y, si los pedía, hay algo para entregar. El Figma le saca horas a Valentina (A3 y B2), y la Entrega Parcial 1 ya presentó el frontend como "prototipo navegable de UI (React)". Defensa: "Primero lo que pide la consigna; lo anunciado en clase va como anexo". El 09/10 la fila P12 de contratos todavía recomienda (a): hasta que Santiago la cambie (paso 1) vale (a), como se explica en "Riesgos y dudas abiertas".
+1. **Alcance (P12 de contratos).** (a) Solo el núcleo. (b) Todo obligatorio, como dice la guía de la tarea: ata la entrega a capturas y a un Figma. (c) Núcleo como camino crítico; anexos A y B cortos después de la primera evidencia, con corte el 14/10; sin Figma, con la SPA como prototipo; Santiago lo consulta hoy por Teams y, si la cátedra dice que no hacen falta, no se hacen. **Recomendada: (c).** La consigna no los pide, pero los apuntes del grupo sobre la clase 10, en Notion, los anotan para esta entrega ("19/10 Entrega 3 (mensajería asincrónica real en vivo + documentación funcional, manual de usuario y Figma)"), y el tablero tiene las tarjetas "Redactar documentación funcional + manual de usuario" (Parcial N.º 2, Joaquin, límite 17/10) y "Armar prototipo navegable en Figma". Con (c) el núcleo no espera la respuesta de la cátedra y, si los pedía, hay algo para entregar. El Figma le saca horas a Valentina (A3 y B2), y la Entrega Parcial 1 ya presentó el frontend como "prototipo navegable de UI (React)". Defensa: "Primero lo que pide la consigna; lo anunciado en clase va como anexo". El 09/10 la fila P12 de contratos todavía recomienda (a): hasta que Santiago la cambie (paso 1) vale (a), como se explica en "Riesgos y dudas abiertas".
 2. **Un diagrama, sin caja de ESB.** (a) Una caja "Bus de integración", como sugiere la clase 6: muestra una pieza que no existe. (b) Dos diagramas, hoy y objetivo: doble mantenimiento. (c) Uno, con el estado en el trazo. **Recomendada: (c).** Defensa: "El criterio de bus se cumple con el broker y con adaptadores detrás de `PasarelaDePagos`; no hay un producto de ESB".
 3. **Webhook y email.** (a) Webhook asincrónico, porque avisa después: la consigna solo admite cola o tópico para lo asincrónico. (b) Webhook síncrono (REST entrante) y email asincrónico. **Recomendada: (b).** Defensa: "Clasificamos por canal: el webhook es una llamada HTTP con respuesta inmediata; el email lo desacopla el tópico".
 4. **Cinco integraciones, dos procesos.** (a) Numerar cada flecha: obliga a C5 a doce diagramas de secuencia. (b) Agrupar por sistema y canal, con dos procesos sobre el mismo evento. **Recomendada: (b).** Defensa: "El mismo evento resuelve una tarea de un único responsable, por cola, y una difusión a varios interesados, por tópico".
 5. **Diferencias entre documentos.** (a) Seguir el más viejo. (b) Seguir lo más reciente y el código, y listar cada cambio. **Recomendada: (b).** Defensa: "Mostramos qué cambió y por qué, en vez de entregar documentos que se contradicen".
-6. **Uso de IA declarado desde el 23/10.** (a) Esperar al 13/11, cuando es obligatorio. (b) Declararlo ya, con el alcance real. **Recomendada: (b).** Borrador, que aprueba el grupo: "Se usó un asistente de IA generativa (Claude Code) para planificar, generar código de Ventas, Notificaciones, Pagos y la mensajería común, y redactar esta documentación. Cada decisión fue revisada por quien la defiende". No depende de quién figure en git.
+6. **La declaración que la consigna pide en las entregas obligatorias, desde el 23/10.** (a) Esperar al 13/11, cuando es obligatoria. (b) Incluirla ya en el documento del 23/10. **Recomendada: (b).** El texto lo redacta y lo aprueba el grupo.
 
 ## Archivos
 
-Todos nuevos, en `docs/entrega3/`. El brief pide Word; se escribe en Markdown, que se puede revisar por diferencias, y se pasa a Word y a PDF el 21/10.
+Todos nuevos, en `docs/entrega3/`. La guía de la tarea pide Word; se escribe en Markdown, que se puede revisar por diferencias, y se pasa a Word y a PDF el 15/10.
 - `README.md`: índice de la carpeta y tabla que asigna cada punto de la consigna a una sección.
 - `Entrega_Parcial_2_Integracion.md`: fuente del documento principal.
-- `Diagrama_Integracion_SOA.drawio` y `.drawio.png`: fuente del diagrama y exportación, que hace una persona.
+- `Diagrama_Integracion_SOA.drawio` y `.drawio.png`: fuente del diagrama y exportación, que se hace a mano.
 - `evidencia/`: `broker-antes.txt`, `broker-despues.txt`, `server-log-extracto.txt` (el `.gitignore` excluye `*.log`), `auditoria.json`, `entrada.json` y `postman-runner.png`.
 - `Anexo_A_Documentacion_Funcional.md`, `Anexo_B_Manual_de_Usuario.md`, `Anexo_C_Prototipo.md` y `capturas/`: solo con la decisión 1.
-- `Entrega_Parcial_2_Integracion.docx` y `.pdf`: lo que se sube; los arma una persona desde Word.
+- `Entrega_Parcial_2_Integracion.docx` y `.pdf`: lo que se sube; se arman a mano desde Word.
 
 Fuera de la carpeta: `docs/notas/docs-entrega3.md`, con el porqué de cada decisión y cinco preguntas probables con respuesta corta, en el formato de las otras notas.
 
@@ -116,24 +116,24 @@ Fuera de la carpeta: `docs/notas/docs-entrega3.md`, con el porqué de cada decis
 - De A3, sin bloquear: `IPagos`, `PasarelaDePagos`, `PagosFake`, `FabricaDePasarela` y `POST /api/v1/pagos`.
 - De T2, `POST /api/usuarios/servicios/token`; de T3, las fechas futuras; de T4, la colección ajustada.
 - Del servidor: `java:/JmsXA`, `java:/jms/queue/emisionEntradas`, `java:/jms/topic/compraConfirmada`, `java:/jms/queue/DLQ` y la línea `INFO` con el `ventaId` de cada MDB.
-- **OpenAPI:** se describen las rutas que respondan el 20/10; la sección 5 lista dónde se apartan de `openapi.yaml`, que A4 no edita.
+- **OpenAPI:** se describen las rutas que respondan el 14/10; la sección 5 lista dónde se apartan de `openapi.yaml`, que A4 no edita.
 - **Postman:** A4 pega la captura del Runner con lo que tiene que pasar al cerrar la Ola 1: carpetas 1 y 2 y requests 1 a 3 de "3 Diseño v1". Los requests 4 a 7 son de C2 y B3.
 
 ## Pasos
 
-Cada paso termina en un commit de Santiago con mensaje `docs: …`. Los pasos 1 a 4 conservan sus fechas originales, que ya pasaron. Los pasos 6 a 9 se corrieron cuatro días, igual que la entrega (del lunes 19/10 al viernes 23/10, a confirmar), y el paso 5 se estiró hasta el nuevo corte.
+Cada paso termina en un commit de Santiago con mensaje `docs: …`. Los pasos 1 a 4 conservan sus fechas originales, que ya pasaron. Los pasos 6 a 9 siguen el calendario de `docs/PLAN_AGENTES.md`. El estado se corta, se crea el tag y se toma la evidencia el miércoles 14/10, antes de que entre código de la Ola 3. El PDF queda listo el jueves 15/10, por si la fecha de la entrega resulta anterior. Se sube el jueves 22/10, el día anterior a la fecha de trabajo (viernes 23/10, a confirmar; la consigna dice lunes 19/10).
 
 1. **Vie 09/10.** Santiago consulta a la cátedra por Teams si los anexos y el Figma hacen falta, y deja la decisión 1 escrita igual en contratos §11 (fila P12), en contratos §9 y en la línea 4 de `A3-pagos.md`; los textos están en "Riesgos y dudas abiertas".
 2. **Sáb 10/10.** `README.md` con la tabla consigna → sección; secciones 1, 2, 3 (sin estado), 5 y 6 y la parte de broker y mensaje de la 4; `.drawio` con todos los nodos y flechas.
 3. **Dom 11/10.** Joaquin abre el `.drawio` en app.diagrams.net, lo acomoda y exporta el PNG. Primera lectura del texto.
 4. **Lun 12/10.** Apenas A1 llega a `EmisionDeEntradasMDB`: primera evidencia en `evidencia/` y el resto de la sección 4, con los nombres reales.
 5. **Del mar 13/10 al corte del paso 6.** `docs/notas/docs-entrega3.md`. Si la fila P12 de contratos ya recomienda (c) y la cátedra no respondió que no hacen falta: Anexo A y texto del Anexo B; después de T3, Joaquin toma las 12 capturas.
-6. **Mar 20/10.** Evidencia definitiva (reemplaza a la primera si llegó B1); columna de estado; captura del Runner después de T4. Corte de anexos.
-7. **Mié 21/10.** Paso a Word; leen los cinco, cada uno al menos la parte que va a defender; se exporta el PDF.
-8. **Jue 22/10.** Santiago deja todo en `master`, crea el tag `entrega-parcial-2` y lo sube. Se prueba el enlace sin sesión iniciada. Joaquin sube el PDF y el enlace al aula virtual; suplente, Santiago.
+6. **Mié 14/10.** Santiago hace el commit de lo que quedó sin commit y crea el tag `entrega-parcial-2`. Con el servidor armado desde ese tag: evidencia definitiva (reemplaza a la primera si llegó B1); columna de estado; captura del Runner después de T4. Corte de anexos.
+7. **Jue 15/10.** Paso a Word; leen los cinco, cada uno al menos la parte que va a defender; se exporta el PDF, que queda listo para subir.
+8. **Jue 22/10.** Santiago comprueba que `master` y el tag `entrega-parcial-2` estén subidos a GitHub. Se prueba el enlace sin sesión iniciada. Joaquin sube el PDF y el enlace al aula virtual; suplente, Santiago.
 9. **Vie 23/10, antes de la hora límite.** Colchón. La hora está a confirmar: la consigna dice 13:30 para la comisión del lunes, y la de los viernes cursa de 08:45 a 11:45. Como el paso 8 deja todo subido el jueves, la respuesta no cambia el plan.
 
-**Necesitan a una persona:** la consulta a la cátedra y el cambio de P12 (paso 1); exportar el PNG; las capturas; el Figma, solo si la cátedra lo confirma; las dos lecturas; Word y PDF; aprobar el texto sobre IA; el tag y la subida.
+**Se hacen a mano:** la consulta a la cátedra y el cambio de P12 (paso 1); exportar el PNG; las capturas; el Figma, solo si la cátedra lo confirma; las dos lecturas; Word y PDF; aprobar el texto de la declaración que pide la consigna; el tag y la subida.
 
 ## Cómo se verifica
 
@@ -158,16 +158,16 @@ La evidencia del proceso es texto que el docente puede repetir (contratos §9), 
 
 ## Riesgos y dudas abiertas
 
-- **Alcance (decisión 1): tres archivos con tres versiones.** Comprobado el 09/10. Contratos §11, fila P12, recomienda "(a), salvo que la cátedra los haya pedido por otro canal": los anexos no se hacen hasta que alguien confirme el pedido. Este plan recomienda (c): se hacen salvo que la cátedra diga que no. `A3-pagos.md`, línea 4, dice "El prototipo en Figma es tarea humana de Valentina y no se planifica acá", y acá el Figma no se hace. Ante una diferencia vale contratos (su sección 1), así que hoy vale (a). Esos dos archivos no son de A4; para dejar una sola versión, Santiago cambia:
-  - Contratos §11, fila P12: sumar la alternativa (c) y poner como recomendada "núcleo como camino crítico; anexos A y B cortos después de la primera evidencia, con corte el 20/10; sin Figma, la SPA como prototipo; Santiago lo consulta hoy por Teams y, si la cátedra dice que no hacen falta, no se hacen".
+- **Alcance (decisión 1): tres archivos con tres versiones.** Comprobado el 09/10. Contratos §11, fila P12, recomienda "(a), salvo que la cátedra los haya pedido por otro canal": los anexos no se hacen hasta que alguien confirme el pedido. Este plan recomienda (c): se hacen salvo que la cátedra diga que no. `A3-pagos.md`, línea 4, dice "El prototipo en Figma es tarea de Valentina y no se planifica acá", y acá el Figma no se hace. Ante una diferencia vale contratos (su sección 1), así que hoy vale (a). Esos dos archivos no son de A4; para dejar una sola versión, Santiago cambia:
+  - Contratos §11, fila P12: sumar la alternativa (c) y poner como recomendada "núcleo como camino crítico; anexos A y B cortos después de la primera evidencia, con corte el 14/10; sin Figma, la SPA como prototipo; Santiago lo consulta hoy por Teams y, si la cátedra dice que no hacen falta, no se hacen".
   - Contratos §9: agregar que los anexos no bloquean el núcleo.
   - `A3-pagos.md`, línea 4: reemplazar la oración del Figma por "el Figma no se hace salvo que la cátedra lo confirme (P12)".
 - **Si el grupo deja P12 como está,** vale (a): los anexos salen de los pasos 5 y 6 y de la lista de archivos. El núcleo no cambia, y hasta el lunes 12/10 solo se trabaja en el núcleo, así que hay tiempo hasta el paso 5 para resolverlo.
 - **Alcance: qué pidió la cátedra.** Nadie lo confirmó con la cátedra. Los apuntes son de segunda mano y las dos tarjetas del tablero no se tocan desde el 04/09, un mes antes de la clase 10: ninguno es un pedido escrito. Si la cátedra confirma el Figma, lo hace Valentina y el grupo decide de dónde salen esas horas, hoy puestas en A3 y B2.
 - **Demostración en vivo.** Los apuntes dicen que en esta entrega el proceso se muestra en vivo; la consigna, que no hay defensa. "Cómo reproducirlo" (sección 4) sirve de guion; el ensayo no es de esta tarea.
-- **Si el 20/10 el flujo no corre de punta a punta,** el documento describe lo que ande. La evidencia de reserva es `POST /api/notificaciones/pruebas/pago-confirmado` (A2), que muestra el proceso del tópico sin Ventas.
+- **Si el 14/10 el flujo no corre de punta a punta,** el documento describe lo que ande. La evidencia de reserva es `POST /api/notificaciones/pruebas/pago-confirmado` (A2), que muestra el proceso del tópico sin Ventas.
 - **Sin probar:** la caída entre los dos commits (se describe así, con el texto de contratos §4.7); que el MDB figure en `consumer-count` y cuánto sube `messages-added` del tópico por compra; que un `.drawio` escrito como XML abra sin retoques; el paso de Markdown a Word (hay Word y Edge; no hay pandoc, LibreOffice ni draw.io de escritorio).
 - **Flechas S3 e `IFacturacion`.** Salen de los talleres y de `TODO.md`, no de contratos: las definen C1, C2 y B3.
 - **Capturas.** `MyTicketsPage.tsx` bloquea publicar en reventa a menos de 3 horas del evento, y los eventos de prueba terminan el 16/10. Sin T3, la salida es crear un evento futuro desde el panel del organizador (no probado).
 - **Fuentes sin commitear.** `docs/api`, `docs/clases`, `docs/entrega1`, `docs/planes` y `actividad_integradora_clase10/` no están en git: tienen que entrar antes del tag.
-- **A confirmar por una persona:** que el docente pueda abrir el repo; la fecha y la hora de esta entrega para la comisión de los viernes (se toma el 23/10; la consigna, escrita para la comisión del lunes, dice 19/10 a las 13:30); el grupo de cinco (la consigna fija 3 a 4); dónde está el documento de la Entrega Obligatoria N.º 1 (14/09), que la entrega del 13/11 pide "actualizado"; y qué hay que entregar en la "Entrega del diseño del TP Obligatorio", que el cronograma de los viernes fecha el 06/11 (los apuntes la anotan como "02/11 diseño del TP Obligatorio", la fecha del lunes).
+- **A confirmar por el grupo:** que el docente pueda abrir el repo; la fecha y la hora de esta entrega para la comisión de los viernes (se toma el 23/10; la consigna, escrita para la comisión del lunes, dice 19/10 a las 13:30); el grupo de cinco (la consigna fija 3 a 4); dónde está el documento de la Entrega Obligatoria N.º 1 (14/09), que la entrega del 13/11 pide "actualizado"; y qué hay que entregar en la "Entrega del diseño del TP Obligatorio", que el cronograma de los viernes fecha el 06/11 (los apuntes la anotan como "02/11 diseño del TP Obligatorio", la fecha del lunes).

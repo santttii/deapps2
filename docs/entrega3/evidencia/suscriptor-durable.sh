@@ -13,7 +13,7 @@
 #     bash docs/entrega3/evidencia/suscriptor-durable.sh > docs/entrega3/evidencia/suscriptor-durable.txt 2>&1
 #
 # Necesita curl, node (para generar las claves de idempotencia) y un JDK. Se corrió solo en Windows con Git Bash.
-# Auditoría queda detenida unos 10 segundos; si el guion se corta, igual la reanuda al salir.
+# Auditoría queda detenida unos 20 segundos; si el guion se corta, igual la reanuda al salir.
 # Deja una venta EMITIDA de 1 entrada de Platea B y un mensaje de prueba (venta "prueba-..."), los dos auditados.
 # Si otra persona compra mientras auditoría está detenida, sus mensajes también quedan pendientes: el guion
 # los cuenta aparte (mira en el log qué otras ventas se confirmaron en ese rato) y los nombra. Tampoco se
@@ -21,7 +21,9 @@
 # Sale con código 0 si todo dio lo esperado y con 1 si no.
 
 export NOPAUSE=true                                   # sin esto, jboss-cli.bat espera una tecla al terminar
-export JAVA_HOME="${JAVA_HOME:-/c/Users/santi/.jdks/temurin-25}"
+# El JDK de jboss-cli: el JAVA_HOME del entorno; si no hay, ~/.jdks/temurin-25 si esa carpeta existe; si no,
+# el java del PATH (como scripts/pruebas/escenarios.mjs).
+if [ -z "${JAVA_HOME:-}" ] && [ -d "$HOME/.jdks/temurin-25" ]; then export JAVA_HOME="$HOME/.jdks/temurin-25"; fi
 H=localhost:8080
 J="Content-Type: application/json"
 B="/subsystem=messaging-activemq/server=default"

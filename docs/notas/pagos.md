@@ -14,7 +14,7 @@ Hoy la pasarela es `PagosFake`, un simulador que no mueve plata. El resultado lo
 
 ## Decisiones: qué se eligió, contra qué alternativa y por qué
 
-1. **El servicio decide y guarda; la pasarela solo habla con el exterior.** `ServicioDePagos` implementa `IPagos` y `PagosFake` implementa `PasarelaDePagos`, nuestra interfaz hacia afuera. En el brief (`docs/PLAN_AGENTES.md`) cada pasarela implementaba `IPagos`: cada una tendría que guardar el pago y detectar los repetidos. Así eso se escribe una sola vez.
+1. **El servicio decide y guarda; la pasarela solo habla con el exterior.** `ServicioDePagos` implementa `IPagos` y `PagosFake` implementa `PasarelaDePagos`, nuestra interfaz hacia afuera. En la guía de la tarea (`docs/PLAN_AGENTES.md`) cada pasarela implementaba `IPagos`: cada una tendría que guardar el pago y detectar los repetidos. Así eso se escribe una sola vez.
 2. **La pasarela la elige una Factory.** `FabricaDePasarela` lee `palco.pagos.proveedor` (variable `PALCO_PAGOS_PROVEEDOR`, por defecto `fake`) y crea la pasarela; el servicio la recibe con `@Inject` y no sabe cuál es. La alternativa, un `if` dentro del servicio, mezcla configuración con negocio. Un valor desconocido impide el despliegue, en lugar de cobrar de mentira sin avisar.
 3. **Un rechazo responde 201, no 402.** Para Pagos el pago se procesó y `RECHAZADO` es su resultado: queda guardado y se puede consultar. El 402 se lo da Ventas al comprador. Si Pagos respondiera 402, el intento no quedaría registrado.
 4. **El pedido repetido lo frena la base, no un `if`.** Si la clave ya existe se devuelve el pago guardado. Si dos pedidos iguales llegan a la vez, los dos pasan esa búsqueda, pero la restricción única deja guardar a uno solo; el otro relee y devuelve ese mismo pago. Verificar solo en Java dejaría pasar a los dos. La misma clave con otra venta u otro monto responde 409 `clave-reutilizada`.
@@ -39,7 +39,7 @@ Las filas del 400 y del 409 son una regla nueva (revisión del 13/10) y todavía
 
 ## Qué quedó pendiente o simulado y por qué
 
-- **La pasarela es simulada.** Mercado Pago, el webhook (el aviso que manda la pasarela) y el reembolso quedan para el 13/11 (decisión P10): el 23/10 (fecha de la Entrega Parcial N.º 2, a confirmar con la cátedra) se evalúa el proceso asincrónico, que no pasa por Pagos, y la firma del webhook no se pudo verificar contra la documentación oficial. `PENDIENTE`, `VENCIDO` y `REEMBOLSADO` están en el enumerado, pero hoy nadie los escribe.
+- **La pasarela es simulada.** Mercado Pago, el webhook (el aviso que manda la pasarela) y el reembolso quedan para después del checkpoint (decisión P10), en la tarea D1 de `docs/PLAN_AGENTES.md`, que tiene como límite el 19/11: el 23/10 (fecha de la Entrega Parcial N.º 2, a confirmar con la cátedra) se evalúa el proceso asincrónico, que no pasa por Pagos, y la firma del webhook no se pudo verificar contra la documentación oficial. `PENDIENTE`, `VENCIDO` y `REEMBOLSADO` están en el enumerado, pero hoy nadie los escribe.
 - **Ventas todavía no llama a este servicio.** Lo conecta la tarea B1; hasta entonces cobra con su simulador, `CobrosFake`, que usa los mismos tokens.
 - **Límites que se aceptan.**
   - Tras un `RECHAZADO`, la misma clave devuelve siempre ese rechazo, aunque llegue otro token: el token no se guarda, así que no distingue un pedido de otro. Un intento nuevo necesita una clave nueva, y la genera el cliente (el checkout), no Ventas, que reenvía la que recibe. La misma clave se repite solo ante un 504 o un error de red.

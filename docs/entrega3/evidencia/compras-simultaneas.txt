@@ -98,3 +98,70 @@ LÍMITES DE ESTA TOMA
   - Si Eventos no llega a responder una reserva (servidor saturado o caído), Ventas sigue sin saber si se aplicó y
     no la devuelve: puede quedar un lugar sin vender. El aviso del log ahora dice evento, sector y cantidad.
   - El log del servidor se pierde al rotar: los conteos de arriba son los de ese día.
+
+----------------------------------------------------------------------
+REPETIDO EL 13/10/2026 A LAS 15:49 (servidor armado desde cero con "mvn clean install" a las 15:17 y reiniciado a las 15:45)
+Es el Ventas de ese armado: incluye la corrección del reintento del cobro (desplegada a las 14:53) y el listado de
+las compras propias. La salida va sin retocar.
+
+$ node docs/entrega3/evidencia/compras-simultaneas.mjs
+
+Palco - compras y pagos simultáneos. Salida de docs/entrega3/evidencia/compras-simultaneas.mjs
+Fecha: 13/10/2026 15:49:34 (hora local)
+
+1. 80 compras abiertas a la vez, cada una con su clave. Se espera: 80 respuestas 201 y vendidas +80.
+   respuestas: { '201': 80 } | tardó 695 ms en total
+   vendidas del sector: 4800 -> 4880
+   después de cancelarlas: { '204': 80 } | vendidas: 4800 (se espera 4800)
+
+2. 20 pedidos a la vez con la misma clave. Se espera: 20 respuestas 201 con el mismo id y vendidas +1.
+   respuestas: { '201': 20 } | ventas distintas: [ 'V-f5fc6097' ] | tardó 223 ms en total
+   vendidas del sector: 4800 -> 4801
+   cancelar esa venta: 204 | vendidas: 4800 (se espera 4800)
+
+3. 30 compras abiertas y pagadas todas a la vez. Se espera: 30 respuestas 201 y las 30 ventas EMITIDAS.
+   respuestas: { '201': 30 } | tardó 608 ms en total
+   tres segundos después: { EMITIDA: 30 } | entradas: { VALIDA: 30 }
+   primera y última venta: V-f7f9b0c4 V-3693bfd2
+
+Terminó a las 15:49:43. En el log del servidor no tiene que haber ninguna línea nueva con "no respondió".
+
+Los mismos conteos del log, entre las 15:49:34 y las 15:49:44:
+
+$ awk '$2>="15:49:34" && $2<="15:49:44"' $L | grep -c "abierta por"                      # 80 + 1 + 30
+111
+$ awk '$2>="15:49:34" && $2<="15:49:44"' $L | grep -c "no respondió"
+0
+$ awk '$2>="15:49:34" && $2<="15:49:44"' $L | grep "abierta por" | cut -c12-21 | sort | uniq -c   # en qué décima de segundo se abrieron
+      1 15:49:34,5
+      8 15:49:34,6
+     15 15:49:34,7
+     10 15:49:34,8
+     21 15:49:34,9
+     25 15:49:35,0
+      1 15:49:37,8
+     10 15:49:40,0
+     18 15:49:40,1
+      2 15:49:40,2
+$ awk '$2>="15:49:34" && $2<="15:49:44"' $L | grep -c "PAGO_CONFIRMADO publicado"        # los 30 pagos
+30
+$ awk '$2>="15:49:34" && $2<="15:49:44"' $L | grep -c "que no llegó a abrir una venta"   # caso 2: los que perdieron
+19
+$ awk '$2>="15:49:34" && $2<="15:49:44"' $L | grep -c "venta_clave_idempotencia_unica"   # caso 2: los INSERT que rechazó la base
+19
+$ awk '$2>="15:49:34" && $2<="15:49:44"' $L | grep -c " ERROR "
+0
+
+Da lo mismo que a las 14:27: 80, 20 y 30 respuestas 201, sin ningún "no respondió". Tardó más (695, 223 y 608 ms
+contra 304, 87 y 184). No se midió por qué: el servidor llevaba 4 minutos levantado y esa tarde lo usaba también
+otra prueba.
+
+A continuación, la prueba de pagos simultáneos que dejó la conexión de Ventas con Pagos (16 pagos en el mismo instante):
+
+$ cd backend && node servicios/ventas/src/test/en-vivo/pagos-simultaneos.mjs 16
+
+Abiertas 16 ventas: V-598243ec V-d627c54a V-9c48f10b V-f180c5d9 V-b85af762 V-b7bf4c88 V-ad44221c V-fd2d4ea1 V-b7c6aa5c V-2b0f0dfa V-cfabfe82 V-4209be18 V-e4e02d26 V-65f66e16 V-d0ff1b11 V-c93651bc
+Los 16 pagos terminaron en 204 ms
+Pagos por código: {"201":16}
+GET /api/eventos durante la prueba: 7 consultas, la más lenta 16 ms, fallidas 0
+BIEN: los 16 pagos dieron 201 y la base no se congeló.

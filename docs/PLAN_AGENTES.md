@@ -1,4 +1,4 @@
-# Plan de trabajo con agentes — hacia el 23/10, el 06/11, el 13/11, el 20/11 y el 27/11
+# Plan de trabajo — hacia el 23/10, el 06/11, el 13/11, el 20/11 y el 27/11
 
 Hecho el 09/10/2026 a partir de la consigna del TP (`docs/consigna/TP_Integrador_...docx`), `TODO.md`, el código de
 `backend/` y los apuntes de clase. **Actualizado el 13/10/2026** por dos motivos:
@@ -16,7 +16,7 @@ comisiones.
 
 De dónde sale el estado: de las notas de `docs/notas/`, que dicen qué se probó en el servidor el 13/10; del árbol de
 archivos; y del historial de git. Para esta actualización **no se compiló ni se levantó nada**. Mientras se escribía
-corría la verificación final de lo construido (armado desde cero y revisión adversaria): si encuentra algo, hay que
+corría la verificación final de lo construido (armado desde cero y revisión): si encuentra algo, hay que
 corregir la tabla de estado de abajo.
 
 ---
@@ -46,7 +46,7 @@ corregir la tabla de estado de abajo.
 | Diagrama de integración (SOA): componentes, sistemas externos y canal | Hecho: `docs/entrega3/Diagrama_Integracion_SOA.svg` y su fuente `.drawio` |
 | Clasificación justificada síncrona/asincrónica de cada integración externa | Hecha: sección 3 de `docs/entrega3/Entrega_Parcial_2_Integracion.md` |
 | **1 proceso de negocio con mensajería real de punta a punta, con broker configurado** | Hecho y con evidencia: `docs/entrega3/evidencia/` |
-| Lo que falta lo hace una persona | El tag `entrega-parcial-2`; la evidencia tomada desde ese tag; la lectura de los cinco; el texto sobre el uso de IA; confirmar la fecha de la carátula, que dice 23/10/2026; el PDF definitivo; y subirlo. El detalle está en `docs/notas/docs-entrega3.md` |
+| Lo que falta para entregar | El tag `entrega-parcial-2`; la evidencia tomada desde ese tag; la lectura de los cinco; confirmar la fecha de la carátula, que dice 23/10/2026; el PDF definitivo; y subirlo. El detalle está en `docs/notas/docs-entrega3.md` |
 | Documentación funcional, manual de usuario y prototipo Figma (Anexo) | No se hicieron: la consigna no los pide y la consulta a la cátedra no tuvo respuesta (pregunta 9) |
 
 **Entrega del diseño del 06/11.** Es un hito nuevo: está en el cronograma de los viernes y la consigna no lo nombra.
@@ -64,11 +64,12 @@ minutos).
 | Transacciones declarativas en un flujo crítico de varios pasos | Existe: `confirmarCompra` (`REQUIRED`) y el publicador (`MANDATORY`). La falla a mitad del flujo se probó con un WAR temporal que no quedó en el repo | C3 |
 | Documento técnico actualizado (8 a 12 páginas) con un diagrama de secuencia por integración | **No existe.** La base es `docs/entrega3/` y las notas | C5 |
 | Demo que cruce componentes, mensajería y servicios web | `scripts/demo-entrega3.sh` cubre la compra, el pago y la mensajería. Falta el tramo de la factura SOAP | C1 |
-| Declaración del uso de IA (obligatoria en esta entrega) | Está en el documento del checkpoint, sección 6.3. Hay que llevarla al documento nuevo | C5 |
-| Cualquier integrante defiende cualquier parte | Hay una nota por tarea con las cinco preguntas más probables. Falta que los cinco las lean todas y un ensayo con preguntas cruzadas | Ola 4 |
+| Declaración del uso de IA (obligatoria en esta entrega) | **No está escrita.** La redactan y la aprueban los cinco, y tiene que contar lo que se hizo | C5 |
+| Cualquier integrante defiende cualquier parte | Hay una nota por tarea. Las de Ventas, mensajería, Pagos y el documento traen las cinco preguntas más probables; las de la integración, el frontend y los pasos transversales, no. Falta sumárselas, que los cinco las lean todas y un ensayo con preguntas cruzadas | Ola 4 |
 
 **3.er checkpoint del 20/11.** También es nuevo y tampoco se sabe qué se entrega. El plan es mostrar Validación y
-Reventa funcionando.
+Reventa funcionando. Lo que se muestra se congela el miércoles 18/11: por eso Reventa (C2) cierra el martes 17/11. Su
+pantalla (D2) termina el 19/11; si no está cerrada al congelar, Reventa se muestra por la API.
 
 **Prueba del TP del 27/11.** Es el límite para tener el sistema completo. Checklist transversal de la consigna
 (sección 6), que se evalúa en la Entrega Final:
@@ -101,7 +102,8 @@ persona en la clase del 16/10. Con cada respuesta se corrige este plan.
    ensayo? ¿Qué hay que subir, y cuándo?
 5. **Entrega Final.** ¿En qué fecha se entrega y se defiende en esta comisión: 27/11, 04/12 u 11/12? La consigna da
    tres fechas distintas (21/12 en la tabla, 30/11 en el detalle y 04/12 u 11/12 en el encabezado) y dos notas mínimas
-   (4 en la tabla y 8 en el detalle).
+   (4 en la tabla y 8 en el detalle). Con los cuatro días que separan a las dos comisiones, el 30/11 del detalle cae
+   el viernes 04/12, y no el 27/11.
 6. **Hora límite.** La consigna dice "antes de las 13:30", que es de la comisión del lunes. ¿Para los viernes es antes
    de la clase de las 08:45?
 7. **Defensa del 13/11.** ¿Se defiende ese mismo viernes, en el horario de clase?
@@ -130,10 +132,10 @@ persona en la clase del 16/10. Con cada respuesta se corrige este plan.
    incremental, "no una única entrega final volcada de golpe", y "participación visible de todos los integrantes".
    Cada uno tiene que configurar `git config user.name` y `user.email` **antes** de volver a commitear. Los commits
    viejos se atribuyen con un `.mailmap`, que todavía no existe, sin reescribir la historia.
-2. **Los agentes no deben commitear a nombre de una sola persona.** Cada tarea la corre su dueño o dueña, en su
+2. **Los commits no pueden quedar todos a nombre de una sola persona.** Cada tarea la lleva su dueño o dueña, en su
    máquina y con su identidad, en commits chicos: uno por paso que se pueda verificar. Entre el 09/10 y el 13/10 no
    se hizo así; desde la Ola 3, sí. Para eso los cinco necesitan el entorno andando (JDK 25 y Maven).
-3. **Defensa oral individual.** Que un agente escriba el código no alcanza: cada dueño o dueña tiene que poder
+3. **Defensa oral individual.** Que el código esté escrito y funcione no alcanza: cada dueño o dueña tiene que poder
    explicar su parte, y la consigna pide que cada integrante pueda defender cualquiera. Por eso cada tarea deja una
    nota corta en `docs/notas/<tarea>.md` con el porqué de cada decisión, y antes de cada defensa hay un ensayo con
    preguntas cruzadas.
@@ -152,26 +154,27 @@ persona en la clase del 16/10. Con cada respuesta se corrige este plan.
 
 ---
 
-## 2. Cómo trabajar con agentes (reglas)
+## 2. Cómo trabaja el equipo (reglas)
 
-- **Un agente = una rama = una tarea del tablero = un/a dueño/a.** Rama `feat/<servicio>-<tema>`, de preferencia en su
-  propio `git worktree` (`git worktree add ../palco-ventas feat/ventas-core`) para correr varios en paralelo sin pisarse.
-  En las Olas 1 y 2 no se hizo así: se trabajó en un solo árbol y los commits los hizo una sola persona (riesgo 1).
-  Desde la Ola 3 el commit de cada tarea lo hace su dueño o dueña, con su identidad y de a pasos chicos. El agente no
-  hace commits.
-- **Archivos disjuntos y un dueño por módulo.** Cada brief dice qué módulos puede tocar. Si una tarea necesita un
-  cambio en el módulo de otra persona (por ejemplo, Reventa necesita una operación nueva en Ventas), se lo pide a su
-  dueño y se acuerda en el plan, antes de escribir código.
+- **Una tarea del tablero = una rama = un/a dueño/a.** Rama `feat/<servicio>-<tema>`, de preferencia en su
+  propio `git worktree` (`git worktree add ../palco-ventas feat/ventas-core`) para avanzar con varias tareas en
+  paralelo sin pisarse. En las Olas 1 y 2 no se hizo así: se trabajó en un solo árbol y los commits los hizo una sola
+  persona (riesgo 1). Desde la Ola 3 el commit de cada tarea lo hace su dueño o dueña, con su identidad y de a pasos
+  chicos.
+- **Archivos disjuntos y un dueño por módulo.** La guía de cada tarea dice qué módulos puede tocar. Si una tarea
+  necesita un cambio en el módulo de otra persona (por ejemplo, Reventa necesita una operación nueva en Ventas), se
+  lo pide a su dueño y se acuerda en el plan, antes de escribir código.
 - **Lo compartido se toca en un paso aparte.** `backend/common` viaja dentro de los 8 WAR, y `backend/servidor`
   (con `configurar.cli`) arma el servidor. Un cambio ahí tiene un solo dueño, se avisa al grupo y termina con los 8
   servicios reconstruidos y redesplegados y los 8 `health` comprobados.
-- **Plan antes de código.** Pedirle a cada agente que primero escriba su plan (qué archivos, qué decisiones) y que
-  vos lo apruebes; recién después implementa. Es lo que evita que decida solo cosas que después tenés que defender.
-- **Verificar antes de dar por hecho.** Todo agente termina corriendo `mvn -q test` y el `curl` de su servicio, y
-  reporta el resultado real. Al final de cada ola, un agente revisor distinto contrasta contra la consigna.
-- **`CLAUDE.md` en la raíz** (incluido junto a este plan) le da a cada agente las convenciones del repo; sin eso cada
-  uno inventa su estilo.
-- **Orden de merge** por ola (abajo). Un agente no arranca si su dependencia no está mergeada.
+- **Plan antes de código.** Cada tarea empieza con su plan escrito (qué archivos, qué decisiones), y recién cuando
+  está aprobado se implementa. Es lo que evita que alguien decida solo cosas que después hay que defender.
+- **Verificar antes de dar por hecho.** Toda tarea termina con `mvn -q test` y el `curl` de su servicio corridos, y
+  con el resultado real anotado. Al final de cada ola, alguien distinto de quien escribió el código lo revisa contra
+  la consigna.
+- **`CLAUDE.md` en la raíz** tiene las convenciones del repo, que valen para todas las tareas; sin eso cada uno
+  inventa su estilo.
+- **Orden de merge** por ola (abajo). Una tarea no arranca si su dependencia no está mergeada.
 - **Fechas de la comisión de los viernes.** Las de la consigna son de la comisión del lunes y no se usan: la tabla
   está en `CLAUDE.md`.
 - **Cada entrega sale de un tag y se sube el jueves anterior a la clase.** Antes se congela, en la fecha que dice el
@@ -221,8 +224,8 @@ se entrega tiene que estar cerrado antes. Del 09/10 al 13/10 se hicieron las Ola
 | Día | Qué | Quién |
 |---|---|---|
 | Mar 13/10 | Termina la verificación final de lo construido. Salen por Teams las preguntas para la cátedra (sección 1). Se mira en el aula virtual qué fecha y hora de cierre tiene cada entrega | Santiago |
-| Mié 14/10 | Commit de lo que quedó sin commit, tag `entrega-parcial-2`, servidor armado desde ese tag y evidencia final (`docs/entrega3/evidencia/reproducir.sh`). `.mailmap`. Cada integrante deja andando su identidad de git y su entorno (JDK 25, Maven y `./dev.sh`). Salen los briefs de C1, C3 y B3 | Santiago; los cinco |
-| Jue 15/10 | Los cinco terminan de leer el documento del checkpoint y se completa el texto sobre el uso de IA. **El PDF queda listo para subir.** Se aprueban los planes de C1 y de C3 | Los cinco; Joaquin arma el PDF |
+| Mié 14/10 | Commit de lo que quedó sin commit, tag `entrega-parcial-2`, servidor armado desde ese tag y evidencia final (`docs/entrega3/evidencia/reproducir.sh`). `.mailmap`. Cada integrante deja andando su identidad de git y su entorno (JDK 25, Maven y `./dev.sh`). Se reparten las guías de C1, C3 y B3 | Santiago; los cinco |
+| Jue 15/10 | Los cinco terminan de leer el documento del checkpoint. **El PDF queda listo para subir.** Se aprueban los planes de C1 y de C3 | Los cinco; Joaquin arma el PDF |
 | **Vie 16/10** | Clase. Se consulta en persona lo que no tuvo respuesta por Teams y ese mismo día se corrige este plan. Arranca el código de C1 y de C3 | Los cinco; Santiago corrige el plan |
 | Sáb 17 y dom 18/10 | C1: el sistema legado simulado, con su WSDL publicado. C3: prueba de la falla a mitad del flujo, que se pueda repetir. B3: plan | Santiago; Sebastian; Joaquin |
 | Lun 19/10 | C1: el WSDL se descarga y una factura de prueba responde. B3: plan aprobado y arranca el código. C5: índice propuesto | Santiago; Joaquin |
@@ -244,7 +247,7 @@ se entrega tiene que estar cerrado antes. Del 09/10 al 13/10 se hicieron las Ola
 |---|---|---|
 | Dom 01/11 al jue 05/11 | Lun 02 y mar 03: los cinco leen el borrador de C5 y cada uno corrige su parte; se cierra la pantalla de puerta. **Mié 04/11: se congela el paquete de diseño:** documento técnico con los diagramas de secuencia, WSDL, `openapi.yaml` y diagrama de integración actualizado. **Jue 05/11: se sube**, y es la fecha de corte de B4. C2 y D1 avanzan sin bloquear | **06/11** Entrega del diseño |
 | Sáb 07/11 al jue 12/11 | Sáb 07 y dom 08: última oportunidad de cerrar algo que entre en la entrega. **Lun 09/11: se congela.** Mar 10/11: armado desde cero, Revisor contra la consigna, demo completa y arreglos. Mié 11/11: documento definitivo en PDF, tag `entrega-obligatoria-2` y ensayo de la defensa con preguntas cruzadas (cada uno explica una parte que no hizo). **Jue 12/11: se sube**, y el resto del día es colchón | **13/11** 2.ª entrega parcial, con defensa oral |
-| Sáb 14/11 al jue 19/11 | Se cierra C2. D1: cobro en el ambiente de prueba de Mercado Pago, y webhook. D2: pantalla de reventa. Arreglos que haya pedido la cátedra el 13/11. **Mié 18/11: se congela lo que se va a mostrar. Jue 19/11: se sube** lo que pida la cátedra | **20/11** 3.er checkpoint |
+| Sáb 14/11 al jue 19/11 | **Mar 17/11: se cierra C2**, para que entre en lo que se congela. D1: cobro en el ambiente de prueba de Mercado Pago, y webhook. D2: pantalla de reventa. Arreglos que haya pedido la cátedra el 13/11. **Mié 18/11: se congela lo que se va a mostrar. Jue 19/11: se sube** lo que pida la cátedra | **20/11** 3.er checkpoint |
 | Sáb 21/11 al jue 26/11 | Panel del organizador y lo que haya marcado el checkpoint. D3: documentación final. **Mar 24/11: se congela.** Mié 25/11: armado desde cero, Revisor contra el checklist de la sección 6 de la consigna, demo de punta a punta y documentación final en PDF. **Jue 26/11: ensayo general y se sube** | **27/11** Prueba del TP Obligatorio |
 | Desde el 28/11 | Lo que pida la cátedra después de la prueba, la preparación individual de la defensa y la reflexión del equipo que pide la consigna: qué decisión de arquitectura cambiarían y por qué | 04/12 final adelantado u 11/12 final regular |
 
@@ -287,7 +290,7 @@ para que cada integrante tenga al menos un componente del backend propio que def
 
 ---
 
-## 4. Ola 0 — humanos (09/10)
+## 4. Ola 0 — puesta a punto del grupo (09/10)
 
 Estado al 13/10. Lo que sigue sin hacer tiene fecha nueva: **miércoles 14/10**.
 
@@ -298,7 +301,7 @@ Estado al 13/10. Lo que sigue sin hacer tiene fecha nueva: **miércoles 14/10**.
 - [x] Copiar `CLAUDE.md` a la raíz y este plan a `docs/PLAN_AGENTES.md`; commitear.
 - [x] `cd backend && cp .env.example .env && ./dev.sh` → confirmar que arrancan los 8 servicios y `curl localhost:8080/api/eventos/health`.
       Hecho en la máquina donde se probó todo el 13/10. **Falta que cada integrante lo repita en la suya**, porque
-      desde la Ola 3 cada uno corre y commitea su tarea.
+      desde la Ola 3 cada tarea se prueba y se commitea en la máquina de su dueño o dueña.
 - [x] **Decidir el proceso del checkpoint.** Quedó `PAGO_CONFIRMADO` (contrato en
       `docs/superpowers/specs/mensajeria-pago-confirmado.md`), con los dos canales ya implementados: la cola de
       emisión y el tópico de aviso y auditoría.
@@ -313,19 +316,19 @@ Estado al 13/10. Lo que sigue sin hacer tiene fecha nueva: **miércoles 14/10**.
 
 ---
 
-## 5. Briefs de la Ola 1 (hechos)
+## 5. Guías de las tareas de la Ola 1 (hechas)
 
-Las cuatro tareas están cerradas. Los briefs quedan como se escribieron el 09/10, porque las notas los citan. Donde
-lo construido se apartó del brief, vale la nota de `docs/notas/`. El encabezado que sigue vale también para los
-briefs nuevos de la sección 7.
+Las cuatro tareas están cerradas. Las guías conservan lo que se definió el 09/10, porque las notas las citan. Donde
+lo construido se apartó de la guía, vale la nota de `docs/notas/`. El encabezado que sigue vale también para las
+guías nuevas de la sección 7.
 
-> Todos empiezan con: *"Leé `CLAUDE.md`, `TODO.md` y `docs/PLAN_AGENTES.md`. Antes de escribir código, mostrame tu
-> plan (archivos y decisiones) y esperá mi OK."* y terminan con: *"Cuando termines, corré los tests y el curl, y
-> reportá el resultado real. Escribí `docs/notas/<tarea>.md` (máx. 1 página) explicando el porqué de cada decisión
-> para que pueda defenderla oralmente."*
+> Todas las tareas empiezan igual: quien la tiene a cargo lee `CLAUDE.md`, `TODO.md` y `docs/PLAN_AGENTES.md` y,
+> antes de escribir código, presenta su plan (archivos y decisiones) y espera la aprobación. Y terminan igual: se
+> corren los tests y el `curl`, se anota el resultado real y se escribe `docs/notas/<tarea>.md` (máximo una página)
+> con el porqué de cada decisión, para poder defenderla oralmente.
 
 ### A1 · `ventas-core` — Sebastian · rama `feat/ventas-core`
-> **Hecho.** Cerrada el 13/10/2026. Nota para la defensa: `docs/notas/ventas-core.md`. Cambió respecto del brief:
+> **Hecho.** Cerrada el 13/10/2026. Nota para la defensa: `docs/notas/ventas-core.md`. Cambió respecto de la guía:
 > la API cuelga de `/api/v1` y la compra son dos llamadas (reservar y pagar); la reserva la vence un barrido por
 > minuto y no el `@PreDestroy`; las entradas nacen con el pago y el MDB las emite; y el cobro va detrás de la
 > interfaz `Cobros`.
@@ -365,7 +368,7 @@ briefs nuevos de la sección 7.
 
 ### A3 · `pagos` — Valentina · rama `feat/pagos`
 > **Hecho, con la pasarela simulada.** Cerrada el 13/10/2026. Nota para la defensa: `docs/notas/pagos.md`. Cambió
-> respecto del brief: `IPagos` la implementa `ServicioDePagos` y las pasarelas implementan `PasarelaDePagos`; la API
+> respecto de la guía: `IPagos` la implementa `ServicioDePagos` y las pasarelas implementan `PasarelaDePagos`; la API
 > cuelga de `/api/v1/pagos` y pide el rol `servicio`. **No se hicieron** `MercadoPagoPagos`, el webhook ni el
 > reembolso: pasan a D1 (sección 7). El prototipo en Figma tampoco se hizo (pregunta 9).
 
@@ -377,13 +380,13 @@ briefs nuevos de la sección 7.
 - Webhook `POST /api/pagos/webhook` **idempotente** (mismo `paymentId` dos veces no procesa dos veces) que responde
   200 rápido; rechazo/pendiente/vencido contemplados. Cliente JAX-RS con timeout corto.
 - **Aceptación:** tests del fake y de la idempotencia del webhook; `curl` de un pago aprobado y uno rechazado.
-- **Además (humano):** armar el **prototipo en Figma** con las pantallas del frontend (catálogo, evento, checkout,
+- **Además:** armar el **prototipo en Figma** con las pantallas del frontend (catálogo, evento, checkout,
   confirmación, mis entradas, reventa, panel organizador, puerta). Se puede partir de capturas del front actual.
 
 ### A4 · `docs-entrega3` — Joaquin (con Santiago) · rama `docs/entrega3`
 > **Hecho.** El documento, el diagrama y la evidencia están en `docs/entrega3/`, escritos el 13/10/2026. Nota:
-> `docs/notas/docs-entrega3.md`, que lista lo que falta y solo puede hacer una persona antes de subirlo. Se entrega
-> el 23/10 (fecha sin confirmar). Cambió respecto del brief: es solo el núcleo que pide la consigna, escrito en
+> `docs/notas/docs-entrega3.md`, que lista lo que falta hacer antes de subirlo. Se entrega
+> el 23/10 (fecha sin confirmar). Cambió respecto de la guía: es solo el núcleo que pide la consigna, escrito en
 > Markdown y pasado a Word y PDF; la documentación funcional y el manual de usuario no se hicieron (pregunta 9).
 
 - **Toca:** solo `docs/entrega3/`. No toca código.
@@ -395,26 +398,26 @@ briefs nuevos de la sección 7.
   (4) **manual de usuario** con pasos y capturas del front.
 - **Regla:** el documento debe describir **lo que el sistema hace hoy**, no lo planeado; si algo no está
   implementado, se marca como "diseñado, pendiente".
-- Formato: Word (como la Entrega Parcial N.º 1). Pedir primero un índice y aprobarlo.
+- Formato: Word (como la Entrega Parcial N.º 1). Primero se propone un índice y se aprueba.
 
 ---
 
-## 6. Briefs de la Ola 2 (B1 y B2 hechas; B3 y B4 pasan a la Ola 3)
+## 6. Tareas de la Ola 2 (B1 y B2 hechas; B3 y B4 pasan a la Ola 3)
 
-| Agente | Objetivo | Depende de | Estado al 13/10 |
+| Tarea | Objetivo | Depende de | Estado al 13/10 |
 |---|---|---|---|
 | **B1 integracion-e2e** (Julian) | Conectar Ventas → Pagos (REST entre servicios con token rol `servicio`) → publicar → MDBs. Script `scripts/demo-entrega3.sh` que corre el flujo completo con `curl`. Arreglar lo que aparezca. **Es el entregable central del checkpoint del 23/10.** | A1, A2, A3 | **Hecho** el 13/10. Nota: `docs/notas/integracion.md`. El guion está en `scripts/` y se explica en `scripts/LEEME.md` |
 | **B2 frontend-checkout** (Valentina) | `frontend/src/lib/api.ts` + catálogo, login y checkout contra la API real (Fase 10 de `TODO.md`, solo el subconjunto necesario); estado "emitiendo entradas…" hasta que el MDB termine. | B1 parcial | **Hecho** el 13/10. Notas: `docs/notas/B2-frontend-sesion-catalogo.md` y `docs/notas/B2-frontend-checkout.md`. Reventa, puerta y panel siguen con datos locales: es la tarea D2 |
-| **B3 validacion-qr** (Joaquin) | `ServicioDeValidación` **stateless**: QR firmado, `POST /api/validacion/escaneos` (rol `staff`), uso único atómico. | A1 (entidad `Entrada`) | **Pendiente.** Pasa a la Ola 3: del 17/10 al 25/10. Brief en la sección 7 |
-| **B4 patrones-y-tests** (Sebastian) | Introducir **Repository/DAO** en Eventos, Usuarios y Ventas (hoy `EntityManager` directo), y documentar los 3 patrones: Repository, Adapter/Strategy (`IPagos`), Facade (recurso→servicio). Tests Mockito de los Session Beans. | A1–A3 mergeados | **Pendiente, y más chica:** Ventas y Pagos ya nacieron con Repository y con tests. Pasa a la Ola 3: del 28/10 al 05/11. Brief en la sección 7 |
-| **Revisor** (Santiago) | Agente de solo lectura, **distinto** a los que escribieron el código: contrasta rama vs. consigna (la entrega que toque y el checklist) y devuelve lista de brechas con evidencia. Corre al final de cada ola. | cada ola | Hubo revisión el 13/10: las notas de Ventas, de la integración y del documento dicen qué se corrigió. Vuelve a correr el 29/10, el 10/11 y el 25/11 |
+| **B3 validacion-qr** (Joaquin) | `ServicioDeValidación` **stateless**: QR firmado, `POST /api/validacion/escaneos` (rol `staff`), uso único atómico. | A1 (entidad `Entrada`) | **Pendiente.** Pasa a la Ola 3: del 17/10 al 25/10. Guía en la sección 7 |
+| **B4 patrones-y-tests** (Sebastian) | Introducir **Repository/DAO** en Eventos, Usuarios y Ventas (hoy `EntityManager` directo), y documentar los 3 patrones: Repository, Adapter/Strategy (`IPagos`), Facade (recurso→servicio). Tests Mockito de los Session Beans. | A1–A3 mergeados | **Pendiente, y más chica:** Ventas y Pagos ya nacieron con Repository y con tests. Pasa a la Ola 3: del 28/10 al 05/11. Guía en la sección 7 |
+| **Revisor** (Santiago) | Revisión de solo lectura, a cargo de alguien **distinto** de quien escribió el código: contrasta rama vs. consigna (la entrega que toque y el checklist) y deja una lista de brechas con evidencia. Se hace al final de cada ola. | cada ola | Hubo revisión el 13/10: las notas de Ventas, de la integración y del documento dicen qué se corrigió. Se repite el 29/10, el 10/11 y el 25/11 |
 
 ---
 
-## 7. Olas 3 a 5 — briefs de lo que falta, hacia el 06/11, el 13/11, el 20/11 y el 27/11
+## 7. Olas 3 a 5 — guías de las tareas que faltan, hacia el 06/11, el 13/11, el 20/11 y el 27/11
 
-Van en el orden de prioridad de la sección 3. Cada brief dice quién lo lleva, sus fechas y qué cambió por lo que ya
-está construido. Todos usan el encabezado de la sección 5 y dejan su nota en `docs/notas/<tarea>.md`, con el mismo
+Van en el orden de prioridad de la sección 3. Cada guía dice quién lleva la tarea, sus fechas y qué cambió por lo que
+ya está construido. Todas usan el encabezado de la sección 5 y dejan su nota en `docs/notas/<tarea>.md`, con el mismo
 formato que las de la Ola 1.
 
 **Lo que ya existe y vale para todas las tareas** (el detalle está en `docs/planes/00-contratos-compartidos.md`):
@@ -470,10 +473,10 @@ Es lo segundo que hoy no existe y la consigna pide para el 13/11.
 - **Toca:** solo `docs/entrega-obligatoria-2/`, carpeta nueva. No toca código ni `docs/entrega3/`, que queda como se
   entregó.
 - **Objetivo:** el "documento técnico actualizado", de 8 a 12 páginas, con un diagrama de secuencia por integración.
-- **Contenido mínimo:** arquitectura y componentes; patrones aplicados y por qué (los que estén en el código ese día);
-  clasificación de las integraciones, con SOAP ya implementado; los diagramas de secuencia; la transacción del flujo
-  crítico y qué pasa en cada falla; qué es real y qué es simulado; y la declaración del uso de IA, que en esta
-  entrega es obligatoria.
+- **Contenido mínimo:** arquitectura y componentes, con el diagrama de integración actualizado; patrones aplicados y
+  por qué (los que estén en el código ese día); clasificación de las integraciones, con SOAP ya implementado; los
+  diagramas de secuencia; la transacción del flujo crítico y qué pasa en cada falla; qué es real y qué es simulado; y
+  la declaración del uso de IA, que en esta entrega es obligatoria.
 - **Diagramas y quién los defiende:** la compra y su transacción, Sebastian; el cobro de Ventas a Pagos, Julian; la
   emisión de entradas por la cola, Sebastian; el aviso y la auditoría por el tópico, Julian; la factura SOAP y su
   reintento, Santiago; Mercado Pago, que queda como diseño, Valentina.
@@ -549,9 +552,9 @@ Es el séptimo componente y la primera tarea de código de Joaquin.
   Pagos no responde, la venta no se confirma y el comprador recibe un 504; si Notificaciones está caído, la compra
   sigue.
 
-### C2 · `reventa` — Julian · plan del 20/10 al 30/10, código desde el 31/10, cierre el 19/11
+### C2 · `reventa` — Julian · plan del 20/10 al 30/10, código desde el 31/10, cierre el 17/11
 La consigna no la pide para el 13/11. Es el octavo componente y lo que distingue al producto, así que tiene que
-estar para el 27/11.
+estar para el 27/11. Cierra el martes 17/11 para poder mostrarla en el checkpoint del 20/11, que se congela el 18/11.
 
 - **Toca:** `backend/servicios/reventa/`.
 - **Objetivo:** publicar una entrada, retirarla, listar las publicaciones y comprar una, con las reglas de
@@ -573,7 +576,7 @@ estar para el 27/11.
   `PasarelaDePagos`. La ruta `POST /api/v1/pagos/webhook` está reservada, y los estados `PENDIENTE`, `VENCIDO` y
   `REEMBOLSADO` ya están en el enumerado. Un pago pendiente necesita un estado nuevo en la venta: se acuerda con
   Sebastian.
-- **Lo que solo puede hacer una persona:** la cuenta de desarrollador de Mercado Pago, las credenciales de prueba
+- **Gestiones previas, fuera del repo:** la cuenta de desarrollador de Mercado Pago, las credenciales de prueba
   (nunca en el repo) y una URL pública para recibir el webhook.
 - **Riesgo:** el 09/10 no se pudo verificar la firma del webhook contra la documentación oficial.
 - **Línea de corte:** el 19/11. Si no funciona de punta a punta, queda como "diseñado, pendiente".
@@ -596,12 +599,14 @@ estar para el 27/11.
 **Sin fecha, solo si sobra tiempo:** que el aviso de compra salga por email (Julian, en Notificaciones). El grupo
 todavía no eligió proveedor.
 
-## 8. Qué NO delegar a un agente
+## 8. Qué tiene que poder explicar cada integrante en la defensa
 
-Las decisiones de arquitectura que van a preguntarte en la defensa (stateful vs. sesión, cola vs. tópico, qué
-transacción abarca qué), el Figma final, el ensayo de la demo y la lectura del código de tu propia parte.
-Los agentes aceleran la escritura; la defensa oral individual es de ustedes.
+Las decisiones de arquitectura que se van a preguntar en la defensa (stateful vs. sesión, cola vs. tópico, qué
+transacción abarca qué) y el código de su propia parte, que tiene que haber leído completo. También son de cada
+dueño o dueña el Figma final y el ensayo de la demo. Que la tarea esté cerrada no alcanza: la defensa oral es
+individual, y la consigna pide que cada integrante pueda defender cualquier parte.
 
-Tampoco se delegan: las preguntas a la cátedra; los commits, que cada uno hace con su identidad; el tag y la subida
-de cada entrega; y la lectura completa de cada documento antes de entregarlo. La declaración del uso de IA la
-aprueban los cinco y tiene que contar lo que se hizo.
+Hay cosas que se hacen en persona y con nombre propio: las preguntas a la cátedra; los commits, que cada uno hace con
+su identidad; el tag y la subida de cada entrega; y la lectura completa de cada documento antes de entregarlo. La
+declaración del uso de IA que pide la consigna la redactan y la aprueban los cinco, y tiene que contar lo que se
+hizo.

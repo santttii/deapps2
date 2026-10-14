@@ -1,13 +1,13 @@
 # Plan A3 · pagos — Pago con pasarela simulada detrás de una interfaz propia
 
-- **Dueña:** Valentina Frisoli. **Rama:** `feat/pagos` en el brief; se trabaja en el árbol actual y los commits los hace solo Santiago, uno por paso.
-- **Toca:** `backend/servicios/pagos/` y la nota `docs/notas/pagos.md`. El prototipo en Figma es tarea humana de Valentina y no se planifica acá.
+- **Dueña:** Valentina Frisoli. **Rama:** `feat/pagos` según `PLAN_AGENTES.md`; se trabaja en el árbol actual y los commits los hace solo Santiago, uno por paso.
+- **Toca:** `backend/servicios/pagos/` y la nota `docs/notas/pagos.md`. El prototipo en Figma es tarea de Valentina y no se planifica acá.
 - **Depende de:** los pasos transversales T0 y T1 para compilar, y T2 (token de rol `servicio`) para los `curl`.
 - **Dependen de este plan:** las tareas B1, C2 y C3 de las olas siguientes. A1 no, porque cobra con su `CobrosFake`: este plan no bloquea el 23/10.
 
 Los nombres son los de `docs/planes/00-contratos-compartidos.md` ("contratos"), que manda si hay diferencias.
 
-Las fechas son las de la comisión de los viernes (sección 1 de contratos). El viernes 23/10 es la fecha de trabajo de la Entrega Parcial N.º 2 y falta confirmarla con la cátedra; la consigna, escrita para la comisión del lunes, dice 19/10. El 13/11 es la entrega obligatoria con defensa.
+Las fechas son las de la comisión de los viernes (sección 1 de contratos). El viernes 23/10 es la fecha de trabajo de la Entrega Parcial N.º 2 y falta confirmarla con la cátedra; la consigna, escrita para la comisión del lunes, dice 19/10. El 13/11 es la entrega obligatoria con defensa. Lo que este plan deja "para el 13/11" es lo que no entraba en el checkpoint: en `docs/PLAN_AGENTES.md` pasó a la tarea D1, con el adaptador de Mercado Pago hasta el 08/11 y el webhook hasta el 19/11, y entra en la entrega del 13/11 solo si el 08/11 está cerrado.
 
 ## Qué se construye
 
@@ -17,14 +17,14 @@ Hoy el WAR (el archivo desplegable del servicio) de pagos tiene solo `PagosAppli
 
 **Para el 13/11:** el webhook (el aviso HTTP que la pasarela le manda a nuestra API), el reembolso y `MercadoPagoPagos`, diseñados en las decisiones 5 y 6.
 
-Respecto del brief cambian tres cosas: qué interfaz tiene las dos implementaciones (decisión 1), el alcance (decisión 5) y la ruta, de `/api/pagos` a `/api/v1/pagos` (propuesta P7 de contratos).
+Respecto de la guía de la tarea (`docs/PLAN_AGENTES.md`) cambian tres cosas: qué interfaz tiene las dos implementaciones (decisión 1), el alcance (decisión 5) y la ruta, de `/api/pagos` a `/api/v1/pagos` (propuesta P7 de contratos).
 
 ## Decisiones para aprobar
 
 Se implementan con la recomendada y quedan pendientes de aprobación de Valentina.
 
 **1. Interfaz y patrón (propuesta P9).**
-- (a) `PagosFake` y `MercadoPagoPagos` implementan `IPagos`, como dice el brief: cada una tendría que guardar el pago y deduplicar.
+- (a) `PagosFake` y `MercadoPagoPagos` implementan `IPagos`, como dice la guía de la tarea: cada una tendría que guardar el pago y deduplicar.
 - (b) `ServicioDePagos` implementa `IPagos`, y las dos implementaciones elegibles implementan `PasarelaDePagos`.
 - **Recomendada: (b).** Guardar y deduplicar se escribe una sola vez, y coincide con la Entrega Parcial 1.
 - **Patrón.** `MercadoPagoPagos` va a ser un Adapter: traduce la API de Mercado Pago a `PasarelaDePagos`. `PagosFake` es una implementación simulada y no adapta nada. `FabricaDePasarela` es la Factory que elige cuál se crea. Que sean intercambiables es la forma de un Strategy, pero lo que se resuelve es una interfaz ajena incompatible: por eso se cuenta como Adapter. El 23/10 hay interfaz y Factory; el Adapter figura "diseñado, pendiente".
@@ -49,7 +49,7 @@ Se implementan con la recomendada y quedan pendientes de aprobación de Valentin
 - **Recomendada: (a).** **Defensa:** "no dejamos una transacción abierta mientras esperamos a un tercero, y el duplicado lo impide la base, no un `if`".
 
 **5. Alcance antes del 23/10 (propuesta P10).**
-- (a) Solo el pago con `PagosFake`. (b) Todo el brief. (c) Sumar un `MercadoPagoPagos` escrito de memoria.
+- (a) Solo el pago con `PagosFake`. (b) Todo lo que lista la guía de la tarea. (c) Sumar un `MercadoPagoPagos` escrito de memoria.
 - **Recomendada: (a).** El 23/10 se evalúa el proceso asincrónico, que no pasa por Pagos. Hoy la referencia oficial de `POST /v1/payments` devuelve 404 y la página de webhooks no trae la plantilla de la firma: un test contra ejemplos propios no prueba nada. Tampoco queda un esqueleto vacío.
 - **`MercadoPagoPagos`, cuando se escriba.** Cliente JAX-RS (la API REST de Jakarta EE) con 2 segundos de conexión y 5 de lectura, creado fuera del constructor y cerrado al destruirse; todo código que no sea 2xx pasa a `SinRespuesta`; la traducción de estados es una función pura, probada con una respuesta copiada del sandbox (el entorno de pruebas de Mercado Pago). La credencial llega solo por `PALCO_PAGOS_MERCADOPAGO_TOKEN`.
 - **Defensa:** "mostramos lo que funciona y decimos qué es simulado".
@@ -169,12 +169,12 @@ Cuando Ventas ya esté en `/api/v1`, `/api/v1/pagos/health` tiene que seguir dic
 
 ## Riesgos y dudas abiertas
 
-- **Sin T2 no hay `curl` de aprobado y rechazado**, la aceptación del brief. Hasta entonces la tarea se cierra con los pasos 1 a 5 y esos `curl` se informan como no corridos. No se abre el pago al rol `user` para esquivarlo.
+- **Sin T2 no hay `curl` de aprobado y rechazado**, la aceptación que pide la guía de la tarea. Hasta entonces la tarea se cierra con los pasos 1 a 5 y esos `curl` se informan como no corridos. No se abre el pago al rol `user` para esquivarlo.
 - **Sin ejecutar en este servidor:** `ConfigProvider` desde código propio (si falla, `System.getenv("PALCO_PAGOS_PROVEEDOR")`); el productor de CDI, porque el repo todavía no tiene ninguno; `/api/v1/pagos` conviviendo con Ventas en `/api/v1` (si falla, Pagos vuelve a `/api/pagos`); la V1 sobre H2; `redesplegar.sh` en esta máquina. Los dos `curl` en paralelo pueden no llegar a chocar: ese caso lo prueba el test.
 - **Maven necesita conexión la primera vez:** en `~/.m2` está el jar de `microprofile-config-api` 3.1.1, pero no su `.pom`.
 - **La V1 no se edita después del primer despliegue:** según contratos trabaría el redespliegue hasta reiniciar WildFly, que vacía la base de todos. Los cambios van en una V2.
 - **Límites aceptados.** Dos pedidos simultáneos con la misma clave llaman dos veces a la pasarela: con el simulador da igual; con Mercado Pago depende de que deduplique por `X-Idempotency-Key`, sin verificar. Si la pasarela cobra y falla el guardado, el pago queda sin registro hasta que Ventas reintente con la misma clave.
-- **Mercado Pago real necesita a una persona:** cuenta de desarrollador, aplicación y usuarios de prueba, access token de prueba, clave secreta de webhooks y una URL pública para recibir el webhook. La API pide además `payment_method_id`, `installments` y el email del pagador, que `NuevoPago` no tiene: `medioDePago` sigue siendo `tarjeta` y los campos nuevos se discuten en B2, que genera el token de tarjeta.
+- **Mercado Pago real necesita gestiones fuera del repo:** cuenta de desarrollador, aplicación y usuarios de prueba, access token de prueba, clave secreta de webhooks y una URL pública para recibir el webhook. La API pide además `payment_method_id`, `installments` y el email del pagador, que `NuevoPago` no tiene: `medioDePago` sigue siendo `tarjeta` y los campos nuevos se discuten en B2, que genera el token de tarjeta.
 - **Webhook, sin verificar:** la plantilla del texto firmado no está en la página oficial; se confirma contra el sandbox antes de escribir `FirmaDeWebhook`. Activar el secreto exige reiniciar WildFly, lo que vacía la base y cambia la clave de los tokens.
 - **Falta en contratos**, antes del paso 8: cómo se entera Ventas de que un pago pendiente se resolvió (C3); los tokens del simulador que devuelven `PENDIENTE`; el catálogo de la clase 10, que dice "200 vacío (acuse inmediato)" mientras la decisión 6 responde después de guardar; y el `type` del 409, para el que se propone `clave-reutilizada`.
 - **Consulta para la cátedra:** si el 13/11 una pasarela simulada y declarada como tal alcanza como integración REST con un sistema externo.

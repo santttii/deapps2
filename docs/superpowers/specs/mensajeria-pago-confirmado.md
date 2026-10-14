@@ -4,12 +4,14 @@ Documenta el mensaje que publica `ServicioDeVentas` cuando se aprueba un pago,
 según el taller de escenario de mensajería. Cubre el pendiente de la Fase 6 del
 [`TODO.md`](../../../TODO.md): *Documentar el contrato en `docs/`*.
 
-**Estado al 09/10/2026.** El mensaje, su validación, las constantes con los
-nombres y el publicador ya están en `backend/common`, con tests. Los
-consumidores (los tres MDB) y la publicación real desde Ventas todavía no
-existen: los hacen las tareas A1 y A2. Hasta que corran, la garantía
-transaccional de más abajo sale de leer la configuración del servidor y no de
-una prueba.
+**Estado al 14/10/2026.** El mensaje, su validación, las constantes con los
+nombres y el publicador están en `backend/common`, con tests. Ventas publica el
+mensaje en cada pago aprobado y los tres consumidores funcionan:
+`EmisionDeEntradasMDB` (cola, en Ventas) y `AvisoDeCompraMDB` y
+`AuditoriaDeComprasMDB` (tópico, en Notificaciones). La garantía transaccional
+de más abajo está probada para la transacción que se deshace (el mensaje no
+sale); la caída del servidor entre el commit de la base y el del broker no se
+probó. Evidencia: `docs/entrega3/evidencia/`.
 
 ## Cuándo se publica
 

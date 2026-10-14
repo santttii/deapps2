@@ -10,7 +10,7 @@ Todo está en `docs/entrega3/`: el documento (`Entrega_Parcial_2_Integracion.md`
 
 - **Sección 2, diagrama y componentes:** del código y de los ocho `health`, que respondieron el 13/10.
 - **Sección 3, clasificación:** los criterios son los de los talleres de las clases 6, 8 y 9; el estado de cada flecha sale del código y del servidor, no de los planes.
-- **Sección 4, proceso asincrónico:** de `evidencia/`. El guion `reproducir.sh` repite todo, y su salida es `reproduccion.txt` (corrida de las 14:04, venta `V-e9ee3ad1`).
+- **Sección 4, proceso asincrónico:** de `evidencia/`. El guion `reproducir.sh` repite todo, y su salida es `reproduccion.txt` (corrida de las 15:46, venta `V-3c150ebb`). La compra paso por paso sale de `tomar-evidencia.sh` (venta `V-91934f4a`) y la suscripción durable, de `suscriptor-durable.sh`.
 - **Sección 5, diferencias:** de comparar la Entrega Parcial N.º 1, los talleres y la clase 10 con el código.
 - **Sección 6:** real y simulado, y pendientes del 13/11.
 
@@ -33,20 +33,18 @@ Todo está en `docs/entrega3/`: el documento (`Entrega_Parcial_2_Integracion.md`
 4. **¿Qué pasa si el consumidor está caído, falla o recibe el mensaje dos veces?** Caído: el mensaje espera (64 esperaron y se procesaron). Falla: 5 entregas y DLQ. Repetido: no emite dos veces, porque el `UPDATE` exige `PENDIENTE_EMISION`.
 5. **¿Cómo evitan publicar el mensaje de una venta que falló? ¿Es un commit en dos fases?** No es un commit en dos fases completo. Es una transacción declarativa: el publicador es `MANDATORY` y el mensaje sale con el commit. El broker es un recurso XA y la base no: entra como último recurso, sin fase de preparación. Quien defienda esta parte tiene que poder explicar qué es "último recurso" y para qué sirve que el broker sea XA. Probado: 409 y contadores sin cambios. El orden de los dos commits y la caída entre uno y otro no se probaron.
 
-## Qué falta que solo puede hacer una persona
+## Qué falta antes de entregar
 
-- **Tag y evidencia final.** El tag `entrega-parcial-2` no existe. La evidencia de las 14:04 se tomó con código sin commit (la llamada de Ventas a Pagos). Hay que hacer el commit, crear el tag, armar el servidor desde ese commit, correr `bash docs/entrega3/evidencia/reproducir.sh > docs/entrega3/evidencia/reproduccion.txt 2>&1` y actualizar la carátula y la sección 4.5 con los ids, las horas y los hilos de esa corrida. Si para entonces Ventas volviera a cobrar con `CobrosFake`, hay que reescribir 2.2, 2.4, 3.2, 4.5 y 6.1 y la flecha Ventas → Pagos del diagrama: el paso 6 del guion muestra quién cobra.
+- **Tag y evidencia final.** El tag `entrega-parcial-2` no existe. La evidencia de las 15:45 a 15:54 se tomó con un servidor armado desde cero, pero con código que no tenía commit (entre otros, la verificación de identidad en Usuarios). Hay que hacer el commit, crear el tag, armar el servidor desde ese commit, correr los tres guiones (`tomar-evidencia.sh`, `reproducir.sh > docs/entrega3/evidencia/reproduccion.txt 2>&1` y `suscriptor-durable.sh`) y actualizar la carátula, las filas S1 de 3.2, la sección 4.5, la fila del suscriptor durable de 4.6 y `LEEME.txt` con los ids, las horas y los hilos de esa corrida. `integracion-13-escenarios.txt` no se puede repetir solo con el repositorio: o se suma su guion o se aclara que quedó de la corrida del 13/10. Si para entonces Ventas volviera a cobrar con `CobrosFake`, hay que reescribir 2.2, 2.4, 3.2, 4.5 y 6.1 y la flecha Ventas → Pagos del diagrama: el paso 6 del guion muestra quién cobra.
 - **Leerlo los cinco.** La consigna pide que cada integrante pueda explicar y defender cualquier parte, no solo la suya.
 - **La declaración que la consigna pide en las entregas obligatorias** la redacta el grupo. Este documento no la incluye.
 - **Sección 11 de `docs/planes/00-contratos-compartidos.md`.** Se sigue titulando "Decisiones pendientes de aprobación" y el documento no la cita. Si el grupo la aprueba, cambiar el título a "Decisiones tomadas", con la fecha.
-- **Prueba del suscriptor durable.** Con el servidor sin otras pruebas en curso, correr los comandos de detener y reanudar el suscriptor de auditoría y guardar la salida en `docs/entrega3/evidencia/suscriptor-durable.txt`. Hasta entonces, la fila de 4.6 dice "configurado y no probado para este documento".
-- **`docs/notas/mensajeria.md`, sección "Qué quedó pendiente":** la frase "Al 13/10 ninguna compra real publica" quedó vieja y contradice la sección 4 del documento. La corrige el dueño de esa nota.
 - **Email.** Si el grupo elige proveedor y canal, se suma una fila I6 en 3.1 ("`ServicioDeNotificaciones` → proveedor de email"), con tipo, canal, porqué, qué pasa si no responde y estado "Diseñado, pendiente"; se vuelve a dibujar la caja y se cambia "I1 a I5" por "I1 a I6" en 2.1 y en la leyenda.
 - **Anexos (funcional, manual, Figma):** no se hicieron. Dependen de la consulta a la cátedra, que no tiene respuesta.
 - **Diagrama:** abrir el `.drawio` en app.diagrams.net (nunca se abrió), acomodarlo y exportar el PNG. Si no abre bien, alcanza el SVG, que Word inserta. Conviene página apaisada.
 - **Captura del Runner de Postman** (`evidencia/postman-runner.png`).
 - **Git:** commit de `docs/entrega3/` y de esta nota. Borrar los dos comentarios "PENDIENTE" del documento cuando estén resueltos: están junto a la carátula (la fecha de la entrega y el tag).
-- **Word y PDF,** y subirlos el jueves 22/10, el día anterior a la clase, porque la hora límite del viernes 23/10 no está confirmada. Probar el enlace al repo sin sesión iniciada.
+- **Word y PDF:** los de la carpeta son del 13/10 a las 15:43, anteriores a la evidencia nueva. Hay que volver a exportarlos desde el `.md` y subirlos el jueves 22/10, el día anterior a la clase, porque la hora límite del viernes 23/10 no está confirmada. Probar el enlace al repo sin sesión iniciada.
 - **Confirmar con la cátedra:** la fecha de esta entrega (la carátula dice 23/10/2026); la hora límite, porque las 13:30 de la consigna son de la comisión del lunes y la de los viernes cursa de 08:45 a 11:45; y el grupo de cinco, cuando la consigna fija 3 a 4. Si la fecha resulta otra, se cambia primero en la carátula del documento y después en el resto del repo, buscando `23/10`.
 
 ## Qué cambió con la revisión del 13/10

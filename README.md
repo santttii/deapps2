@@ -14,8 +14,11 @@ El repo tiene dos partes:
   `localStorage`, con los datos que devolvió el backend.
 - **`backend/`**: Jakarta EE sobre WildFly, en construcción. Son 8 servicios
   independientes (un WAR cada uno) desplegados en el mismo WildFly, con el
-  broker JMS del taller de mensajería. `ServicioDeUsuarios` y
-  `ServicioDeEventos` ya funcionan; el resto tiene solo el esqueleto. El plan completo está en [`TODO.md`](TODO.md).
+  broker JMS (ActiveMQ Artemis) que trae el servidor. Funcionan Usuarios,
+  Eventos, Ventas (compra con reserva de cupo, pago y emisión asincrónica de
+  las entradas), Pagos (con una pasarela simulada) y Notificaciones (aviso y
+  auditoría de cada compra, por tópico). Validación, Reventa y Facturación
+  solo responden su `health`. El plan completo está en [`TODO.md`](TODO.md).
 
 ## Índice
 
@@ -26,6 +29,7 @@ El repo tiene dos partes:
 - [Funcionalidades](#funcionalidades)
 - [Reglas de negocio](#reglas-de-negocio)
 - [Recorrido sugerido de demo](#recorrido-sugerido-de-demo)
+- [Tests](#tests)
 - [Stack](#stack)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Arquitectura y estado](#arquitectura-y-estado)
@@ -35,8 +39,11 @@ El repo tiene dos partes:
 ## Requisitos
 
 - Frontend: Node.js `^20.19.0` o `>=22.12.0` (lo exige Vite 8) y npm
-- Backend: Java 25 y Maven 3.9+ (en macOS: `brew install openjdk@25 maven`).
-  WildFly no se instala: lo descarga Maven.
+- Backend: JDK 25 y Maven 3.9+ (en macOS: `brew install openjdk@25 maven`; en
+  Windows, cualquier JDK 25, por ejemplo Temurin, con `JAVA_HOME` apuntando a
+  él). WildFly no se instala: lo descarga Maven.
+- En Windows, los guiones (`backend/dev.sh`, `scripts/`, `docs/entrega3/evidencia/`)
+  se corren desde **Git Bash**.
 
 ## Cómo correrlo
 
@@ -69,8 +76,17 @@ cp .env.example .env   # la primera vez
 ```
 
 La primera vez tarda unos minutos porque descarga WildFly 41. Queda en
-`http://localhost:8080`, con cada servicio en `/api/<servicio>`. Para comprobar
-que anda: `curl localhost:8080/api/eventos/health`.
+`http://localhost:8080`. Usuarios, Eventos y Notificaciones van en
+`/api/<servicio>`; Ventas, en `/api/v1`, y Pagos, en `/api/v1/pagos`. Para
+comprobar que anda: `curl localhost:8080/api/eventos/health` (para Ventas,
+`/api/v1/health`; para Pagos, `/api/v1/pagos/health`).
+
+En Windows, desde Git Bash y con un JDK 25:
+
+```bash
+export JAVA_HOME="/c/Users/<usuario>/.jdks/temurin-25"   # o donde esté el JDK 25
+cd backend && ./dev.sh
+```
 
 Sin configurar nada usa **H2 en memoria**: la base se borra al reiniciar y las
 migraciones vuelven a cargar los datos de prueba. Para usar **Supabase**,
@@ -81,34 +97,66 @@ las mismas migraciones crean las tablas allá.
 |---|---|
 | `./dev.sh` | Compila todo, arma WildFly con los 8 servicios y lo levanta |
 | `./redesplegar.sh eventos` | Recompila un servicio y lo redespliega sin reiniciar |
-| `mvn test` | Corre los tests |
+| `mvn test` | Corre los tests (ver [Tests](#tests)) |
 | `mvn clean install` | Arma todo; el server queda en `servidor/target/server`, listo para hostear |
 
 ### API disponible
 
-| Servicio | Endpoint | Qué hace |
-|---|---|---|
-| todos | `GET /api/<servicio>/health` | Estado del servicio y de la base |
-| usuarios | `POST /api/usuarios/registro` | Alta de cuenta; manda un código de 6 dígitos al email |
-| usuarios | `POST /api/usuarios/verificacion` | `{"email", "codigo"}` → activa la cuenta y devuelve la sesión |
-| usuarios | `POST /api/usuarios/verificacion/reenvio` | Código nuevo (uno cada 30 segundos) |
-| usuarios | `POST /api/usuarios/login` | `{"email", "password"}` → `{"token", "usuario", ...}` |
-| usuarios | `GET /api/usuarios/yo` | Usuario del token (requiere sesión) |
-| usuarios | `GET /api/usuarios/jwks` | Clave pública para validar tokens (la usan los otros servicios) |
-| eventos | `GET /api/eventos?categoria=Música&q=texto` | Catálogo (filtros opcionales, búsqueda sin acentos) |
-| eventos | `GET /api/eventos/{slug}` | Detalle con sectores |
-| eventos | `POST /api/eventos` | Crear evento con sectores (rol `organizer`) |
-| eventos | `POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo` | Sumar (`{"cantidad": 2}`) o liberar (`-2`) entradas vendidas, sin pasarse del cupo (solo para otros servicios) |
+Rutas comprobadas contra el código y contra el servidor en marcha el 14/10/2026.
+"Rol" es lo que pide el token: `user`, `organizer`, `staff` o `servicio`
+(llamadas entre servicios); "pública" es sin token.
 
-Los errores siempre vuelven como `{"estado": 400, "mensaje": "...", "campos": {...}}`.
+| Servicio | Endpoint | Rol | Qué hace |
+|---|---|---|---|
+| todos | `GET /api/<servicio>/health` (Ventas: `/api/v1/health`; Pagos: `/api/v1/pagos/health`) | pública | Estado del servicio y de la base |
+| Usuarios | `POST /api/usuarios/registro` | pública | Alta de cuenta; genera un código de 6 dígitos |
+| Usuarios | `POST /api/usuarios/verificacion` | pública | `{"email", "codigo"}` → activa la cuenta y devuelve la sesión |
+| Usuarios | `POST /api/usuarios/verificacion/reenvio` | pública | Código nuevo (uno cada 30 segundos) |
+| Usuarios | `POST /api/usuarios/login` | pública | `{"email", "password"}` → `{"token", "usuario", ...}` |
+| Usuarios | `GET /api/usuarios/yo` | `user`, `organizer`, `staff` | Usuario del token |
+| Usuarios | `POST /api/usuarios/servicios/token` | pública, con secreto | `{"secreto"}` → token de rol `servicio` para llamar a otros servicios |
+| Usuarios | `GET /api/usuarios/jwks` | pública | Clave pública para validar tokens (la usan los otros servicios) |
+| Eventos | `GET /api/eventos?categoria=Música&q=texto` | pública | Catálogo (filtros opcionales, búsqueda sin acentos) |
+| Eventos | `GET /api/eventos/{slug}` | pública | Detalle con sectores |
+| Eventos | `POST /api/eventos` | `organizer` | Crear evento con sectores |
+| Eventos | `POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo` | `servicio` | Sumar (`{"cantidad": 2}`) o liberar (`-2`) entradas vendidas, sin pasarse del cupo |
+| Ventas | `POST /api/v1/ventas` | `user` | Abre una compra y reserva el cupo por 10 minutos: 201, venta `EN_CHECKOUT`. Pide la cabecera `Idempotency-Key` (un UUID) |
+| Ventas | `GET /api/v1/ventas` | `user` | Las compras de quien pregunta, de la más nueva a la más vieja, con sus entradas |
+| Ventas | `GET /api/v1/ventas/{ventaId}` | `user` | Una venta, solo para quien la compró |
+| Ventas | `POST /api/v1/ventas/{ventaId}/pagos` | `user` | Paga la compra (cobra en Pagos): 201, venta `CONFIRMADA` con las entradas `PENDIENTE_EMISION`; un rechazo responde 402. Pide `Idempotency-Key` |
+| Ventas | `DELETE /api/v1/ventas/{ventaId}` | `user` | Cancela una compra sin pagar y devuelve el cupo: 204 |
+| Ventas | `GET /api/v1/entradas/{entradaId}` | `user` | Una entrada: estado, titular y, ya emitida, `codigoQr` |
+| Pagos | `POST /api/v1/pagos` | `servicio` | Cobra contra la pasarela y guarda el pago (lo llama Ventas) |
+| Pagos | `GET /api/v1/pagos/{pagoId}` | `servicio` | Un pago guardado |
+| Notificaciones | `GET /api/notificaciones/auditoria` | `servicio` | Los últimos registros de auditoría de compras |
+| Notificaciones | `POST /api/notificaciones/pruebas/pago-confirmado` | `servicio` | Publica un `PAGO_CONFIRMADO` de prueba |
+| Notificaciones | `POST /api/notificaciones/pruebas/pago-confirmado-con-falla` | `servicio` | Publica y falla: la transacción se deshace y el mensaje no sale (409) |
+| Notificaciones | `POST /api/notificaciones/pruebas/mensaje-invalido` | `servicio` | Publica un texto inválido, para ver los reintentos y la DLQ |
+
+La pasarela de Pagos es simulada: el token de pago `tok_test` aprueba,
+`tok_rechazado` rechaza y `tok_sin_respuesta` simula que la pasarela no
+contesta. Al pagar, Ventas publica `PAGO_CONFIRMADO` en la cola
+`cola.emision-entradas` (emite las entradas) y en el tópico
+`topico.compra-confirmada` (aviso y auditoría). El contrato del mensaje está en
+[`docs/superpowers/specs/mensajeria-pago-confirmado.md`](docs/superpowers/specs/mensajeria-pago-confirmado.md).
+
+**Errores:** todos los servicios responden en formato Problem Details (RFC 9457),
+con `Content-Type: application/problem+json`. Los errores por campo van en
+`errores`, una extensión propia que solo aparece si hay alguno:
+
+```json
+{"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,
+ "detail":"Hay datos inválidos.","instance":"/api/usuarios/login",
+ "errores":{"password":"Revisá el email y la contraseña."}}
+```
 
 **Sesión:** el login devuelve un token JWT que se manda en cada pedido como
 `Authorization: Bearer <token>` y dura 8 horas. Cerrar sesión es descartarlo.
 Sin token, los endpoints protegidos responden 401; con un rol que no
 corresponde, 403. Las cuentas de prueba son las mismas de la tabla de abajo.
 
-**Código de verificación:** hasta que exista `ServicioDeNotificaciones` no se
-manda por email; aparece en el log del servidor como
+**Código de verificación:** no se manda por email (todavía no hay proveedor de
+correo); aparece en el log del servidor como
 `Código de verificación para <email>: 123456`.
 
 ## Scripts del frontend
@@ -148,7 +196,7 @@ backend (API) o del navegador (locales, hasta que exista el servicio).
 | `/evento/:slug` | Detalle del evento: mapa de sectores, selección de cantidad por sector, resumen sticky con total (en pantalla angosta, el total y el botón van en una barra fija abajo) | Pública | API |
 | `/checkout` | Checkout en 3 pasos: datos de cada titular, pago con la reserva hecha y su cuenta regresiva (pasarela, tarjeta o transferencia; se puede cancelar) y confirmación | Logueado | API (`ServicioDeVentas`) |
 | `/confirmacion/:ordenId` | Confirmación de compra: "emitiendo tus entradas…" hasta que termina la emisión, un QR por entrada, comprobante, imprimir, agregar al calendario | Logueado | API |
-| `/mis-entradas` | Visor de entradas con QR, publicación en reventa con validación de tope, historial | Logueado | Copia en el navegador de lo que devolvió la API (no hay listado en el backend); la reventa es local |
+| `/mis-entradas` | Visor de entradas con QR, publicación en reventa con validación de tope, historial | Logueado | Copia en el navegador de lo que devolvió la API (el backend ya tiene `GET /api/v1/ventas`, pero esta pantalla todavía no lo usa); la reventa es local |
 | `/ingresar` | Login (con las credenciales de prueba visibles en pantalla) | Pública | API |
 | `/registro` | Alta de cuenta en 2 pasos: datos y verificación de email con código | Pública | API |
 | `/reventa` | Reventa oficial: filtros, listado con tope, compra con confirmación | Pública (comprar requiere login) | Locales (falta `ServicioDeReventa`) |
@@ -207,6 +255,28 @@ Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anu
     descripción y sectores, y confirmar — el evento se crea en el backend y
     aparece en el catálogo y en "Mis eventos" con la foto de su categoría.
 
+### Demo por consola, Postman y evidencia
+
+Con el backend levantado, desde la raíz del repo y en Git Bash:
+
+| Qué | Cómo | Detalle |
+|---|---|---|
+| Demo de la compra con mensajería | `bash scripts/demo-entrega3.sh` (o `bash scripts/demo-entrega3.sh rechazado`) | Compra de punta a punta con `curl`, con los contadores del broker y la fila de auditoría. Ver [`scripts/LEEME.md`](scripts/LEEME.md) |
+| Colección de Postman | Importar `docs/api/palco-api.postman_collection.json`, o `npx newman run docs/api/palco-api.postman_collection.json` | Se corre entera, en orden, sin environment. Ver [`docs/api/GUIA_POSTMAN.md`](docs/api/GUIA_POSTMAN.md) |
+| Evidencia de la Entrega Parcial N.º 2 | `bash docs/entrega3/evidencia/reproducir.sh` | Repite el proceso asincrónico completo. Ver [`docs/entrega3/evidencia/LEEME.txt`](docs/entrega3/evidencia/LEEME.txt) |
+
+## Tests
+
+```bash
+cd backend && mvn -q test
+```
+
+Hay tests en `common` y en los servicios de Usuarios, Ventas, Pagos y
+Notificaciones, y corren sin WildFly. La prueba en vivo de pagos simultáneos
+(`backend/servicios/ventas/src/test/en-vivo/pagos-simultaneos.mjs`) sí necesita
+el servidor levantado. El frontend no tiene tests: se controla con
+`npm run lint` y `npm run build`.
+
 ## Stack
 
 ### Backend
@@ -246,7 +316,7 @@ backend/
 ├── dev.sh                # Arma y levanta WildFly con los 8 servicios
 ├── redesplegar.sh        # Redespliega un servicio sin reiniciar
 ├── common/               # Lo compartido: reglas de negocio, errores, JSON, CORS, health, migraciones
-├── servicios/            # Un WAR por servicio, cada uno con su API en /api/<servicio>
+├── servicios/            # Un WAR por servicio: /api/<servicio>, o /api/v1 (Ventas) y /api/v1/pagos (Pagos)
 │   ├── usuarios/  eventos/  ventas/  pagos/
 │   └── validacion/  reventa/  notificaciones/  facturacion/
 └── servidor/             # Arma WildFly (base, broker JMS) y despliega los 8 WAR
@@ -322,7 +392,8 @@ src/
   [`AppContext.tsx`](frontend/src/store/AppContext.tsx) con `useReducer`:
   `eventos` es una copia de `GET /api/eventos` que se pide al abrir la app y no
   se guarda; `ordenes` y `entradas` son copias de lo que devolvió
-  `ServicioDeVentas` (el backend no tiene un listado para pedirlas);
+  `ServicioDeVentas` (el backend ya tiene `GET /api/v1/ventas`, pero el frontend
+  todavía no lo usa);
   `publicaciones` es local y `carrito` es la compra en curso, con el id de la
   venta cuando el cupo ya está reservado. Todo eso se guarda en
   `localStorage['palco.state.v2']`.
@@ -398,9 +469,9 @@ La mayoría se resuelven con el backend. El plan de trabajo está en
   token, la sesión se cierra bien, pero en la consola del navegador queda un
   aviso "blocked by CORS policy" por cada pedido rechazado. Ese 401 sale del
   servidor sin cabeceras CORS; se corrige en el backend, no en el frontend.
-- **"Mis entradas" depende del navegador**: el backend no tiene un listado de
-  las ventas ni de las entradas de un usuario, así que el frontend recuerda en
-  `localStorage` qué compró cada cuenta. En otro dispositivo, o si se borra el
+- **"Mis entradas" depende del navegador**: el frontend recuerda en
+  `localStorage` qué compró cada cuenta. El backend ya ofrece el listado
+  (`GET /api/v1/ventas`), pero la pantalla todavía no lo usa. En otro dispositivo, o si se borra el
   almacenamiento, las compras no aparecen (siguen existiendo en el backend).
 - **Reventa sin backend**: las publicaciones viven solo en el navegador donde
   se crearon y sus reglas se controlan en el cliente. El backend no se entera
@@ -419,8 +490,9 @@ La mayoría se resuelven con el backend. El plan de trabajo está en
   comprar hay que usar `titular@palco.test`. Falta que el backend ofrezca cómo
   verificar la identidad: es una decisión pendiente del grupo (ver
   `docs/notas/B2-frontend-checkout.md`).
-- **Pagos y emails simulados**: el cobro lo simula el backend (no se procesa
-  ningún pago real; el formulario de tarjeta no manda sus datos, solo un token
+- **Pagos y emails simulados**: el cobro pasa por `ServicioDePagos`, pero su
+  pasarela es simulada (no se procesa ningún pago real; el formulario de tarjeta no manda sus datos, solo un token
   de prueba) y no se envía ningún email. El código de verificación del registro
   es real, pero se lee del log del servidor.
-- **Sin tests automatizados**.
+- **Sin tests en el frontend**: los tests automatizados son del backend (ver
+  [Tests](#tests)).

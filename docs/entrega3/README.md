@@ -1,6 +1,6 @@
 # Entrega Parcial N.º 2 (23/10/2026, a confirmar) — carpeta de la entrega
 
-Acá está el documento técnico de la entrega y todo lo que lo respalda. Describe el estado del servidor de desarrollo el 13/10/2026 a las 14:04, con código que todavía no tiene commit. Antes de entregar hay que volver a correr `evidencia/reproducir.sh` con el servidor armado desde el commit del tag `entrega-parcial-2`, que todavía no existe.
+Acá está el documento técnico de la entrega y todo lo que lo respalda. Describe el estado del servidor de desarrollo el 13/10/2026 entre las 15:45 y las 15:54, armado desde cero ese día con código que en ese momento no tenía commit. Antes de entregar hay que volver a correr los tres guiones de `evidencia/` (`tomar-evidencia.sh`, `reproducir.sh` y `suscriptor-durable.sh`) con el servidor armado desde el commit del tag `entrega-parcial-2`, que todavía no existe.
 
 ## Qué hay en la carpeta
 
@@ -11,7 +11,8 @@ Acá está el documento técnico de la entrega y todo lo que lo respalda. Descri
 | `Diagrama_Integracion_SOA.drawio` | La fuente editable del diagrama, para app.diagrams.net. Tiene las mismas cajas y flechas que el SVG. Todavía nadie la abrió en esa herramienta |
 | `evidencia/` | La evidencia del proceso asincrónico: comandos corridos contra el servidor, con su salida. `evidencia/LEEME.txt` explica cada archivo y dice cuáles traen solo un resumen |
 | `evidencia/reproducir.sh` | El guion que repite el proceso completo, el control por rol y la reserva de cupo. Se corre desde la raíz del repo: `bash docs/entrega3/evidencia/reproducir.sh`. Su salida es `evidencia/reproduccion.txt` |
-| `evidencia/vencimiento-de-reserva.txt` | El resumen de la prueba del vencimiento de una compra sin pagar, que dejó la tarea de Ventas |
+| `evidencia/tomar-evidencia.sh` y `evidencia/suscriptor-durable.sh` | Los guiones de la compra paso por paso y de la suscripción durable. Se corren igual que `reproducir.sh` |
+| `evidencia/vencimiento-de-reserva.txt` | El resumen de la prueba del vencimiento de una compra sin pagar |
 
 ## Dónde responde el documento a cada punto de la consigna
 
@@ -25,12 +26,12 @@ Además, la sección 5 lista las diferencias con la Entrega Parcial N.º 1, los 
 
 ## Qué falta en esta carpeta
 
-Lo hace una persona; el detalle está en `docs/notas/docs-entrega3.md`.
+El detalle de cada punto está en `docs/notas/docs-entrega3.md`.
 
 - `Diagrama_Integracion_SOA.drawio.png`: la exportación del diagrama desde app.diagrams.net.
-- `Entrega_Parcial_2_Integracion.docx` y `.pdf`: lo que se sube.
+- `Entrega_Parcial_2_Integracion.docx` y `.pdf`: están en la carpeta, pero son anteriores a la última revisión del `.md` (evidencia de las 15:45 y suscriptor durable). Hay que volver a exportarlos antes de subirlos.
 - `evidencia/postman-runner.png`: la captura de la corrida de la colección de Postman.
-- `evidencia/suscriptor-durable.txt`: la salida de una compra hecha con el suscriptor durable de auditoría detenido. Mientras no exista, la sección 4.6 del documento dice "configurado y no probado".
 - Confirmar con la cátedra la fecha de la entrega. El grupo cursa en la comisión de los viernes y la consigna, escrita para la del lunes, dice 19/10. El cronograma de los viernes no nombra este checkpoint: se toma el viernes 23/10/2026, cuatro días después como las otras fechas, y así figura en la carátula. También falta confirmar la hora límite: las 13:30 de la consigna son de la comisión del lunes.
-- Lo que el documento marca como pendiente en dos comentarios, junto a la carátula: la fecha de la entrega y el tag.
+- Lo que el documento marca como pendiente en dos comentarios, junto a la carátula: la fecha de la entrega, y el tag con la evidencia tomada desde ese commit.
+- Volver a correr `node scripts/pruebas/escenarios.mjs` contra el servidor armado desde el tag y guardar su salida en `evidencia/integracion-13-escenarios.txt`: la salida guardada es de una versión anterior, con la verificación de identidad que Usuarios ya no pide (escenario 5). Después, sacar esa aclaración de la fila S1 de 3.2 y de la sección 4.8 del documento.
 - Los anexos (documentación funcional, manual de usuario y prototipo): no se hicieron. La consigna no los pide para esta entrega y la consulta a la cátedra todavía no tiene respuesta.

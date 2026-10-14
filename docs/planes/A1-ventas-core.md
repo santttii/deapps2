@@ -4,7 +4,7 @@
 - **Toca:** `backend/servicios/ventas/` y la nota `docs/notas/ventas-core.md`.
 - **Depende de:** los pasos previos T0 (Mockito en el pom padre), T1 (errores comunes) y T2 (token de rol `servicio`), y de A2 (publicador de mensajes). Están en `docs/planes/00-contratos-compartidos.md`, que acá se cita como "contratos §n" y que manda si este plan dice otra cosa.
 - **Dependen de este plan:** A4 (evidencia del 23/10), B1 (reemplaza el cobro simulado), B2, B3, C1, C2 y C3.
-- **Fechas:** son las de la comisión de los viernes (contratos §1). El viernes 23/10 es la fecha de trabajo de la Entrega Parcial N.º 2 y falta confirmarla con la cátedra; la consigna, escrita para la comisión del lunes, dice 19/10. El 13/11 es la entrega obligatoria con defensa.
+- **Fechas:** son las de la comisión de los viernes (contratos §1). El viernes 23/10 es la fecha de trabajo de la Entrega Parcial N.º 2 y falta confirmarla con la cátedra; la consigna, escrita para la comisión del lunes, dice 19/10. El 13/11 es la entrega obligatoria con defensa. Lo que este plan deja "para el 13/11" es lo que no entraba en el checkpoint: la fecha de cada pendiente está en `docs/PLAN_AGENTES.md` (Reventa, por ejemplo, cierra el 17/11).
 
 ## Qué se construye
 
@@ -83,7 +83,7 @@ Cómo paga `ComprasEnCurso`:
 ### 4. Entradas y MDB de emisión (P4)
 
 - (a) El pago crea las entradas en `PENDIENTE_EMISION` y el MDB las emite. Costo: el pago escribe una tabla más.
-- (b) Las crea el MDB, como dice el brief. Costo: el mensaje no podría llevar `entradaId` y el `GET` de la entrada daría 404 apenas vuelve el pago.
+- (b) Las crea el MDB, como dice la guía de la tarea. Costo: el mensaje no podría llevar `entradaId` y el `GET` de la entrada daría 404 apenas vuelve el pago.
 - (c) Tabla de mensajes ya procesados. Costo: otra tabla para el mismo efecto.
 
 **Recomendada: (a).**
@@ -263,13 +263,13 @@ Los requests 1, 2 y 3 de la carpeta 3 de Postman pasan cuando Santiago aplique T
 - Que el mensaje no salga cuando la transacción se deshace. Paso 5. La caída entre los dos commits no la prueba nadie y se cuenta como "no probada".
 - La convivencia de `/api/v1` con `/api/v1/pagos`. Se ve cuando despliegue A3; si falla, el que vuelve a su ruta vieja es Pagos.
 - Mockito 5.24.0 con Java 25 y JUnit 6.1.3. Paso 3. Si falla, dobles escritos a mano.
-- El SQL de la V1: un revisor probó las restricciones en H2 por JDBC, no con Hibernate ni contra PostgreSQL.
+- El SQL de la V1: las restricciones se probaron en H2 por JDBC, no con Hibernate ni contra PostgreSQL.
 - Dos pedidos simultáneos con la misma clave: sin probar con dos conexiones. En el peor caso el segundo recibe 500; nunca hay una segunda reserva.
 - `@PreDestroy` al detener el WAR con compras abiertas: por eso va dentro de un `try/catch`.
 
 **Lo que no se puede mostrar en vivo**
 - El 403 `identidad-no-verificada` y el 404 de una venta ajena se prueban solo con dobles: hay una sola cuenta de prueba con rol `user` y tiene la identidad verificada.
-- La reentrega de una venta ya emitida: los endpoints de prueba de A2 publican un mensaje fijo. La condición del `UPDATE` la probó un revisor en H2; en vivo solo se ve el caso de la venta que no existe.
+- La reentrega de una venta ya emitida: los endpoints de prueba de A2 publican un mensaje fijo. La condición del `UPDATE` se probó en H2; en vivo solo se ve el caso de la venta que no existe.
 
 **Límites que se aceptan para el 23/10**
 - Los de contratos §12 que nacen acá: redesplegar Ventas corta las compras en curso; puede quedar cupo tomado sin venta si el servidor se cae entre la reserva y el commit o si Eventos no responde al liberar; y hay lugar para unas 5 compras simultáneas, porque cada una retiene una conexión de la base mientras llama a Eventos.

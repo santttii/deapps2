@@ -14,14 +14,16 @@
 # diferencias de los contadores salen más grandes: se repite el guion.
 
 export NOPAUSE=true                                   # sin esto, jboss-cli.bat espera una tecla al terminar
-export JAVA_HOME="${JAVA_HOME:-/c/Users/santi/.jdks/temurin-25}"
+# El JDK de jboss-cli: el JAVA_HOME del entorno; si no hay, ~/.jdks/temurin-25 si esa carpeta existe; si no,
+# el java del PATH (como scripts/pruebas/escenarios.mjs).
+if [ -z "${JAVA_HOME:-}" ] && [ -d "$HOME/.jdks/temurin-25" ]; then export JAVA_HOME="$HOME/.jdks/temurin-25"; fi
 B="/subsystem=messaging-activemq/server=default"
 CLI=backend/servidor/target/server/bin/jboss-cli.bat
 D=docs/entrega3/evidencia
 J="Content-Type: application/json"
 
 # Las tres líneas que cada archivo muestra como preparación. Los tokens no se guardan en ningún archivo.
-PREPARACION='    export NOPAUSE=true JAVA_HOME="/c/Users/santi/.jdks/temurin-25"; B="/subsystem=messaging-activemq/server=default"; CLI=backend/servidor/target/server/bin/jboss-cli.bat
+PREPARACION='    export NOPAUSE=true'"${JAVA_HOME:+ JAVA_HOME=\"$JAVA_HOME\"}"'; B="/subsystem=messaging-activemq/server=default"; CLI=backend/servidor/target/server/bin/jboss-cli.bat
     T=$(curl -s -X POST localhost:8080/api/usuarios/login -H "Content-Type: application/json" -d "{\"email\":\"titular@palco.test\",\"password\":\"palco1234\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")
     S=$(curl -s -X POST localhost:8080/api/usuarios/servicios/token -H "Content-Type: application/json" -d "{\"secreto\":\"palco-desarrollo\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")'
 T=$(curl -s -X POST localhost:8080/api/usuarios/login -H "$J" -d '{"email":"titular@palco.test","password":"palco1234"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')

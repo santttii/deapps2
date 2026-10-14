@@ -21,17 +21,19 @@ Cuando se confirma un pago, Ventas publica el mensaje `PAGO_CONFIRMADO` en el br
 7. **Ante un mensaje inválido, auditoría llama a `setRollbackOnly()` y el aviso lo descarta con un `WARNING`.** Lanzar una excepción dejaba una traza por intento, y reintentar en los dos dejaba dos copias en la DLQ.
 8. **5 entregas cada 2 segundos, para todas las direcciones.** De fábrica son 10 seguidas y sin espera: una falla pasajera, como la base que tarda, agotaría los intentos en un instante.
 9. **Los endpoints de prueba piden rol `servicio` y usan el publicador real.** Con un rol humano un organizador podría publicar pagos falsos, y un interruptor por variable de entorno obligaba a reiniciar el servidor.
+10. **`cuerpo` es `varchar(100000)` desde la migración V2; en V1 era `varchar(4000)`.** El contrato no limita el largo del nombre del titular ni del sector (Ventas acepta nombres de hasta 200 caracteres y Eventos sectores de hasta 120), y JSON escribe cada comilla como `\"`. Un mensaje válido de 6 entradas con nombres llenos de comillas ocupa 4733 caracteres: con 4000 el `INSERT` fallaba, el mensaje agotaba las 5 entregas y quedaba en la DLQ sin fila de auditoría, aunque la venta se había emitido bien. La alternativa era `text`, pero en H2 es un CLOB y la entidad lo mapea como `String` común; `varchar(100000)` es texto común en las dos bases y `alter column ... set data type` corre igual en H2 (modo PostgreSQL) y en PostgreSQL. Lo prueba `MigracionesEnH2Test`, que corre las migraciones sobre H2 con las opciones del datasource de WildFly y guarda ese mensaje.
 
 ## Qué quedó pendiente o simulado y por qué
 
-- **El aviso es una línea en el log, no un email.** El mensaje trae `compradorId` y no el email: para el 13/11 hay que pedírselo a Usuarios. `enviarRecordatorio` y `enviarAlertaCancelacion` todavía no existen.
-- **Al 13/10 ninguna compra real publica:** eso es de A1. Los mensajes salen de los endpoints de prueba, con un `ventaId` que empieza con `prueba-`.
+- **El aviso es una línea en el log, no un email.** El mensaje trae `compradorId` y no el email: para mandarlo hay que pedírselo a Usuarios. En `docs/PLAN_AGENTES.md` el email quedó sin fecha, solo si sobra tiempo. `enviarRecordatorio` y `enviarAlertaCancelacion` todavía no existen. Por eso la línea de `AvisoDeCompraMDB` dice "aviso por la venta … registrado en el log; no se envía: no hay proveedor de correo" y no "aviso enviado", como decía hasta el 14/10 (la evidencia del 13/10 tiene el texto viejo).
+- **Las compras reales publican desde Ventas:** cada pago aprobado publica `PAGO_CONFIRMADO` en la misma transacción que deja la venta `CONFIRMADA` (`docs/entrega3/evidencia/reproduccion.txt`, pasos 5 y 6). Los endpoints de prueba siguen para publicar sin comprar; sus mensajes llevan un `ventaId` que empieza con `prueba-`.
 - **No se probó en vivo:** una caída del servidor entre el commit de la base y el del broker, la reentrega de un mensaje válido y un `INSERT` rechazado por la base (los dos tienen test, con dobles), y el SQL contra PostgreSQL.
-- **Un JSON cortado puede dejar colgado a un consumidor.** `PagoConfirmadoMensaje.desdeJson` no termina si el texto se corta dentro de un campo que el mensaje no conoce (por ejemplo `{"a":{`): la librería que lee el JSON queda en un bucle en lugar de dar error. Se reprodujo fuera del servidor, con los mismos jar (Yasson 3.0.4 y Parsson 1.1.9). Hoy nadie publica un texto así: Ventas manda `aJson()` y la prueba, un texto fijo. La corrección va en `common`, porque `desdeJson` la usan los tres MDB: leer antes el texto con JSON-P, que para esos textos da error al instante. Está pedida y todavía no se hizo.
-- **El listado de auditoría no ordena dentro del mismo segundo.** `recibido_en` se guarda truncada a segundos y el desempate por `mensajeId` solo sirve para que la respuesta sea siempre la misma. Se nota cuando auditoría estuvo detenida: al volver registra lo pendiente de corrido, y varias filas quedan con la misma hora (en la prueba del suscriptor detenido, las dos). Guardar el orden real pide una columna más, en una migración V2.
-- **Las dos líneas de `configurar.cli` no corrieron en un armado limpio**, porque exige detener WildFly. Se aplicaron con `jboss-cli` sin reiniciar y siguieron vigentes después de un reinicio.
+- **Un JSON cortado ya no deja colgado a un consumidor.** Con un texto cortado dentro de un campo que el mensaje no conoce (por ejemplo `{"a":{`), JSON-B (Yasson 3.0.4 con Parsson 1.1.9) quedaba en un bucle en lugar de dar error. `PagoConfirmadoMensaje.desdeJson`, en `common`, ahora lee antes el texto entero con JSON-P, que para esos textos da error al instante: el mensaje se trata como inválido (reintentos y DLQ). Lo cubre `PagoConfirmadoMensajeTest`.
+- **El listado de auditoría no ordena dentro del mismo segundo.** `recibido_en` se guarda truncada a segundos y el desempate por `mensajeId` solo sirve para que la respuesta sea siempre la misma. Se nota cuando auditoría estuvo detenida: al volver registra lo pendiente de corrido, y varias filas quedan con la misma hora (en la prueba del suscriptor detenido, las dos). Guardar el orden real pide una columna más, en una migración nueva (V3: la V2 agrandó `cuerpo`).
+- **Las dos líneas de `configurar.cli` ya corrieron en un armado limpio:** el servidor armado desde cero el 13/10 a las 15:17 tiene 5 entregas y 2000 ms entre una y otra sin ningún paso a mano (`docs/entrega3/evidencia/reproduccion.txt`, paso 0).
 - **La suscripción durable se crea sin dar permisos**, porque las conexiones internas del servidor saltean ese control. Con un broker externo habría que darle `create-durable-queue` al rol `guest`.
 - **El DNI del titular viaja completo** y queda en la columna `cuerpo`; la consulta de auditoría no lo devuelve. La decisión es de la Fase 12.
+- **Los endpoints `/pruebas/*` son solo para desarrollo, pero van en el WAR que se despliega.** Los usan la demo, los guiones de evidencia y la colección de Postman con un token de rol `servicio`, y por eso siguen disponibles. Lo que publican es, para el tópico, igual a una venta real: ni el aviso ni la auditoría verifican que la venta exista en Ventas, así que cada prueba deja un aviso en el log y una fila de auditoría con `ventaId` `prueba-…`. Solo la cola los filtra, porque el consumidor de Ventas descarta la venta que no encuentra. Para producción se separarían en dos pasos: habilitarlos con una variable de entorno (apagados si falta, respondiendo 404) y excluir del listado de auditoría las filas cuyo `ventaId` empieza con `prueba-`.
 - **Cada prueba deja restos:** una copia en `cola.emision-entradas`, que el MDB de Ventas tiene que descartar, y cada inválido, un mensaje en la `DLQ`. Antes de una demo se vacían con `remove-messages`.
 
 ## Las cinco preguntas más probables de la cátedra
@@ -74,6 +76,27 @@ $pend = "$srv/jms-topic=topico.compra-confirmada:count-messages-for-subscription
 & $cli --connect --command="${mdb}:start-delivery"               #    GET auditoria suma las dos filas
 & $cli --connect --command="/subsystem=datasources/data-source=PalcoDS:flush-all-connection-in-pool"   # 5) otro POST: la fila aparece igual
 ```
+
+### Si un `PAGO_CONFIRMADO` de la cola termina en la DLQ
+
+Si el consumidor de la cola falla en las 5 entregas, el mensaje pasa a la DLQ y la venta queda `CONFIRMADA`, con sus entradas `PENDIENTE_EMISION` y sin código: el pago está cobrado y la entrada no se emitió. Nada lo reintenta solo. El procedimiento es:
+
+1. **Encontrar el mensaje.** El broker le agrega al mensaje la propiedad `_AMQ_ORIG_QUEUE`, con la cola de la que salió. Para la cola de emisión vale `jms.queue.cola.emision-entradas` (su nombre interno, el que lista `read-children-names(child-type=runtime-queue)`); una copia de auditoría trae `palco-auditoria.compras-confirmadas`. `list-messages` con ese filtro da el `JMSMessageID`.
+2. **Ver la causa y corregirla.** En `server.log`, la línea `AMQ222149` que lo pasó a la DLQ lleva ese id (`userID=`), y antes están las 5 fallas de `EmisionDeEntradas` (`WFLYEJB0034`) con su traza. Si la causa sigue (la base caída, un error del código), devolverlo solo lo manda otra vez a la DLQ.
+3. **Devolverlo a la cola.** `move-messages` con el mismo filtro y `other-queue-name=cola.emision-entradas`: en el recurso `jms-queue`, el destino va con su nombre JMS, sin el prefijo `jms.queue.`. El filtro deja en la DLQ los mensajes que vinieron de otro lado. Es seguro aunque la venta ya se hubiera emitido por otra vía: la emisión es idempotente, porque cada `UPDATE` exige que la entrada siga `PENDIENTE_EMISION`, y un repetido no cambia nada.
+4. **Comprobarlo.** La venta pasa a `EMITIDA`, sus entradas a `VALIDA` con código y el log muestra una emisión. Así se recuperó la venta de la parte E de `docs/entrega3/evidencia/mensaje-repetido-y-reintentos.txt`.
+
+El filtro lleva comillas dentro de comillas, y `jboss-cli.bat` las pierde si van en `--command` (responde `Wrong type for 'filter'`). Por eso las operaciones van en un archivo, que se corre con `--file`. En PowerShell, con `$cli` y `$srv` como arriba:
+
+```powershell
+$filtro = "filter=""_AMQ_ORIG_QUEUE='jms.queue.cola.emision-entradas'"""
+Set-Content -Encoding ascii dlq-ver.cli "$srv/jms-queue=DLQ:list-messages($filtro)", "$srv/jms-queue=DLQ:count-messages($filtro)"
+& $cli --connect --file=dlq-ver.cli          # 1) qué mensajes de la cola de emisión hay en la DLQ, y cuántos
+Set-Content -Encoding ascii dlq-mover.cli "$srv/jms-queue=DLQ:move-messages($filtro,other-queue-name=cola.emision-entradas)"
+& $cli --connect --file=dlq-mover.cli        # 3) después de corregir la causa: devuelve "result" => <cantidad movida>
+```
+
+Las operaciones de lectura (`list-messages` y `count-messages` con el filtro) se probaron contra el servidor el 14/10, con una copia de auditoría que estaba en la DLQ (`_AMQ_ORIG_QUEUE` = `palco-auditoria.compras-confirmadas`); el valor de la cola de emisión sale de su nombre interno, y el `move-messages` con filtro no se ejecutó. Sin filtro, la misma operación es la que usan el escenario 12 de `scripts/pruebas/escenarios.mjs` y la parte E de esa evidencia.
 
 Un servidor armado antes de este cambio no tiene los reintentos, porque `configurar.cli` corre solo al armarlo. Se le aplican así, sin reiniciar:
 

@@ -19,7 +19,9 @@
 # Si otra persona compra al mismo tiempo, las diferencias de los contadores salen más grandes: se repite el guion.
 
 export NOPAUSE=true                                   # sin esto, jboss-cli.bat espera una tecla al terminar
-export JAVA_HOME="${JAVA_HOME:-/c/Users/santi/.jdks/temurin-25}"
+# El JDK de jboss-cli: el JAVA_HOME del entorno; si no hay, ~/.jdks/temurin-25 si esa carpeta existe; si no,
+# el java del PATH (como scripts/pruebas/escenarios.mjs).
+if [ -z "${JAVA_HOME:-}" ] && [ -d "$HOME/.jdks/temurin-25" ]; then export JAVA_HOME="$HOME/.jdks/temurin-25"; fi
 H=localhost:8080
 J="Content-Type: application/json"
 B="/subsystem=messaging-activemq/server=default"

@@ -11,9 +11,10 @@ A1, A2 y A3 se implementan en paralelo y A4 documenta el resultado. Para que las
   - El viernes 23/10 es la Entrega Parcial N.º 2 de la consigna (el plan viejo la llamaba "Entrega 3"): checkpoint formativo, sin defensa. La consigna la fecha el lunes 19/10 y el cronograma de los viernes no la nombra. El 23/10 sale de sumarle los cuatro días que separan a las otras fechas de las dos comisiones: es la fecha de trabajo y **falta confirmarla con la cátedra**.
   - El viernes 13/11 es la entrega obligatoria con defensa oral: la Entrega Obligatoria N.º 2 de la consigna, que la fecha el 09/11, y la "2° Entrega PARCIAL" del cronograma (el plan viejo la llamaba "Entrega 4").
   - El calendario de trabajo y el resto de los hitos de la comisión están en `docs/PLAN_AGENTES.md`.
+  - Este archivo y los planes A1 a A4 se escribieron cuando la entrega del 13/11 era la siguiente. Donde dicen que algo "queda para el 13/11", quiere decir que no entraba en el checkpoint: la fecha de cada pendiente es la de `docs/PLAN_AGENTES.md`, que el 13/10 replanificó lo que falta. Para el 13/11 van la factura SOAP (C1), la conciliación de cobros (C3), los diagramas de secuencia (C5) y `openapi.yaml` (C4). Reventa (C2) cierra el 17/11, y Mercado Pago, el webhook y el reembolso (D1) tienen como límite el 19/11. El email real, `/api/v1` en Usuarios y Eventos y el ETag quedaron sin fecha.
 - **(propuesta Pn)** marca una decisión de arquitectura que es del grupo. Se implementa con la opción recomendada, como se acordó hoy; las alternativas y el porqué están en la sección 11. Todas quedan pendientes de aprobación hasta que el dueño las lea.
 - Lo que nadie ejecutó todavía en este servidor está en la sección 12 y no se afirma como hecho en el resto.
-- **Git.** Se trabaja en el árbol actual del repo. Las ramas y los commits los maneja solo Santiago, a mano: un commit por paso verificable, con mensaje `tipo: qué cambió`. Ningún agente hace commits, crea ramas ni cambia de rama.
+- **Git.** Se trabaja en el árbol actual del repo. Las ramas y los commits los maneja solo Santiago: un commit por paso verificable, con mensaje `tipo: qué cambió`.
 
 **Siglas y términos.** WAR: el archivo desplegable de cada servicio. Context root: la ruta de la que cuelga un WAR. Session Bean: componente de negocio que administra el servidor; `@Stateless` no recuerda nada entre llamadas y `@Stateful` mantiene una conversación. CDI: la inyección de dependencias de Jakarta EE. JMS: la API de mensajería. Broker: el servidor de mensajes (ActiveMQ Artemis, dentro de WildFly). MDB (Message-Driven Bean): el componente que consume mensajes. DLQ: la cola a la que van los mensajes que fallaron todos sus intentos. JNDI: el nombre con que el servidor publica un recurso. JTA: la API de transacciones. XA: el protocolo que deja a un recurso participar de un commit en dos fases. JWT: el token firmado de sesión; claim: cada dato que viaja dentro del token; JWKS: la clave pública con que se lo verifica. DTO: objeto que entra o sale de la API. JSON-B: el conversor estándar entre objetos y JSON. CORS: el permiso para que el navegador llame a la API desde otro origen. Problem Details: el formato estándar de errores HTTP (RFC 9457). ETag: la etiqueta de versión de una respuesta, para no volver a descargarla. Pasarela: el servicio externo que cobra; webhook: el aviso HTTP que la pasarela le manda a nuestra API. Idempotente: repetir el pedido no repite el efecto. UTC: hora universal, sin zona. Runner: la función de Postman que corre la colección entera y muestra qué tests pasaron.
 
@@ -92,6 +93,13 @@ En `backend/pom.xml`, dentro de `dependencyManagement`, que es donde el repo fij
 | 500 | cualquier otra | `/problemas/error-inesperado` | no aplica |
 
 `tipo` es el final de la ruta, sin prefijo: `new Conflicto("cupo-agotado", "No quedan…")` responde `type` `/problemas/cupo-agotado`.
+
+Tipos con constructor `(String tipo, String mensaje)` que se suman a los de la tabla:
+
+| Tipo | Servicio | HTTP | Cuándo |
+|---|---|---|---|
+| `evento-finalizado` | Eventos y Ventas | 409 (`Conflicto`) | Se reserva cupo, o se inicia una compra, de un evento que ya empezó. Ventas lo reenvía tal cual le llega de Eventos |
+| `clave-reutilizada` | Ventas y Pagos | 409 (`Conflicto`) | La misma `Idempotency-Key` llega con otro pedido |
 
 **CORS**, en `CorsFilter`:
 - `Access-Control-Allow-Headers: Content-Type, Authorization, Idempotency-Key, If-None-Match`
@@ -376,7 +384,8 @@ No hay interruptor por variable de entorno: los protege el rol `servicio`, que s
 | Eventos responde | Ventas responde |
 |---|---|
 | 404 | 422 `sector-inexistente` |
-| 409 | 409 `cupo-agotado` |
+| 409 `evento-finalizado` | 409 `evento-finalizado` |
+| Otro 409 | 409 `cupo-agotado` |
 | Otro código o sin respuesta | 504 `sin-respuesta` |
 
 Si falla un sector, Ventas devuelve los que ya habían respondido 200. Un sector cuya llamada no respondió no se devuelve, porque no se sabe si se aplicó.
@@ -397,7 +406,7 @@ El pago público sigue en Ventas, como en la OpenAPI. Pagos expone una API inter
 | 201 | `Location: /api/v1/pagos/{pagoId}` y `{pagoId, ventaId, monto, estado, motivo, idExterno}` |
 | `estado` | `APROBADO` o `RECHAZADO`. Un rechazo también es 201: el pago se procesó y ese es su resultado |
 | Misma clave, misma venta y monto | 201 con el mismo pago, sin volver a llamar a la pasarela. Vale también si los dos pedidos llegan a la vez |
-| Errores | 400 datos inválidos o falta la clave; 401; 403 otro rol; 409 clave ya usada con otra venta u otro monto; 504 la pasarela no respondió (no se guarda nada y se puede reintentar con la misma clave) |
+| Errores | 400 datos inválidos o falta la clave; 401; 403 otro rol; 409 `clave-reutilizada`, clave ya usada con otra venta u otro monto; 409 `pago-duplicado`, dos pedidos con la misma clave chocaron al guardarse; 504 la pasarela no respondió (no se guarda nada y se puede reintentar con la misma clave) |
 | Consulta | `GET /api/v1/pagos/{pagoId}`, rol `servicio`: 200 o 404 |
 
 Rutas reservadas para después del 23/10: `POST /api/v1/pagos/{pagoId}/reembolsos` y `POST /api/v1/pagos/webhook`.
@@ -408,9 +417,12 @@ Pagos garantiza un solo pago por clave. No garantiza un solo pago por venta: eso
 |---|---|
 | 201 `APROBADO` | 201, venta `CONFIRMADA` |
 | 201 `RECHAZADO` | 402 `pago-rechazado`; la venta sigue `EN_CHECKOUT` |
-| 409 | 409 |
+| 409 `clave-reutilizada` | 402 `pago-rechazado` con motivo `clave_reutilizada`: Pagos no cobró; la venta sigue `EN_CHECKOUT` |
+| 409 `pago-duplicado` (u otro 409 sin `type` legible) | Ventas repite el pedido una vez con la misma clave y Pagos devuelve el pago que guardó: se sigue como con ese 201. Si vuelve a chocar, 504 `sin-respuesta` (`ClienteDePagos`) |
 | 504 o sin respuesta | 504 `sin-respuesta`; la venta sigue `EN_CHECKOUT` y se reintenta con la misma clave |
-| Cualquier otro | 500 |
+| 400 | 402 `pago-rechazado` con motivo `datos_invalidos`: Pagos no cobró |
+| 401, 403 o 404 | Con 401 se renueva el token de servicio y se reintenta una vez. Si sigue, o con 403 o 404: 504 `sin-respuesta`, sin cobro, y la venta se puede cancelar |
+| Cualquier otro | 504 `sin-respuesta`: no se sabe si se cobró, y se reintenta con la misma clave |
 
 El estado `PENDIENTE` y el 202 llegan con el webhook, después del 23/10. Hasta entonces ningún simulador devuelve `PENDIENTE`.
 
@@ -444,18 +456,28 @@ El WAR de Ventas cuelga de `/api/v1` y sirve dos recursos: `ventas` y `entradas`
 
 | Operación | Éxito | Errores: código y `type` |
 |---|---|---|
-| `POST /api/v1/ventas` con `Idempotency-Key` | 201, `Location` y la Venta en `EN_CHECKOUT` | 400 `datos-invalidos` (incluye clave ausente o que no es UUID); 401; 403 `identidad-no-verificada`; 409 `cupo-agotado`; 422 `maximo-de-entradas`, `dni-repetido`, `titulares-no-coinciden` o `sector-inexistente`; 504 `sin-respuesta` |
+| `POST /api/v1/ventas` con `Idempotency-Key` | 201, `Location` y la Venta en `EN_CHECKOUT` | 400 `datos-invalidos` (incluye clave ausente o que no es UUID); 401; 403 `identidad-no-verificada`; 409 `cupo-agotado`, `evento-finalizado` (el evento ya empezó) o `clave-reutilizada` (la clave ya abrió otra compra); 422 `maximo-de-entradas`, `dni-repetido`, `titulares-no-coinciden` o `sector-inexistente`; 504 `sin-respuesta` |
 | `GET /api/v1/ventas` | 200 con la lista de las Ventas de quien hace el pedido; vacía si no compró nada | 401; 403 con otro rol |
 | `GET /api/v1/ventas/{ventaId}` | 200 con la Venta | 404 |
-| `DELETE /api/v1/ventas/{ventaId}` | 204; repetirlo también da 204 | 404; 409 `venta-ya-paga` |
+| `DELETE /api/v1/ventas/{ventaId}` | 204; repetirlo también da 204 | 404; 409 `venta-ya-paga`; 409 `operacion-en-curso` (hay un pago en curso, o uno anterior quedó sin resultado) |
 | `POST /api/v1/ventas/{ventaId}/pagos` con `Idempotency-Key` | 201, `Location` y la Venta en `CONFIRMADA` | 400; 402 `pago-rechazado`; 404; 409 `reserva-vencida`, `venta-ya-paga` u `operacion-en-curso`; 504 `sin-respuesta` |
 | `GET /api/v1/entradas/{entradaId}` | 200 con la Entrada | 404 |
 
+Después de un 504 del pago, la venta queda marcada con ese intento sin resultado: solo se puede reintentar el pago con la misma `Idempotency-Key`. Otra clave, o cancelarla, responde 409 `operacion-en-curso`.
+
 Si A1 necesita otro `type`, lo agrega y lo lista en su nota.
+
+**Quién puede comprar.** Una cuenta con `identidadVerificada` en verdadero, y Usuarios la marca así cuando la cuenta completa el registro (verifica el email): alcanza con registrarse, sin un paso aparte (decisión del 14/10).
 
 **Listado de las compras propias** (agregado el 13/10, en la integración). `GET /api/v1/ventas` devuelve las ventas del usuario del token, de la más nueva a la más vieja, cada una con el mismo formato que `GET /ventas/{ventaId}` y con sus entradas adentro. De quién son lo dice el claim `sub` del token: la operación no recibe ningún id de usuario, así que nadie puede pedir las de otro. Vienen en todos los estados, también `CANCELADA` y `VENCIDA`; el cliente filtra las que quiere mostrar. No tiene paginación ni filtros. Lo usa "Mis entradas" del frontend, para no depender de lo que recuerda el navegador.
 
-**Idempotencia.** Repetir la clave en `POST /ventas` devuelve la misma venta sin reservar otra vez. Repetirla en el pago devuelve la venta ya confirmada. Se devuelve el estado actual del recurso, no una copia guardada de la primera respuesta.
+**Idempotencia.** Repetir la clave en `POST /ventas` con el mismo pedido devuelve la misma venta sin reservar otra vez. Repetirla en el pago devuelve la venta ya confirmada. Se devuelve el estado actual del recurso, no una copia guardada de la primera respuesta.
+
+**Los 409 agregados el 14/10.**
+
+- `POST /ventas` con una clave que ya abrió una compra con otro evento u otros renglones (sector y cantidad) responde 409 `clave-reutilizada`, "Esa clave ya se usó para otra compra". Los titulares no se comparan: no se guardan en la base.
+- `POST /ventas` sobre un evento que ya empezó responde 409 `evento-finalizado`, "Ese evento ya empezó o terminó". Lo decide Eventos al reservar (también 409, con ese `type`) y Ventas lo traduce para el comprador; devolver cupo sigue andando aunque el evento haya empezado.
+- `POST /ventas/{ventaId}/pagos` sobre una compra vigente que perdió su instancia (redespliegue, o el servidor la descartó) sigue respondiendo 409 `reserva-vencida`, "Empezá la compra de nuevo", pero ahora antes de responder la venta pasa a `CANCELADA` y su cupo vuelve a Eventos. Si un pedido simultáneo ya la había cerrado, el cupo no se devuelve dos veces.
 
 **Venta**
 
@@ -535,11 +557,11 @@ Columnas de `venta` que otras tareas dan por ciertas: `estado`, `factura_estado`
 | `EN_CHECKOUT` → `CANCELADA` | `cancelarCompra` | Lo libera después de su commit |
 | `EN_CHECKOUT` → `VENCIDA` | `VencimientoDeReservas` | Lo libera después de su commit |
 
-**Reglas de Ventas que cierran contradicciones entre borradores y revisores**
+**Reglas de Ventas que cierran contradicciones entre los borradores y su revisión**
 
 1. **El componente con estado (propuesta P1).** `ServicioDeVentas` es `@Stateful`, una instancia por compra. `ComprasEnCurso` (`@ApplicationScoped`) la crea por JNDI con `java:module/ServicioDeVentas!com.palco.ventas.negocio.IVentas`, guarda la referencia por `ventaId` y comprueba que el `sub` del token sea el comprador. La instancia guarda lo que todavía no está en la base: los titulares. `IVentas` tiene tres operaciones: `iniciarCompra`, `confirmarCompra` y `cancelarCompra`.
 2. **Un solo reloj (propuesta P2).** La reserva vence por `vence_reserva`, en la base. `com.palco.ventas.negocio.VencimientoDeReservas`, un `@Singleton` con `@Schedule(persistent = false)`, corre cada minuto, pasa a `VENCIDA` las ventas `EN_CHECKOUT` vencidas y devuelve su cupo. `@StatefulTimeout(MINUTOS_RESERVA)` y `@Remove` siguen: son el ciclo de vida que administra el servidor. `@PreDestroy` solo escribe en el log y quita la referencia; no escribe en la base ni llama por REST.
-3. **Pagar tarde o sin instancia.** Si la reserva venció o la instancia se perdió (por ejemplo, tras un redespliegue), el pago responde 409 `reserva-vencida` y nada más. El cupo lo libera el barrido.
+3. **Pagar tarde o sin instancia.** Si la reserva venció o la instancia se perdió (por ejemplo, tras un redespliegue), el pago responde 409 `reserva-vencida`. Si la reserva todavía estaba vigente pero la instancia se perdió, antes de responder Ventas cancela la venta con su `UPDATE` condicional y, si la fila cambió, devuelve el cupo a Eventos. Si la reserva ya venció, el cupo lo libera el barrido. Si la venta tiene `clave_pago` (un intento anterior sin resultado), responde 409 `operacion-en-curso`, salvo el reintento con la misma clave mientras viva la instancia.
 4. **Las entradas nacen con el pago (propuesta P4).** `confirmarCompra` las crea en `PENDIENTE_EMISION`, con su id, porque el mensaje ya lleva `entradaId` y el `GET` de la entrada tiene que responder apenas vuelve el 201. El MDB las emite.
 5. **`clave_pago`.** `ComprasEnCurso` comprueba que la reserva siga vigente y que la instancia exista; recién ahí guarda la clave, en su propia transacción y antes de cobrar. La borra si el cobro fue rechazado. Una venta `EN_CHECKOUT` con `clave_pago` es un intento de cobro sin resultado conocido: el barrido no la vence ni libera su cupo, y la concilia C3.
 6. **Solo excepciones de negocio.** El bean lanza únicamente excepciones de `ErroresDeNegocio`. Con cualquier otra, el servidor destruye la instancia y el comprador no puede reintentar tras un 402.
@@ -621,7 +643,7 @@ Las carpetas 1 y 2 no cambian de resultado por la Ola 1: sus tests miran solo el
 **Cambios de T4.** Sin ellos no pueden pasar esos siete ni los requests 2 y 3 de la carpeta 3, aunque el backend esté bien.
 
 - Variables nuevas: `ventaId`, `entradaId`, `tokenServicio`, `tokenOrganizador`, `tokenStaff`.
-- Primer request de la carpeta 3: "Login comprador", con `titular@palco.test` y `palco1234`, que guarda `token`. La cuenta `ana@test.com` no sirve: no tiene la identidad verificada.
+- Primer request de la carpeta 3: "Login comprador", con `titular@palco.test` y `palco1234`, que guarda `token`. La cuenta `ana@test.com` no sirve: la registra la carpeta 1 y nadie verifica su email, así que el login responde 409. Usuarios marca la identidad verificada recién al verificar el email (sección 6, "Quién puede comprar").
 - Request 1: compra `sec-1-4` en lugar de `sec-1-1` (2 × 27.500 más 10 % da 60.500, el total del ejemplo) y guarda `ventaId` con `pm.response.json().id`.
 - Request 2: URL con `{{ventaId}}`; guarda `entradaId` con `pm.response.json().entradas[0].id`.
 - Request 3: URL con `{{entradaId}}`.
@@ -635,7 +657,7 @@ Las carpetas 1 y 2 no cambian de resultado por la Ola 1: sus tests miran solo el
 ## 9. Qué toma A4 de este archivo
 
 - **Nombres.** Los de las secciones 4 a 7. En particular: "adaptadores detrás de `PasarelaDePagos`", no detrás de `IPagos`; `POST /api/v1/pagos`, no `/cobros`.
-- **Estado.** "Implementado" o "Diseñado, pendiente", mirando el código y el servidor el martes 20/10, tres días antes de la entrega. Quedan "Diseñado, pendiente": factura SOAP, Mercado Pago, webhook, pago pendiente, reembolso, email real, reventa y, si B3 no llega, validación.
+- **Estado.** "Implementado" o "Diseñado, pendiente", mirando el código y el servidor el miércoles 14/10, el día en que se crea el tag `entrega-parcial-2` (calendario de `docs/PLAN_AGENTES.md`). Quedan "Diseñado, pendiente": factura SOAP, Mercado Pago, webhook, pago pendiente, reembolso, email real, reventa y, si B3 no llega, validación.
 - **Proceso asincrónico.** Dos procesos disparados por el mismo evento: "Emisión de entradas" (cola) y "Aviso y auditoría de la compra" (tópico).
 - **Diagrama.** El consumidor de la cola va dentro de Ventas y Auditoría dentro de Notificaciones. Se suma la flecha Ventas → Facturación, punteada.
 - **Evidencia.** No espera a B1. Apenas A1 llega al MDB de emisión se guarda la primera: contadores de la cola y del tópico antes y después, las líneas `INFO` de los tres MDB, la fila de `GET /api/notificaciones/auditoria` y la entrada en `VALIDA`. Si B1 llega, se reemplaza.
@@ -695,15 +717,15 @@ El grupo acordó implementar con la opción recomendada. Quien defiende cada par
 | P1 | Cómo se ata el componente `@Stateful` al usuario | (a) Sesión HTTP con `@SessionScoped`. (b) Índice por `ventaId`, validado con el `sub` del token. (c) Sin stateful | (b), con `IVentas` de tres operaciones | La identidad sigue en un solo mecanismo (el token). La cookie de sesión solo vale dentro de un WAR. La reserva temporal es el ejemplo de stateful que da la consigna |
 | P2 | Quién vence la reserva | (a) El `@PreDestroy` del stateful escribe en la base y llama a Eventos. (b) Un barrido con `@Schedule` sobre `vence_reserva` | (b) | La especificación avisa que `@PreDestroy` puede no ejecutarse y recomienda una limpieza periódica. Queda un solo reloj |
 | P3 | Garantía entre la venta y el mensaje | (a) Base sin XA, como último recurso, y consumidores idempotentes. (b) Base XA. (c) Tabla de salida con un proceso que publica | (a) | La consigna pide transacciones declarativas y explicar las fallas, no dos fases. (b) no está verificado contra Supabase |
-| P4 | Dónde se crean las entradas | (a) En la transacción del pago; el MDB las emite. (b) Las crea el MDB, como dice el brief | (a) | El mensaje ya lleva `entradaId`, y el `GET` de la entrada tiene que responder apenas vuelve el pago |
+| P4 | Dónde se crean las entradas | (a) En la transacción del pago; el MDB las emite. (b) Las crea el MDB, como dice la guía de la tarea | (a) | El mensaje ya lleva `entradaId`, y el `GET` de la entrada tiene que responder apenas vuelve el pago |
 | P5 | Formato de ids | (a) Texto con prefijo y 8 caracteres de UUID. (b) Número de la base mostrado como `V-00001`. (c) Numeración que calce con los ejemplos | (a) | Es la convención que ya funciona en el repo. (b) suma un mapeo sin probar, y la numeración vuelve a 1 en cada reinicio mientras los mensajes viejos siguen guardados |
 | P6 | Cómo se obtiene el token de servicio | (a) Endpoint en Usuarios con secreto compartido. (b) Cuenta de servicio que usa el login. (c) Firmar a mano con una clave fija | (a) | Se explica en una frase. (b) obliga a cambiar el `check` de roles, que no tiene nombre, y a crear un usuario con DNI y contraseña para algo que no es una persona |
 | P7 | Cómo se versiona la URL | (a) Context root `/api/v1` en los servicios nuevos; Usuarios y Eventos en C4. (b) Reescritura en el servidor. (c) Esperar a C4. (d) Un WAR que haga de puerta de entrada | (a) | Cambia una línea por servicio y no toca lo que funciona. Con (c) los requests de la carpeta 3 dan 404 |
 | P8 | Problem Details en `common` ahora | (a) T1, ahora. (b) Excepciones propias en Ventas. (c) Esperar a C4 | (a) | Con (b) conviven dos formatos y Pagos suma un tercero. Rompe la regla "`common` solo lo toca A2", por eso es un paso aparte |
-| P9 | Interfaz y patrón en Pagos | (a) `IPagos` es el componente y `PasarelaDePagos` tiene las dos implementaciones. (b) Las dos implementan `IPagos`, como dice el brief | (a), contada como Adapter más Factory | Guardar y deduplicar se escribe una sola vez. Coincide con la Entrega Parcial 1 |
-| P10 | Qué hace A3 antes del 23/10 | (a) Solo el cobro con `PagosFake`; webhook, reembolso y `MercadoPagoPagos` después. (b) Todo el brief ahora | (a) | Esas piezas no responden a ningún punto del 23/10, y la firma del webhook y los campos de Mercado Pago no se pudieron verificar |
+| P9 | Interfaz y patrón en Pagos | (a) `IPagos` es el componente y `PasarelaDePagos` tiene las dos implementaciones. (b) Las dos implementan `IPagos`, como dice la guía de la tarea | (a), contada como Adapter más Factory | Guardar y deduplicar se escribe una sola vez. Coincide con la Entrega Parcial 1 |
+| P10 | Qué hace A3 antes del 23/10 | (a) Solo el cobro con `PagosFake`; webhook, reembolso y `MercadoPagoPagos` después. (b) Todo lo que lista la guía de la tarea, ahora | (a) | Esas piezas no responden a ningún punto del 23/10, y la firma del webhook y los campos de Mercado Pago no se pudieron verificar |
 | P11 | Quién defiende los pasos transversales | T1 Sebastian, T2 Julian y el resto Santiago, u otro reparto | El de la sección 3 | T1 es el paso previo de Ventas que el grupo anunció en la clase 10. T2 adelanta una parte de B1 |
-| P12 | Alcance del documento del 23/10 | (a) Solo lo que pide la consigna. (b) También anexos funcional, manual y Figma | (a), salvo que la cátedra los haya pedido por otro canal | La consigna no los nombra y ocupan cuatro días de trabajo de A4. Solo una persona del grupo puede confirmarlo |
+| P12 | Alcance del documento del 23/10 | (a) Solo lo que pide la consigna. (b) También anexos funcional, manual y Figma | (a), salvo que la cátedra los haya pedido por otro canal | La consigna no los nombra y ocupan cuatro días de trabajo de A4. Queda que el grupo confirme si la cátedra los pidió |
 
 ## 12. Riesgos y dudas abiertas
 

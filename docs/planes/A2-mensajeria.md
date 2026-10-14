@@ -7,7 +7,7 @@
 
 Los nombres son los de `docs/planes/00-contratos-compartidos.md` ("los contratos"); si difieren de este plan, vale ese archivo.
 
-Las fechas son las de la comisión de los viernes (sección 1 de los contratos). El viernes 23/10 es la fecha de trabajo de la Entrega Parcial N.º 2 y falta confirmarla con la cátedra; la consigna, escrita para la comisión del lunes, dice 19/10. El 13/11 es la entrega obligatoria con defensa.
+Las fechas son las de la comisión de los viernes (sección 1 de los contratos). El viernes 23/10 es la fecha de trabajo de la Entrega Parcial N.º 2 y falta confirmarla con la cátedra; la consigna, escrita para la comisión del lunes, dice 19/10. El 13/11 es la entrega obligatoria con defensa. Lo que este plan deja "para el 13/11" es lo que no entraba en el checkpoint: la fecha de cada pendiente está en `docs/PLAN_AGENTES.md` (el email real, por ejemplo, quedó sin fecha).
 
 ## Qué se construye
 
@@ -210,7 +210,7 @@ $pend = "count-messages-for-subscription(client-id=palco-auditoria,subscription-
   - La creación de la suscripción durable: el rol `guest` del broker no tiene ese permiso, aunque las conexiones internas lo saltean. Si falla, se agrega a `configurar.cli`: `/subsystem=messaging-activemq/server=default/security-setting=#/role=guest:write-attribute(name=create-durable-queue,value=true)`.
   - `stop-delivery`, `start-delivery`, la reentrega cada 2 segundos y el pase a la DLQ. Si difieren, se ajusta la demo.
   - Las dos líneas dentro de `configurar.cli`. Si fallan, se aplican con `jboss-cli` y se documenta.
-- **Los comandos de "Cómo se verifica" no se corrieron**: esta etapa no permite compilar ni redesplegar. Las operaciones de `jboss-cli` existen en el servidor, pero la espera del redespliegue y la extracción del token están sin probar.
+- **Los comandos de "Cómo se verifica" no se corrieron**: en la etapa de planificación no se compila ni se redespliega. Las operaciones de `jboss-cli` existen en el servidor, pero la espera del redespliegue y la extracción del token están sin probar.
 - **Token de servicio.** Sin T2 no hay aceptación: `jboss-cli` no tiene una operación para enviar mensajes.
 - **Un MDB que no logra activarse no hace fallar el despliegue**: el adaptador reintenta sin fin y `/health` sigue en 200. Tras cada redespliegue se mira `list-all-subscriptions` y el log.
 - **Cambiar el selector** (el filtro `tipoEvento = 'PAGO_CONFIRMADO'`) **o el tópico del MDB durable** hace que el adaptador borre y recree la suscripción: se pierden los pendientes.
