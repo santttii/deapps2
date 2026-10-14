@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 #
-# Demo de la Entrega 3 de Palco: una compra de punta a punta contra el servidor
-# ya levantado, con la mensajería asincrónica a la vista.
+# Demo de Palco: una compra de punta a punta contra el servidor ya levantado,
+# con la mensajería asincrónica a la vista. Se armó para la Entrega Parcial
+# N.º 2 de la consigna; el plan viejo la llamaba "Entrega 3", y de ahí viene el
+# nombre del archivo.
 #
 #   scripts/demo-entrega3.sh              compra con pago aprobado
 #   scripts/demo-entrega3.sh rechazado    compra con pago rechazado
@@ -364,7 +366,7 @@ broker_despues() {
 
 # ---------------------------------------------------------------- pasos comunes
 
-printf '%sPalco - demo de la Entrega 3%s\n' "$NEGRITA" "$FIN"
+printf '%sPalco - demo de una compra de punta a punta%s\n' "$NEGRITA" "$FIN"
 printf 'Servidor: %s    Modo: pago %s\n' "$BASE" "$MODO"
 
 paso "Login del comprador"
