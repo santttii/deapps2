@@ -26,8 +26,6 @@ Además, la sección 5 lista las diferencias con la Entrega Parcial N.º 1, los 
 
 ## Qué falta en esta carpeta
 
-El detalle de cada punto está en `docs/notas/docs-entrega3.md`.
-
 - `Diagrama_Integracion_SOA.drawio.png`: la exportación del diagrama desde app.diagrams.net.
 - `evidencia/postman-runner.png`: la captura de la corrida de la colección de Postman.
 - Confirmar con la cátedra la fecha de la entrega. El grupo cursa en la comisión de los viernes y la consigna, escrita para la del lunes, dice 19/10. El cronograma de los viernes no nombra este checkpoint: se toma el viernes 23/10/2026, cuatro días después como las otras fechas, y así figura en la carátula. También falta confirmar la hora límite: las 13:30 de la consigna son de la comisión del lunes.

@@ -2,7 +2,7 @@
 #
 # Demo de Palco: una compra de punta a punta contra el servidor ya levantado,
 # con la mensajería asincrónica a la vista. Se armó para la Entrega Parcial
-# N.º 2 de la consigna; el plan viejo la llamaba "Entrega 3", y de ahí viene el
+# N.º 2 de la consigna, la tercera entrega del cuatrimestre: de ahí viene el
 # nombre del archivo.
 #
 #   scripts/demo-entrega3.sh              compra con pago aprobado

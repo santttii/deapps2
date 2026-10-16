@@ -138,7 +138,7 @@ La pasarela de Pagos es simulada: el token de pago `tok_test` aprueba,
 contesta. Al pagar, Ventas publica `PAGO_CONFIRMADO` en la cola
 `cola.emision-entradas` (emite las entradas) y en el tópico
 `topico.compra-confirmada` (aviso y auditoría). El contrato del mensaje está en
-[`docs/superpowers/specs/mensajeria-pago-confirmado.md`](docs/superpowers/specs/mensajeria-pago-confirmado.md).
+[`docs/api/mensajeria-pago-confirmado.md`](docs/api/mensajeria-pago-confirmado.md).
 
 **Errores:** todos los servicios responden en formato Problem Details (RFC 9457),
 con `Content-Type: application/problem+json`. Los errores por campo van en
@@ -414,10 +414,8 @@ src/
   reventa sigue validándose en el cliente (tope de precio) y vive en el
   `localStorage` del navegador, así que se pueden simular varios usuarios en el
   mismo navegador (publicar con una cuenta y comprar con otra). El porqué de
-  cada decisión está en
-  [`docs/notas/B2-frontend-sesion-catalogo.md`](docs/notas/B2-frontend-sesion-catalogo.md)
-  y, para la compra, en
-  [`docs/notas/B2-frontend-checkout.md`](docs/notas/B2-frontend-checkout.md).
+  cada decisión está en la sección 15 de
+  [`docs/documentacion/Palco_Documentacion_Completa.md`](docs/documentacion/Palco_Documentacion_Completa.md).
 - **Compra contra `ServicioDeVentas`**: la reserva del cupo se crea al terminar
   el paso "Titulares", porque el backend pide los titulares en ese pedido. Los
   dos pedidos que cambian algo (iniciar y pagar) viajan con una clave de
@@ -488,8 +486,7 @@ La mayoría se resuelven con el backend. El plan de trabajo está en
   comprar: el checkout lo avisa al entrar ("Falta verificar tu identidad") en
   lugar de pedir los titulares, y la pantalla de ingreso aclara que para
   comprar hay que usar `titular@palco.test`. Falta que el backend ofrezca cómo
-  verificar la identidad: es una decisión pendiente del grupo (ver
-  `docs/notas/B2-frontend-checkout.md`).
+  verificar la identidad: es una decisión pendiente del grupo.
 - **Pagos y emails simulados**: el cobro pasa por `ServicioDePagos`, pero su
   pasarela es simulada (no se procesa ningún pago real; el formulario de tarjeta no manda sus datos, solo un token
   de prueba) y no se envía ningún email. El código de verificación del registro

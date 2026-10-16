@@ -2,7 +2,7 @@
 
 Documenta el mensaje que publica `ServicioDeVentas` cuando se aprueba un pago,
 según el taller de escenario de mensajería. Cubre el pendiente de la Fase 6 del
-[`TODO.md`](../../../TODO.md): *Documentar el contrato en `docs/`*.
+[`TODO.md`](../../TODO.md): *Documentar el contrato en `docs/`*.
 
 **Estado al 14/10/2026.** El mensaje, su validación, las constantes con los
 nombres y el publicador están en `backend/common`, con tests. Ventas publica el
@@ -125,8 +125,8 @@ llega al broker.
   confirmada ni mensaje.
 - **Si el servidor se cae entre el commit de la base y el del broker**, queda
   una venta `CONFIRMADA` con entradas `PENDIENTE_EMISION` y sin mensaje. Es un
-  estado visible; el reenvío queda para más adelante (tarea C3). Este caso no
-  se probó.
+  estado visible; el reenvío queda para más adelante, con la conciliación de
+  pagos. Este caso no se probó.
 - **La transacción cubre solo ese paso.** Reservar el cupo es una llamada REST
   a Eventos que confirma en el acto, y el cobro es externo: ninguno de los dos
   se deshace con un rollback.

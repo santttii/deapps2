@@ -898,12 +898,12 @@ const ventas = carpeta('3 Diseño v1 (Ventas implementado)',
       }),
     carpeta('Pendientes: reventa y validación (fuera de la corrida)',
       'Diseñado, pendiente. Estas rutas todavía no existen en el backend: hoy responden 404. La corrida '
-      + 'automática termina antes de llegar acá. Reventa (/api/v1/reventas) es de la Ola 3 y validación en puerta '
-      + '(/api/v1/validacion/escaneos), de la Ola 2. Ya usan variables en lugar de ids fijos: entradaId y '
+      + 'automática termina antes de llegar acá. Reventa (/api/v1/reventas) y validación en puerta '
+      + '(/api/v1/validacion/escaneos) todavía no están implementadas. Ya usan variables en lugar de ids fijos: entradaId y '
       + 'codigoQr salen de la carpeta 3 y tokenStaff, de "Login staff" en la carpeta 1.',
       [
         pedido(PRIMERO_DE_PENDIENTES, 'POST', url('baseApi', ['reventas']), {
-          descripcion: 'PENDIENTE (Ola 3). Publica en reventa la entrada comprada, por debajo del tope '
+          descripcion: 'PENDIENTE (Reventa). Publica en reventa la entrada comprada, por debajo del tope '
             + '(precio pagado más 10 %: 30.250 para una entrada de 27.500).',
           cabeceras: [bearer('token'), JSON_CT],
           cuerpo: '{\n  "entradaId": "{{entradaId}}",\n  "precio": 29000\n}',
@@ -916,7 +916,7 @@ const ventas = carpeta('3 Diseño v1 (Ventas implementado)',
           ],
         }),
         pedido('PENDIENTE · POST /v1/reventas sobre el tope (422)', 'POST', url('baseApi', ['reventas']), {
-          descripcion: 'PENDIENTE (Ola 3). 33.000 supera el tope de 30.250.',
+          descripcion: 'PENDIENTE (Reventa). 33.000 supera el tope de 30.250.',
           cabeceras: [bearer('token'), JSON_CT],
           cuerpo: '{\n  "entradaId": "{{entradaId}}",\n  "precio": 33000\n}',
           tests: [
@@ -925,12 +925,12 @@ const ventas = carpeta('3 Diseño v1 (Ventas implementado)',
           ],
         }),
         pedido('PENDIENTE · DELETE /v1/reventas/{id} (204)', 'DELETE', url('baseApi', ['reventas', '{{publicacionId}}']), {
-          descripcion: 'PENDIENTE (Ola 3). Retira la publicación creada dos requests antes.',
+          descripcion: 'PENDIENTE (Reventa). Retira la publicación creada dos requests antes.',
           cabeceras: [bearer('token')],
           tests: [estado(204)],
         }),
         pedido('PENDIENTE · POST /v1/validacion/escaneos (200)', 'POST', url('baseApi', ['validacion', 'escaneos']), {
-          descripcion: 'PENDIENTE (Ola 2). El personal de puerta escanea el código QR de la entrada. Usa '
+          descripcion: 'PENDIENTE (validación en puerta). El personal de puerta escanea el código QR de la entrada. Usa '
             + '{{tokenStaff}} y el {{codigoQr}} que guardó "GET /v1/entradas/{id} emitida".',
           cabeceras: [bearer('tokenStaff'), JSON_CT],
           cuerpo: '{\n  "codigoQr": "{{codigoQr}}"\n}',

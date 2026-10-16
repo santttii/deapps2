@@ -4,7 +4,7 @@ package com.palco.ventas.negocio;
  * Los "tipos" de problema que responde Ventas, en un solo lugar. Cada uno sale
  * en el error como {@code "type": "/problemas/<tipo>"} y es parte del contrato
  * de la API: el frontend decide qué mostrar según el tipo, no según el texto.
- * Son los de la sección 6 de {@code docs/planes/00-contratos-compartidos.md}.
+ * Son los que documenta {@code docs/api/openapi.yaml}.
  *
  * Fuera de esta lista hay dos tipos que arman los repositorios cuando la base
  * rechaza una clave repetida: {@code clave-repetida} y

@@ -13,7 +13,7 @@ import jakarta.validation.constraints.Size;
 
 /**
  * Lo que entra y sale de la API de ventas. Los nombres de los campos son los
- * de la sección 6 de {@code docs/planes/00-contratos-compartidos.md}.
+ * del contrato de la API ({@code docs/api/openapi.yaml}).
  *
  * Las anotaciones validan la forma del pedido (que no falte nada y que cada
  * dato entre en su columna) y responden 400. Las reglas de negocio (el máximo

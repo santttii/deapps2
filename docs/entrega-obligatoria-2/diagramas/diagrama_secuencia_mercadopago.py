@@ -2,7 +2,7 @@
 
 Mismo estilo que actividad_integradora_clase10/diagrama_secuencia.png:
 rojo = sincrónico, naranja = alternativa ante falla, gris = webhook, punteado = respuesta.
-Fuente: docs/planes/A3-pagos.md, decisiones 5 y 6.
+Fuente: el diseño de la integración con Mercado Pago (diseñado, pendiente).
 
 Uso: python3 diagrama_secuencia_mercadopago.py  (genera .png y .svg al lado)
 """

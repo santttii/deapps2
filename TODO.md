@@ -194,8 +194,8 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 - [ ] Webhook de Mercado Pago (`POST /api/pagos/webhook`) con idempotencia.
          **Diseñado, pendiente (decisión del 13/10):** no se integra Mercado Pago real.
       Pagos sigue con `PagosFake` y el requisito REST lo cubre la API propia. El diseño
-      está en `docs/planes/A3-pagos.md` (decisiones 5 y 6). Se retoma si la cátedra
-      pide una pasarela real (pregunta 11 de `docs/PLAN_AGENTES.md`).
+      está en la sección 12.1 de `docs/documentacion/Palco_Documentacion_Completa.md`.
+      Se retoma si la cátedra pide una pasarela real.
 - [ ] Reembolsos (`IPagos` los menciona; definir cuándo: evento cancelado).
 - [ ] Al aprobarse el pago, publicar `PAGO_CONFIRMADO` (Fase 6).
 - [ ] Manejar pago rechazado, pendiente y vencido.
@@ -316,12 +316,10 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
 - [ ] Backend: mandar las cabeceras CORS también en el 401 de un token
       inválido (hoy llega sin ellas y el navegador avisa "blocked by CORS
       policy"). Después, sacar de `api.ts` la comprobación del token que lo
-      compensa (`GET /api/usuarios/yo` y, si no se puede leer, el `health`;
-      ver `docs/notas/B2-frontend-checkout.md`, decisión 7).
+      compensa (`GET /api/usuarios/yo` y, si no se puede leer, el `health`).
 - [ ] Backend: informar la hora del servidor (los segundos que faltan en la
       venta, o exponer la cabecera `Date` por CORS). Mientras tanto el
-      checkout deduce el desfase de relojes de "la reserva dura 10 minutos"
-      (ver `docs/notas/B2-frontend-checkout.md`, decisión 3).
+      checkout deduce el desfase de relojes de "la reserva dura 10 minutos".
 - [x] Manejo de datos del servidor: `fetch` con `useEffect` y `useState`, sin
       librería. Al conectar Ventas se revisó TanStack Query y no hizo falta: el
       estado "emitiendo entradas" se resolvió con un `setTimeout` (una consulta
@@ -340,14 +338,12 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
   - [x] `SET_CARRITO` + `CREAR_ORDEN` → checkout de `ServicioDeVentas` + pago
         (`src/servicios/ventas.ts`; `CREAR_ORDEN` pasó a ser `GUARDAR_COMPRA`,
         que guarda en el navegador lo que devolvió el backend). Probado en
-        navegador contra el backend el 13/10
-        (ver `docs/notas/B2-frontend-checkout.md`).
+        navegador contra el backend el 13/10.
     - [ ] Decidir cómo compra una cuenta nueva: el registro la deja con
           `identidadVerificada` en falso, el backend no tiene cómo cambiarlo
           y Ventas responde 403 `identidad-no-verificada`. Mientras tanto el
           checkout lo avisa al entrar, sin pedir los titulares, y solo compra
-          `titular@palco.test` (ver `docs/notas/B2-frontend-checkout.md`,
-          decisión 6).
+          `titular@palco.test`.
   - [ ] `PUBLICAR_REVENTA`, `RETIRAR_PUBLICACION`, `COMPRAR_REVENTA` → `/api/publicaciones/*`
   - [ ] `MARCAR_ENTRADA_USADA` → `/api/validacion/escaneos`
 - [x] Checkout por pasos contra el backend (cada paso es una llamada): al
@@ -485,10 +481,8 @@ la cátedra".
   integrada", sin entrega con nombre.
 - **El 23/10 no está confirmado.** Sale del patrón de las demás fechas (las
   del viernes caen cuatro días después de las del lunes). Si la cátedra dice
-  otra fecha, se cambia acá, en `CLAUDE.md` y en `docs/PLAN_AGENTES.md`.
+  otra fecha, se cambia acá.
 - **Formato de cada entrega** (consigna, sección 9): enlace al repositorio y
   documento técnico en PDF, subidos al aula virtual. La hora límite que da la
   consigna (13:30) es de la comisión del lunes y falta confirmarla: cada
   entrega se sube el jueves anterior.
-- El calendario día por día, el reparto por persona y la lista de preguntas
-  para la cátedra están en `docs/PLAN_AGENTES.md`.

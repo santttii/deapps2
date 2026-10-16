@@ -200,8 +200,8 @@ Están en **3 Diseño v1 → Pendientes: reventa y validación (fuera de la corr
 
 | Request | Estado | Cuándo |
 |---|---|---|
-| `POST /v1/reventas` (201), sobre el tope (422) y `DELETE /v1/reventas/{id}` (204) | Diseñado, pendiente | Ola 3 |
-| `POST /v1/validacion/escaneos` (200) | Diseñado, pendiente | Ola 2 |
+| `POST /v1/reventas` (201), sobre el tope (422) y `DELETE /v1/reventas/{id}` (204) | Diseñado, pendiente | Reventa, a cargo de Julian Zuchowicki: cierra el 17/11 |
+| `POST /v1/validacion/escaneos` (200) | Diseñado, pendiente | Validación en puerta, a cargo de Joaquin Molina: del 17/10 al 25/10 |
 
 Hoy los cuatro responden 404, porque esas rutas no existen (comprobado el 13/10/2026). Ya están preparados para cuando existan: usan `entradaId`, `codigoQr` y `publicacionId` en lugar de ids fijos, y el escaneo usa `tokenStaff`. Cuando se implementen hay que completar sus tests con los campos del contrato real y cambiar el salto del último request automático de la carpeta 3, que hoy los saltea.
 
@@ -254,7 +254,7 @@ La clave de idempotencia se genera antes de enviar (pestaña Scripts → Pre-req
 pm.collectionVariables.set('claveVenta', pm.variables.replaceIn('{{$guid}}'));
 ```
 
-Los tests no se aflojan para que pasen. Si el backend responde distinto del contrato (`docs/planes/00-contratos-compartidos.md`, sección 6), el test queda en rojo y se avisa.
+Los tests no se aflojan para que pasen. Si el backend responde distinto del contrato (`docs/api/openapi.yaml`), el test queda en rojo y se avisa.
 
 ## 12. Regenerar la colección
 
@@ -288,4 +288,4 @@ Comprueba desde afuera los criterios de la matriz de seguridad de la clase 11 (`
 
 **SEC-W04 no toca las cuentas de prueba.** Antes de enviarse genera un email nuevo, `intentos-…@palco.test`, y manda con él los cinco intentos fallidos, uno después del otro; el request es el sexto. Así el límite no bloquea las cuentas que usan los demás requests, y una corrida no arrastra los intentos de la anterior. Va último en la colección.
 
-Corrida del 16/10 con el servidor armado desde cero con esos cambios: 74 requests, 252 aserciones y 1 falla, SEC-W05c, que queda en rojo hasta la decisión sobre la vigencia del token (`docs/decisiones/0001-vigencia-de-la-sesion.md`). Si el servidor arrancó con un `PALCO_SECRETO_SERVICIOS` propio, Newman se corre con `--env-var secretoServicios=<el valor>`.
+Corrida del 16/10 con el servidor armado desde cero con esos cambios: 74 requests, 252 aserciones y 1 falla, SEC-W05c, que queda en rojo hasta que el grupo decida la vigencia del token, que sigue pendiente. Si el servidor arrancó con un `PALCO_SECRETO_SERVICIOS` propio, Newman se corre con `--env-var secretoServicios=<el valor>`.

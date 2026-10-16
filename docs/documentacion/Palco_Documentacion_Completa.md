@@ -12,8 +12,8 @@
 
 | | |
 |---|---|
-| Qué refleja | El código del commit `ea5422b` (14/10/2026) y la evidencia de `docs/entrega3/evidencia/`, tomada el 14/10 del servidor armado desde el tag `entrega-parcial-2` |
-| De dónde sale | La Entrega Parcial N.º 1, el documento de integración de la Entrega Parcial N.º 2, los talleres de las clases 6, 8, 9, 10 y 11, los contratos, planes y notas de `docs/`, la OpenAPI y la colección de Postman. El anexo D lista cada fuente |
+| Qué refleja | El código del commit `725b0ba` (16/10/2026) y la evidencia de `docs/entrega3/evidencia/`, tomada el 14/10 del servidor armado desde el tag `entrega-parcial-2` |
+| De dónde sale | La Entrega Parcial N.º 1, el documento de integración de la Entrega Parcial N.º 2, los talleres de las clases 6, 8, 9, 10 y 11, la OpenAPI, la colección de Postman y el código. El anexo D lista cada documento |
 | Para qué | Es el documento maestro. De acá salen el documento técnico de la Entrega Obligatoria N.º 2 (13/11, de 8 a 12 páginas) y la documentación final consolidada (10 a 15 páginas) |
 | Estados | "Implementado": está en el código y se probó. "Simulado": funciona con un sustituto declarado. "Diseñado, pendiente": está diseñado y no implementado |
 
@@ -78,7 +78,7 @@ El sistema distingue cuatro roles. Los tres primeros son de personas y se guarda
 | Personal de puerta | `staff` | Escanea la entrada en el ingreso, la marca como usada y contrasta nombre y DNI del titular con el documento. | Diseñado, pendiente (la pantalla de puerta del frontend funciona con datos locales) |
 | Otro servicio de Palco | `servicio` | Rol técnico para las llamadas entre servicios: por ejemplo, Ventas actualiza el cupo en Eventos o pide un cobro a Pagos. El token lo emite Usuarios en `POST /api/usuarios/servicios/token` y lo obtiene `common/seguridad/TokenDeServicio.java`. | Implementado |
 
-Los sistemas externos del dominio son la pasarela de pago (Mercado Pago, partner moderno por REST) y el sistema de facturación electrónica de AFIP/ARCA (legado, por SOAP). Hoy la pasarela está **simulada** (`backend/servicios/pagos/src/main/java/com/palco/pagos/pasarela/PagosFake.java`) y la integración con AFIP/ARCA está **diseñada, pendiente** (`docs/planes/C1-facturacion-soap.md`).
+Los sistemas externos del dominio son la pasarela de pago (Mercado Pago, partner moderno por REST) y el sistema de facturación electrónica de AFIP/ARCA (legado, por SOAP). Hoy la pasarela está **simulada** (`backend/servicios/pagos/src/main/java/com/palco/pagos/pasarela/PagosFake.java`) y la integración con AFIP/ARCA está **diseñada, pendiente**.
 
 ## 1.3 Flujos principales
 
@@ -114,10 +114,10 @@ El organizador crea el evento con su categoría, fecha, lugar y sectores con pre
 
 **Queda fuera del alcance** (o se resuelve con una versión simulada):
 
-- **Cobro real.** El 13/10 se decidió no integrar Mercado Pago real: Pagos sigue con `PagosFake` y el requisito de REST lo cubre la API propia. El diseño de la integración real queda en `docs/planes/A3-pagos.md` y en el diagrama `docs/entrega-obligatoria-2/diagramas/diagrama_secuencia_mercadopago.png`, y se retoma si la cátedra pide una pasarela real.
+- **Cobro real.** El 13/10 se decidió no integrar Mercado Pago real: Pagos sigue con `PagosFake` y el requisito de REST lo cubre la API propia. El diseño de la integración real queda en el diagrama `docs/entrega-obligatoria-2/diagramas/diagrama_secuencia_mercadopago.png`, y se retoma si la cátedra pide una pasarela real.
 - **Envío real de emails.** El código de verificación y el aviso de compra quedan en el log del servidor; no hay proveedor de correo configurado.
 - **Verificación de identidad con foto del DNI.** Al verificar el email, la cuenta queda con la identidad verificada; no hay validación documental.
-- **Facturación contra el ambiente real de AFIP/ARCA.** El plan C1 propone un servicio SOAP propio que modela el sistema legado.
+- **Facturación contra el ambiente real de AFIP/ARCA.** El diseño prevé un servicio SOAP propio que modela el sistema legado.
 - **Despliegue en la nube.** La consigna no lo exige; el sistema corre en un WildFly local con H2 en modo PostgreSQL. La migración a Supabase (PostgreSQL) está prevista, sin probar.
 - Recuperación de contraseña, modo offline de la puerta, liquidación al vendedor y al organizador, y reembolsos.
 
@@ -155,7 +155,7 @@ Estados: **Cumplido** (está en el código o en la evidencia y se puede mostrar)
 | P2.2 | Clasificación justificada de cada integración externa en síncrona o asincrónica | Entrega Parcial N.º 2 (23/10, sin confirmar) | Cumplido | `docs/entrega3/Entrega_Parcial_2_Integracion.md` |
 | P2.3 | Un proceso de negocio de punta a punta con mensajería real y broker configurado | Entrega Parcial N.º 2 (23/10, sin confirmar) | Cumplido | Compra → `PAGO_CONFIRMADO` → emisión de entradas. Broker: Artemis embebido, destinos en `backend/servidor/src/main/wildfly/configurar.cli`. Evidencia en `docs/entrega3/evidencia/` (tag `entrega-parcial-2`) |
 | O2.1 | Dos procesos con mensajería de punta a punta: uno por cola y uno por tópico | Entrega Obligatoria N.º 2 (13/11) | Cumplido, con el aviso al comprador simulado (se escribe en el log) | Cola: `ventas/mensajeria/EmisionDeEntradasMDB.java`. Tópico: `notificaciones/mensajeria/AvisoDeCompraMDB.java` (no durable) y `AuditoriaDeComprasMDB.java` (durable). Evidencia: `docs/entrega3/evidencia/auditoria.txt`, `suscriptor-durable.txt`, `mensajes-pendientes.txt` |
-| O2.2 | Un servicio SOAP con su WSDL, justificado como sistema legado | Entrega Obligatoria N.º 2 (13/11) | Pendiente | No hay `@WebService` en `backend/` ni la capa `webservices` en `backend/servidor/pom.xml`. Plan: `docs/planes/C1-facturacion-soap.md` |
+| O2.2 | Un servicio SOAP con su WSDL, justificado como sistema legado | Entrega Obligatoria N.º 2 (13/11) | Pendiente | No hay `@WebService` en `backend/` ni la capa `webservices` en `backend/servidor/pom.xml` |
 | O2.3 | Un servicio REST (partner moderno o API de consumo externo) | Entrega Obligatoria N.º 2 (13/11) | Cumplido como API propia; el partner moderno (Mercado Pago) está simulado | `docs/api/openapi.yaml`, colección de Postman en `docs/api/`, `pagos/pasarela/PagosFake.java` |
 | O2.4 | Transacciones declarativas en un flujo crítico de varios pasos | Entrega Obligatoria N.º 2 (13/11) | Cumplido; falta una prueba repetible en el repo de la falla a mitad del flujo | `ServicioDeVentas` confirma la venta con `@TransactionAttribute(REQUIRED)` y publica con `common/mensajeria/PublicadorPagoConfirmadoJms.java` (`MANDATORY`, por `java:/JmsXA`), así que la venta y el mensaje se confirman o se deshacen juntos |
 | O2.5 | Documento técnico de 8 a 12 páginas con un diagrama de secuencia por integración | Entrega Obligatoria N.º 2 (13/11) | Parcial | Solo existe el diagrama de secuencia de Mercado Pago (diseño): `docs/entrega-obligatoria-2/diagramas/`. Este documento es la base del técnico |
@@ -170,14 +170,14 @@ Se exigen todos para la Entrega Final; varios ya se piden antes, en la entrega q
 
 | # | Requisito | Estado al 16/10 | Dónde se ve |
 |---|---|---|---|
-| T.1 | Mínimo 6 componentes de negocio, cada uno con interfaz explícita y documentada | Parcial: 8 componentes diseñados con su interfaz; las interfaces existen en código en 5 | `IUsuarios`, `IEventos`, `IVentas`, `IPagos`, `INotificaciones` (y `IAuditoria`) en `negocio/` de cada servicio. Validación, Reventa y Facturación solo tienen la clase de aplicación JAX-RS y el `health`. Interfaces documentadas en `docs/entrega1/` y `docs/planes/00-contratos-compartidos.md` |
+| T.1 | Mínimo 6 componentes de negocio, cada uno con interfaz explícita y documentada | Parcial: 8 componentes diseñados con su interfaz; las interfaces existen en código en 5 | `IUsuarios`, `IEventos`, `IVentas`, `IPagos`, `INotificaciones` (y `IAuditoria`) en `negocio/` de cada servicio. Validación, Reventa y Facturación solo tienen la clase de aplicación JAX-RS y el `health`. Interfaces documentadas en `docs/entrega1/` |
 | T.2 | Un componente stateful y uno stateless, justificados por escrito | Cumplido | `ServicioDeVentas` (`@Stateful`) y `ServicioDeEventos` (`@Stateless`); la justificación está en el comentario de cada clase y en el documento de la Entrega Parcial N.º 1 |
 | T.3 | Arquitectura en capas (presentación, negocio, datos) en cada componente implementado | Parcial | Ventas y Pagos tienen `api/`, `negocio/`, `datos/` (repositorios) y `dominio/`. Usuarios y Eventos no tienen `datos/`: el Session Bean usa el `EntityManager` directamente, y la capa de datos es JPA con las entidades de `dominio/` |
 | T.4 | Al menos 3 patrones de diseño distintos, aplicados y justificados | Parcial | Ver O1.3: Factory, Adapter y Repository están en el código; la justificación escrita está solo en los comentarios de las clases |
 | T.5 | Integración SOAP con WSDL, justificada como sistema legado | Pendiente | Ver O2.2 |
 | T.6 | Integración REST con partner moderno o API de consumo externo | Cumplido como API de consumo externo; Mercado Pago simulado | Ver O2.3 |
-| T.7 | Dos procesos asincrónicos: uno por cola y uno por tópico | Cumplido | Ver O2.1; contrato en `docs/superpowers/specs/mensajeria-pago-confirmado.md` |
-| T.8 | Seguridad declarativa (autenticación y autorización por rol) en al menos 2 operaciones sensibles | Cumplido | `@RolesAllowed` / `@PermitAll` en cada operación: `organizer` en el alta de eventos, `user` en las 6 operaciones de Ventas, `servicio` en el cupo, en Pagos y en Notificaciones. JWT RS256 firmado por Usuarios y validado con MicroProfile JWT. 401 sin token y 403 con rol incorrecto. Desde el 16/10 (en el árbol de trabajo, sin commit), implementado y probado en vivo: el 401 por token inválido sale en Problem Details (`/problemas/token-invalido`) con `WWW-Authenticate: Bearer error="invalid_token"` y CORS (`common/rest/ErrorDeAutenticacionServlet.java` y `common/src/main/resources/META-INF/web-fragment.xml`); 5 logins fallidos en 15 minutos para un mismo email dan 429 con `Retry-After` (`usuarios/negocio/IntentosDeLogin.java`, migración V4); el 500 devuelve un `idError` que se busca en el log; PBKDF2 a 600.000 iteraciones. Diseñado, pendiente: vigencia del token (borrador `docs/decisiones/0001-vigencia-de-la-sesion.md`) y permisos por destino en el broker (`docs/planes/T4-seguridad-del-broker.md`) |
+| T.7 | Dos procesos asincrónicos: uno por cola y uno por tópico | Cumplido | Ver O2.1; contrato en `docs/api/mensajeria-pago-confirmado.md` |
+| T.8 | Seguridad declarativa (autenticación y autorización por rol) en al menos 2 operaciones sensibles | Cumplido | `@RolesAllowed` / `@PermitAll` en cada operación: `organizer` en el alta de eventos, `user` en las 6 operaciones de Ventas, `servicio` en el cupo, en Pagos y en Notificaciones. JWT RS256 firmado por Usuarios y validado con MicroProfile JWT. 401 sin token y 403 con rol incorrecto. Desde el 16/10, implementado y probado en vivo: el 401 por token inválido sale en Problem Details (`/problemas/token-invalido`) con `WWW-Authenticate: Bearer error="invalid_token"` y CORS (`common/rest/ErrorDeAutenticacionServlet.java` y `common/src/main/resources/META-INF/web-fragment.xml`); 5 logins fallidos en 15 minutos para un mismo email dan 429 con `Retry-After` (`usuarios/negocio/IntentosDeLogin.java`, migración V4); el 500 devuelve un `idError` que se busca en el log; PBKDF2 a 600.000 iteraciones. Diseñado, pendiente: vigencia del token y permisos por destino en el broker, las dos a decidir en grupo |
 | T.9 | Transacciones declarativas en un flujo crítico de varios pasos | Cumplido | Ver O2.4 |
 | T.10 | Stack consistente y justificado (Jakarta EE, Spring Boot, .NET, etc.) | Cumplido | Jakarta EE 11 sobre WildFly 41, Java 25, Maven; frontend React + Vite + TypeScript. Justificación en la Entrega Parcial N.º 1, sección 4 |
 | T.11 | Repositorio git con historial incremental | Parcial | 30 commits entre el 16/09 y el 14/10, concentrados en cuatro días (02/10, 06/10, 13/10 y 14/10). Autores: santttii, vfrisoli, Sebastian Deya, Julián Zuchowicki y una identidad "Improvement". No hay commits a nombre de Joaquin Molina. Tag `entrega-parcial-2` |
@@ -189,7 +189,7 @@ Se exigen todos para la Entrega Final; varios ya se piden antes, en la entrega q
 | Resiliencia ante la caída de un sistema externo | Parcial | Si un consumidor de mensajes se detiene, la compra sigue y los mensajes esperan en el broker (`docs/entrega3/evidencia/mensajes-pendientes.txt`); hasta 5 entregas con 2 segundos entre reintentos y después la cola de mensajes fallidos (`java:/jms/queue/DLQ`), configurados en `configurar.cli`. Sin Circuit Breaker |
 | Heterogeneidad tecnológica (un componente en otra tecnología) | Pendiente | Todos los servicios son Jakarta EE |
 | Prueba de escalabilidad horizontal | Pendiente | — |
-| Al menos 2 ADR | Parcial: un borrador, sin decidir | `docs/decisiones/0001-vigencia-de-la-sesion.md` (vigencia del token, a decidir en grupo). El resto de las decisiones está en `docs/notas/` y `docs/planes/`, sin formato ADR |
+| Al menos 2 ADR | Parcial: un borrador, sin decidir | Borrador sobre la vigencia del token, a decidir en grupo. El resto de las decisiones no tiene formato ADR |
 
 # 3. Arquitectura general
 
@@ -228,9 +228,9 @@ Cada componente de negocio es un WAR propio (`backend/servicios/<servicio>`), co
 
 **Por qué un WAR por componente.** Hace visible en el despliegue el límite entre componentes: un servicio no puede usar las clases de otro porque no están en su WAR, y cada uno se puede dar de baja o redesplegar solo (la evidencia de la Entrega Parcial N.º 2 lo usa para mostrar qué pasa cuando Pagos no está). El costo es más configuración que en un único WAR, y que entre servicios no hay transacción compartida: cada llamada REST queda confirmada en el otro servicio apenas responde, y quien llama se hace cargo de compensar (por ejemplo, Ventas devuelve el cupo a Eventos si la compra no se completa; ver `ClienteDeEventos`).
 
-**Rutas.** Usuarios, Eventos y Notificaciones nacieron en `/api/<servicio>`. Ventas y Pagos se publicaron versionados (`/api/v1`). La decisión vigente (`docs/PLAN_AGENTES.md`) es que los servicios nuevos nazcan versionados: Validación en `/api/v1/validacion` y Reventa en `/api/v1/reventas`; Facturación sigue en `/api/facturacion`. Hoy Validación y Reventa todavía responden en su ruta vieja (`/api/validacion`, `/api/reventa`), porque solo existe su esqueleto: el cambio de ruta llega con su implementación.
+**Rutas.** Usuarios, Eventos y Notificaciones nacieron en `/api/<servicio>`. Ventas y Pagos se publicaron versionados (`/api/v1`). La decisión vigente es que los servicios nuevos nazcan versionados: Validación en `/api/v1/validacion` y Reventa en `/api/v1/reventas`; Facturación sigue en `/api/facturacion`. Hoy Validación y Reventa todavía responden en su ruta vieja (`/api/validacion`, `/api/reventa`), porque solo existe su esqueleto: el cambio de ruta llega con su implementación.
 
-**Regla de integración.** Los servicios se hablan solo por REST o por JMS, nunca por clases o tablas del otro (`BaseDeDatos` en `common` lo deja escrito). Las llamadas entre servicios llevan un token con rol `servicio`, que consigue `TokenDeServicio` presentándole a Usuarios un secreto compartido (credenciales de cliente; token de 5 minutos). En desarrollo, el servidor arranca con un `PALCO_SECRETO_SERVICIOS` propio guardado en `backend/.env`, que no se versiona; los guiones de demo, escenarios y evidencia lo leen de la variable o de ese archivo, y la colección de Postman, de su variable `secretoServicios`. Que fuera de desarrollo el servidor no arranque sin un secreto propio está propuesto en `docs/notas/seguridad-clase11.md` y no implementado. La única excepción a "nada compartido" es `backend/common`, que no es un servicio sino una biblioteca que va adentro de cada WAR.
+**Regla de integración.** Los servicios se hablan solo por REST o por JMS, nunca por clases o tablas del otro (`BaseDeDatos` en `common` lo deja escrito). Las llamadas entre servicios llevan un token con rol `servicio`, que consigue `TokenDeServicio` presentándole a Usuarios un secreto compartido (credenciales de cliente; token de 5 minutos). En desarrollo, el servidor arranca con un `PALCO_SECRETO_SERVICIOS` propio guardado en `backend/.env`, que no se versiona; los guiones de demo, escenarios y evidencia lo leen de la variable o de ese archivo, y la colección de Postman, de su variable `secretoServicios`. Que fuera de desarrollo el servidor no arranque sin un secreto propio está propuesto y no implementado. La única excepción a "nada compartido" es `backend/common`, que no es un servicio sino una biblioteca que va adentro de cada WAR.
 
 ## 3.3 Capas dentro de cada servicio
 
@@ -260,7 +260,7 @@ Biblioteca compartida (`palco-common`) que va dentro de cada WAR. No es un servi
 | `rest/HealthResource` | `GET <ruta del servicio>/health`: 200 si el servicio llega a la base, 503 si no |
 | `rest/CorsFilter` | Orígenes permitidos desde `PALCO_CORS_ORIGENES`. Las cabeceras se arman en `cabecerasPara`, que usa también `ErrorDeAutenticacionServlet`: hay una sola lista de orígenes y cabeceras |
 | `seguridad/Sesion`, `seguridad/TokenDeServicio` | Datos del usuario sacados del JWT; obtención y renovación del token de rol `servicio` |
-| `mensajeria/PagoConfirmadoMensaje`, `DestinosJms`, `PublicadorPagoConfirmado(Jms)`, `MensajeInvalido` | El contrato del mensaje `PAGO_CONFIRMADO` (contrato en `docs/superpowers/specs/mensajeria-pago-confirmado.md`), los nombres JNDI de la cola y el tópico, y el publicador, que exige transacción (`MANDATORY`) para que el mensaje forme parte de la transacción de la venta |
+| `mensajeria/PagoConfirmadoMensaje`, `DestinosJms`, `PublicadorPagoConfirmado(Jms)`, `MensajeInvalido` | El contrato del mensaje `PAGO_CONFIRMADO` (contrato en `docs/api/mensajeria-pago-confirmado.md`), los nombres JNDI de la cola y el tópico, y el publicador, que exige transacción (`MANDATORY`) para que el mensaje forme parte de la transacción de la venta |
 | `datos/BaseDeDatos`, `Textos` | Acceso a la base compartida y utilidades de texto |
 
 **Por qué existe.** Las reglas de negocio y el contrato del mensaje tienen que ser los mismos para quien publica y quien consume; duplicarlos en cada servicio permitiría que diverjan. Lo que va en `common` es contrato y plomería transversal, nunca lógica de un servicio en particular.
@@ -297,7 +297,7 @@ Representa la arquitectura lógica en tres capas (presentación, negocio, datos)
 
 ![Diagrama de integración SOA](../entrega3/Diagrama_Integracion_SOA.svg)
 
-Lleva el título "arquitectura de integración (SOA) al 13/10/2026": es una foto del sistema en esa fecha. Muestra los 8 servicios desplegados en WildFly, cada uno con su ruta y si es stateless o stateful; el broker Artemis con la cola `cola.emision-entradas` (I4, asincrónica, con su único consumidor `EmisionDeEntradasMDB`), el tópico `topico.compra-confirmada` (I5, con los dos suscriptores de Notificaciones) y la DLQ; las llamadas REST síncronas entre servicios (S1: Ventas hacia Usuarios, Eventos y Pagos; S2: los servicios hacia Usuarios por la clave pública y el token de servicio) y los dos sistemas externos, Mercado Pago (I2) y ARCA (I3, SOAP con timeout de 5 s y `cola.reintento-facturacion`). Las flechas llenas están implementadas y comprobadas en el servidor el 13/10; las punteadas (Facturación, Reventa y Validación, Mercado Pago, ARCA) están diseñadas y pendientes. El plan de Facturación (`docs/planes/C1-facturacion-soap.md`) propone que la factura se dispare desde el tópico y no por REST dentro de la compra; si se aprueba, ese tramo del diagrama cambia.
+Lleva el título "arquitectura de integración (SOA) al 13/10/2026": es una foto del sistema en esa fecha. Muestra los 8 servicios desplegados en WildFly, cada uno con su ruta y si es stateless o stateful; el broker Artemis con la cola `cola.emision-entradas` (I4, asincrónica, con su único consumidor `EmisionDeEntradasMDB`), el tópico `topico.compra-confirmada` (I5, con los dos suscriptores de Notificaciones) y la DLQ; las llamadas REST síncronas entre servicios (S1: Ventas hacia Usuarios, Eventos y Pagos; S2: los servicios hacia Usuarios por la clave pública y el token de servicio) y los dos sistemas externos, Mercado Pago (I2) y ARCA (I3, SOAP con timeout de 5 s y `cola.reintento-facturacion`). Las flechas llenas están implementadas y comprobadas en el servidor el 13/10; las punteadas (Facturación, Reventa y Validación, Mercado Pago, ARCA) están diseñadas y pendientes. El diseño de Facturación (sección 4.8) propone que la factura se dispare desde el tópico y no por REST dentro de la compra; si se aprueba, ese tramo del diagrama cambia.
 
 # 4. Componentes
 
@@ -323,7 +323,7 @@ Los ocho componentes salen de la Entrega Parcial N.º 1. Cinco están implementa
 
 - **Datos (esquema `usuarios`):** `usuario` (nombre, apellido, DNI único, email único, teléfono, fecha de nacimiento, hash de la contraseña, rol, email verificado, identidad verificada), `codigo_verificacion` (hash del código, vencimiento, intentos) e `intento_login` (SHA-256 del email normalizado y momento del intento fallido, con un índice por email y momento). V2 y V3 cargan usuarios de prueba; V4 crea `intento_login`; V5 rehashea las cuentas de prueba a 600.000 iteraciones (contraseña sin cambios, y solo si la fila conserva el hash original), para que su verificación no tarde distinto que la del hash falso que se calcula para un email inexistente y el tiempo de respuesta no deje ver qué emails existen.
 - **Integraciones:** la consumen el frontend (sesión) y Ventas (`ClienteDeUsuarios`, con el token del propio comprador). Todos los servicios dependen de sus tokens.
-- **Estado:** Implementado y probado en el servidor el 16/10 (cambios en el árbol de trabajo, todavía sin commit). La sesión del usuario dura 8 horas (`DURACION_SESION`) y el token de servicio, 5 minutos. El pedido sin token a una operación con `@RolesAllowed` responde 401 con Problem Details (`ManejadoresDeErrores`); el 401 por token inválido, que rechaza el propio servidor antes de llegar al recurso, también sale como Problem Details (`ErrorDeAutenticacionServlet`, sección 3.4), y el 500 lleva `idError`. Verificación del 16/10, con el servidor armado desde cero: Usuarios desplegado en la migración v5; seis logins fallidos de un mismo email dieron cinco 401 y, el sexto, 429 con `Retry-After: 898`; una cuenta recién registrada completó registro, verificación, login y compra hasta `EMITIDA`. Los 22 tests de Usuarios pasan. Diseñado, pendiente: la vigencia de la sesión (SEC-W05) está en discusión en el borrador `docs/decisiones/0001-vigencia-de-la-sesion.md`, sin decidir.
+- **Estado:** Implementado y probado en el servidor el 16/10. La sesión del usuario dura 8 horas (`DURACION_SESION`) y el token de servicio, 5 minutos. El pedido sin token a una operación con `@RolesAllowed` responde 401 con Problem Details (`ManejadoresDeErrores`); el 401 por token inválido, que rechaza el propio servidor antes de llegar al recurso, también sale como Problem Details (`ErrorDeAutenticacionServlet`, sección 3.4), y el 500 lleva `idError`. Verificación del 16/10, con el servidor armado desde cero: Usuarios desplegado en la migración v5; seis logins fallidos de un mismo email dieron cinco 401 y, el sexto, 429 con `Retry-After: 898`; una cuenta recién registrada completó registro, verificación, login y compra hasta `EMITIDA`. Los 22 tests de Usuarios pasan. Diseñado, pendiente: la vigencia de la sesión (SEC-W05) está en discusión, sin decidir.
 
 ## 4.2 Eventos
 
@@ -406,7 +406,7 @@ Los ocho componentes salen de la Entrega Parcial N.º 1. Cinco están implementa
 ## 4.6 Validación
 
 - **Responsabilidad (diseñada):** validar en la puerta la autenticidad de una entrada y que se use una sola vez.
-- **Diseño:** la Entrega Parcial N.º 1 la define como `ServicioDeValidación` **stateless**, con interfaz `IValidacion` (`validarEntrada`, `marcarComoUsada`). El plan (`docs/PLAN_AGENTES.md`, tarea B3) agrega: QR firmado, `POST /api/v1/validacion/escaneos` con rol `staff` y uso único atómico. La justificación de stateless que da el diseño es que cada escaneo es independiente; el comentario de la clase todavía no existe.
+- **Diseño:** la Entrega Parcial N.º 1 la define como `ServicioDeValidación` **stateless**, con interfaz `IValidacion` (`validarEntrada`, `marcarComoUsada`). Además se prevé: QR firmado, `POST /api/v1/validacion/escaneos` con rol `staff` y uso único atómico. La justificación de stateless que da el diseño es que cada escaneo es independiente; el comentario de la clase todavía no existe.
 - **Datos:** no tiene migraciones ni esquema todavía.
 - **Integraciones previstas:** necesita las entradas, que son de Ventas (que ya genera el `codigo_qr` al emitir); se integraría por REST.
 - **Estado:** Diseñado, pendiente. Hoy solo existe `ValidacionApplication` y `GET /api/validacion/health`. La pantalla de puerta del frontend funciona con datos locales.
@@ -414,25 +414,25 @@ Los ocho componentes salen de la Entrega Parcial N.º 1. Cinco están implementa
 ## 4.7 Reventa
 
 - **Responsabilidad (diseñada):** reventa oficial de entradas nominativas entre usuarios verificados, con tope de precio original + 10 %.
-- **Diseño:** la Entrega Parcial N.º 1 define `ServicioDeReventa` con interfaz `IReventa` (`publicarReventa`, `comprarReventa`, `cancelarPublicacion`), sin decidir todavía si es stateless o stateful. Las reglas ya están en `ReglasDeNegocio`: tope +10 %, mínimo 50 % del precio pagado y cierre 3 horas antes del evento. El plan prevé la ruta `/api/v1/reventas` (tarea C2), con plan a aprobar el 30/10 y cierre el 17/11.
+- **Diseño:** la Entrega Parcial N.º 1 define `ServicioDeReventa` con interfaz `IReventa` (`publicarReventa`, `comprarReventa`, `cancelarPublicacion`), sin decidir todavía si es stateless o stateful. Las reglas ya están en `ReglasDeNegocio`: tope +10 %, mínimo 50 % del precio pagado y cierre 3 horas antes del evento. Se prevé la ruta `/api/v1/reventas`, con el diseño detallado a aprobar el 30/10 y cierre el 17/11.
 - **Datos:** no tiene migraciones ni esquema todavía.
-- **Integraciones previstas:** Ventas (cambio de titular de la entrada), Pagos (cobro de la reventa) y Validación; el plan C2 tiene que decir qué le pide a cada uno.
+- **Integraciones previstas:** Ventas (cambio de titular de la entrada), Pagos (cobro de la reventa) y Validación; el diseño detallado de Reventa tiene que decir qué le pide a cada uno.
 - **Estado:** Diseñado, pendiente. Hoy solo existe `ReventaApplication` y `GET /api/reventa/health`. El marketplace del frontend funciona con datos locales.
 
 ## 4.8 Facturación
 
 - **Responsabilidad (diseñada):** emitir la factura electrónica de cada compra contra ARCA (ex AFIP), el sistema legado del dominio, por SOAP. Es la integración SOAP con WSDL que pide la consigna.
-- **Diseño:** la Entrega Parcial N.º 1 define `ServicioDeFacturación` con interfaz `IFacturacion` (`emitirFactura`, `consultarEstado`, `reintentar`). El plan `docs/planes/C1-facturacion-soap.md` lo detalla:
+- **Diseño:** la Entrega Parcial N.º 1 define `ServicioDeFacturación` con interfaz `IFacturacion` (`emitirFactura`, `consultarEstado`, `reintentar`). El diseño de la facturación por SOAP lo detalla así:
   - un WAR aparte que **simula** ARCA y expone por SOAP un subconjunto del WSFEv1, con WSDL publicado por WildFly (decisión recomendada, pendiente de aprobación);
   - `IFacturacion` y `ServicioDeFacturacion`, que piden el CAE con un cliente JAX-WS y guardan la factura en su esquema;
   - la factura se dispararía desde una suscripción durable al tópico `topico.compra-confirmada` (recomendado) en lugar de una llamada REST dentro de `confirmarCompra`, para no retener una conexión de la base dentro de la transacción de la compra; la llamada a ARCA sigue siendo síncrona;
   - con timeout de 5 segundos o SOAP Fault, la factura queda `PENDIENTE` y se reintenta por `cola.reintento-facturacion`, con la DLQ al final.
 - **Datos:** no tiene migraciones ni esquema todavía.
-- **Estado:** Diseñado, pendiente. Hoy solo existe `FacturacionApplication` y `GET /api/facturacion/health`; toda venta responde `facturaEstado: NO_APLICA`. El plan tiene hitos entre el 19/10 y el 28/10.
+- **Estado:** Diseñado, pendiente. Hoy solo existe `FacturacionApplication` y `GET /api/facturacion/health`; toda venta responde `facturaEstado: NO_APLICA`. La facturación por SOAP tiene hitos entre el 19/10 y el 28/10.
 
 # 5. Decisiones de diseño
 
-Las decisiones vienen de cuatro lugares: la Entrega Parcial N.º 1 (`docs/entrega1/`), el archivo de contratos (`docs/planes/00-contratos-compartidos.md`, en especial las propuestas P1 a P12 de la sección 11 y los pasos transversales T1 a T6), los planes de cada tarea (`docs/planes/`) y las notas de cada tarea (`docs/notas/`), que registran lo que se eligió al implementar. Cada fila dice dónde se ve en el código. Cuando una decisión cambió, la tabla da la versión vigente y la sección 5.8 resume qué cambió y por qué.
+Las decisiones vienen de la Entrega Parcial N.º 1 (`docs/entrega1/`) y de lo que se eligió al implementar. Cada fila dice dónde se ve en el código. Cuando una decisión cambió, la tabla da la versión vigente y la sección 5.8 resume qué cambió y por qué.
 
 ## 5.1 Arquitectura
 
@@ -441,24 +441,24 @@ Las decisiones vienen de cuatro lugares: la Entrega Parcial N.º 1 (`docs/entreg
 | Ocho componentes de negocio, cada uno un WAR propio con su esquema de base; se hablan solo por REST o JMS | Un único WAR con módulos; servicios que comparten clases | Es la descomposición de la Entrega Parcial N.º 1. Separar los despliegues obliga a que la integración sea explícita (contratos REST y mensajes), que es lo que evalúa la materia | `backend/servicios/*`, un `persistence.xml` y una migración por servicio |
 | Capas `api/` → `negocio/` → `dominio/`, con `datos/` (repositorios) y `mensajeria/` (MDB) donde hacen falta | Lógica en el recurso REST | El recurso valida la forma del pedido y delega; la regla de negocio queda en el Session Bean, donde el contenedor da transacciones y seguridad declarativas | `VentasResource` → `ComprasEnCurso` → `ServicioDeVentas` → `VentaRepository` |
 | Reglas de negocio (tope +10 %, tasa 10 %, 6 entradas por compra, 10 minutos de reserva, DNI de 7 u 8 dígitos) en un solo lugar | Una constante por servicio | Con copias distintas, un servicio puede aceptar lo que otro rechaza. La regla del DNI estaba escrita dos veces y Ventas iba a sumar una tercera | `common/ReglasDeNegocio.java` (`esDniValido`, `MINUTOS_RESERVA`, `MAX_ENTRADAS_POR_ORDEN`) |
-| `ServicioDeVentas` es `@Stateful`: una instancia por compra en curso (P1) | (a) `@SessionScoped` con sesión HTTP; (c) sin stateful, todo en la base | La instancia guarda lo que todavía no está en la base: los titulares de cada entrada, el total y el vencimiento. La identidad sigue en un solo mecanismo, el token; la cookie de sesión solo vale dentro de un WAR. La reserva temporal es el ejemplo de stateful que da la consigna | `ServicioDeVentas` (`@Stateful(passivationCapable = false)`, `@StatefulTimeout(MINUTOS_RESERVA)`) |
+| `ServicioDeVentas` es `@Stateful`: una instancia por compra en curso | (a) `@SessionScoped` con sesión HTTP; (c) sin stateful, todo en la base | La instancia guarda lo que todavía no está en la base: los titulares de cada entrada, el total y el vencimiento. La identidad sigue en un solo mecanismo, el token; la cookie de sesión solo vale dentro de un WAR. La reserva temporal es el ejemplo de stateful que da la consigna | `ServicioDeVentas` (`@Stateful(passivationCapable = false)`, `@StatefulTimeout(MINUTOS_RESERVA)`) |
 | El stateful se ubica por el id de la venta, con un índice en un bean `@ApplicationScoped` que antes comprueba en la base que la venta sea del `sub` del token | Guardar la referencia en el recurso REST (se crea de nuevo en cada pedido) | Una venta ajena responde 404, igual que una que no existe | `ComprasEnCurso.enCurso`, `delComprador` |
 | Una sola llamada a la vez por compra, frenada en la fachada con 409 `operacion-en-curso` | Dejarlo solo en `@AccessTimeout(0)` del stateful | En WildFly 41 la llamada que el contenedor rechaza hace además que descarte la instancia, con la primera llamada todavía adentro: un doble clic dejaba la compra sin poder pagarse. `@AccessTimeout(0)` queda como última barrera | `ComprasEnCurso.ocupar` / `desocupar` |
-| La reserva la vence un barrido periódico sobre `vence_reserva` (P2) | (a) Que el `@PreDestroy` del stateful escriba en la base y llame a Eventos | La especificación avisa que `@PreDestroy` puede no ejecutarse (se vio: ante una excepción inesperada no corrió) y el timeout del stateful mide inactividad, no una hora fija. Queda un solo reloj, el de la base. Costo: la reserva puede durar hasta un minuto de más | `VencimientoDeReservas` (`@Singleton`, `@Schedule(minute = "*", persistent = false)`) |
-| Mientras se espera a otro servicio no se retiene una conexión de la base | Agrandar el pool | Los 8 servicios comparten un pool de 10 conexiones (`configurar.cli`, `--max-pool-size=10`) y el servicio llamado necesita una para contestar. Con el orden del plan (guardar la venta antes de reservar), 80 compras simultáneas dieron 28 abiertas, 52 respuestas 504 y 20 lugares tomados sin venta; con el orden actual las 80 responden 201 (`docs/entrega3/evidencia/compras-simultaneas.txt`). Agrandar el pool solo corría el límite | `ServicioDeVentas.iniciarCompra` (reserva primero, guarda al final), `confirmarCompra` (cobra con el total que recuerda la instancia), `ServicioDePagos` (`NOT_SUPPORTED`) |
-| Versionado de rutas: los servicios nuevos en `/api/v1` (P7) | Reescritura en el servidor; esperar; un WAR de puerta de entrada | Cambia una línea por servicio y no toca lo que ya funcionaba. Usuarios, Eventos y Notificaciones siguen en `/api/<servicio>` | Context root de Ventas (`/api/v1`) y Pagos (`/api/v1/pagos`) |
+| La reserva la vence un barrido periódico sobre `vence_reserva` | (a) Que el `@PreDestroy` del stateful escriba en la base y llame a Eventos | La especificación avisa que `@PreDestroy` puede no ejecutarse (se vio: ante una excepción inesperada no corrió) y el timeout del stateful mide inactividad, no una hora fija. Queda un solo reloj, el de la base. Costo: la reserva puede durar hasta un minuto de más | `VencimientoDeReservas` (`@Singleton`, `@Schedule(minute = "*", persistent = false)`) |
+| Mientras se espera a otro servicio no se retiene una conexión de la base | Agrandar el pool | Los 8 servicios comparten un pool de 10 conexiones (`configurar.cli`, `--max-pool-size=10`) y el servicio llamado necesita una para contestar. Con el orden anterior (guardar la venta antes de reservar), 80 compras simultáneas dieron 28 abiertas, 52 respuestas 504 y 20 lugares tomados sin venta; con el orden actual las 80 responden 201 (`docs/entrega3/evidencia/compras-simultaneas.txt`). Agrandar el pool solo corría el límite | `ServicioDeVentas.iniciarCompra` (reserva primero, guarda al final), `confirmarCompra` (cobra con el total que recuerda la instancia), `ServicioDePagos` (`NOT_SUPPORTED`) |
+| Versionado de rutas: los servicios nuevos en `/api/v1` | Reescritura en el servidor; esperar; un WAR de puerta de entrada | Cambia una línea por servicio y no toca lo que ya funcionaba. Usuarios, Eventos y Notificaciones siguen en `/api/<servicio>` | Context root de Ventas (`/api/v1`) y Pagos (`/api/v1/pagos`) |
 
 ## 5.2 Datos
 
 | Decisión | Alternativas consideradas | Por qué | Dónde se ve |
 |---|---|---|---|
 | H2 en modo PostgreSQL en desarrollo, Supabase después; migraciones Flyway con SQL que corra en las dos | Una base por motor; `hbm2ddl` | Se desarrolla sin instalar nada y el SQL se escribe una vez. Estado: las migraciones no se corrieron todavía contra PostgreSQL | `src/main/resources/db/migracion` de cada servicio, `configurar.cli` (`PalcoDS`) |
-| Ninguna tabla lleva `check` de lista de valores (T6) | Mantenerlos y sumar una migración que los borre | En H2 2.4.240 un `check (rol in (...))` quedó atado a la conexión que corrió la migración; al cerrarla el pool, todo `INSERT` fallaba con 500. Los valores válidos los controla el enumerado de Java. Se editó la V1 porque esas restricciones no tienen nombre y todavía no había base permanente | V1 de Usuarios y Eventos; enumerados `EstadoVenta`, `EstadoPago`, `Rol` |
-| Las fechas de los eventos de prueba se corren en una migración nueva (T3) | Editar la V2 | Flyway rechaza un script ya aplicado que cambió | `eventos/.../V3__correr_fechas.sql` |
-| Ids de texto con prefijo y 8 caracteres de UUID (`V-3f9a1c2b`) (P5) | Número de la base mostrado como `V-00001` | Es la convención que ya funcionaba. Con la base en memoria la numeración volvería a 1 en cada reinicio mientras el broker conserva mensajes viejos | `ServicioDeVentas.nuevoId` |
+| Ninguna tabla lleva `check` de lista de valores | Mantenerlos y sumar una migración que los borre | En H2 2.4.240 un `check (rol in (...))` quedó atado a la conexión que corrió la migración; al cerrarla el pool, todo `INSERT` fallaba con 500. Los valores válidos los controla el enumerado de Java. Se editó la V1 porque esas restricciones no tienen nombre y todavía no había base permanente | V1 de Usuarios y Eventos; enumerados `EstadoVenta`, `EstadoPago`, `Rol` |
+| Las fechas de los eventos de prueba se corren en una migración nueva | Editar la V2 | Flyway rechaza un script ya aplicado que cambió | `eventos/.../V3__correr_fechas.sql` |
+| Ids de texto con prefijo y 8 caracteres de UUID (`V-3f9a1c2b`) | Número de la base mostrado como `V-00001` | Es la convención que ya funcionaba. Con la base en memoria la numeración volvería a 1 en cada reinicio mientras el broker conserva mensajes viejos | `ServicioDeVentas.nuevoId` |
 | Dinero en pesos enteros (`long`) | `double`, `BigDecimal` | Sin errores de redondeo y simple de defender | Entidades `Venta`, `Pago`; DTOs |
 | Cada cambio de estado de la venta es un `UPDATE` con la condición adentro, y solo sigue quien cambió la fila | Leer y después escribir | Con lectura y escritura separadas, pagar, cancelar y vencer se pueden pisar. Es la base la que decide, en una sola sentencia | `VentaRepositoryJpa.cambioUnaFila`, `confirmar`, `cancelar`, `vencer`, `marcarEmitida`; en Eventos, `update Sector ... where s.vendidas + :cantidad <= s.cupo` |
-| Las entradas nacen con el pago, en `PENDIENTE_EMISION`, y el consumidor de la cola las emite (P4) | Que las cree el MDB, como decía la guía de la tarea | El mensaje ya lleva el `entradaId` y el `GET` de la entrada responde apenas vuelve el pago | `ServicioDeVentas.entradasPara`, `EmisionDeEntradasMDB` |
+| Las entradas nacen con el pago, en `PENDIENTE_EMISION`, y el consumidor de la cola las emite | Que las cree el MDB | El mensaje ya lleva el `entradaId` y el `GET` de la entrada responde apenas vuelve el pago | `ServicioDeVentas.entradasPara`, `EmisionDeEntradasMDB` |
 | Los titulares no se guardan hasta que se aprueba el pago | Guardarlos al reservar | Viven en la instancia stateful; recién con el pago aprobado se crean las entradas a su nombre. Consecuencia: una compra que pierde su instancia ya no se puede pagar (sección 7.7) | `ServicioDeVentas.titulares` |
 | Restricciones únicas como defensa de idempotencia: `(comprador_id, clave_idempotencia)` en la venta, la clave en el pago | Verificar solo en Java | Dos pedidos simultáneos pasan los dos la búsqueda previa; la restricción deja guardar a uno solo. `BaseDeDatos.esClaveDuplicada` busca el SQLState 23505 para no convertir en 409 cualquier falla | `ventas/.../V1__crear_tablas.sql` (`venta_clave_idempotencia_unica`), `common/datos/BaseDeDatos.java` |
 
@@ -466,7 +466,7 @@ Las decisiones vienen de cuatro lugares: la Entrega Parcial N.º 1 (`docs/entreg
 
 | Decisión | Alternativas consideradas | Por qué | Dónde se ve |
 |---|---|---|---|
-| Errores en Problem Details (`application/problem+json`) para todos los servicios (T1, P8) | Formato propio `{estado, mensaje, campos}`; excepciones propias en Ventas | Es un estándar, es lo que promete la OpenAPI, y `type` distingue dos errores con el mismo código (un 409 por cupo agotado de uno por reserva vencida) sin leer el texto | `common/rest/Problema.java`, `ManejadoresDeErrores.java` |
+| Errores en Problem Details (`application/problem+json`) para todos los servicios | Formato propio `{estado, mensaje, campos}`; excepciones propias en Ventas | Es un estándar, es lo que promete la OpenAPI, y `type` distingue dos errores con el mismo código (un 409 por cupo agotado de uno por reserva vencida) sin leer el texto | `common/rest/Problema.java`, `ManejadoresDeErrores.java` |
 | La excepción lleva el tipo de problema; el código HTTP y el título los pone el manejador | Guardar el código HTTP en la excepción | El negocio no conoce HTTP. Todas las `ErroresDeNegocio` llevan `@ApplicationException(rollback = true)` | `common/ErroresDeNegocio.java` |
 | Para errores que no son de la aplicación (405, 415), `type` vale `about:blank` y no lleva `detail` | Exponer el mensaje de la excepción | Ese texto es interno del servidor. Nunca se devuelve una traza | `ManejadoresDeErrores` |
 | Un pago rechazado: Pagos responde 201 con `RECHAZADO`; Ventas le responde 402 al comprador | Que Pagos responda 402 | Para Pagos el pago se procesó y quedó guardado; si respondiera 402 el intento no quedaría registrado | `PagosResource`, `ClienteDePagos` |
@@ -477,13 +477,13 @@ Las decisiones vienen de cuatro lugares: la Entrega Parcial N.º 1 (`docs/entreg
 
 ## 5.4 Mensajería
 
-El contrato del mensaje está en `docs/superpowers/specs/mensajeria-pago-confirmado.md`; la mensajería se describe en detalle en su propia sección.
+El contrato del mensaje está en `docs/api/mensajeria-pago-confirmado.md`; la mensajería se describe en detalle en su propia sección.
 
 | Decisión | Alternativas consideradas | Por qué | Dónde se ve |
 |---|---|---|---|
 | Un mensaje `PAGO_CONFIRMADO` que va a una cola (emisión de entradas) y a un tópico (aviso y auditoría) | Solo tópico; llamadas REST síncronas | La cola tiene un único consumidor: las entradas se emiten una sola vez. El tópico le da una copia a cada suscriptor. El pago no espera a la emisión | `PublicadorPagoConfirmadoJms`, `configurar.cli` |
 | El publicador es `@Stateless` con `MANDATORY` y publica por `java:/JmsXA` | `REQUIRED`; la fábrica `java:/ConnectionFactory` | Con `REQUIRED`, llamado sin transacción abriría una propia y el mensaje saldría aunque la venta fallara. `java:/ConnectionFactory` queda fuera de la transacción | `common/mensajeria/PublicadorPagoConfirmadoJms.java`, `DestinosJms.FABRICA_XA` |
-| La base no es XA y entra a la transacción como último recurso; los consumidores son idempotentes (P3) | (b) Base XA; (c) tabla de salida con un proceso que publica | La consigna pide transacciones declarativas y explicar las fallas, no dos fases. La base XA no está verificada contra Supabase y la tabla de salida era más código | Sección 7.4 |
+| La base no es XA y entra a la transacción como último recurso; los consumidores son idempotentes | (b) Base XA; (c) tabla de salida con un proceso que publica | La consigna pide transacciones declarativas y explicar las fallas, no dos fases. La base XA no está verificada contra Supabase y la tabla de salida era más código | Sección 7.4 |
 | El mensaje es un `record` con `timestamp` `Instant`, y `desdeJson()` siempre valida | Clase con setters; fecha como texto | JSON-B no avisa si falta un campo: lo deja en `null` o en 0 | `common/mensajeria/PagoConfirmadoMensaje.java` |
 | Aviso y auditoría son dos MDB con dos interfaces en el mismo WAR | Una sola interfaz; un noveno WAR | Una interfaz mezclaba responsabilidades; otro WAR sumaba un despliegue | `AvisoDeCompraMDB`, `AuditoriaDeComprasMDB`, `INotificaciones`, `IAuditoria` |
 | Auditoría es suscripción durable, con una sola sesión; el aviso no es durable | Las dos durables, o ninguna | Auditoría no puede perder eventos; un aviso viejo no le sirve a nadie. Con una sesión procesa en el orden de entrega | `AuditoriaDeComprasMDB` (`palco-auditoria`, `compras-confirmadas`, `maxSession` 1) |
@@ -495,10 +495,10 @@ El contrato del mensaje está en `docs/superpowers/specs/mensajeria-pago-confirm
 
 | Decisión | Alternativas consideradas | Por qué | Dónde se ve |
 |---|---|---|---|
-| `ServicioDePagos` decide y guarda; la pasarela solo habla con el exterior (P9) | (b) Que cada pasarela implemente `IPagos`, como decía la guía de la tarea | Guardar el pago y detectar repetidos se escribe una sola vez y vale para cualquier pasarela. Coincide con la Entrega Parcial N.º 1 | `IPagos`, `ServicioDePagos`, `pasarela/PasarelaDePagos` |
+| `ServicioDePagos` decide y guarda; la pasarela solo habla con el exterior | (b) Que cada pasarela implemente `IPagos` | Guardar el pago y detectar repetidos se escribe una sola vez y vale para cualquier pasarela. Coincide con la Entrega Parcial N.º 1 | `IPagos`, `ServicioDePagos`, `pasarela/PasarelaDePagos` |
 | La pasarela la elige una Factory por configuración; un valor desconocido impide el despliegue | Un `if` en el servicio; caer al simulador | Separa configuración y negocio; no se cobra de mentira sin avisar | `FabricaDePasarela` (`palco.pagos.proveedor`, por defecto `fake`) |
 | Ventas cobra detrás de la interfaz `Cobros`, con dos implementaciones elegidas por una Factory; el defecto es el servicio de Pagos | Llamar al simulador desde el bean | El servicio de Pagos se conectó sin tocar el bean de la compra. El simulador solo se usa si alguien escribió `fake`; un valor desconocido cobra contra Pagos con un `WARNING` | `FabricaDeCobros` (`palco.ventas.cobros`), `ClienteDePagos`, `CobrosFake` |
-| Solo el cobro con pasarela simulada antes del 23/10; Mercado Pago, webhook y reembolso después (P10) | Todo lo que lista la guía de la tarea | Esas piezas no responden a ningún punto del 23/10 y la firma del webhook no se pudo verificar contra la documentación oficial. Estado: **Simulado** (`PagosFake` decide por el token: `tok_rechazado`, `tok_sin_respuesta`, cualquier otro aprueba) | `PagosFake`; diagrama de secuencia de Mercado Pago (diseño) en `../entrega-obligatoria-2/diagramas/diagrama_secuencia_mercadopago.png` |
+| Solo el cobro con pasarela simulada antes del 23/10; Mercado Pago, webhook y reembolso después | Sumar también Mercado Pago, webhook y reembolso antes del 23/10 | Esas piezas no responden a ningún punto del 23/10 y la firma del webhook no se pudo verificar contra la documentación oficial. Estado: **Simulado** (`PagosFake` decide por el token: `tok_rechazado`, `tok_sin_respuesta`, cualquier otro aprueba) | `PagosFake`; diagrama de secuencia de Mercado Pago (diseño) en `../entrega-obligatoria-2/diagramas/diagrama_secuencia_mercadopago.png` |
 | El token de la tarjeta no se guarda | Guardarlo para reintentos | Es sensible y sirve para un solo cobro. Consecuencia: tras un `RECHAZADO`, la misma clave devuelve siempre ese rechazo; un intento nuevo necesita clave nueva | `Pago` (sin columna de token) |
 | Ninguna transacción abierta mientras se espera a la pasarela | Una transacción por cobro | Retendría una conexión mientras contesta un tercero y, después de una clave duplicada, quedaría marcada para deshacerse: ya no se podría releer el pago ganador | `ServicioDePagos` (`NOT_SUPPORTED`), `PagoRepositoryJpa` (`@Stateless`, transacción corta por método) |
 
@@ -508,7 +508,7 @@ El contrato del mensaje está en `docs/superpowers/specs/mensajeria-pago-confirm
 |---|---|---|---|
 | Seguridad declarativa con `@RolesAllowed` / `@PermitAll` en cada operación; roles `user`, `organizer`, `staff`, `servicio` | Comprobaciones a mano en cada método | Lo pide la consigna y queda visible en la firma de cada operación | Recursos de cada servicio; `configurar.cli` (`resteasy-role-based-security`) |
 | JWT firmado con RSA por Usuarios; roles en el claim `groups` | Sesión con cookie | Un token vale en los 8 WAR; la cookie solo dentro de uno | `usuarios/seguridad/Tokens.java`, `ClavesJwt` |
-| Token de rol `servicio` por secreto compartido (credenciales de cliente) (T2, P6) | (b) Un usuario "servicio" que hace login; (c) firmar a mano con una clave fija | Se explica en una frase; (b) obligaba a inventarle DNI y contraseña a algo que no es una persona | `POST /api/usuarios/servicios/token`, `common/seguridad/TokenDeServicio.java` |
+| Token de rol `servicio` por secreto compartido (credenciales de cliente) | (b) Un usuario "servicio" que hace login; (c) firmar a mano con una clave fija | Se explica en una frase; (b) obligaba a inventarle DNI y contraseña a algo que no es una persona | `POST /api/usuarios/servicios/token`, `common/seguridad/TokenDeServicio.java` |
 | El token de servicio dura 5 minutos y se guarda en un bean `@ApplicationScoped`, que lo renueva cuando le quedan menos de 30 segundos; ante un 401 se invalida y se reintenta una vez | Pedir uno por llamada | Pedir uno por llamada duplicaba las llamadas a Usuarios | `TokenDeServicio.obtener` / `invalidar` |
 | El secreto se compara con `MessageDigest.isEqual` | `equals` | Tarda lo mismo acierte o no | `ServicioDeUsuarios` |
 | Contraseñas con PBKDF2 y 600.000 iteraciones (desde el 16/10; antes 310.000); el formato guarda las iteraciones | Otro algoritmo | El formato permite subir las iteraciones sin invalidar hashes viejos, como pide la guía actual de OWASP. La migración V5 rehashea las cuentas de prueba para que no tarden distinto que el hash falso | `usuarios/seguridad/Contrasenas.java`, `V5__cuentas_de_prueba_con_600000_iteraciones.sql` |
@@ -517,7 +517,7 @@ El contrato del mensaje está en `docs/superpowers/specs/mensajeria-pago-confirm
 | Una venta o entrada ajena responde 404, igual que una que no existe | 403 | No revela que el recurso existe | `ComprasEnCurso.delComprador`, `obtenerEntrada` |
 | Validación de caracteres de control en nombres e ids que van al log o al mensaje | Limpiar solo al escribir | Un salto de línea en el nombre del titular haría aparecer una línea falsa en el log del consumidor | `ServicioDeVentas.validar`, `common/Textos.java` |
 
-Lo que la matriz de seguridad de la clase 11 deja para decidir en grupo: la vigencia de la sesión (hoy 8 horas, sin refresh token; propuesta en `docs/decisiones/0001-vigencia-de-la-sesion.md`) y los permisos por destino en el broker (propuesta en `docs/planes/T4-seguridad-del-broker.md`). Con `PALCO_SECRETO_SERVICIOS` ausente el secreto vale `palco-desarrollo`, que está escrito en el repo; el servidor de desarrollo ya usa uno propio en `backend/.env`, y que fuera de desarrollo la variable sea obligatoria está diseñado, pendiente (`docs/notas/seguridad-clase11.md`).
+Lo que la matriz de seguridad de la clase 11 deja para decidir en grupo: la vigencia de la sesión (hoy 8 horas, sin refresh token) y los permisos por destino en el broker. Con `PALCO_SECRETO_SERVICIOS` ausente el secreto vale `palco-desarrollo`, que está escrito en el repo; el servidor de desarrollo ya usa uno propio en `backend/.env`, y que fuera de desarrollo la variable sea obligatoria está diseñado, pendiente.
 
 ## 5.7 Frontend
 
@@ -539,12 +539,12 @@ Lo que la matriz de seguridad de la clase 11 deja para decidir en grupo: la vige
 | Decisión original | Fuente | Versión vigente | Por qué cambió |
 |---|---|---|---|
 | Repositorios para todos los servicios (`UsuarioRepository`, `EventoRepository`, `EntradaRepository`, `VentaRepository`) | Entrega Parcial N.º 1, sección 4 | Hay repositorios en Ventas (`VentaRepository`, `EntradaRepository`) y Pagos (`PagoRepository`). Eventos y Usuarios usan el `EntityManager` desde su Session Bean | Los repositorios se sumaron donde había UPDATE condicionales y transacciones cortas que separar del negocio. En Eventos y Usuarios el acceso es directo |
-| `IVentas` con `iniciarCompra`, `agregarEntrada`, `confirmarCompra`, `cancelarCompra` | Entrega Parcial N.º 1, sección 2 | Tres operaciones: `iniciarCompra` (con todos los renglones y titulares), `confirmarCompra`, `cancelarCompra` (P1) | La compra se arma completa en un pedido; agregar entradas de a una sumaba llamadas sin necesidad |
-| "XA entre la base y el broker" | `TODO.md`, Fase 6 (corregido en T5) | Broker XA y base como último recurso (P3) | No es un commit en dos fases: ver 7.4 |
-| Guardar la cabecera de la venta antes de reservar | Plan A1 | Reservar primero y guardar la venta al final, de una vez | La prueba de 80 compras simultáneas agotaba el pool (5.1). El contrato todavía dice que "una compra retiene una conexión mientras llama a otro servicio" (sección 12): el código ya no lo hace |
-| Concurrencia por compra solo con `@AccessTimeout(0)` | Plan A1 | Freno en `ComprasEnCurso` y `@AccessTimeout(0)` como última barrera | Comportamiento de WildFly 41, visto en vivo (5.1) |
-| Una compra sin instancia seguía `EN_CHECKOUT` hasta el barrido | `ventas-core.md`, hasta el 14/10 | Se cancela y devuelve el cupo cuando el comprador intenta pagarla | La compra nueva podía encontrar el sector agotado por la propia compra perdida |
-| "Mis entradas" se recordaba en el navegador porque el backend no listaba ventas | `B2-frontend-checkout.md`, decisión 5 | `GET /api/v1/ventas` lista las compras del usuario del token y el frontend las pide | Se sumó el listado en Ventas (`ComprasEnCurso.listar`, `MyTicketsPage.tsx`) |
+| `IVentas` con `iniciarCompra`, `agregarEntrada`, `confirmarCompra`, `cancelarCompra` | Entrega Parcial N.º 1, sección 2 | Tres operaciones: `iniciarCompra` (con todos los renglones y titulares), `confirmarCompra`, `cancelarCompra` | La compra se arma completa en un pedido; agregar entradas de a una sumaba llamadas sin necesidad |
+| "XA entre la base y el broker" | `TODO.md`, Fase 6 (ya corregido) | Broker XA y base como último recurso | No es un commit en dos fases: ver 7.4 |
+| Guardar la cabecera de la venta antes de reservar | Primera versión de Ventas | Reservar primero y guardar la venta al final, de una vez | La prueba de 80 compras simultáneas agotaba el pool (5.1) |
+| Concurrencia por compra solo con `@AccessTimeout(0)` | Primera versión de Ventas | Freno en `ComprasEnCurso` y `@AccessTimeout(0)` como última barrera | Comportamiento de WildFly 41, visto en vivo (5.1) |
+| Una compra sin instancia seguía `EN_CHECKOUT` hasta el barrido | Ventas, hasta el 14/10 | Se cancela y devuelve el cupo cuando el comprador intenta pagarla | La compra nueva podía encontrar el sector agotado por la propia compra perdida |
+| "Mis entradas" se recordaba en el navegador porque el backend no listaba ventas | Checkout del frontend | `GET /api/v1/ventas` lista las compras del usuario del token y el frontend las pide | Se sumó el listado en Ventas (`ComprasEnCurso.listar`, `MyTicketsPage.tsx`) |
 | La línea del aviso decía "aviso enviado" | Evidencia del 13/10 | "Aviso registrado en el log; no se envía: no hay proveedor de correo" | No hay correo: el texto no puede ser más optimista que lo que pasa |
 | `registro_auditoria.cuerpo` `varchar(4000)` | V1 de Notificaciones | `varchar(100000)` desde la V2 | Un mensaje válido de 6 entradas con nombres largos ocupaba 4733 caracteres y terminaba en la DLQ |
 
@@ -577,7 +577,7 @@ Solo se cuentan los patrones que están aplicados en el código. Para cada uno: 
 | Dónde | Las interfaces `Cobros` (implementaciones `ClienteDePagos` y `CobrosFake`) y `PasarelaDePagos` (hoy solo `PagosFake`) |
 | Problema | Cobrar es un algoritmo intercambiable: de verdad o simulado. El contexto (`ServicioDeVentas`, `ServicioDePagos`) trabaja contra la interfaz |
 | Por qué este | Permite trabajar en Ventas sin Pagos desplegado y conectar Pagos sin reescribir la compra |
-| Límite | La estrategia se elige una vez, al primer uso, y vale hasta redesplegar (los dos productores son `@ApplicationScoped`); no cambia por pedido. En `PasarelaDePagos` hay una sola implementación: la variación todavía es potencial. Por eso en P9 se cuenta como Adapter más Factory |
+| Límite | La estrategia se elige una vez, al primer uso, y vale hasta redesplegar (los dos productores son `@ApplicationScoped`); no cambia por pedido. En `PasarelaDePagos` hay una sola implementación: la variación todavía es potencial. Por eso en Pagos se cuenta como Adapter más Factory |
 
 ## 6.4 Facade
 
@@ -585,7 +585,7 @@ Solo se cuentan los patrones que están aplicados en el código. Para cada uno: 
 |---|---|
 | Dónde | `ventas/negocio/ComprasEnCurso` |
 | Problema | Una compra involucra el stateful de la compra, dos repositorios, Usuarios (identidad verificada) y Eventos (devolución de cupo), con pasos que quedan fuera de la transacción del stateful. Los recursos REST (`VentasResource`, `EntradasResource`) hablan solo con esta clase |
-| Por qué este | Concentra en un lugar el orden de los pasos (consultar a Usuarios antes de abrir la compra, anotar el intento de pago antes de cobrar, devolver el cupo después de confirmar la cancelación) y la regla de una llamada a la vez. El recurso queda delgado, como piden las convenciones |
+| Por qué este | Concentra en un lugar el orden de los pasos (consultar a Usuarios antes de abrir la compra, anotar el intento de pago antes de cobrar, devolver el cupo después de confirmar la cancelación) y la regla de una llamada a la vez. El recurso queda delgado |
 | Detalle | No es un Session Bean: es `@ApplicationScoped` porque guarda el índice de compras abiertas, que tiene que ser el mismo para todos los pedidos, y no abre transacciones |
 
 ## 6.5 Repository
@@ -626,7 +626,7 @@ Solo se cuentan los patrones que están aplicados en el código. Para cada uno: 
 | Receptor idempotente | Emisión: `UPDATE` condicionales sobre la entrada y la venta. Auditoría: clave primaria `JMSMessageID` | Tolera la entrega repetida que permite la garantía de último recurso (7.4) |
 | Publicación transaccional | `PublicadorPagoConfirmadoJms` con `MANDATORY` y `java:/JmsXA` | El mensaje sale solo si la venta se confirma |
 
-No se cuentan como aplicados otros patrones que aparecen en planes (por ejemplo una tabla de salida u *outbox*, que fue la alternativa (c) de P3 y se descartó).
+No se cuentan como aplicados otros patrones que se evaluaron (por ejemplo una tabla de salida u *outbox*, que fue una de las alternativas para publicar el mensaje y se descartó: 5.4).
 
 # 7. Transacciones
 
@@ -680,7 +680,7 @@ Si `ventas.confirmar` no cambia la fila después de un cobro aprobado (no deber�
 - El publicador usa la fábrica `java:/JmsXA` (`DestinosJms.FABRICA_XA`): el broker participa de la transacción JTA como recurso XA, con fase de preparación.
 - `PalcoDS` es un datasource común, no XA (`configurar.cli`, `data-source add`). Entra a la misma transacción como último recurso: el administrador de transacciones prepara el broker, confirma la base y después confirma el broker.
 - `MANDATORY` en el publicador impide publicar fuera de la transacción de quien llama. Con `REQUIRED` abriría una propia y el mensaje saldría aunque la venta se deshiciera.
-- **No es un commit en dos fases completo.** Si el servidor se cayera justo entre el commit de la base y el del broker, quedaría una venta `CONFIRMADA` con sus entradas sin emitir y sin mensaje. Esa ventana no se observó en ejecución ni en una caída real: el orden es el que la documentación del servidor describe para un recurso no XA. Lo que sí se probó es que un mensaje publicado dentro de una transacción que se deshace no sale: el endpoint de prueba con falla de Notificaciones responde 409, los contadores de mensajes agregados de la cola, del tópico y de la DLQ no cambian y los tres consumidores no escriben ninguna línea en el log (`docs/entrega3/evidencia/reproduccion.txt`, paso 8). En Ventas, la excepción forzada después de publicar se probó una vez con un WAR temporal que no quedó en el repo (`docs/notas/ventas-core.md`).
+- **No es un commit en dos fases completo.** Si el servidor se cayera justo entre el commit de la base y el del broker, quedaría una venta `CONFIRMADA` con sus entradas sin emitir y sin mensaje. Esa ventana no se observó en ejecución ni en una caída real: el orden es el que la documentación del servidor describe para un recurso no XA. Lo que sí se probó es que un mensaje publicado dentro de una transacción que se deshace no sale: el endpoint de prueba con falla de Notificaciones responde 409, los contadores de mensajes agregados de la cola, del tópico y de la DLQ no cambian y los tres consumidores no escriben ninguna línea en el log (`docs/entrega3/evidencia/reproduccion.txt`, paso 8). En Ventas, la excepción forzada después de publicar se probó una vez con un WAR temporal que no quedó en el repo.
 - Por eso los consumidores son idempotentes (7.6).
 
 ## 7.5 Cancelar y vencer: cambio de estado primero, compensación después
@@ -711,11 +711,11 @@ Límite del frontend: la clave de la compra vive en la memoria de la página; si
 
 | Límite | Qué pasa | Por qué se acepta | Qué lo resolvería |
 |---|---|---|---|
-| Pago sin respuesta y reintento tardío | Después de un 504 la venta queda `EN_CHECKOUT` con `clave_pago`. El reintento con la misma clave vale aunque la reserva haya vencido, pero solo mientras viva la instancia (titulares en memoria). Si la instancia murió (10 minutos sin llamadas, redespliegue, falla), pagar responde 409 `operacion-en-curso` ("puede que ya se haya cobrado") con un `WARNING`; cancelar no puede y el barrido la saltea. Hoy se resuelve a mano con el procedimiento de `docs/notas/ventas-core.md` | Ventas no sabe si Pagos cobró, y Pagos no tiene consulta por clave ni por venta. Vencerla podría vender dos veces un lugar cobrado; retenerla deja, en el peor caso, un lugar sin vender. Con la pasarela simulada solo pasa con `tok_sin_respuesta` o con una caída | Conciliación con Pagos (tarea C3): **diseñado, pendiente** |
-| Devolución de cupo sin reintento | `liberarCupo` hace un solo intento (repite solo ante 401). Si Eventos no responde, deja un `WARNING` con venta, evento, sector y cantidad y devuelve `false`, que nadie mira. Nada en la base dice que falta devolver | Es el lado seguro: un lugar sin vender, nunca uno vendido dos veces. El `WARNING` trae los datos para devolverlo a mano | Una marca de devolución pendiente que el barrido reintente, con una devolución segura de repetir (C3): **diseñado, pendiente** |
-| Caída entre los dos commits | Venta `CONFIRMADA` sin mensaje ni emisión | Es la garantía elegida en P3 | Base XA o tabla de salida; no planificado |
-| Reserva sin dueño ante una caída | Si el servidor se cae entre la reserva en Eventos y el guardado de la venta, el cupo queda tomado sin venta | Ventana corta; queda en el log | Compensación de C3 |
-| Compras en curso en memoria | Redesplegar Ventas vacía el índice y pierde los titulares: la compra se puede consultar y cancelar; pagarla la cancela y devuelve el cupo | El stateful es el diseño elegido (P1) | Fuera de alcance |
+| Pago sin respuesta y reintento tardío | Después de un 504 la venta queda `EN_CHECKOUT` con `clave_pago`. El reintento con la misma clave vale aunque la reserva haya vencido, pero solo mientras viva la instancia (titulares en memoria). Si la instancia murió (10 minutos sin llamadas, redespliegue, falla), pagar responde 409 `operacion-en-curso` ("puede que ya se haya cobrado") con un `WARNING`; cancelar no puede y el barrido la saltea. Hoy se resuelve a mano | Ventas no sabe si Pagos cobró, y Pagos no tiene consulta por clave ni por venta. Vencerla podría vender dos veces un lugar cobrado; retenerla deja, en el peor caso, un lugar sin vender. Con la pasarela simulada solo pasa con `tok_sin_respuesta` o con una caída | Conciliación con Pagos: **diseñado, pendiente** |
+| Devolución de cupo sin reintento | `liberarCupo` hace un solo intento (repite solo ante 401). Si Eventos no responde, deja un `WARNING` con venta, evento, sector y cantidad y devuelve `false`, que nadie mira. Nada en la base dice que falta devolver | Es el lado seguro: un lugar sin vender, nunca uno vendido dos veces. El `WARNING` trae los datos para devolverlo a mano | Una marca de devolución pendiente que el barrido reintente, con una devolución segura de repetir, como parte de la conciliación con Pagos: **diseñado, pendiente** |
+| Caída entre los dos commits | Venta `CONFIRMADA` sin mensaje ni emisión | Es la garantía elegida (5.4) | Base XA o tabla de salida; no planificado |
+| Reserva sin dueño ante una caída | Si el servidor se cae entre la reserva en Eventos y el guardado de la venta, el cupo queda tomado sin venta | Ventana corta; queda en el log | La compensación de la conciliación con Pagos |
+| Compras en curso en memoria | Redesplegar Ventas vacía el índice y pierde los titulares: la compra se puede consultar y cancelar; pagarla la cancela y devuelve el cupo | El stateful es el diseño elegido (5.1) | Fuera de alcance |
 | Timeouts de los clientes | Eventos y Usuarios: 2 s de conexión y 5 s de lectura; Pagos: 2 s y 10 s. Al vencer, `SinRespuesta` (504) | Valores fijos en el código, no medidos contra un servicio lento | Ajustarlos con mediciones |
 
 Sin probar en vivo: una caída entre el commit de la base y el del broker, más de 80 compras o 60 pagos simultáneos, Eventos o Usuarios caídos (solo con tests) y las migraciones contra PostgreSQL.
@@ -779,7 +779,7 @@ Por qué no un ESB: con 11 nodos (8 servicios, Mercado Pago, ARCA y el broker) h
 | I4 | Ventas → `cola.emision-entradas` → `EmisionDeEntradasMDB` | Asincrónica · cola JMS | Emitir no tiene que demorar ni hacer fallar el pago; un solo responsable, una sola vez | El mensaje espera en el broker; si el consumidor falla, 5 entregas y DLQ | Implementado (sección 10) |
 | I5 | Ventas → `topico.compra-confirmada` → `AvisoDeCompraMDB` y `AuditoriaDeComprasMDB` | Asincrónica · tópico JMS | Dos interesados en el mismo hecho que no se conocen; sumar otro no toca Ventas | Auditoría es durable (el broker le guarda lo pendiente); el aviso no, y se acepta perderlo | Implementado; el aviso es **simulado** (log) |
 
-**Cambio respecto del documento entregado:** la fila I3 de la Entrega Parcial N.º 2 decía que la factura se pedía *dentro* de la compra (Ventas → Facturación, S3). El plan `docs/planes/C1-facturacion-soap.md` recomienda (decisión 2) que Facturación se suscriba al tópico: la llamada a ARCA sigue siendo síncrona, pero el disparo es asincrónico, para no retener una conexión de la base dentro de `confirmarCompra`. Esa decisión figuraba como pendiente de aprobación del grupo al 16/10; la tabla ya la refleja y conviene confirmarla antes del 13/11.
+**Cambio respecto del documento entregado:** la fila I3 de la Entrega Parcial N.º 2 decía que la factura se pedía *dentro* de la compra (Ventas → Facturación, S3). El diseño de la facturación por SOAP recomienda (sección 11.4, decisión 2) que Facturación se suscriba al tópico: la llamada a ARCA sigue siendo síncrona, pero el disparo es asincrónico, para no retener una conexión de la base dentro de `confirmarCompra`. Esa decisión figuraba como pendiente de aprobación del grupo al 16/10; la tabla ya la refleja y conviene confirmarla antes del 13/11.
 
 ## 8.7 Llamadas entre servicios internos
 
@@ -791,7 +791,7 @@ Todas son síncronas por REST: quien llama necesita el resultado.
 | S1 | Ventas → Usuarios: `GET /api/usuarios/yo` con el token del comprador | Datos del comprador antes de abrir la compra | Implementado (`ClienteDeUsuarios`) |
 | S1 | Ventas → Pagos: `POST /api/v1/pagos`, rol `servicio`, con `Idempotency-Key` | Cobrar | Implementado (`ClienteDePagos`, `reproduccion.txt`, paso 6) |
 | S2 | Todos → Usuarios: JWKS y token de servicio | Verificar tokens y autenticar llamadas internas | Implementado |
-| S3 | Facturación → Ventas (`PUT /api/v1/ventas/{ventaId}/factura`, según el plan C1); Reventa → Usuarios, Pagos y Ventas; Validación → Ventas | Informar la factura, revender, validar en puerta | Diseñado, pendiente |
+| S3 | Facturación → Ventas (`PUT /api/v1/ventas/{ventaId}/factura`, según el diseño de la sección 11); Reventa → Usuarios, Pagos y Ventas; Validación → Ventas | Informar la factura, revender, validar en puerta | Diseñado, pendiente |
 
 Entre servicios no hay transacción compartida: cada llamada confirma por su cuenta. La regla para el cupo es que, ante la duda, queda un lugar sin vender y nunca uno vendido dos veces.
 
@@ -858,7 +858,7 @@ Fuentes: los `*Resource.java` de cada servicio en `backend/servicios/<servicio>/
 
 ## 9.4 Cambios de seguridad del 16/10
 
-Los tres cambios que figuraban en curso están en el código (árbol de trabajo, todavía sin commit) y se comprobaron el 16/10 con el servidor armado desde cero. El detalle de cada uno está en `docs/notas/seguridad-clase11.md`.
+Los tres cambios que figuraban en curso están en el código desde el 16/10 y se comprobaron el 16/10 con el servidor armado desde cero.
 
 | Cambio | Dónde | Estado |
 |---|---|---|
@@ -866,7 +866,7 @@ Los tres cambios que figuraban en curso están en el código (árbol de trabajo,
 | 401 por token inválido como Problem Details, con `WWW-Authenticate` y CORS. Antes salía en `text/html`, sin CORS ni `WWW-Authenticate`; el 401 sin token y el 403 por rol ya salían bien desde la aplicación | `ErrorDeAutenticacionServlet` y `web-fragment.xml` en `common` | Implementado y probado: `GET /api/v1/ventas` con un token inválido y `Origin: http://localhost:5173` respondió 401, `application/problem+json`, `type` `/problemas/token-invalido`, `WWW-Authenticate: Bearer error="invalid_token"` y `Access-Control-Allow-Origin: http://localhost:5173` |
 | Id de error en el 500: generarlo, loguearlo con la traza y devolverlo como `idError` | `ManejadoresDeErrores.Inesperado` | Implementado, probado con tests de `common` (`ErrorInesperadoTest`); en vivo no se provocó un 500 |
 
-Queda abierta la vigencia de la sesión (SEC-W05, hoy 8 horas): el borrador `docs/decisiones/0001-vigencia-de-la-sesion.md` está para decidir en grupo.
+Queda abierta la vigencia de la sesión (SEC-W05, hoy 8 horas): está para decidir en grupo.
 
 ## 9.5 Contrato OpenAPI
 
@@ -886,7 +886,7 @@ Queda abierta la vigencia de la sesión (SEC-W05, hoy 8 horas): el borrador `doc
 
 La colección tiene 75 requests: los 69 de la corrida y los 6 que quedan fuera. El secreto para el token de servicio sale de la variable de la colección `secretoServicios` (por defecto `palco-desarrollo`; si el servidor arrancó con el de `backend/.env`, se pasa con `--env-var secretoServicios=...`).
 
-Última corrida: 16/10/2026, con la colección completa contra el servidor armado desde cero: Newman cuenta 74 requests (los 69 de la colección más los cinco intentos de login que SEC-W04 manda antes de enviarse) y 252 aserciones, con 1 falla: SEC-W05c, "el token dura 15 minutos o menos", porque la sesión dura 8 horas. Queda en rojo a propósito hasta que el grupo decida la vigencia (borrador `docs/decisiones/0001-vigencia-de-la-sesion.md`). La corrida anterior, del 14/10, dio 54 requests y 206 aserciones sin fallas con las carpetas 1 a 3. Hay además una colección más vieja, `palco-eventos.postman_collection.json`.
+Última corrida: 16/10/2026, con la colección completa contra el servidor armado desde cero: Newman cuenta 74 requests (los 69 de la colección más los cinco intentos de login que SEC-W04 manda antes de enviarse) y 252 aserciones, con 1 falla: SEC-W05c, "el token dura 15 minutos o menos", porque la sesión dura 8 horas. Queda en rojo a propósito hasta que el grupo decida la vigencia. La corrida anterior, del 14/10, dio 54 requests y 206 aserciones sin fallas con las carpetas 1 a 3. Hay además una colección más vieja, `palco-eventos.postman_collection.json`.
 
 # 10. Mensajería
 
@@ -904,7 +904,7 @@ El comprador recibe la respuesta del pago (201, con las entradas todavía sin em
 
 ## 10.2 Contrato de `PAGO_CONFIRMADO`
 
-Documento normativo: `docs/superpowers/specs/mensajeria-pago-confirmado.md`. Clases en `backend/common`, paquete `com.palco.common.mensajeria`: `PagoConfirmadoMensaje` (record, con `aJson`, `desdeJson` y `validar`), `MensajeInvalido`, `DestinosJms` (nombres JNDI, propiedad y selector), `PublicadorPagoConfirmado` y su implementación `PublicadorPagoConfirmadoJms`.
+Documento normativo: `docs/api/mensajeria-pago-confirmado.md`. Clases en `backend/common`, paquete `com.palco.common.mensajeria`: `PagoConfirmadoMensaje` (record, con `aJson`, `desdeJson` y `validar`), `MensajeInvalido`, `DestinosJms` (nombres JNDI, propiedad y selector), `PublicadorPagoConfirmado` y su implementación `PublicadorPagoConfirmadoJms`.
 
 - `TextMessage` con cuerpo JSON (JSON-B, campos en orden alfabético), entrega persistente.
 - Propiedad `tipoEvento` = `PAGO_CONFIRMADO`.
@@ -941,19 +941,19 @@ Configuración versionada en `backend/servidor/src/main/wildfly/configurar.cli`,
 
 **Por qué durable una y no la otra.** La auditoría no puede perder un hecho: si Notificaciones está detenido, el broker le guarda los mensajes. Perder un aviso que hoy es una línea de log se acepta; cuando haya correo real, esta decisión se revisa.
 
-**Por qué el selector.** Hoy todos los mensajes son `PAGO_CONFIRMADO`, pero el selector deja preparado el destino para otros tipos (el plan C1 define `FACTURA_PENDIENTE` en su propia cola) sin que estos consumidores tengan que cambiar.
+**Por qué el selector.** Hoy todos los mensajes son `PAGO_CONFIRMADO`, pero el selector deja preparado el destino para otros tipos (el diseño de la facturación por SOAP define `FACTURA_PENDIENTE` en su propia cola, sección 11.5) sin que estos consumidores tengan que cambiar.
 
 ## 10.5 Garantía transaccional
 
 - `confirmarCompra` lleva `@TransactionAttribute(REQUIRED)` y el publicador `MANDATORY`: no puede publicar fuera de la transacción de quien lo llama.
 - El broker participa como recurso XA; el datasource `PalcoDS` no es XA y entra como último recurso. **No es un commit en dos fases completo.**
 - Si la transacción se deshace, el mensaje no sale (probado, escenario 13).
-- Si el servidor se cayera entre el commit de la base y el del broker, quedaría una venta `CONFIRMADA` con entradas `PENDIENTE_EMISION` y sin mensaje. **No probado**; el reenvío queda para la tarea C3 (conciliación y transacciones).
+- Si el servidor se cayera entre el commit de la base y el del broker, quedaría una venta `CONFIRMADA` con entradas `PENDIENTE_EMISION` y sin mensaje. **No probado**; el reenvío queda para la conciliación y el manejo de transacciones.
 - La transacción cubre solo la confirmación. La reserva de cupo es REST y se compensa devolviéndolo; el cobro se protege con la clave de idempotencia. `ServicioDePagos` lleva `NOT_SUPPORTED`: no retiene una transacción mientras espera a la pasarela.
 
 ## 10.6 Reintentos, DLQ y procedimiento
 
-Si un consumidor falla, su transacción se deshace entera (no quedan entradas emitidas a medias) y el broker reentrega a los 2 segundos; después de 5 entregas, el mensaje pasa a la DLQ. En la cola de emisión eso deja la venta `CONFIRMADA` con entradas sin emitir y nada lo reintenta solo. Procedimiento (`docs/notas/mensajeria.md`):
+Si un consumidor falla, su transacción se deshace entera (no quedan entradas emitidas a medias) y el broker reentrega a los 2 segundos; después de 5 entregas, el mensaje pasa a la DLQ. En la cola de emisión eso deja la venta `CONFIRMADA` con entradas sin emitir y nada lo reintenta solo. Procedimiento:
 
 1. **Encontrar el mensaje** en la DLQ filtrando por la propiedad `_AMQ_ORIG_QUEUE` = `jms.queue.cola.emision-entradas` (`list-messages` y `count-messages` con ese filtro).
 2. **Ver la causa** en `server.log` (la línea `AMQ222149` con el id del mensaje y las 5 fallas anteriores) y corregirla; si persiste, devolverlo solo lo manda otra vez a la DLQ.
@@ -980,7 +980,7 @@ Evidencia complementaria en la misma carpeta: `suscriptor-durable.txt`, `mensaje
 
 # 11. Servicios web SOAP: Facturación con un ARCA simulado
 
-**Estado: Diseñado, pendiente.** Hoy no hay WSDL, ni endpoint, ni cliente SOAP; la capa `webservices` de WildFly no está en el servidor y Facturación solo responde `health`. Toda venta responde `facturaEstado` `NO_APLICA`. Lo que sigue resume el plan `docs/planes/C1-facturacion-soap.md`, previsto del 15/10 al 30/10.
+**Estado: Diseñado, pendiente.** Hoy no hay WSDL, ni endpoint, ni cliente SOAP; la capa `webservices` de WildFly no está en el servidor y Facturación solo responde `health`. Toda venta responde `facturaEstado` `NO_APLICA`. Lo que sigue resume el diseño, previsto del 15/10 al 30/10.
 
 ## 11.1 Qué pide la consigna y por qué ARCA
 
@@ -1003,7 +1003,7 @@ Espacio de nombres propio (`http://palco.daii/legado/arca/wsfe`), document/liter
 
 Errores en dos niveles, como en el WSFEv1: un **rechazo de negocio** es una respuesta normal con `Resultado` R (la factura queda `RECHAZADA`, no se reintenta); una **falla técnica** es un SOAP Fault o la falta de respuesta (queda `PENDIENTE` y se reintenta). Para la demo, la propiedad de sistema `palco.arca.modo` (`normal`, `rechaza`, `caido`, `lento`) cambia el comportamiento en caliente.
 
-## 11.4 Decisiones del plan
+## 11.4 Decisiones de diseño
 
 | N.º | Decisión | Recomendada y por qué |
 |---|---|---|
@@ -1037,11 +1037,11 @@ Al 16/10 estas decisiones figuraban como pendientes de aprobación del grupo.
 
 ## 12.1 Mercado Pago
 
-**Estado: Diseñado, pendiente (decisión del 13/10, `docs/PLAN_AGENTES.md`).** No se crea cuenta de Mercado Pago ni se integra la pasarela real; `ServicioDePagos` sigue con `PagosFake` y el requisito de servicio REST lo cubre la API propia (I1). Se retoma si la cátedra pide una pasarela real. Del diseño queda el diagrama de secuencia (sección 13.2).
+**Estado: Diseñado, pendiente (decisión del 13/10).** No se crea cuenta de Mercado Pago ni se integra la pasarela real; `ServicioDePagos` sigue con `PagosFake` y el requisito de servicio REST lo cubre la API propia (I1). Se retoma si la cátedra pide una pasarela real. Del diseño queda el diagrama de secuencia (sección 13.2).
 
 Qué existe hoy en el código de Pagos: `IPagos` y `ServicioDePagos` (`@Stateless`, `NOT_SUPPORTED`), la interfaz `PasarelaDePagos`, `ResultadoPasarela`, `FabricaDePasarela` y `PagosFake`. El pago se guarda en el esquema de Pagos con su clave de idempotencia; repetir la clave devuelve el pago guardado.
 
-Qué simula `PagosFake`: el token `tok_test` aprueba y `tok_rechazado` rechaza; no mueve plata. Los estados `PENDIENTE`, `VENCIDO` y `REEMBOLSADO` están en el enumerado `EstadoPago`, pero nadie los escribe (`docs/notas/pagos.md`). Tampoco existen el webhook ni el reembolso.
+Qué simula `PagosFake`: el token `tok_test` aprueba y `tok_rechazado` rechaza; no mueve plata. Los estados `PENDIENTE`, `VENCIDO` y `REEMBOLSADO` están en el enumerado `EstadoPago`, pero nadie los escribe. Tampoco existen el webhook ni el reembolso.
 
 Diseño del adaptador: `MercadoPagoPagos` como otra implementación de `PasarelaDePagos` (Adapter), elegida por configuración en `FabricaDePasarela` (Factory). Cobro con `POST /v1/payments` y `X-Idempotency-Key`; traducción de `approved`, `rejected` e `in_process` a `APROBADO`, `RECHAZADO` y `PENDIENTE`; webhook con validación de firma antes de leer el cuerpo. La firma del webhook no se pudo verificar contra la documentación oficial y queda como punto abierto.
 
@@ -1086,7 +1086,7 @@ Paso a paso:
 |---|---|
 | 1, 2, 5, 6, 7 | Sí. Detalles: Ventas y Pagos son dos servicios (el diagrama los junta en "API Palco"); el pago responde 201 con `Location` al pago; el tópico tiene dos suscriptores (aviso y auditoría), no uno |
 | 3 | No: el cobro va a `ServicioDePagos` por `POST /api/v1/pagos`, y Pagos cobra con `PagosFake`. Mercado Pago es diseño, pendiente |
-| 4 | No: no hay facturación. Además, el plan C1 cambia el diseño: la factura se dispara desde el tópico, fuera de la compra |
+| 4 | No: no hay facturación. Además, el diseño de la facturación por SOAP (sección 11.4) lo cambia: la factura se dispara desde el tópico, fuera de la compra |
 | 8 | Parcial: `GET /api/v1/entradas/{id}` devuelve la entrada `VALIDA`; `EMITIDA` es el estado de la venta, no de la entrada |
 | 9 | No existe la ruta del webhook |
 
@@ -1130,7 +1130,7 @@ librería compartida `backend/common` (verificación de tokens, CORS, formato de
 configuración de WildFly (`backend/servidor/src/main/wildfly/configurar.cli`). Esta sección describe el código tal
 como está hoy y marca lo débil. Los cambios de seguridad del 16/10 (límite de intentos de login, id de error en el
 500, PBKDF2 a 600.000 iteraciones, 401 por token inválido en Problem Details y con CORS, y secreto de servicios
-propio en desarrollo) están en el árbol de trabajo y verificados ese día, pero todavía sin commit.
+propio en desarrollo) están en el repo desde el 16/10 (commits df9f9ed a 0cbb2e9) y se verificaron ese día.
 
 ## 14.1 Autenticación: registro, verificación del email y login
 
@@ -1202,8 +1202,7 @@ usuario común no puede usarlas aunque conozca la ruta.
 
 **Lo débil.** Ocho horas de vida sin revocación: un token robado sirve hasta que vence. Está planteado elegir entre
 bajarlo a 15-30 minutos con un refresh token revocable o dejar escrita la justificación para el alcance del trabajo
-práctico; las opciones están en el borrador `docs/decisiones/0001-vigencia-de-la-sesion.md` (ADR 0001, propuesto,
-a cargo de Joaquin Molina) y todavía no está decidido. Mientras tanto, el request SEC-W05c de Postman ("el token
+práctico; las opciones están planteadas (a cargo de Joaquin Molina) y todavía no está decidido. Mientras tanto, el request SEC-W05c de Postman ("el token
 dura 15 minutos o menos") queda en rojo a propósito.
 
 Además, si falta `PALCO_SECRETO_SERVICIOS`, el secreto vale `palco-desarrollo`, que está escrito en el repo: quien
@@ -1212,7 +1211,7 @@ no se niega a arrancar. Para atenuarlo, el servidor de desarrollo arranca con un
 `backend/.env` (que `dev.sh` carga y que no se versiona); los guiones de demo, de escenarios y de evidencia lo toman
 de la variable o de `backend/.env`, y la colección de Postman, de la variable `secretoServicios`. En la corrida del
 16/10 el log no mostró el aviso del secreto de desarrollo. Que un servidor fuera de desarrollo no arranque sin
-secreto está propuesto en `docs/notas/seguridad-clase11.md` (una variable `PALCO_ENTORNO` y una comprobación al
+secreto está propuesto (una variable `PALCO_ENTORNO` y una comprobación al
 desplegar Usuarios): diseñado, pendiente, porque toca `backend/common`.
 
 ## 14.3 Autorización declarativa por rol
@@ -1306,8 +1305,8 @@ Ningún secreto de producción está en el código: todo sale de variables de en
 máximo, 2 segundos entre reintentos y cola de mensajes fallidos (DLQ). No define usuarios ni permisos por destino:
 el broker queda con la configuración de fábrica de WildFly y cualquier componente desplegado puede publicar o
 consumir en cualquier destino. Es tolerable mientras todo corre en un mismo servidor, pero no cumple mínimo
-privilegio. La propuesta de un usuario por servicio con permisos por destino está en el borrador
-`docs/planes/T4-seguridad-del-broker.md` (a cargo de Julian Zuchowicki), a decidir en grupo: diseñado, pendiente, sin
+privilegio. Hay una propuesta de un usuario por servicio con permisos por destino (a cargo de Julian Zuchowicki), a
+decidir en grupo: diseñado, pendiente, sin
 nada aplicado en `configurar.cli`. La otra salida es dejar el riesgo registrado como aceptado.
 
 ## 14.9 Matriz de criterios de seguridad (taller de la clase 11)
@@ -1315,7 +1314,7 @@ nada aplicado en `configurar.cli`. La otra salida es dejar el riesgo registrado 
 En la clase 11 el grupo armó una matriz de diez criterios (`actividad_integradora_clase11/`), cada uno con
 Dado/Cuando/Entonces, referencia OWASP y veredicto por revisión de código y tests (`mvn test` del 16/10, antes de
 los cambios de esta sección: 313 tests, 0 fallas). Como no hay app móvil, los dos criterios mobile se reemplazaron
-por dos de datos sensibles. Los cambios de cada criterio están descriptos en `docs/notas/seguridad-clase11.md`, y la
+por dos de datos sensibles. La
 columna "Estado actual" sale de la verificación conjunta del 16/10 (09:17 a 09:23), con el servidor armado desde
 cero con esos cambios:
 
@@ -1334,10 +1333,10 @@ saltea la subcarpeta "Pendientes").
 | SEC-W02 | El rol decide quién usa cada operación | OWASP API5:2023 (BFLA) | Cumple en código | Cumple, prueba en verde: requests SEC-W02 (crear evento con rol `user`: 403) y SEC-W02b (sin token: 401 con `WWW-Authenticate`) |
 | SEC-W03 | El login no revela si el email existe | A07:2025 | Cumple en código | Cumple en código; prueba parcial: SEC-W03a y SEC-W03b en verde (mismo `detail` con un email inexistente y con la clave mal). Las cuentas de prueba pasaron a 600.000 iteraciones como el hash falso (V5). Los tiempos no se midieron, y una cuenta registrada antes del cambio conserva 310.000 |
 | SEC-W04 | Bloqueo tras 5 logins fallidos en 15 minutos | A07:2025 | No cumple | Cumple, prueba en verde: `LimiteDeIntentosDeLoginTest`, request SEC-W04 y en vivo (cinco 401 y el 6.º, 429 con `Retry-After: 898`). Límite conocido: se puede bloquear el login de otra persona conociendo su email |
-| SEC-W05 | Tokens alterados, sin firma o de larga vida se rechazan | A07:2025 | Parcial | Parcial. Firma alterada y `alg: none` se rechazan con 401 Problem Details, `WWW-Authenticate: Bearer error="invalid_token"` y CORS (`TokensTest`, `ErrorDeAutenticacionServletTest`, SEC-W05a y SEC-W05b en verde, y en vivo). Falta la vida corta: el token dura 8 h sin revocación y SEC-W05c queda en rojo a propósito hasta que el grupo decida el ADR 0001 |
+| SEC-W05 | Tokens alterados, sin firma o de larga vida se rechazan | A07:2025 | Parcial | Parcial. Firma alterada y `alg: none` se rechazan con 401 Problem Details, `WWW-Authenticate: Bearer error="invalid_token"` y CORS (`TokensTest`, `ErrorDeAutenticacionServletTest`, SEC-W05a y SEC-W05b en verde, y en vivo). Falta la vida corta: el token dura 8 h sin revocación y SEC-W05c queda en rojo a propósito hasta que el grupo decida la vigencia de la sesión |
 | SEC-W06 | Entrada inválida: 400 limpio y sin persistir | A05:2025 | Cumple, test en verde | Cumple, prueba en verde (SEC-W06). Además el 500 trae `idError` (`ErrorInesperadoTest`) |
 | SEC-I01 | SOAP seguro y con estado controlado ante timeout | A02:2025 | No verificable | Sin cambios: Facturación sigue sin contrato SOAP (solo `health`); al implementarla hay que deshabilitar DTD y entidades externas |
-| SEC-I02 | Permisos por destino en el broker | A01:2025 | No cumple | No cumple: sin usuarios ni permisos por destino. Propuesta en `docs/planes/T4-seguridad-del-broker.md`, a decidir en grupo |
+| SEC-I02 | Permisos por destino en el broker | A01:2025 | No cumple | No cumple: sin usuarios ni permisos por destino. Hay una propuesta, a decidir en grupo |
 | SEC-D01 | Los logs no contienen DNI | Ley 25.326 | Cumple en código | Sin cambios: cumple en código, sin prueba propia |
 | SEC-D02 | Contraseñas con hash y nunca en respuestas | A04:2025 | Cumple en código | Cumple, prueba en verde: PBKDF2 con 600.000 iteraciones (`ContrasenasTest`, `MigracionesEnH2Test`) y request SEC-D02 (`/yo` sin contraseña ni hash) |
 
@@ -1461,11 +1460,10 @@ los usuarios y eventos de mentira que había antes: mantenerlos escondía las fa
   sembradas `titular@palco.test` y `organizador@palco.test` (contraseña `palco1234`): búsqueda, registro (el código
   queda en `backend/servidor/target/server/standalone/log/server.log`), alta de evento, compra de dos entradas,
   recarga durante el pago, tarjeta terminada en `0002` (rechazo) y en `0504` (pago sin resultado; `servicios/ventas.ts` las traduce a los tokens `tok_rechazado` y `tok_sin_respuesta` de PagosFake), confirmación con
-  QR y "Mis entradas". Los pasos están en `docs/notas/B2-frontend-checkout.md` y
-  `docs/notas/B2-frontend-sesion-catalogo.md`.
+  QR y "Mis entradas".
 - **En navegador automatizado (Playwright):** los casos que no se pueden provocar a mano en una sola computadora (el
   reloj del navegador adelantado 3 y 11 minutos, y la respuesta de la reserva cortada después de que el backend la
-  procesó) se probaron así, según la nota de la tarea: la reserva siguió en pie, la sesión se conservó y hubo una
+  procesó) se probaron así: la reserva siguió en pie, la sesión se conservó y hubo una
   sola venta y un solo pago. Esos guiones no están en el repo.
 
 # 16. Pruebas y evidencia
@@ -1488,8 +1486,8 @@ incluye el chequeo de tipos (`tsc -b`).
 Se corren con `cd backend && mvn -q test` (o `mvn -f backend\pom.xml test` desde PowerShell). **Última corrida
 conocida: 16/10/2026, 09:17, `mvn clean install` dentro de la verificación conjunta (sección 16.6): BUILD SUCCESS,
 333 tests, 0 fallas.** El conteo por módulo de la tabla sale de contar las anotaciones `@Test` y `@ParameterizedTest`
-en cada `src/test`, y coincide con el de esa corrida. Incluye los cambios de seguridad del 16/10, que están en el
-árbol de trabajo y todavía no tienen commit.
+en cada `src/test`, y coincide con el de esa corrida. Incluye los cambios de seguridad del 16/10, commiteados ese
+día.
 
 | Módulo | Tests | Clases de test y qué cubren |
 |---|---|---|
@@ -1580,7 +1578,7 @@ npx newman run docs/api/palco-api.postman_collection.json --env-var secretoServi
 |---|---|
 | 14/10, Newman 6.2.3, con un servidor desplegado antes de que existiera la cuenta `otro.titular@palco.test` (registrada en `GUIA_POSTMAN.md`) | 53 requests, 201 tests, 9 tests fallados y un script cortado, todos en los tres requests que usan esa cuenta (su login respondía 401). El resto, 0 fallados |
 | 14/10, alrededor de las 16:55, con el servidor redesplegado | 54 requests, 206 aserciones, 0 fallas. Es el resultado que `GUIA_POSTMAN.md` daba como esperado; la corrida quedó anotada en el estado del proyecto, pero su salida no está guardada en el repo |
-| 16/10, verificación conjunta (09:17 a 09:23), servidor armado desde cero con los cambios de seguridad, colección completa | 74 requests ejecutados, 252 aserciones, 1 falla: SEC-W05c ("el token dura 15 minutos o menos"), porque la sesión dura 8 horas. Queda en rojo a propósito hasta que el grupo decida la vigencia del token (borrador `docs/decisiones/0001-vigencia-de-la-sesion.md`). Su salida no está guardada en el repo |
+| 16/10, verificación conjunta (09:17 a 09:23), servidor armado desde cero con los cambios de seguridad, colección completa | 74 requests ejecutados, 252 aserciones, 1 falla: SEC-W05c ("el token dura 15 minutos o menos"), porque la sesión dura 8 horas. Queda en rojo a propósito hasta que el grupo decida la vigencia del token. Su salida no está guardada en el repo |
 
 Pendiente: repetir la corrida en la ventana de Postman (Runner) para sacar la captura que va en el documento.
 
@@ -1650,7 +1648,7 @@ una caída del servidor entre el commit de la base y el del broker**.
 ## 16.6 Resumen de la última corrida conocida
 
 La última verificación conjunta fue el **16/10/2026, de 09:17 a 09:23**, con el servidor armado desde cero con los
-cambios de seguridad del 16/10 (en el árbol de trabajo, todavía sin commit).
+cambios de seguridad del 16/10.
 
 | Qué | Comando | Última corrida | Resultado |
 |---|---|---|---|
@@ -1670,7 +1668,7 @@ Estado: **Implementado** para todo lo de la tabla, salvo la vigencia del token, 
 guardada en el repo: el resultado está anotado, no archivado. La evidencia archivada en `docs/entrega3/evidencia/`
 sigue siendo la del 14/10. Pendiente: tests de Eventos más allá del negocio, tests de
 Validación, Reventa y Facturación cuando existan, una prueba de la falla a mitad del flujo transaccional que se pueda
-repetir desde el repo (tarea C3) y tests automáticos del frontend.
+repetir desde el repo y tests automáticos del frontend.
 
 # 17. Cómo levantar y probar el sistema
 
@@ -1761,8 +1759,7 @@ token de rol `servicio` desde afuera tiene que usar ese mismo valor:
 - La colección de Postman lo toma de la variable de colección `secretoServicios` (por defecto `palco-desarrollo`).
   Con Newman se pasa con `--env-var secretoServicios=<valor>`; en Postman se cambia en las variables de la colección.
 
-Que el servidor no arranque sin secreto fuera de desarrollo está propuesto en `docs/notas/seguridad-clase11.md` y
-**no está implementado**.
+Que el servidor no arranque sin secreto fuera de desarrollo está propuesto y **no está implementado**.
 
 ## 17.5 Cuentas de prueba
 
@@ -1808,21 +1805,21 @@ correrlos si otra persona está probando contra el mismo servidor.
 ## 18.1 Integrantes y responsabilidades
 
 El grupo es de cinco integrantes (la consigna fija de 3 a 4; la confirmación de la cátedra está entre las preguntas
-pendientes). El reparto sale de `docs/PLAN_AGENTES.md`, sección "Reparto sugerido". El criterio es que cada integrante
-tenga al menos un componente del backend propio que defender.
+pendientes). El criterio del reparto es que cada integrante tenga al menos un componente del backend propio que
+defender.
 
-| Integrante | Hecho (Olas 0 a 2) | Ola 3 (14/10 al 05/11) | Ola 5 (13/11 al 26/11) | Parte que defiende |
+| Integrante | Hecho (09/10 al 13/10) | 14/10 al 05/11 | 13/11 al 26/11 | Parte que defiende |
 |---|---|---|---|---|
-| Sebastian Deya | A1 Ventas core; T1 errores y CORS | C3 transacciones; B4 patrones y tests | Lo que Reventa y Mercado Pago necesiten de Ventas | Ventas: el componente stateful, la transacción y la emisión |
-| Julian Zuchowicki | A2 mensajería; B1 integración Ventas–Pagos; T2 token de servicio | Cola de reintento y revisión de C1; guion de demo; plan y arranque de C2 | C2 reventa | Mensajería y Notificaciones; el cobro de Ventas a Pagos; Reventa |
-| Valentina Frisoli | A3 Pagos; B2 frontend (sesión, catálogo y compra) | D2 pantalla de puerta; diagrama de secuencia de Mercado Pago (diseño) | D2 reventa y panel del organizador | Pagos; el frontend |
-| Joaquin Molina | A4 documento de la Entrega Parcial N.º 2 (con Santiago) | B3 validación QR; C5 documento técnico | D3 documentación final | Validación; el documento técnico |
-| Santiago Loto | Ola 0; pasos transversales T0 y T3 a T6; coordinación y revisión | C1 Facturación SOAP; C4 OpenAPI; revisión | Revisión; armado desde cero y tag de cada entrega | Facturación y el servicio SOAP |
+| Sebastian Deya | Ventas core; errores y CORS | Transacciones; patrones y tests | Lo que Reventa y Mercado Pago necesiten de Ventas | Ventas: el componente stateful, la transacción y la emisión |
+| Julian Zuchowicki | Mensajería; integración Ventas–Pagos; token de servicio | Cola de reintento y revisión de la facturación por SOAP; guion de demo; plan y arranque de Reventa | Reventa | Mensajería y Notificaciones; el cobro de Ventas a Pagos; Reventa |
+| Valentina Frisoli | Pagos; frontend (sesión, catálogo y compra) | Pantalla de puerta; diagrama de secuencia de Mercado Pago (diseño) | Reventa y panel del organizador en el frontend | Pagos; el frontend |
+| Joaquin Molina | Documento de la Entrega Parcial N.º 2 (con Santiago) | Validación QR; documento técnico | Documentación final | Validación; el documento técnico |
+| Santiago Loto | Puesta a punto del 09/10; cambios compartidos de `backend/common` y del servidor; coordinación y revisión | Facturación SOAP; OpenAPI; revisión | Revisión; armado desde cero y tag de cada entrega | Facturación y el servicio SOAP |
 
-- La revisión de cada ola la hace alguien distinto de quien escribió el código. C1 la revisa Julian, porque es de
-  Santiago.
-- Usuarios y Eventos se construyeron antes del plan y todavía no tienen dueño asignado para la defensa.
-- En la Ola 4 (06/11 al 12/11) nadie tiene tarea nueva: se cierra, se revisa y se ensaya.
+- La revisión de cada tramo de trabajo la hace alguien distinto de quien escribió el código. La facturación por SOAP
+  la revisa Julian, porque es de Santiago.
+- Usuarios y Eventos se construyeron antes del reparto y todavía no tienen dueño asignado para la defensa.
+- Del 06/11 al 12/11 nadie tiene tarea nueva: se cierra, se revisa y se ensaya.
 
 ## 18.2 Calendario de la comisión del viernes
 
@@ -1840,45 +1837,47 @@ consigna) es de la otra comisión y no está confirmada.
 | **27/11** | Prueba del TP Obligatorio: límite para el sistema completo | No figura con ese nombre | Mar 24/11 | Jue 26/11 |
 | 04/12 y 11/12 | Final adelantado o final regular | Entrega Final (la consigna da fechas contradictorias) | | |
 
-El 16/10, el 23/10 y el 30/10 hay clase. La lista de preguntas para la cátedra (fecha del checkpoint, contenido del
-06/11 y del 20/11, fecha de la Entrega Final, validez del SOAP simulado y de la pasarela simulada, entre otras) está
-en `docs/PLAN_AGENTES.md`, sección 1, y todavía no tiene respuesta registrada.
+El 16/10, el 23/10 y el 30/10 hay clase. Las preguntas para la cátedra (fecha del checkpoint, contenido del 06/11 y
+del 20/11, fecha de la Entrega Final, validez del SOAP simulado y de la pasarela simulada, entre otras) todavía no
+tienen respuesta registrada.
 
 **Líneas de corte decididas de antemano**, para no discutirlas sobre la fecha: si el 23/10 el WSDL de Facturación no
-responde, C1 se reduce al mínimo de la consigna; si B4 no cierra el 05/11, pasa a la Ola 5; Reventa (C2) y Mercado
-Pago (D1) entran el 13/11 solo si están cerradas el 08/11; si Mercado Pago no funciona el 19/11 queda como "diseñado,
-pendiente"; el panel del organizador es lo último y, si no llega el 24/11, sigue con datos locales.
+responde, la facturación por SOAP se reduce al mínimo de la consigna; si los patrones y tests de Ventas no cierran el
+05/11, pasan al tramo del 13/11 al 26/11; Reventa y Mercado Pago entran el 13/11 solo si están cerradas el 08/11; si
+Mercado Pago no funciona el 19/11 queda como "diseñado, pendiente"; el panel del organizador es lo último y, si no
+llega el 24/11, sigue con datos locales.
 
-## 18.3 Organización en olas y tareas
+## 18.3 Organización por etapas y tareas
 
-El trabajo se ordena en olas. Una ola agrupa tareas que pueden avanzar en paralelo porque tocan módulos distintos;
-una tarea no arranca si su dependencia no está mergeada. Las tareas tienen un código (letra de la ola, número) y un
-nombre corto que coincide con su rama.
+El trabajo se ordena en etapas con fecha. Una etapa agrupa tareas que pueden avanzar en paralelo porque tocan módulos
+distintos; una tarea no arranca si su dependencia no está mergeada. Cada tarea tiene un nombre corto que coincide con
+su rama.
 
-| Ola | Fechas | Tareas | Estado |
-|---|---|---|---|
-| 0 | 09/10 | Puesta a punto: convenciones, entorno, decisión del proceso asincrónico (`PAGO_CONFIRMADO`) y de la base (H2) | Hecha, salvo la identidad de git de cada integrante y el `.mailmap` |
-| Transversales | 09/10 | T0 a T3 (errores Problem Details, CORS, token de servicio, entre otros) | Hechas |
-| 1 | 10/10 al 13/10 | A1 Ventas core, A2 mensajería, A3 Pagos, A4 documento de la Entrega Parcial N.º 2 | Hechas |
-| 2 | 13/10 | B1 integración Ventas–Pagos, B2 frontend | Hechas. B3 y B4 pasaron a la Ola 3 |
-| 3 | 14/10 al 05/11 | C1 Facturación SOAP, C5 documento técnico, C3 transacciones, B3 validación QR; después B4, C4 OpenAPI, D2 pantalla de puerta; sin bloquear, C2 reventa y D1 Mercado Pago | En curso. C1 tiene plan escrito (`docs/planes/C1-facturacion-soap.md`) y no tiene código |
-| 4 | 06/11 al 12/11 | Congelar, revisar contra la consigna, armado desde cero, demo, documento, ensayo con preguntas cruzadas | Pendiente |
-| 5 | 13/11 al 26/11 | C2 reventa, D1 Mercado Pago y webhook, D2 resto del frontend, D3 documentación final | Pendiente |
+| Fechas | Tareas | Estado |
+|---|---|---|
+| 09/10 | Puesta a punto: convenciones, entorno, decisión del proceso asincrónico (`PAGO_CONFIRMADO`) y de la base (H2) | Hecha, salvo la identidad de git de cada integrante y el `.mailmap` |
+| 09/10 | Cambios compartidos: errores Problem Details, CORS, token de servicio, entre otros | Hechos |
+| 10/10 al 13/10 | Ventas core, mensajería, Pagos, documento de la Entrega Parcial N.º 2 | Hechas |
+| 13/10 | Integración Ventas–Pagos, frontend | Hechas. La validación QR y los patrones y tests de Ventas pasaron a la etapa siguiente |
+| 14/10 al 05/11 | Facturación SOAP, documento técnico, transacciones, validación QR; después patrones y tests de Ventas, OpenAPI, pantalla de puerta; sin bloquear, Reventa y Mercado Pago | En curso. La facturación por SOAP todavía no tiene código |
+| 06/11 al 12/11 | Congelar, revisar contra la consigna, armado desde cero, demo, documento, ensayo con preguntas cruzadas | Pendiente |
+| 13/11 al 26/11 | Reventa, Mercado Pago y webhook, resto del frontend, documentación final | Pendiente |
 
 El orden de lo que falta sigue un criterio explícito: primero lo que la consigna exige para el 13/11 y hoy no existe
 (SOAP con WSDL y documento técnico con diagramas de secuencia), después lo que suma componentes implementados
 (Facturación y Validación) y por último el resto.
 
-Cada tarea sigue el mismo ciclo, definido en `docs/PLAN_AGENTES.md`, sección 2:
+Cada tarea sigue el mismo ciclo:
 
-1. **Plan antes de código.** Se escribe el plan (qué archivos, qué decisiones) en `docs/planes/` y se aprueba antes de
-   implementar. Los contratos que comparten varias tareas están en `docs/planes/00-contratos-compartidos.md`.
+1. **Plan antes de código.** Se escribe el plan (qué archivos, qué decisiones) y se aprueba antes de implementar.
 2. **Archivos disjuntos y un dueño por módulo.** Si una tarea necesita cambiar el módulo de otra persona, se acuerda
    antes. `backend/common` y `backend/servidor` se tocan en un paso aparte, con un solo dueño, y terminan con los 8
-   servicios redesplegados y sus 8 `health` comprobados.
+   servicios redesplegados y sus 8 `health` comprobados. El contrato del mensaje `PAGO_CONFIRMADO`
+   (`docs/api/mensajeria-pago-confirmado.md`) no se cambia sin avisar al grupo.
 3. **Verificar antes de dar por hecho.** Toda tarea termina con `mvn -q test` y el `curl` de su servicio, con el
    resultado real anotado.
-4. **Nota para la defensa** en `docs/notas/` (sección 18.6).
+4. **Aviso al grupo.** Al terminar una tarea se avisa qué cambió, qué archivos se tocaron, cómo se probó (comando y
+   resultado real) y qué quedó pendiente o dudoso.
 
 ## 18.4 Flujo de trabajo con git
 
@@ -1899,8 +1898,8 @@ se tomó con el servidor armado desde cero desde ese commit, y se agregó en el 
 Hoy el repositorio tiene una sola rama (`master`) y 30 commits: 14 con la identidad `santttii`, 6 con `vfrisoli`, 5
 con `Improvement` (una identidad mal configurada que hay que atribuir a su dueño real), 3 de Sebastian Deya y 2 de
 Julián Zuchowicki. No hay commits a nombre de Joaquin Molina. Lo construido entre el 09/10 y el 14/10 entró en pocos
-commits grandes de una sola identidad, y el `.mailmap` todavía no existe. El plan lo registra como el primer riesgo
-no técnico y fija que, desde la Ola 3, cada dueño o dueña commitea su tarea en su máquina, con su identidad y en pasos
+commits grandes de una sola identidad, y el `.mailmap` todavía no existe. El grupo lo registra como el primer riesgo
+no técnico y fija que, desde el 14/10, cada dueño o dueña commitea su tarea en su máquina, con su identidad y en pasos
 chicos.
 
 ## 18.5 Tablero de tareas en Notion
@@ -1908,37 +1907,11 @@ chicos.
 Las tareas se siguen en un tablero de Notion ("Tablero de Tareas D Apps 2"): una tarjeta por tarea, que se
 corresponde con una rama. Los diez criterios de seguridad de la matriz de la clase 11 están cargados como tarjetas
 con la etiqueta "seguridad". El tablero no está en el repositorio, y el 09/10 estaba atrasado respecto del código
-(Eventos y Usuarios figuraban "Sin empezar"); su puesta al día está en la lista de pendientes de la Ola 0. La fuente
-de verdad del estado es `TODO.md` (por fases) y `docs/PLAN_AGENTES.md` (por ola y tarea).
+(Eventos y Usuarios figuraban "Sin empezar"); su puesta al día quedó pendiente desde la puesta a punto. La fuente de
+verdad del estado es `TODO.md` (por fases).
 
-## 18.6 Cómo se documenta cada tarea
-
-Cada tarea cerrada deja una nota corta en `docs/notas/<tarea>.md`, pensada para la defensa oral: qué se construyó, el
-porqué de cada decisión, qué se probó (comando y resultado real, con fecha) y qué quedó pendiente. Sirve para que
-cualquier integrante pueda defender cualquier parte, como pide la consigna.
-
-| Nota | Tarea | A cargo |
-|---|---|---|
-| `pasos-transversales.md` | T0 a T3 | T0 y T3 Santiago Loto, T1 Sebastian Deya, T2 Julian Zuchowicki |
-| `ventas-core.md` | A1 Ventas core | Sebastian Deya |
-| `mensajeria.md` | A2 mensajería `PAGO_CONFIRMADO` | Julian Zuchowicki |
-| `pagos.md` | A3 Pagos | Valentina Frisoli |
-| `docs-entrega3.md` | A4 documento de la Entrega Parcial N.º 2 | Joaquin Molina con Santiago Loto |
-| `integracion.md` | B1 integración Ventas–Pagos | Julian Zuchowicki |
-| `B2-frontend-sesion-catalogo.md` | B2 frontend: sesión y catálogo | Valentina Frisoli |
-| `B2-frontend-checkout.md` | B2 frontend: compra | Valentina Frisoli |
-| `seguridad-clase11.md` | Cambios de la matriz de seguridad de la clase 11 (16/10): límite de intentos, `idError`, PBKDF2, 401 por token inválido, secreto de servicios | SEC-W04: Santiago Loto |
-
-Las dos decisiones de seguridad que siguen abiertas tienen su borrador: `docs/decisiones/0001-vigencia-de-la-sesion.md`
-(SEC-W05, Joaquin Molina) y `docs/planes/T4-seguridad-del-broker.md` (SEC-I02, Julian Zuchowicki).
-
-Las notas de Ventas, mensajería, Pagos y el documento traen además las cinco preguntas más probables de la defensa;
-las de integración, frontend y pasos transversales todavía no. Junto con las notas, cada tarea tiene su plan en
-`docs/planes/` (A1 a A4 y C1) y, cuando define un contrato entre servicios, una especificación en
-`docs/superpowers/specs/` (por ejemplo, el mensaje `PAGO_CONFIRMADO`), que no se cambia sin avisar al grupo.
-
-Al terminar una tarea se avisa al grupo qué cambió, qué archivos se tocaron, cómo se probó (comando y resultado real) y
-qué quedó pendiente o dudoso.
+Las dos decisiones de seguridad que siguen abiertas son la vigencia de la sesión (SEC-W05, Joaquin Molina) y los
+permisos por destino en el broker (SEC-I02, Julian Zuchowicki).
 
 # 19. Evolución del diseño
 
@@ -1950,14 +1923,14 @@ Entre lo que se presentó (la Entrega Parcial N.º 1, los talleres de las clases
 |---|---|---|---|
 | `IUsuarios` | Entrega Parcial N.º 1: `registrar`, `login`, `obtenerPerfil`, `asignarRol` | `registrar`, `verificarEmail`, `reenviarCodigo`, `iniciarSesion`, `obtener` y `emitirTokenDeServicio`. `asignarRol` no existe | Hizo falta verificar el email antes de habilitar la cuenta y emitir un token para las llamadas entre servicios (rol `servicio`). Ningún flujo implementado cambia roles: las cuentas de organizador y de staff están sembradas |
 | `IVentas` | Cuatro operaciones: `iniciarCompra`, `agregarEntrada`, `confirmarCompra`, `cancelarCompra` | Tres: `iniciarCompra`, `confirmarCompra`, `cancelarCompra`. Las entradas y sus titulares van en el pedido inicial | El cupo se reserva de una sola vez en Eventos, al iniciar. Agregar entradas de a una obligaba a reservar en varios pasos y a deshacer reservas parciales |
-| Cómo se ata el componente stateful al usuario | Entrega Parcial N.º 1: "una instancia dedicada por cliente mientras dura el checkout", sin decir el mecanismo | Un índice por `ventaId` (`ComprasEnCurso`), validado con el `sub` del token. `ServicioDeVentas` es `@Stateful(passivationCapable = false)` con `@StatefulTimeout` de 10 minutos (`ReglasDeNegocio.MINUTOS_RESERVA`) | La identidad queda en un solo mecanismo, el token. Una sesión HTTP solo vale dentro de un WAR y los servicios son WAR separados (decisión P1 de `docs/planes/00-contratos-compartidos.md`) |
-| Quién vence la reserva | No estaba definido | Un barrido periódico (`VencimientoDeReservas`, `@Singleton` con `@Schedule`) sobre `vence_reserva` | La especificación avisa que `@PreDestroy` puede no ejecutarse; un solo reloj evita dos caminos para lo mismo (decisión P2) |
-| `IPagos` | Entrega Parcial N.º 1: `procesarPago`, `confirmarPago`, `reembolsar`, como integración directa con Mercado Pago | `procesarPago` y `obtener`. La pasarela va detrás de `PasarelaDePagos`, con `FabricaDePasarela` eligiendo la implementación; hoy solo existe `PagosFake` | `IPagos` es el componente (guarda y deduplica una sola vez) y la pasarela es lo intercambiable (decisión P9). `confirmarPago` y `reembolsar` dependen del webhook de Mercado Pago, que quedó como diseño (decisión P10 y decisión del 13/10 sobre D1) |
+| Cómo se ata el componente stateful al usuario | Entrega Parcial N.º 1: "una instancia dedicada por cliente mientras dura el checkout", sin decir el mecanismo | Un índice por `ventaId` (`ComprasEnCurso`), validado con el `sub` del token. `ServicioDeVentas` es `@Stateful(passivationCapable = false)` con `@StatefulTimeout` de 10 minutos (`ReglasDeNegocio.MINUTOS_RESERVA`) | La identidad queda en un solo mecanismo, el token. Una sesión HTTP solo vale dentro de un WAR y los servicios son WAR separados |
+| Quién vence la reserva | No estaba definido | Un barrido periódico (`VencimientoDeReservas`, `@Singleton` con `@Schedule`) sobre `vence_reserva` | La especificación avisa que `@PreDestroy` puede no ejecutarse; un solo reloj evita dos caminos para lo mismo |
+| `IPagos` | Entrega Parcial N.º 1: `procesarPago`, `confirmarPago`, `reembolsar`, como integración directa con Mercado Pago | `procesarPago` y `obtener`. La pasarela va detrás de `PasarelaDePagos`, con `FabricaDePasarela` eligiendo la implementación; hoy solo existe `PagosFake` | `IPagos` es el componente (guarda y deduplica una sola vez) y la pasarela es lo intercambiable. `confirmarPago` y `reembolsar` dependen del webhook de Mercado Pago, que quedó como diseño (decisión del grupo del 13/10 sobre Mercado Pago real) |
 | `INotificaciones` | `enviarConfirmacion`, `enviarRecordatorio`, `enviarAlertaCancelacion`, "multicanal" | Solo `enviarConfirmacion`, que escribe una línea en el log. La auditoría va aparte, en `IAuditoria` | No hay proveedor de email elegido ni canal definido. Los recordatorios y las alertas no tienen hoy un evento que los dispare |
-| `IFacturacion` | `emitirFactura`, `consultarEstado`, `reintentar` contra ARCA (ex AFIP) | No existe. Facturación es un WAR con solo `GET /health` | Pendiente para el 13/11 (tarea C1). Ver 19.3 |
-| Validación y Reventa | Componentes con interfaz (`IValidacion`, `IReventa`) | Esqueletos con solo `GET /health` | Se priorizó el proceso asincrónico que pedía la Entrega Parcial N.º 2. Están en el plan como B3 y C2 |
-| Capa de datos | Entrega Parcial N.º 1: `EventoRepository` vía JPA, y "tres capas separadas" en Eventos | Ventas y Pagos tienen `api/`, `negocio/` y `datos/` con Repository. En Eventos, Usuarios y Notificaciones el Session Bean usa `EntityManager` directo: no hay paquete `datos/` (`backend/servicios/eventos/src/main/java/com/palco/eventos/` tiene solo `api/`, `negocio/` y `dominio/`) | Ventas y Pagos se escribieron después y nacieron con la capa separada. Igualar los otros tres es la tarea B4 |
-| Verificación de identidad | Entrega Parcial N.º 1: DNI obligatorio para comprar y publicar | Al verificar el email se marca también `identidadVerificada` (desde el 14/10), así que una cuenta registrada puede comprar. No hay un paso aparte de verificación de identidad | El backend no tenía ninguna operación que pusiera ese dato en verdadero, y solo podía comprar la cuenta sembrada. El DNI de cada titular sigue siendo obligatorio en la compra, y en la puerta lo contrasta el staff (diseñado, pendiente con B3) |
+| `IFacturacion` | `emitirFactura`, `consultarEstado`, `reintentar` contra ARCA (ex AFIP) | No existe. Facturación es un WAR con solo `GET /health` | Pendiente para el 13/11 (la facturación por SOAP). Ver 19.3 |
+| Validación y Reventa | Componentes con interfaz (`IValidacion`, `IReventa`) | Esqueletos con solo `GET /health` | Se priorizó el proceso asincrónico que pedía la Entrega Parcial N.º 2. Quedan como trabajo futuro (sección 22) |
+| Capa de datos | Entrega Parcial N.º 1: `EventoRepository` vía JPA, y "tres capas separadas" en Eventos | Ventas y Pagos tienen `api/`, `negocio/` y `datos/` con Repository. En Eventos, Usuarios y Notificaciones el Session Bean usa `EntityManager` directo: no hay paquete `datos/` (`backend/servicios/eventos/src/main/java/com/palco/eventos/` tiene solo `api/`, `negocio/` y `dominio/`) | Ventas y Pagos se escribieron después y nacieron con la capa separada. Igualar los otros tres está pendiente (sección 22.1) |
+| Verificación de identidad | Entrega Parcial N.º 1: DNI obligatorio para comprar y publicar | Al verificar el email se marca también `identidadVerificada` (desde el 14/10), así que una cuenta registrada puede comprar. No hay un paso aparte de verificación de identidad | El backend no tenía ninguna operación que pusiera ese dato en verdadero, y solo podía comprar la cuenta sembrada. El DNI de cada titular sigue siendo obligatorio en la compra, y en la puerta lo contrasta el staff (diseñado, pendiente con la validación en puerta) |
 
 ## 19.2 Integración y mensajería
 
@@ -1966,10 +1939,10 @@ Entre lo que se presentó (la Entrega Parcial N.º 1, los talleres de las clases
 | Broker | Entrega Parcial N.º 1 y clase 6: entre los sistemas externos | ActiveMQ Artemis embebido en WildFly, configurado en `backend/servidor/src/main/wildfly/configurar.cli`. Es infraestructura propia; los externos son Mercado Pago y ARCA | Viene con el servidor de aplicaciones y no hay que operar otro proceso |
 | Modelo de integración | Clase 6: bus de integración (ESB) conceptual | REST directo entre servicios, el broker para lo asincrónico y un adaptador por sistema externo | Con ocho servicios y dos externos, un bus suma una pieza más sin resolver un problema que hoy exista |
 | Quién publica | Diagrama de la Entrega Parcial N.º 1: la flecha asincrónica sale de Notificaciones | Publica Ventas (`PublicadorPagoConfirmadoJms`, en `common`), en la misma transacción que confirma la venta. Notificaciones consume | El hecho que dispara todo es la confirmación del pago, que ocurre en Ventas |
-| Emisión de la entrada | Clase 8: "hoy es una llamada síncrona interna" | Va por la cola `cola.emision-entradas`. Las entradas nacen `PENDIENTE_EMISION` en la transacción del pago y `EmisionDeEntradasMDB` las pasa a `VALIDA` | La respuesta del pago no espera la emisión, y la cola garantiza que se procese una sola vez aunque haya varias instancias del consumidor. Que las entradas se creen en la transacción del pago (y no en el MDB) permite que `GET /entradas/{id}` responda apenas vuelve el pago (decisión P4) |
+| Emisión de la entrada | Clase 8: "hoy es una llamada síncrona interna" | Va por la cola `cola.emision-entradas`. Las entradas nacen `PENDIENTE_EMISION` en la transacción del pago y `EmisionDeEntradasMDB` las pasa a `VALIDA` | La respuesta del pago no espera la emisión, y la cola garantiza que se procese una sola vez aunque haya varias instancias del consumidor. Que las entradas se creen en la transacción del pago (y no en el MDB) permite que `GET /entradas/{id}` responda apenas vuelve el pago |
 | A quién se avisa | Clase 9: al comprador y al organizador. Clase 8: por email o SMS | Solo al comprador, con una línea en el log (`AvisoDeCompraMDB`) | El mensaje `PAGO_CONFIRMADO` no trae al organizador, y no hay proveedor de email |
-| Garantía entre la venta y el mensaje | No estaba definida | La base no es XA y participa como último recurso; los consumidores son idempotentes (UPDATE condicionales) | La consigna pide transacciones declarativas y explicar las fallas, no un commit en dos fases. Una base XA no está verificada contra Supabase (decisión P3) |
-| Facturación con ARCA | Clases 9 y 10: SOAP síncrono con espera de 5 segundos y cola de reintento. La clase 9 dice que es "el que vamos a implementar" para la Entrega Parcial N.º 2 | No está implementado: `facturaEstado` vale `NO_APLICA` (`Venta.java:111`). El diseño sigue y está en `docs/planes/C1-facturacion-soap.md`, con decisiones a aprobar | Se priorizó el proceso con mensajería real que pedía el checkpoint. La consigna exige SOAP con WSDL recién para el 13/11 |
+| Garantía entre la venta y el mensaje | No estaba definida | La base no es XA y participa como último recurso; los consumidores son idempotentes (UPDATE condicionales) | La consigna pide transacciones declarativas y explicar las fallas, no un commit en dos fases. Una base XA no está verificada contra Supabase |
+| Facturación con ARCA | Clases 9 y 10: SOAP síncrono con espera de 5 segundos y cola de reintento. La clase 9 dice que es "el que vamos a implementar" para la Entrega Parcial N.º 2 | No está implementado: `facturaEstado` vale `NO_APLICA` (`Venta.java:111`). El diseño sigue, con decisiones a aprobar | Se priorizó el proceso con mensajería real que pedía el checkpoint. La consigna exige SOAP con WSDL recién para el 13/11 |
 | Por qué la llamada a ARCA es síncrona | Clase 9: "la venta no puede darse por válida sin un CAE autorizado" | Desde la clase 10 la compra se confirma aunque ARCA no responda, porque el pago ya está cobrado. Es síncrona porque SOAP es pedido y respuesta, y se hace dentro de la compra para devolver la factura en la misma respuesta cuando ARCA contesta a tiempo | Bloquear una compra cobrada por una falla de un tercero es peor que facturar después |
 | Aviso de Mercado Pago (webhook) | Clase 10: tratado como asincrónico | Se clasifica por su canal, REST; para la compra, el resultado llega de forma asincrónica. Es "Diseñado, pendiente" (`docs/entrega-obligatoria-2/diagramas/diagrama_secuencia_mercadopago.svg`) | La clasificación de la consigna es por mecanismo de integración |
 
@@ -1977,13 +1950,13 @@ Entre lo que se presentó (la Entrega Parcial N.º 1, los talleres de las clases
 
 | Tema | Qué se presentó | Qué vale hoy | Motivo |
 |---|---|---|---|
-| Rutas | Clase 10: todo bajo `/api/v1` | `/api/v1` en Ventas y Pagos (`/api/v1/pagos`). Usuarios, Eventos y Notificaciones siguen en `/api/<servicio>`; Validación, Reventa y Facturación tienen solo `/api/<servicio>/health` | Pasar los servicios que ya funcionaban cambiaba rutas que usan el frontend, Postman, los guiones y la evidencia, y la consigna no lo pide (decisión P7). Queda como posible tarea de C4 |
+| Rutas | Clase 10: todo bajo `/api/v1` | `/api/v1` en Ventas y Pagos (`/api/v1/pagos`). Usuarios, Eventos y Notificaciones siguen en `/api/<servicio>`; Validación, Reventa y Facturación tienen solo `/api/<servicio>/health` | Pasar los servicios que ya funcionaban cambiaba rutas que usan el frontend, Postman, los guiones y la evidencia, y la consigna no lo pide. Queda como posible tarea al poner al día el contrato OpenAPI |
 | Operaciones de Ventas | Catálogo de la clase 10: cuatro operaciones | Además existen `GET /ventas` (las compras de quien pregunta), `GET` y `DELETE /ventas/{id}` y `GET /entradas/{id}`. La venta trae `items`, `entradas`, `subtotal`, `cargoServicio`, `pagoId` y `eventoId` | El frontend necesitaba listar las compras ("Mis entradas") y cancelar desde el checkout |
 | Pago pendiente | Clase 10: el pago responde 202 si queda pendiente | No hay 202: el pago responde aprobado, rechazado (402) o sin respuesta (504) | Con `PagosFake` no hay pagos diferidos. El 202 vuelve con el webhook de Mercado Pago, que está diseñado |
 | Quién ve la entrada | Clase 10: "solo el titular" | La ve el comprador. Una venta o entrada ajena responde 404, igual que una inexistente | El titular puede no tener cuenta en Palco: es una persona con nombre y DNI cargada por el comprador |
 | Idempotencia | Clase 10: el servidor guarda clave → respuesta | La clave (`Idempotency-Key`) se guarda en la venta y se devuelve la venta en su estado actual | Devolver el estado actual es más útil que repetir una respuesta vieja, y no exige otra tabla |
-| Identificadores | Clases 8 y 10: correlativos, como `V-00231` | Un prefijo y 8 caracteres al azar, como `V-e022b63c` | Con H2 en memoria la numeración vuelve a 1 en cada reinicio mientras el broker conserva mensajes viejos, y se podían repetir ids (decisión P5) |
-| Formato de los errores | Clase 10, para Eventos: `{estado, mensaje, campos}`, con Problem Details como pendiente | Problem Details (RFC 9457) en todos los servicios: `common/rest/Problema.java` y `ManejadoresDeErrores` | Un solo formato para los ocho servicios, adoptado antes de que Ventas y Pagos sumaran el suyo (decisión P8). El documento de la clase 10 (`actividad_integradora_clase10`) se corrigió el 16/10: dice que Eventos ya responde en Problem Details y que Ventas y Pagos están en `/api/v1`. Desde el 16/10 también salen en Problem Details el 401 por token inválido, que antes emitía el servidor en `text/html`, y el 429 del límite de intentos; el 500 suma el miembro `idError` |
+| Identificadores | Clases 8 y 10: correlativos, como `V-00231` | Un prefijo y 8 caracteres al azar, como `V-e022b63c` | Con H2 en memoria la numeración vuelve a 1 en cada reinicio mientras el broker conserva mensajes viejos, y se podían repetir ids |
+| Formato de los errores | Clase 10, para Eventos: `{estado, mensaje, campos}`, con Problem Details como pendiente | Problem Details (RFC 9457) en todos los servicios: `common/rest/Problema.java` y `ManejadoresDeErrores` | Un solo formato para los ocho servicios, adoptado antes de que Ventas y Pagos sumaran el suyo. El documento de la clase 10 (`actividad_integradora_clase10`) se corrigió el 16/10: dice que Eventos ya responde en Problem Details y que Ventas y Pagos están en `/api/v1`. Desde el 16/10 también salen en Problem Details el 401 por token inválido, que antes emitía el servidor en `text/html`, y el 429 del límite de intentos; el 500 suma el miembro `idError` |
 | Contrato OpenAPI | Clase 10: contract-first, `openapi-palco-v1.yaml` | `docs/api/openapi.yaml` se actualizó el 14/10 con lo implementado. Validación, Reventa y Facturación figuran como diseño | La implementación se adelantó al contrato en la primera tanda de trabajo; la diferencia se cerró antes del checkpoint |
 
 ## 19.4 Nombres
@@ -1997,7 +1970,7 @@ Estado leído en el código el 16/10. "Implementado" quiere decir que funciona c
 | Parte | Estado | Detalle |
 |---|---|---|
 | Usuarios: registro, verificación de email, inicio de sesión, JWT RS256, token de servicio | Implementado | El código de verificación no se envía: queda en el log del servidor, porque no hay proveedor de email (simulado) |
-| Eventos: catálogo, alta por el organizador, cupo por sector | Implementado | Sin capa `datos/` separada (B4); tests solo en `ServicioDeEventosTest` |
+| Eventos: catálogo, alta por el organizador, cupo por sector | Implementado | Sin capa `datos/` separada (pendiente, sección 22.1); tests solo en `ServicioDeEventosTest` |
 | Ventas: reserva stateful, pago, cancelación, vencimiento, idempotencia | Implementado | `facturaEstado` vale siempre `NO_APLICA` |
 | Pagos: API, guardado, deduplicación por clave, control por rol | Implementado | La pasarela es `PagosFake`: `tok_rechazado` rechaza, `tok_sin_respuesta` no contesta y cualquier otro aprueba. No mueve plata |
 | `CobrosFake` en Ventas | Simulado, apagado en el servidor | Existe para trabajar en Ventas sin Pagos (`palco.ventas.cobros=fake`). No está activo en la evidencia |
@@ -2006,8 +1979,8 @@ Estado leído en el código el 16/10. "Implementado" quiere decir que funciona c
 | Auditoría por suscripción durable (`AuditoriaDeComprasMDB`) | Implementado | Recibe lo pendiente al volver |
 | Aviso de compra por suscripción no durable (`AvisoDeCompraMDB`) | Simulado | Escribe una línea en el log; no envía email |
 | Endpoints `/api/notificaciones/pruebas/*` | Implementado, solo para desarrollo | Publican mensajes de prueba (`ventaId` que empieza con `prueba-`); van en el WAR que se despliega |
-| Transacción declarativa de `confirmarCompra` | Implementado | `REQUIRED` en la compra, `MANDATORY` en el publicador. La falla a mitad del flujo se probó una vez con un WAR temporal que no quedó en el repo (C3) |
-| Facturación SOAP con ARCA | Diseñado, pendiente | No hay ninguna clase con `@WebService` en `backend/` ni capa `webservices` en `backend/servidor/pom.xml`. Plan: `docs/planes/C1-facturacion-soap.md` |
+| Transacción declarativa de `confirmarCompra` | Implementado | `REQUIRED` en la compra, `MANDATORY` en el publicador. La falla a mitad del flujo se probó una vez con un WAR temporal que no quedó en el repo |
+| Facturación SOAP con ARCA | Diseñado, pendiente | No hay ninguna clase con `@WebService` en `backend/` ni capa `webservices` en `backend/servidor/pom.xml` |
 | Mercado Pago real y su webhook | Diseñado, pendiente | Diagrama de secuencia en `docs/entrega-obligatoria-2/diagramas/`. Los estados `PENDIENTE`, `VENCIDO` y `REEMBOLSADO` existen en `EstadoPago` y nadie los escribe |
 | Validación en puerta | Diseñado, pendiente | Solo `GET /api/validacion/health` |
 | Reventa oficial | Diseñado, pendiente | Solo `GET /api/reventa/health`. Las reglas (tope +10 %, tasa) ya están en `common/ReglasDeNegocio` |
@@ -2015,63 +1988,63 @@ Estado leído en el código el 16/10. "Implementado" quiere decir que funciona c
 | Frontend: sesión, catálogo, alta de eventos, compra y "Mis entradas" | Implementado | Llaman al backend (`frontend/src/servicios/`) |
 | Frontend: reventa, puerta y estadísticas del organizador | Simulado | Datos locales (`localStorage` en `frontend/src/store/AppContext.tsx` y datos fijos en `frontend/src/data/`) |
 | Seguridad: roles declarativos, recurso ajeno como 404, contraseñas PBKDF2 (600.000 iteraciones para los hashes nuevos; la migración V5 de Usuarios rehashea las cuentas de prueba) | Implementado | Matriz de la clase 11, tal como se armó: 2 criterios cumplen con test, 4 cumplen en código, 1 parcial, 2 no cumplen y 1 no se puede verificar todavía. Uno de los dos que no cumplían, SEC-W04, ya está implementado (fila siguiente); los veredictos de la matriz se actualizan solo con el test ejecutado |
-| Límite de intentos de login (SEC-W04) | Implementado (16/10, sin commit) | 5 fallidos en 15 minutos para un mismo email → 429 `/problemas/demasiados-intentos` con `Retry-After`, aunque la clave sea correcta y también para emails sin cuenta. Tabla `intento_login` (migración V4, guarda el SHA-256 del email), Session Bean `IntentosDeLogin`; un login correcto borra los fallidos. Probado con `LimiteDeIntentosDeLoginTest` y en vivo el 16/10 (el 6.º intento dio 429 con `Retry-After: 898`) |
-| 401 por token inválido en Problem Details | Implementado (16/10, sin commit) | `web-fragment.xml` y `ErrorDeAutenticacionServlet` en `backend/common`: `application/problem+json` (`/problemas/token-invalido`), `WWW-Authenticate: Bearer error="invalid_token"` y cabeceras CORS. Probado en vivo el 16/10 contra `GET /api/v1/ventas` |
-| Id de error en el 500 | Implementado (16/10, sin commit) | `ManejadoresDeErrores.Inesperado` genera un UUID, lo escribe en el log con la traza y lo devuelve como `idError`. Probado con `ErrorInesperadoTest`; no se provocó un 500 en vivo |
-| Vigencia del token (SEC-W05) y permisos por destino en el broker (SEC-I02) | Diseñado, pendiente | Borradores para decidir en grupo: `docs/decisiones/0001-vigencia-de-la-sesion.md` y `docs/planes/T4-seguridad-del-broker.md`. El request SEC-W05c de Postman falla a propósito mientras la sesión dure 8 horas |
+| Límite de intentos de login (SEC-W04) | Implementado (16/10) | 5 fallidos en 15 minutos para un mismo email → 429 `/problemas/demasiados-intentos` con `Retry-After`, aunque la clave sea correcta y también para emails sin cuenta. Tabla `intento_login` (migración V4, guarda el SHA-256 del email), Session Bean `IntentosDeLogin`; un login correcto borra los fallidos. Probado con `LimiteDeIntentosDeLoginTest` y en vivo el 16/10 (el 6.º intento dio 429 con `Retry-After: 898`) |
+| 401 por token inválido en Problem Details | Implementado (16/10) | `web-fragment.xml` y `ErrorDeAutenticacionServlet` en `backend/common`: `application/problem+json` (`/problemas/token-invalido`), `WWW-Authenticate: Bearer error="invalid_token"` y cabeceras CORS. Probado en vivo el 16/10 contra `GET /api/v1/ventas` |
+| Id de error en el 500 | Implementado (16/10) | `ManejadoresDeErrores.Inesperado` genera un UUID, lo escribe en el log con la traza y lo devuelve como `idError`. Probado con `ErrorInesperadoTest`; no se provocó un 500 en vivo |
+| Vigencia del token (SEC-W05) y permisos por destino en el broker (SEC-I02) | Diseñado, pendiente | Pendientes de decisión del grupo. El request SEC-W05c de Postman falla a propósito mientras la sesión dure 8 horas |
 
 # 21. Limitaciones conocidas
 
-Cada limitación sale de las notas de `docs/notas/`, de los contratos (`docs/planes/00-contratos-compartidos.md`, secciones 11 y 12) o del documento de integración. Se ordenan por impacto.
+Cada limitación sale del código o del documento de integración (`docs/entrega3/Entrega_Parcial_2_Integracion.md`). Se ordenan por impacto.
 
 | N.º | Limitación | Impacto | Cómo se resolvería | Tarea |
 |---|---|---|---|---|
-| L1 | **Un cobro sin resultado cuya compra ya no tiene instancia queda retenido.** Después de un 504 de Pagos o una falla inesperada al confirmar, la venta queda `EN_CHECKOUT` con `clave_pago`. Si la instancia stateful muere (10 minutos sin llamadas o un redespliegue), pagar y cancelar responden 409 `operacion-en-curso` y el barrido la saltea | La venta y su cupo quedan tomados hasta resolverlo a mano. Es a propósito: Ventas no sabe si Pagos cobró, y liberarla podría vender dos veces un lugar ya cobrado | Una conciliación que le pregunta a Pagos por esa clave y confirma la venta o libera el cupo. Hoy se resuelve a mano con el procedimiento de `docs/notas/ventas-core.md`; Pagos no tiene consulta por clave ni por venta | C3 |
-| L2 | **La devolución de cupo no se reintenta.** Al cancelar o vencer, Ventas le devuelve el cupo a Eventos una sola vez; si falla, queda un `WARNING` y nada en la base lo recuerda | Esos lugares quedan sin vender. Nunca se vende uno dos veces | Una marca de devolución pendiente en la venta que el barrido revisa hasta que Eventos acepte, con una devolución segura de repetir | C3 |
-| L3 | **La caída entre el commit de la base y el del broker no está probada** | Con la base como último recurso, una caída en ese instante podría dejar la venta confirmada sin su mensaje, o al revés | Se documenta como no probada. Una tabla de salida (outbox) con un proceso que publica lo cerraría (alternativa (c) de P3) | C3 la documenta |
+| L1 | **Un cobro sin resultado cuya compra ya no tiene instancia queda retenido.** Después de un 504 de Pagos o una falla inesperada al confirmar, la venta queda `EN_CHECKOUT` con `clave_pago`. Si la instancia stateful muere (10 minutos sin llamadas o un redespliegue), pagar y cancelar responden 409 `operacion-en-curso` y el barrido la saltea | La venta y su cupo quedan tomados hasta resolverlo a mano. Es a propósito: Ventas no sabe si Pagos cobró, y liberarla podría vender dos veces un lugar ya cobrado | Una conciliación que le pregunta a Pagos por esa clave y confirma la venta o libera el cupo. Hoy se resuelve a mano; Pagos no tiene consulta por clave ni por venta | Fallas a mitad del flujo (Sebastian) |
+| L2 | **La devolución de cupo no se reintenta.** Al cancelar o vencer, Ventas le devuelve el cupo a Eventos una sola vez; si falla, queda un `WARNING` y nada en la base lo recuerda | Esos lugares quedan sin vender. Nunca se vende uno dos veces | Una marca de devolución pendiente en la venta que el barrido revisa hasta que Eventos acepte, con una devolución segura de repetir | Fallas a mitad del flujo (Sebastian) |
+| L3 | **La caída entre el commit de la base y el del broker no está probada** | Con la base como último recurso, una caída en ese instante podría dejar la venta confirmada sin su mensaje, o al revés | Se documenta como no probada. Una tabla de salida (outbox) con un proceso que publica lo cerraría | Fallas a mitad del flujo (Sebastian) la documenta |
 | L4 | **Redesplegar Ventas corta las compras en curso.** El índice y los titulares viven en memoria | Las compras en curso se pueden consultar y cancelar, pero pagar responde 409 `reserva-vencida` | Aceptado: la reserva dura 10 minutos. Persistir los titulares en la reserva permitiría retomarla | — |
 | L5 | **La base de desarrollo es H2 en memoria.** Las migraciones no se corrieron contra PostgreSQL | Todo se borra al reiniciar WildFly; un error de SQL en Supabase aparecería recién al conectarla | Conectar Supabase y correr las migraciones | Fase 13 de `TODO.md`, sin dueño |
-| L6 | **El secreto de servicios todavía tiene un valor de desarrollo escrito en el repo** (`palco-desarrollo`, `TokenDeServicio.java:57`), y el servidor arranca con él si no hay otro. El servidor de desarrollo del grupo ya arranca con un `PALCO_SECRETO_SERVICIOS` propio en `backend/.env` (que no se versiona), y los guiones y Postman lo toman de ahí | Fuera de desarrollo, un servidor sin la variable aceptaría el secreto público y quien lea el repo podría pedir un token de servicio | Que fuera de desarrollo el arranque falle sin la variable: propuesta en `docs/notas/seguridad-clase11.md`, no implementada | T5 de seguridad |
-| L7 | **La sesión dura 8 horas sin refresh token ni revocación** (SEC-W05, "parcial") | Un token robado vale hasta 8 horas; cerrar sesión no lo invalida. El request SEC-W05c de Postman falla por esto, a propósito | Bajar la vigencia con refresh revocable, o justificar las 8 horas. Las opciones están en el borrador `docs/decisiones/0001-vigencia-de-la-sesion.md` (estado: propuesto) | T3 de seguridad (Joaquin), a decidir en grupo |
-| L8 | **El broker no tiene permisos por destino** (SEC-I02, "no cumple") | Cualquier conexión puede publicar o consumir en cualquier cola o tópico | Un usuario por servicio con `security-setting` por destino en `configurar.cli`. Propuesta en `docs/planes/T4-seguridad-del-broker.md`, sin nada aplicado | T4 de seguridad (Julian), a decidir en grupo |
+| L6 | **El secreto de servicios todavía tiene un valor de desarrollo escrito en el repo** (`palco-desarrollo`, `TokenDeServicio.java:57`), y el servidor arranca con él si no hay otro. El servidor de desarrollo del grupo ya arranca con un `PALCO_SECRETO_SERVICIOS` propio en `backend/.env` (que no se versiona), y los guiones y Postman lo toman de ahí | Fuera de desarrollo, un servidor sin la variable aceptaría el secreto público y quien lea el repo podría pedir un token de servicio | Que fuera de desarrollo el arranque falle sin la variable: propuesto, no implementado | Seguridad de la clase 11 |
+| L7 | **La sesión dura 8 horas sin refresh token ni revocación** (SEC-W05, "parcial") | Un token robado vale hasta 8 horas; cerrar sesión no lo invalida. El request SEC-W05c de Postman falla por esto, a propósito | Bajar la vigencia con refresh revocable, o justificar las 8 horas. Pendiente de decisión del grupo | Vigencia de la sesión (Joaquin), a decidir en grupo |
+| L8 | **El broker no tiene permisos por destino** (SEC-I02, "no cumple") | Cualquier conexión puede publicar o consumir en cualquier cola o tópico | Un usuario por servicio con `security-setting` por destino en `configurar.cli`. Hay una propuesta, sin nada aplicado | Permisos del broker (Julian), a decidir en grupo |
 | L9 | **El DNI del titular viaja completo en el mensaje** y queda en la columna `cuerpo` de auditoría (la consulta no lo devuelve) | Un dato sensible queda guardado fuera de Ventas | Mandar solo ids y que quien necesite el DNI lo pida | Fase 12 de `TODO.md` |
 | L10 | **Los endpoints `/pruebas/*` van en el WAR que se despliega** | Cada prueba deja un aviso en el log, una fila de auditoría con `ventaId` `prueba-…`, una copia en la cola y, si es inválido, un mensaje en la `DLQ` | Habilitarlos con una variable de entorno (404 si falta) y excluir de la auditoría las filas de prueba | Sin tarea |
-| L11 | **Pagos y la clave de idempotencia.** Tras un rechazo, la misma clave devuelve siempre ese rechazo; dos pedidos simultáneos con la misma clave llaman dos veces a la pasarela; si la pasarela cobra y falla el guardado, el pago queda sin registro hasta el reintento | Con `PagosFake` no hay impacto. Con Mercado Pago dependería de que deduplique por la clave | Guardar el pedido antes de llamar a la pasarela y deduplicar con Mercado Pago por su clave de idempotencia | D1 |
-| L12 | **El monto que recibe Pagos se convierte antes de validarse**: el conversor de JSON trunca decimales y recorta números que no entran en un `long` | Pagos confía en Ventas, su único cliente. Un cliente nuevo (Reventa) podría cobrar otro monto | Recibir el monto como `BigDecimal` y rechazar lo que no sea entero | A decidir por el grupo, antes de C2 |
-| L13 | **Dos pedidos simultáneos con la misma clave reservan los dos** en Ventas | Si queda lugar para uno, el otro recibe 409 `cupo-agotado`; al repetirlo recibe la venta | Aceptado (decisión 8 de `docs/notas/ventas-core.md`) | — |
+| L11 | **Pagos y la clave de idempotencia.** Tras un rechazo, la misma clave devuelve siempre ese rechazo; dos pedidos simultáneos con la misma clave llaman dos veces a la pasarela; si la pasarela cobra y falla el guardado, el pago queda sin registro hasta el reintento | Con `PagosFake` no hay impacto. Con Mercado Pago dependería de que deduplique por la clave | Guardar el pedido antes de llamar a la pasarela y deduplicar con Mercado Pago por su clave de idempotencia | Mercado Pago real (Valentina) |
+| L12 | **El monto que recibe Pagos se convierte antes de validarse**: el conversor de JSON trunca decimales y recorta números que no entran en un `long` | Pagos confía en Ventas, su único cliente. Un cliente nuevo (Reventa) podría cobrar otro monto | Recibir el monto como `BigDecimal` y rechazar lo que no sea entero | A decidir por el grupo, antes de Reventa |
+| L13 | **Dos pedidos simultáneos con la misma clave reservan los dos** en Ventas | Si queda lugar para uno, el otro recibe 409 `cupo-agotado`; al repetirlo recibe la venta | Aceptado | — |
 | L14 | **El listado de auditoría no ordena dentro del mismo segundo** (`recibido_en` truncada a segundos) | Tras una caída de la auditoría, varias filas quedan con la misma hora | Una columna de orden en una migración nueva | Sin tarea |
 | L15 | **Sin probar bajo carga:** más de 80 compras o 60 pagos a la vez, el arranque en frío de WildFly, Eventos o Usuarios caídos (solo con tests) | Desconocido | Pruebas de carga y de caída en el servidor | Fase 11 de `TODO.md` |
-| L16 | **Capas sin separar en Eventos, Usuarios y Notificaciones**, y Eventos con pocos tests (un archivo, `ServicioDeEventosTest`, con 8 casos) | La consigna pide capas explícitas en cada componente | Repository en los tres, ampliando los tests de Eventos antes del cambio | B4 |
-| L17 | **El límite de intentos de login es por email** | Quien conozca el email de otra persona puede bloquearle el login 15 minutos con 5 intentos fallidos | Contar también por IP. Aceptado para esta etapa (`docs/notas/seguridad-clase11.md`) | Sin tarea |
+| L16 | **Capas sin separar en Eventos, Usuarios y Notificaciones**, y Eventos con pocos tests (un archivo, `ServicioDeEventosTest`, con 8 casos) | La consigna pide capas explícitas en cada componente | Repository en los tres, ampliando los tests de Eventos antes del cambio | Capas explícitas (Sebastian) |
+| L17 | **El límite de intentos de login es por email** | Quien conozca el email de otra persona puede bloquearle el login 15 minutos con 5 intentos fallidos | Contar también por IP. Aceptado para esta etapa | Sin tarea |
 
 # 22. Trabajo futuro
 
-Ordenado por importancia: primero lo que la consigna exige para la Entrega Obligatoria N.º 2 (13/11) y hoy no existe; después, lo que hace falta para el sistema completo del 27/11 (Prueba del TP Obligatorio). Los responsables y las fechas salen del reparto de `docs/PLAN_AGENTES.md`.
+Ordenado por importancia: primero lo que la consigna exige para la Entrega Obligatoria N.º 2 (13/11) y hoy no existe; después, lo que hace falta para el sistema completo del 27/11 (Prueba del TP Obligatorio). Los responsables y las fechas salen del reparto del grupo.
 
 ## 22.1 Para la Entrega Obligatoria N.º 2 (13/11)
 
-| Orden | Qué falta | Por qué es prioritario | Tarea | Responsable | Fecha de cierre del plan |
+| Orden | Qué falta | Por qué es prioritario | Tarea | Responsable | Fecha de cierre prevista |
 |---|---|---|---|---|---|
-| 1 | Servicio SOAP con su WSDL: un sistema legado simulado que hace de ARCA, `ServicioDeFacturación` como cliente y una factura por compra confirmada. Después, espera de 5 segundos y `cola.reintento-facturacion` | La consigna lo exige y no existe nada. Si la cola de reintento se implementa, suma un segundo proceso asincrónico por cola | C1 | Santiago (revisa Julian) | 28/10; punto de control el 23/10 |
-| 2 | Documento técnico de 8 a 12 páginas con un diagrama de secuencia por integración | La consigna lo exige y no existe. Cada diagrama lo dibuja quien defiende esa integración | C5 | Joaquin integra; cada dueño su diagrama | Borrador el 31/10; PDF el 11/11 |
-| 3 | Prueba repetible de la falla a mitad del flujo, conciliación de cobros sin resultado (L1) y reintento de la devolución de cupo (L2) | La defensa pregunta qué pasa con la transacción si algo falla a mitad del flujo | C3 | Sebastian | 28/10 |
-| 4 | Validación en puerta: `ServicioDeValidación` stateless, escaneo con uso único atómico para el rol `staff` | Es el séptimo componente y cubre el mínimo de seis si C1 se atrasa | B3 | Joaquin | 25/10 |
-| 5 | Capas explícitas (Repository) en Eventos, Usuarios y Notificaciones, y más tests de Eventos | La consigna pide capas explícitas en cada componente | B4 | Sebastian | 05/11 (línea de corte) |
-| 6 | `openapi.yaml` al día con Facturación y Validación | Entra en el paquete de diseño del 06/11 | C4 | Santiago | 04/11 |
-| 7 | Seguridad de la clase 11, lo que queda: decidir en grupo la vigencia del token (SEC-W05, L7) sobre el borrador `docs/decisiones/0001-vigencia-de-la-sesion.md` y los permisos por destino en el broker (SEC-I02, L8) sobre `docs/planes/T4-seguridad-del-broker.md`, e implementar lo que se decida; que el arranque falle sin secreto de servicios fuera de desarrollo (L6). El límite de intentos de login, el 401 en Problem Details y el `idError` del 500 ya están implementados y probados (16/10), falta commitearlos | SEC-I02 "no cumple" y SEC-W05 es "parcial"; el request SEC-W05c de Postman sigue en rojo hasta decidir | T3, T4 y T5 de la clase 11 | Joaquin (T3), Julian (T4) | Sin fecha: depende de la decisión del grupo |
-| 8 | Pantalla de puerta conectada a Validación | Muestra B3 desde el frontend | D2 | Valentina | 03/11 |
+| 1 | Servicio SOAP con su WSDL: un sistema legado simulado que hace de ARCA, `ServicioDeFacturación` como cliente y una factura por compra confirmada. Después, espera de 5 segundos y `cola.reintento-facturacion` | La consigna lo exige y no existe nada. Si la cola de reintento se implementa, suma un segundo proceso asincrónico por cola | Facturación por SOAP | Santiago (revisa Julian) | 28/10; punto de control el 23/10 |
+| 2 | Documento técnico de 8 a 12 páginas con un diagrama de secuencia por integración | La consigna lo exige y no existe. Cada diagrama lo dibuja quien defiende esa integración | Documento técnico | Joaquin integra; cada dueño su diagrama | Borrador el 31/10; PDF el 11/11 |
+| 3 | Prueba repetible de la falla a mitad del flujo, conciliación de cobros sin resultado (L1) y reintento de la devolución de cupo (L2) | La defensa pregunta qué pasa con la transacción si algo falla a mitad del flujo | Fallas a mitad del flujo | Sebastian | 28/10 |
+| 4 | Validación en puerta: `ServicioDeValidación` stateless, escaneo con uso único atómico para el rol `staff` | Es el séptimo componente y cubre el mínimo de seis si la facturación por SOAP se atrasa | Validación en puerta | Joaquin | 25/10 |
+| 5 | Capas explícitas (Repository) en Eventos, Usuarios y Notificaciones, y más tests de Eventos | La consigna pide capas explícitas en cada componente | Capas explícitas | Sebastian | 05/11 (línea de corte) |
+| 6 | `openapi.yaml` al día con Facturación y Validación | Entra en el paquete de diseño del 06/11 | Contrato OpenAPI | Santiago | 04/11 |
+| 7 | Seguridad de la clase 11, lo que queda: decidir en grupo la vigencia del token (SEC-W05, L7) y los permisos por destino en el broker (SEC-I02, L8), e implementar lo que se decida; que el arranque falle sin secreto de servicios fuera de desarrollo (L6). El límite de intentos de login, el 401 en Problem Details y el `idError` del 500 ya están implementados y probados (16/10), falta commitearlos | SEC-I02 "no cumple" y SEC-W05 es "parcial"; el request SEC-W05c de Postman sigue en rojo hasta decidir | Seguridad de la clase 11: vigencia de la sesión, permisos del broker y secreto de servicios | Joaquin (vigencia de la sesión), Julian (permisos del broker) | Sin fecha: depende de la decisión del grupo |
+| 8 | Pantalla de puerta conectada a Validación | Muestra la validación en puerta desde el frontend | Pantalla de puerta | Valentina | 03/11 |
 
 ## 22.2 Para el sistema completo (27/11)
 
-| Orden | Qué falta | Por qué | Tarea | Responsable | Fecha de cierre del plan |
+| Orden | Qué falta | Por qué | Tarea | Responsable | Fecha de cierre prevista |
 |---|---|---|---|---|---|
-| 1 | Reventa oficial: publicar, retirar, listar y comprar, con tope de +10 %, mínimo de 50 % y cierre 3 horas antes; cobro por Pagos, cambio de titular en Ventas e invalidación del QR por Validación | Es el octavo componente y lo que distingue al producto | C2 | Julian | 17/11 (para el checkpoint del 20/11) |
-| 2 | Pantallas de reventa y panel del organizador contra el backend | Hoy usan datos locales ("Mis entradas" ya lista las compras desde Ventas, `listarCompras` en `frontend/src/servicios/ventas.ts`) | D2 | Valentina | Reventa el 19/11; panel el 24/11 |
-| 3 | Documentación final de 10 a 15 páginas | La exige la Entrega Final | D3 | Joaquin integra, con los cinco | 25/11 |
+| 1 | Reventa oficial: publicar, retirar, listar y comprar, con tope de +10 %, mínimo de 50 % y cierre 3 horas antes; cobro por Pagos, cambio de titular en Ventas e invalidación del QR por Validación | Es el octavo componente y lo que distingue al producto | Reventa oficial | Julian | 17/11 (para el checkpoint del 20/11) |
+| 2 | Pantallas de reventa y panel del organizador contra el backend | Hoy usan datos locales ("Mis entradas" ya lista las compras desde Ventas, `listarCompras` en `frontend/src/servicios/ventas.ts`) | Pantallas de reventa y del organizador | Valentina | Reventa el 19/11; panel el 24/11 |
+| 3 | Documentación final de 10 a 15 páginas | La exige la Entrega Final | Documentación final | Joaquin integra, con los cinco | 25/11 |
 | 4 | Backend del panel del organizador (estadísticas) | El panel no tiene backend ni dueño (Fase 9 de `TODO.md`) | Sin tarea asignada | A definir | — |
-| 5 | Mercado Pago real con su webhook | Decidido el 13/10 como "Diseñado, pendiente": el requisito REST lo cubre la API propia. Se retoma solo si la cátedra pide una pasarela real (pregunta 11 de `docs/PLAN_AGENTES.md`) | D1 | Valentina | Sin fecha |
+| 5 | Mercado Pago real con su webhook | Decidido el 13/10 como "Diseñado, pendiente": el requisito REST lo cubre la API propia. Se retoma solo si la cátedra pide una pasarela real | Mercado Pago real | Valentina | Sin fecha |
 | 6 | Base en PostgreSQL (Supabase), CI y hosting | La base de desarrollo se borra al reiniciar (L5) | Fase 13 de `TODO.md` | A definir | — |
-| 7 | Aviso de compra por email | Hoy es una línea en el log. Falta elegir proveedor y pedirle a Usuarios el email del comprador | Sin código de tarea | Julian, solo si sobra tiempo | Sin fecha |
+| 7 | Aviso de compra por email | Hoy es una línea en el log. Falta elegir proveedor y pedirle a Usuarios el email del comprador | Aviso por email | Julian, solo si sobra tiempo | Sin fecha |
 | 8 | Pruebas de frontend y de punta a punta (Vitest, Playwright) | Hoy no hay ninguna (Fase 11 de `TODO.md`) | Sin tarea asignada | A definir | — |
 
 # Aprendizajes del equipo
@@ -2086,7 +2059,7 @@ Sección a completar por el grupo.
 
 ## A. Endpoints de la API
 
-Generado desde los recursos JAX-RS y el `context-root` de cada WAR del commit `ea5422b`. El contrato completo, con cuerpos y errores, está en `docs/api/openapi.yaml`.
+Generado desde los recursos JAX-RS y el `context-root` de cada WAR del commit `725b0ba`. El contrato completo, con cuerpos y errores, está en `docs/api/openapi.yaml`.
 
 | Servicio | Método | Ruta | Rol |
 |---|---|---|---|
@@ -2124,7 +2097,7 @@ Generado desde los recursos JAX-RS y el `context-root` de cada WAR del commit `e
 
 ## B. Contrato del mensaje PAGO_CONFIRMADO
 
-El contrato completo está en `docs/superpowers/specs/mensajeria-pago-confirmado.md`. Lo publica `PublicadorPagoConfirmadoJms` (`backend/common`) dentro de la transacción que confirma la venta, con la propiedad `tipoEvento = PAGO_CONFIRMADO`, a la cola `cola.emision-entradas` y al tópico `topico.compra-confirmada`. La sección de mensajería explica sus consumidores.
+El contrato completo está en `docs/api/mensajeria-pago-confirmado.md`. Lo publica `PublicadorPagoConfirmadoJms` (`backend/common`) dentro de la transacción que confirma la venta, con la propiedad `tipoEvento = PAGO_CONFIRMADO`, a la cola `cola.emision-entradas` y al tópico `topico.compra-confirmada`. La sección de mensajería explica sus consumidores.
 
 ## C. Glosario
 
@@ -2147,7 +2120,7 @@ El contrato completo está en `docs/superpowers/specs/mensajeria-pago-confirmado
 | **Tope** | Precio máximo de reventa: el precio pagado más 10 % (`ReglasDeNegocio.TOPE_REVENTA_PORCENTAJE`) |
 | **Cargo por servicio** | Lo que cobra Palco sobre el subtotal de la venta: 10 % (`TASA_SERVICIO_PORCENTAJE`) |
 | **Emisión** | Paso de las entradas de `PENDIENTE_EMISION` a `VALIDA`, con su código QR. La hace `EmisionDeEntradasMDB` desde la cola |
-| **`PAGO_CONFIRMADO`** | El mensaje que publica Ventas cuando se aprueba el pago. Su contrato está en `docs/superpowers/specs/mensajeria-pago-confirmado.md` |
+| **`PAGO_CONFIRMADO`** | El mensaje que publica Ventas cuando se aprueba el pago. Su contrato está en `docs/api/mensajeria-pago-confirmado.md` |
 | **Broker** | Servidor de mensajería. Acá, ActiveMQ Artemis embebido en WildFly |
 | **Cola** | Destino de mensajería donde cada mensaje lo procesa un solo consumidor (`cola.emision-entradas`) |
 | **Tópico** | Destino de mensajería donde cada suscripción recibe su copia del mensaje (`topico.compra-confirmada`) |
@@ -2159,13 +2132,13 @@ El contrato completo está en `docs/superpowers/specs/mensajeria-pago-confirmado
 | **UPDATE condicional** | Sentencia que cambia una fila solo si sigue en el estado esperado (por ejemplo, `where estado = 'EN_CHECKOUT'`). Evita aplicar dos veces el mismo cambio |
 | **Transacción declarativa** | Transacción que define el contenedor según una anotación (`REQUIRED`, `MANDATORY`), sin código de commit ni rollback |
 | **Último recurso** | Forma en que un recurso no XA (la base) participa en una transacción junto con uno XA (el broker): se confirma al final. Si el servidor cae entre los dos commits, el resultado puede quedar a medias |
-| **XA / commit en dos fases** | Protocolo que confirma varios recursos a la vez de forma atómica. No se usa (decisión P3) |
-| **Conciliación** | Proceso que compara el estado de una venta con el de su pago en Pagos para cerrarla. Diseñado, pendiente (C3) |
+| **XA / commit en dos fases** | Protocolo que confirma varios recursos a la vez de forma atómica. No se usa |
+| **Conciliación** | Proceso que compara el estado de una venta con el de su pago en Pagos para cerrarla. Diseñado, pendiente |
 | **Problem Details** | Formato estándar de errores HTTP (RFC 9457), con `type`, `title`, `status`, `detail` e `instance`, en `application/problem+json` |
 | **JWT** | Token firmado (RS256) que lleva la identidad (`sub`) y los roles (`groups`) del usuario. Los servicios lo validan con la clave pública de `/api/usuarios/jwks` |
 | **Pasarela de pago** | Sistema externo que cobra. Hoy es `PagosFake` (simulada); Mercado Pago está diseñado |
 | **Webhook** | Aviso que la pasarela manda por REST cuando un pago cambia de estado. Diseñado, pendiente |
-| **SOAP / WSDL** | Protocolo de servicios web basado en XML y el documento que describe su contrato. Lo usa ARCA. Pendiente (C1) |
+| **SOAP / WSDL** | Protocolo de servicios web basado en XML y el documento que describe su contrato. Lo usa ARCA. Pendiente |
 | **ARCA (ex AFIP)** | Organismo que autoriza las facturas electrónicas y devuelve un CAE |
 | **CAE** | Código de Autorización Electrónico con que ARCA autoriza una factura |
 | **Sistema legado** | Sistema existente con tecnología previa (SOAP) que hay que integrar sin cambiarlo. En Palco lo representa ARCA |
@@ -2183,9 +2156,6 @@ El contrato completo está en `docs/superpowers/specs/mensajeria-pago-confirmado
 | `docs/entrega-obligatoria-2/` | Material para el 13/11: diagrama de secuencia de Mercado Pago |
 | `docs/clases/` | Talleres de las clases 6, 8 y 9 |
 | `actividad_integradora_clase10/`, `actividad_integradora_clase11/` | Actividades de las clases 10 (integración) y 11 (seguridad) |
-| `docs/api/` | OpenAPI, colección de Postman y su guía |
-| `docs/planes/` | Contratos compartidos entre servicios y planes de cada tarea |
-| `docs/notas/` | Una nota por tarea, con lo que se hizo, por qué y qué quedó pendiente |
-| `docs/superpowers/specs/` | Contrato del mensaje de pago confirmado y diseño del frontend |
-| `docs/PLAN_AGENTES.md`, `TODO.md` | Plan de trabajo, reparto, calendario y estado por fases |
-| `README.md`, `CLAUDE.md`, `scripts/LEEME.md` | Cómo levantar y probar el sistema, convenciones del repo y guiones |
+| `docs/api/` | OpenAPI, contrato del mensaje PAGO_CONFIRMADO, colección de Postman y su guía |
+| `TODO.md` | Estado del proyecto por fases y calendario de entregas |
+| `README.md`, `scripts/LEEME.md` | Cómo levantar y probar el sistema, y los guiones de prueba y demo |

@@ -16,7 +16,7 @@ import com.palco.common.ReglasDeNegocio;
 /**
  * El mensaje {@code PAGO_CONFIRMADO}: lo publica Ventas cuando se aprueba un
  * pago y viaja como texto JSON, igual en la cola y en el tópico. El contrato
- * está en {@code docs/superpowers/specs/mensajeria-pago-confirmado.md}.
+ * está en {@code docs/api/mensajeria-pago-confirmado.md}.
  *
  * Es un {@code record} porque es un dato que no cambia después de creado.
  * {@code timestamp} es un {@link Instant}: JSON-B lo escribe en UTC, como

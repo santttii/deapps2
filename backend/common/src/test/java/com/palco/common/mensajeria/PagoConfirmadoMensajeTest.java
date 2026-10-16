@@ -28,8 +28,7 @@ import com.palco.common.mensajeria.PagoConfirmadoMensaje.Titular;
 class PagoConfirmadoMensajeTest {
 
     /** El contrato escrito del mensaje. Los tests corren parados en backend/common. */
-    private static final Path CONTRATO = Path.of("..", "..", "docs", "superpowers", "specs",
-            "mensajeria-pago-confirmado.md");
+    private static final Path CONTRATO = Path.of("..", "..", "docs", "api", "mensajeria-pago-confirmado.md");
 
     private static final Instant CONFIRMADA = Instant.parse("2026-10-16T21:30:00Z");
     private static final Titular ANA = new Titular("Ana Gómez", "30123456");
