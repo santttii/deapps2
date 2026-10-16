@@ -62,10 +62,12 @@ const estado = (codigo) => `pm.test('responde ${codigo}', () => pm.response.to.h
 
 const esJson = "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));";
 
+const esProblema = "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));";
+
 /** Un error del contrato: el código, application/problem+json y el type. */
 const problema = (codigo, tipo) => [
   estado(codigo),
-  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+  esProblema,
   `pm.test('type es /problemas/${tipo}', () => {`,
   '  const p = pm.response.json();',
   `  pm.expect(p.type).to.eql('/problemas/${tipo}');`,
@@ -392,7 +394,7 @@ const eventos = carpeta('2 Eventos (implementado)',
       descripcion: 'Cambiar el cupo es una operación entre servicios (rol servicio). El token se pide con el '
         + 'secreto compartido de desarrollo y dura 5 minutos: por eso se pide justo antes de usarlo.',
       cabeceras: [JSON_CT],
-      cuerpo: { secreto: 'palco-desarrollo' },
+      cuerpo: { secreto: '{{secretoServicios}}' },
       tests: [
         estado(200),
         'const respuesta = pm.response.json();',
@@ -545,6 +547,7 @@ const entradaEmitida = [
 ];
 
 const PRIMERO_DE_PENDIENTES = 'PENDIENTE · POST /v1/reventas (201)';
+const PRIMERO_DE_SEGURIDAD = 'SEC Login cuenta A (200) guarda tokenA';
 
 const ventas = carpeta('3 Diseño v1 (Ventas implementado)',
   'La compra completa contra /api/v1: abrir la compra con reserva de cupo, pagarla, ver la venta y la entrada '
@@ -889,8 +892,8 @@ const ventas = carpeta('3 Diseño v1 (Ventas implementado)',
         tests: [
           ...problema(409, 'reserva-vencida'),
           '',
-          '// Último request automático de la colección: la corrida termina acá y no entra en "Pendientes".',
-          ...saltarA('null'),
+          '// Último request automático de la carpeta: la corrida sigue en Seguridad y saltea "Pendientes".',
+          ...saltarA(`'${PRIMERO_DE_SEGURIDAD}'`),
         ],
       }),
     carpeta('Pendientes: reventa y validación (fuera de la corrida)',
@@ -937,6 +940,161 @@ const ventas = carpeta('3 Diseño v1 (Ventas implementado)',
   ]);
 
 // ---------------------------------------------------------------------------------------------
+// 4 Seguridad: los criterios de la matriz de la clase 11 que se prueban por HTTP
+
+/** Email nuevo en cada corrida: así los intentos fallidos de una corrida no se suman a los de la siguiente. */
+const emailNuevo = (variable, prefijo) => [
+  "const sufijo = Date.now().toString(36) + Math.floor(Math.random() * 1000);",
+  `pm.collectionVariables.set('${variable}', '${prefijo}-' + sufijo + '@palco.test');`,
+];
+
+const sinCamposDeLaEntrada = "pm.test('no filtra la entrada', () => pm.expect(pm.response.text()).to.not.match(/codigoQr|titular|\"estado\"/));";
+
+const sinInformacionInterna = "pm.test('sin información interna', () => pm.expect(pm.response.text()).to.not.match(/Exception|\\bat com\\.|org\\.jboss|SELECT |stack/i));";
+
+const seguridad = carpeta('4 Seguridad (clase 11)',
+  'Los criterios de la matriz de seguridad de la clase 11 que se comprueban desde afuera, con el id de cada uno '
+  + '(SEC-...). Usa dos cuentas compradoras verificadas: A es titular@palco.test y B, otro.titular@palco.test. '
+  + 'La compra de A no se crea acá: se toma una compra emitida de A, como la que deja la carpeta 3. Corre entera '
+  + 'sin intervención. SEC-W04 usa un email propio, nuevo en cada corrida, para no bloquear las cuentas de prueba.',
+  [
+    login(PRIMERO_DE_SEGURIDAD, TITULAR, 'user', 'tokenA', 'Cuenta A de la matriz.'),
+    login('SEC Login cuenta B (200) guarda tokenB', OTRO_COMPRADOR, 'user', 'tokenB', 'Cuenta B de la matriz.'),
+    pedido('SEC GET /v1/ventas de A (200) guarda ventaIdA y entradaIdA', 'GET', url('baseApi', ['ventas']), {
+      descripcion: 'Toma la compra más nueva de A que ya tiene entradas. En una corrida completa es la que pagó la '
+        + 'carpeta 3; corriendo solo esta carpeta, sirve cualquier compra emitida de A.',
+      cabeceras: [bearer('tokenA')],
+      tests: [
+        estado(200),
+        "const v = pm.response.json().find((venta) => venta.entradas.length > 0);",
+        "pm.test('A tiene una compra con entradas', () => {",
+        "  pm.expect(v, 'A no tiene compras con entradas: correr antes la carpeta 3').to.be.an('object');",
+        '});',
+        "pm.collectionVariables.set('ventaIdA', v.id);",
+        "pm.collectionVariables.set('entradaIdA', v.entradas[0].id);",
+      ],
+    }),
+    pedido('SEC-W01 GET /v1/entradas/{id} de A con el token de B (404, sin datos)', 'GET',
+      url('baseApi', ['entradas', '{{entradaIdA}}']), {
+        descripcion: 'Aislamiento entre usuarios: la entrada ajena responde como una que no existe.',
+        cabeceras: [bearer('tokenB')],
+        tests: [...problema(404, 'no-encontrado'), sinCamposDeLaEntrada],
+      }),
+    pedido('SEC-W01b GET /v1/ventas/{id} de A con el token de B (404)', 'GET',
+      url('baseApi', ['ventas', '{{ventaIdA}}']), {
+        cabeceras: [bearer('tokenB')],
+        tests: problema(404, 'no-encontrado'),
+      }),
+    pedido('SEC-W02 Crear evento con rol user (403)', 'POST', url('baseEventos'), {
+      descripcion: 'Un token válido de rol user en una operación de organizer: 403, no 401. No crea el evento.',
+      cabeceras: [bearer('tokenB'), JSON_CT],
+      cuerpo: eventoDePrueba('SEC-W02 no se crea', [{ nombre: 'General', precio: 10000, cupo: 100 }]),
+      tests: problema(403, 'sin-permiso'),
+    }),
+    pedido('SEC-W02b GET /v1/ventas sin token (401, WWW-Authenticate)', 'GET', url('baseApi', ['ventas']), {
+      tests: [
+        ...problema(401, 'no-autenticado'),
+        "pm.test('WWW-Authenticate: Bearer', () => pm.response.to.have.header('WWW-Authenticate', 'Bearer'));",
+      ],
+    }),
+    pedido('SEC-W03a Login con un email que no existe (401, genérico)', 'POST', url('baseUsuarios', ['login']), {
+      descripcion: 'Guarda el detail del error para compararlo con el de la clave incorrecta. El email es nuevo en '
+        + 'cada corrida.',
+      cabeceras: [JSON_CT],
+      cuerpo: { email: '{{emailInexistente}}', password: 'Clave1234' },
+      antes: emailNuevo('emailInexistente', 'no-existe'),
+      tests: [
+        ...problema(401, 'no-autenticado'),
+        "pm.collectionVariables.set('detalleInexistente', pm.response.json().detail);",
+      ],
+    }),
+    pedido('SEC-W03b Login con la clave incorrecta (401, el mismo mensaje)', 'POST', url('baseUsuarios', ['login']), {
+      descripcion: 'Un email que existe con la clave mal: el mismo error que un email que no existe, así no se '
+        + 'puede saber qué cuentas hay. Usa la cuenta B, porque la carpeta 1 ya prueba una clave mal con la A.',
+      cabeceras: [JSON_CT],
+      cuerpo: { email: OTRO_COMPRADOR.email, password: 'incorrecta1' },
+      tests: [
+        ...problema(401, 'no-autenticado'),
+        "pm.test('el mismo detail que con un email que no existe', () => {",
+        "  pm.expect(pm.response.json().detail).to.eql(pm.collectionVariables.get('detalleInexistente'));",
+        '});',
+      ],
+    }),
+    pedido('SEC-W05a GET /yo con la firma del token alterada (401)', 'GET', url('baseUsuarios', ['yo']), {
+      descripcion: 'El servidor rechaza el token antes de llegar a la aplicación; la página de error de backend/common '
+        + '(ErrorDeAutenticacionServlet) lo responde como Problem Details, con WWW-Authenticate y CORS.',
+      cabeceras: [{ key: 'Authorization', value: 'Bearer {{tokenA}}x' }],
+      tests: [estado(401), esProblema],
+    }),
+    pedido('SEC-W05b GET /yo con un token alg=none (401)', 'GET', url('baseUsuarios', ['yo']), {
+      descripcion: 'Un token sin firma que dice ser de organizer: el servidor lo rechaza con un 401 en Problem Details.',
+      cabeceras: [bearer('tokenNone')],
+      antes: [
+        '// Arma un JWT con alg=none: cabecera y cuerpo en base64url y la firma vacía.',
+        "const b = (o) => btoa(JSON.stringify(o)).replace(/=/g, '').replace(/\\+/g, '-').replace(/\\//g, '_');",
+        "pm.collectionVariables.set('tokenNone', b({ alg: 'none', typ: 'JWT' }) + '.' + b({ sub: 'x', iss: 'palco', groups: ['organizer'], exp: 9999999999 }) + '.');",
+      ],
+      tests: [estado(401), esProblema],
+    }),
+    pedido('SEC-W05c Login: el token dura 15 minutos o menos', 'POST', url('baseUsuarios', ['login']), {
+      descripcion: 'Criterio de la matriz: vigencia del token de hasta 15 minutos. Hoy dura 8 horas y el cambio '
+        + 'está a decidir por el equipo, así que esta aserción falla hasta entonces.',
+      cabeceras: [JSON_CT],
+      cuerpo: TITULAR,
+      tests: [
+        estado(200),
+        "const p = JSON.parse(atob(pm.response.json().token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));",
+        "pm.test('exp - iat <= 900 s', () => pm.expect(p.exp - p.iat).to.be.at.most(900));",
+      ],
+    }),
+    pedido('SEC-W06 POST /v1/ventas sin Idempotency-Key (400, sin información interna)', 'POST',
+      url('baseApi', ['ventas']), {
+        cabeceras: [bearer('tokenA'), JSON_CT],
+        cuerpo: compra(1, [ANA]),
+        tests: [...problema(400, 'datos-invalidos'), sinInformacionInterna],
+      }),
+    pedido('SEC-D02 GET /yo no devuelve la contraseña ni el hash', 'GET', url('baseUsuarios', ['yo']), {
+      cabeceras: [bearer('tokenA')],
+      tests: [
+        estado(200),
+        "pm.test('sin password ni hash', () => pm.expect(pm.response.text()).to.not.match(/password|hash|pbkdf2/i));",
+      ],
+    }),
+    pedido('SEC-W04 Sexto login fallido en 15 minutos (429, Retry-After)', 'POST', url('baseUsuarios', ['login']), {
+      descripcion: 'Antes de enviarse, manda cinco intentos fallidos seguidos, uno después del otro, con un email '
+        + 'nuevo en cada corrida; este es el sexto. Prueba el límite de intentos de login (5 fallidos en 15 minutos). Va '
+        + 'último en la colección para que el límite no toque a ningún otro request.',
+      cabeceras: [JSON_CT],
+      cuerpo: { email: '{{emailIntentos}}', password: 'incorrecta1' },
+      antes: [
+        ...emailNuevo('emailIntentos', 'intentos'),
+        "const email = pm.collectionVariables.get('emailIntentos');",
+        'const codigos = [];',
+        'const intentar = () => {',
+        '  if (codigos.length === 5) {',
+        "    pm.collectionVariables.set('codigosPrevios', JSON.stringify(codigos));",
+        '    return;',
+        '  }',
+        '  pm.sendRequest({',
+        "    url: pm.collectionVariables.get('baseUsuarios') + '/login',",
+        "    method: 'POST',",
+        "    header: { 'Content-Type': 'application/json' },",
+        "    body: { mode: 'raw', raw: JSON.stringify({ email, password: 'incorrecta1' }) },",
+        "  }, (err, res) => { codigos.push(err ? 'error' : res.code); intentar(); });",
+        '};',
+        'intentar();',
+      ],
+      tests: [
+        "pm.test('los cinco intentos anteriores responden 401', () => {",
+        "  pm.expect(JSON.parse(pm.collectionVariables.get('codigosPrevios'))).to.eql([401, 401, 401, 401, 401]);",
+        '});',
+        ...problema(429, 'demasiados-intentos'),
+        "pm.test('trae Retry-After', () => pm.response.to.have.header('Retry-After'));",
+      ],
+    }),
+  ]);
+
+// ---------------------------------------------------------------------------------------------
 
 const variable = (key, value, description) => ({ key, value, type: 'string', description });
 
@@ -944,13 +1102,14 @@ const coleccion = {
   info: {
     name: 'Palco API',
     description: 'API de Palco, la plataforma de venta de entradas con reventa oficial (Desarrollo de Aplicaciones II, '
-      + 'UADE). Se corre entera, en orden, con el Runner o con Newman, contra el backend local: las carpetas 1, 2 y 3 '
+      + 'UADE). Se corre entera, en orden, con el Runner o con Newman, contra el backend local: las carpetas 1 a 4 '
       + 'son automáticas y se pueden repetir sin reiniciar el servidor. Las subcarpetas "Pasos manuales" y '
       + '"Pendientes" quedan fuera de la corrida. La guía está en docs/api/GUIA_POSTMAN.md.',
     schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
   },
   variable: [
     variable('baseUsuarios', 'http://localhost:8080/api/usuarios', 'Raíz del servicio de Usuarios.'),
+    variable('secretoServicios', 'palco-desarrollo', 'Secreto compartido de los servicios (PALCO_SECRETO_SERVICIOS). Si el servidor arrancó con otro, pasarlo con --env-var secretoServicios=... o cambiarlo en las variables.'),
     variable('baseEventos', 'http://localhost:8080/api/eventos', 'Raíz del servicio de Eventos.'),
     variable('baseApi', 'http://localhost:8080/api/v1', 'Raíz de la API versionada (Ventas).'),
     variable('eventoId', 'ev-1', 'Evento de prueba en el que se compra.'),
@@ -979,8 +1138,17 @@ const coleccion = {
     variable('ventasDelTitular', '', 'Ids de las ventas de titular@palco.test, en JSON. Lo guarda "GET /v1/ventas mis compras".'),
     variable('ventaCanceladaId', '', 'Id de la venta que se cancela. Sale de la respuesta.'),
     variable('publicacionId', '', 'PENDIENTE: id de la publicación de reventa.'),
+    variable('tokenA', '', 'Seguridad: token de la cuenta A (titular@palco.test).'),
+    variable('tokenB', '', 'Seguridad: token de la cuenta B (otro.titular@palco.test).'),
+    variable('ventaIdA', '', 'Seguridad: una compra emitida de A. Lo guarda "SEC GET /v1/ventas de A".'),
+    variable('entradaIdA', '', 'Seguridad: una entrada de esa compra de A.'),
+    variable('emailInexistente', '', 'Seguridad: email que no existe, nuevo en cada corrida (SEC-W03a).'),
+    variable('detalleInexistente', '', 'Seguridad: el detail del login con un email que no existe (SEC-W03a).'),
+    variable('tokenNone', '', 'Seguridad: un JWT con alg=none, sin firma. Se arma solo (SEC-W05b).'),
+    variable('emailIntentos', '', 'Seguridad: email propio de SEC-W04, nuevo en cada corrida.'),
+    variable('codigosPrevios', '', 'Seguridad: los códigos de los cinco intentos previos de SEC-W04, en JSON.'),
   ],
-  item: [usuarios, eventos, ventas],
+  item: [usuarios, eventos, ventas, seguridad],
 };
 
 fs.writeFileSync(salida, JSON.stringify(coleccion, null, 2) + '\n', 'utf8');

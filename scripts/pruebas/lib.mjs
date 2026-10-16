@@ -79,8 +79,17 @@ export async function login(email, password = 'palco1234') {
   return r.json.token;
 }
 
+// El secreto compartido de los servicios: el de la variable de entorno, el de backend/.env o el de desarrollo,
+// en ese orden, igual que lo resuelve el servidor al arrancar con dev.sh.
+function secretoDeServicios() {
+  if (process.env.PALCO_SECRETO_SERVICIOS) return process.env.PALCO_SECRETO_SERVICIOS;
+  const env = path.join(REPO, 'backend', '.env');
+  const linea = fs.existsSync(env) ? fs.readFileSync(env, 'utf8').match(/^PALCO_SECRETO_SERVICIOS=(.+)$/m) : null;
+  return linea ? linea[1].trim() : 'palco-desarrollo';
+}
+
 export async function tokenDeServicio() {
-  const r = await http('POST', '/api/usuarios/servicios/token', { cuerpo: { secreto: 'palco-desarrollo' } });
+  const r = await http('POST', '/api/usuarios/servicios/token', { cuerpo: { secreto: secretoDeServicios() } });
   if (r.estado !== 200) throw new Error(`token de servicio: ${r.estado} ${r.texto}`);
   return r.json.token;
 }

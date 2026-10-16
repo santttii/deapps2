@@ -13,6 +13,9 @@
 # de Platea B. No mueve plata: la pasarela de pagos es simulada. Si otra persona compra al mismo tiempo, las
 # diferencias de los contadores salen más grandes: se repite el guion.
 
+# Secreto para pedir el token de rol servicio: PALCO_SECRETO_SERVICIOS, el de backend/.env o el de desarrollo.
+SECRETO=${PALCO_SECRETO_SERVICIOS:-$(sed -n 's/^PALCO_SECRETO_SERVICIOS=//p' backend/.env 2>/dev/null)}
+SECRETO=${SECRETO:-palco-desarrollo}
 export NOPAUSE=true                                   # sin esto, jboss-cli.bat espera una tecla al terminar
 # El JDK de jboss-cli: el JAVA_HOME del entorno; si no hay, ~/.jdks/temurin-25 si esa carpeta existe; si no,
 # el java del PATH (como scripts/pruebas/escenarios.mjs).
@@ -25,9 +28,9 @@ J="Content-Type: application/json"
 # Las tres líneas que cada archivo muestra como preparación. Los tokens no se guardan en ningún archivo.
 PREPARACION='    export NOPAUSE=true'"${JAVA_HOME:+ JAVA_HOME=\"$JAVA_HOME\"}"'; B="/subsystem=messaging-activemq/server=default"; CLI=backend/servidor/target/server/bin/jboss-cli.bat
     T=$(curl -s -X POST localhost:8080/api/usuarios/login -H "Content-Type: application/json" -d "{\"email\":\"titular@palco.test\",\"password\":\"palco1234\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")
-    S=$(curl -s -X POST localhost:8080/api/usuarios/servicios/token -H "Content-Type: application/json" -d "{\"secreto\":\"palco-desarrollo\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")'
+    S=$(curl -s -X POST localhost:8080/api/usuarios/servicios/token -H "Content-Type: application/json" -d "{\"secreto\":\"$SECRETO\"}" | sed -E "s/.*\"token\":\"([^\"]+)\".*/\1/")'
 T=$(curl -s -X POST localhost:8080/api/usuarios/login -H "$J" -d '{"email":"titular@palco.test","password":"palco1234"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
-S=$(curl -s -X POST localhost:8080/api/usuarios/servicios/token -H "$J" -d '{"secreto":"palco-desarrollo"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
+S=$(curl -s -X POST localhost:8080/api/usuarios/servicios/token -H "$J" -d "{\"secreto\":\"$SECRETO\"}" | sed -E 's/.*"token":"([^"]+)".*/\1/')
 
 # Empieza un archivo: qué muestra y cómo se prepararon las variables.
 cabecera() {

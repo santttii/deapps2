@@ -39,7 +39,7 @@ Se leen con `jboss-cli`, de `backend/servidor/target/server/bin/` (`jboss-cli.ba
 | `EVENTO_SLUG` | Evento del que se compra | `kiroshi-tour-continental` |
 | `SECTOR_ID` | Sector del que se compra | `sec-2-2` |
 | `COMPRADOR_EMAIL`, `COMPRADOR_CLAVE` | Cuenta del comprador | `titular@palco.test`, `palco1234` |
-| `SECRETO_SERVICIO` | Secreto para pedir el token de rol `servicio` | `palco-desarrollo` |
+| `SECRETO_SERVICIO` | Secreto para pedir el token de rol `servicio` | `PALCO_SECRETO_SERVICIOS`, el de `backend/.env` o `palco-desarrollo` |
 | `ESPERA_MAXIMA` | Segundos que se espera la emisión | `15` |
 | `DETALLE=1` | Imprime además el JSON completo de cada respuesta | apagado |
 | `JBOSS_CLI` | Ruta de `jboss-cli`, si no está en la del proyecto | la del proyecto |

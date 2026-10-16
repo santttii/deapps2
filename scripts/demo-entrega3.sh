@@ -28,7 +28,7 @@
 #   SECTOR_ID         sector del que se compra          (sec-2-2)
 #   COMPRADOR_EMAIL   cuenta del comprador              (titular@palco.test)
 #   COMPRADOR_CLAVE   su contraseña                     (palco1234)
-#   SECRETO_SERVICIO  secreto para pedir el rol servicio (palco-desarrollo)
+#   SECRETO_SERVICIO  secreto para pedir el rol servicio (PALCO_SECRETO_SERVICIOS, el de backend/.env o palco-desarrollo)
 #   ESPERA_MAXIMA     segundos que se espera la emisión (15)
 #   DETALLE=1         imprime además el JSON completo de cada respuesta
 #   JBOSS_CLI         ruta de jboss-cli, si no está en la del proyecto
@@ -58,6 +58,7 @@ EVENTO_SLUG=${EVENTO_SLUG:-kiroshi-tour-continental}
 SECTOR_ID=${SECTOR_ID:-sec-2-2}
 COMPRADOR_EMAIL=${COMPRADOR_EMAIL:-titular@palco.test}
 COMPRADOR_CLAVE=${COMPRADOR_CLAVE:-palco1234}
+SECRETO_SERVICIO=${SECRETO_SERVICIO:-${PALCO_SECRETO_SERVICIOS:-$(sed -n 's/^PALCO_SECRETO_SERVICIOS=//p' backend/.env 2>/dev/null)}}
 SECRETO_SERVICIO=${SECRETO_SERVICIO:-palco-desarrollo}
 ESPERA_MAXIMA=${ESPERA_MAXIMA:-15}
 DETALLE=${DETALLE:-0}

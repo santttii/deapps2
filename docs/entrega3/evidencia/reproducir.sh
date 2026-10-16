@@ -18,6 +18,9 @@
 # dice el paso 6, con la última línea que FabricaDeCobros escribió en el log.
 # Si otra persona compra al mismo tiempo, las diferencias de los contadores salen más grandes: se repite el guion.
 
+# Secreto para pedir el token de rol servicio: PALCO_SECRETO_SERVICIOS, el de backend/.env o el de desarrollo.
+SECRETO=${PALCO_SECRETO_SERVICIOS:-$(sed -n 's/^PALCO_SECRETO_SERVICIOS=//p' backend/.env 2>/dev/null)}
+SECRETO=${SECRETO:-palco-desarrollo}
 export NOPAUSE=true                                   # sin esto, jboss-cli.bat espera una tecla al terminar
 # El JDK de jboss-cli: el JAVA_HOME del entorno; si no hay, ~/.jdks/temurin-25 si esa carpeta existe; si no,
 # el java del PATH (como scripts/pruebas/escenarios.mjs).
@@ -54,7 +57,7 @@ echo "Suscripciones del tópico (sin la lista de conexiones de cada una):"
 "$CLI" --connect --command="$B/jms-topic=topico.compra-confirmada:list-all-subscriptions" | grep -e '"queueName"' -e '"durable"' -e '"clientID"' -e '"selector"' -e '"name"'
 
 T=$(curl -s -X POST $H/api/usuarios/login -H "$J" -d '{"email":"titular@palco.test","password":"palco1234"}' | token)
-S=$(curl -s -X POST $H/api/usuarios/servicios/token -H "$J" -d '{"secreto":"palco-desarrollo"}' | token)
+S=$(curl -s -X POST $H/api/usuarios/servicios/token -H "$J" -d "{\"secreto\":\"$SECRETO\"}" | token)
 
 titulo "1. Contadores del broker antes de la compra"
 read -r A1 A2 A3 A4 A5 A6 A7 <<< "$(contadores)"

@@ -6,7 +6,9 @@ info:
     API REST de Palco, plataforma de venta de entradas con reventa oficial (tope +10%).
     Montos en pesos enteros. Fechas ISO 8601: las de Ventas en UTC (`2026-10-14T18:53:50Z`); la fecha del evento,
     en hora local del lugar y sin zona (`2026-12-26T17:00:00`). Errores en formato Problem Details (RFC 9457),
-    con `type` de la forma `/problemas/<tipo>`.
+    con `type` de la forma `/problemas/<tipo>`. Cualquier operación puede responder 500
+    (`/problemas/error-inesperado`, ver `components.responses.ErrorInesperado`), con un `idError` que también queda
+    en el log del servidor.
 
 
     Cada servicio es un WAR con su propia raíz: Usuarios en `/api/usuarios`, Eventos en `/api/eventos`, Ventas en
@@ -123,6 +125,25 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '429':
+          description: >
+            Ese email tuvo 5 inicios de sesión fallidos en los últimos 15 minutos (`/problemas/demasiados-intentos`).
+            Se responde aunque la contraseña sea la correcta y también para emails sin cuenta, con el mismo texto.
+            `Retry-After` dice en cuántos segundos sale de la ventana el fallido más viejo y se puede volver a probar.
+          headers:
+            Retry-After:
+              description: Segundos que faltan para poder volver a intentar (nunca menos de 1)
+              schema: { type: integer, minimum: 1, example: 600 }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: /problemas/demasiados-intentos
+                title: Demasiados intentos
+                status: 429
+                detail: Hubo demasiados intentos fallidos. Esperá unos minutos y volvé a probar.
+                instance: /api/usuarios/login
+        '500': { $ref: '#/components/responses/ErrorInesperado' }
 
   /usuarios/yo:
     get:
@@ -639,6 +660,20 @@ components:
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problema' }
+    ErrorInesperado:
+      description: >
+        Error no previsto (`/problemas/error-inesperado`). No trae detalles internos: trae `idError`, el id con el
+        que quedó la traza en el log del servidor, para buscarla cuando alguien reporta el error.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problema' }
+          example:
+            type: /problemas/error-inesperado
+            title: Error inesperado
+            status: 500
+            detail: Ocurrió un error inesperado.
+            instance: /api/v1/ventas
+            idError: 3b9f2c1e-7a4d-4e8b-9c2f-1d6a5e0b7c43
 
   schemas:
     Problema:
@@ -654,6 +689,10 @@ components:
           type: object
           additionalProperties: { type: string }
           description: Errores de validación por campo (extensión propia)
+        idError:
+          type: string
+          format: uuid
+          description: Solo en los 500. Id del error, el mismo que queda en el log junto con la traza (extensión propia)
       additionalProperties: true
 
     Registro:

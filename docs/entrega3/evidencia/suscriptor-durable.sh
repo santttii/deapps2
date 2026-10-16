@@ -20,6 +20,9 @@
 # pierden: auditoría los registra al reanudar.
 # Sale con código 0 si todo dio lo esperado y con 1 si no.
 
+# Secreto para pedir el token de rol servicio: PALCO_SECRETO_SERVICIOS, el de backend/.env o el de desarrollo.
+SECRETO=${PALCO_SECRETO_SERVICIOS:-$(sed -n 's/^PALCO_SECRETO_SERVICIOS=//p' backend/.env 2>/dev/null)}
+SECRETO=${SECRETO:-palco-desarrollo}
 export NOPAUSE=true                                   # sin esto, jboss-cli.bat espera una tecla al terminar
 # El JDK de jboss-cli: el JAVA_HOME del entorno; si no hay, ~/.jdks/temurin-25 si esa carpeta existe; si no,
 # el java del PATH (como scripts/pruebas/escenarios.mjs).
@@ -57,7 +60,7 @@ echo "Palco - Entrega Parcial N.º 2 - suscripción durable de auditoría"
 echo "Salida de docs/entrega3/evidencia/suscriptor-durable.sh, corrido desde la raíz del repo en Git Bash."
 
 T=$(curl -s -X POST $H/api/usuarios/login -H "$J" -d '{"email":"titular@palco.test","password":"palco1234"}' | token)
-S=$(curl -s -X POST $H/api/usuarios/servicios/token -H "$J" -d '{"secreto":"palco-desarrollo"}' | token)
+S=$(curl -s -X POST $H/api/usuarios/servicios/token -H "$J" -d "{\"secreto\":\"$SECRETO\"}" | token)
 
 titulo "0. Las suscripciones del tópico topico.compra-confirmada (sin la lista de conexiones de cada una)"
 echo "La de auditoría es durable y tiene nombre fijo (clientID más name): el broker le guarda los mensajes aunque"
