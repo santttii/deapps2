@@ -89,10 +89,13 @@ En `backend/pom.xml`, dentro de `dependencyManagement`, que es donde el repo fij
 | 404 | `NoEncontrado` (existe) | `/problemas/no-encontrado` | `(String mensaje)` |
 | 409 | `Conflicto` (existe) | `/problemas/conflicto` | `(String mensaje)`, y nuevo `(String tipo, String mensaje)` |
 | 422 | `ReglaIncumplida` (nueva) | `/problemas/regla-incumplida` | `(String mensaje)`, `(String tipo, String mensaje)` |
+| 429 | `DemasiadosIntentos` (agregada el 16/10) | `/problemas/demasiados-intentos` | `(String mensaje, long segundosDeEspera)`; la respuesta lleva `Retry-After` con esos segundos |
 | 504 | `SinRespuesta` (nueva) | `/problemas/sin-respuesta` | `(String mensaje)` |
-| 500 | cualquier otra | `/problemas/error-inesperado` | no aplica |
+| 500 | cualquier otra | `/problemas/error-inesperado` | no aplica; desde el 16/10 el cuerpo suma `idError`, el id con el que quedó la traza en el log |
 
 `tipo` es el final de la ruta, sin prefijo: `new Conflicto("cupo-agotado", "No quedan…")` responde `type` `/problemas/cupo-agotado`.
+
+**429 del login** (agregado el 16/10, SEC-W04). `POST /api/usuarios/login` responde 429 `demasiados-intentos` cuando ese email (sin importar mayúsculas ni espacios) tuvo 5 fallidos en los últimos 15 minutos, aunque la contraseña sea la correcta y aunque el email no tenga cuenta, siempre con el mismo texto. `Retry-After` trae los segundos que faltan para que el fallido más viejo salga de la ventana. Un login correcto borra los fallidos de ese email. Los cuenta Usuarios en la tabla `intento_login` (V4).
 
 Tipos con constructor `(String tipo, String mensaje)` que se suman a los de la tabla:
 
