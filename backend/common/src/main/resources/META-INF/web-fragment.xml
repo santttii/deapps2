@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-fragment xmlns="https://jakarta.ee/xml/ns/jakartaee"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-fragment_6_1.xsd"
+              version="6.1">
+    <!--
+        Viene en palco-common, así que vale para los 8 servicios sin tocar sus WAR.
+        El 401 por token que no se puede verificar lo emite el mecanismo MP-JWT del servidor
+        antes de llegar a JAX-RS; esta página de error lo escribe como Problem Details y con CORS.
+        Ver ErrorDeAutenticacionServlet.
+    -->
+    <name>palco_common</name>
+
+    <servlet>
+        <servlet-name>ErrorDeAutenticacion</servlet-name>
+        <servlet-class>com.palco.common.rest.ErrorDeAutenticacionServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ErrorDeAutenticacion</servlet-name>
+        <url-pattern>/errores/401</url-pattern>
+    </servlet-mapping>
+
+    <error-page>
+        <error-code>401</error-code>
+        <location>/errores/401</location>
+    </error-page>
+</web-fragment>
