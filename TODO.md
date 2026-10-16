@@ -10,6 +10,7 @@ Convención: `[ ]` pendiente · `[x]` hecho · `[~]` en curso.
 ## Contexto (documentos de la materia)
 
 Desarrollo de Aplicaciones II. Grupo: Deya, Frisoli, Loto, Molina, Zuchowicki.
+La cátedra aceptó el grupo de cinco el 16/10.
 
 - **Entrega Parcial N.º 1 — Arquitectura general** (exposición 18/09):
   arquitectura en tres capas, 8 componentes de negocio con una interfaz cada
@@ -103,7 +104,8 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       `Reserva`, `Escaneo`, `CodigoVerificacion`, `Auditoria`, `Factura`.
 - [ ] Repositorios: `UsuarioRepository`, `EventoRepository`,
       `EntradaRepository`, `VentaRepository` (los de la Entrega 1) y los que
-      falten.
+      falten. Ventas y Pagos ya tienen su capa `datos/`; la de Usuarios,
+      Eventos y Notificaciones la hace Julian Zuchowicki para el 13/11.
 - [ ] Restricciones en la base, no solo en código:
   - [x] `email` y `dni` únicos en usuarios.
   - [x] `slug` único en eventos.
@@ -154,6 +156,14 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       (el front pide foto del DNI de frente y dorso).
 - [ ] Recuperar contraseña (no existe hoy en el front).
 - [ ] Rate limiting en login, registro y verificación (Fase 12).
+- [x] Vigencia de la sesión (SEC-W05), decidido el 16/10: se mantiene en 8
+      horas, sin refresh token. Una sesión de compra o de un organizador dura
+      una jornada; el token se firma con RS256 y cada servicio lo valida con la
+      clave pública; la clave se regenera al redesplegar Usuarios si no se
+      define `PALCO_JWT_CLAVE_PRIVADA`; el token entre servicios dura 5
+      minutos. El riesgo de un token robado se acepta para el alcance del
+      trabajo. SEC-W05 queda "parcial, vigencia justificada" y la prueba
+      SEC-W05c de Postman comprueba que el token dura 8 horas.
 
 ## Fase 3 — `ServicioDeEventos`
 
@@ -170,7 +180,8 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 - [x] Crear evento requiere rol `organizer` (queda a su nombre) y actualizar
       cupo requiere rol `servicio`.
 - [ ] `PUT /api/eventos/{id}` (solo el organizador dueño).
-- [ ] Tests del Session Bean (Fase 11).
+- [ ] Tests del Session Bean (Fase 11): los amplía Julian Zuchowicki antes de
+      separar la capa de datos.
 - [ ] Cancelar evento (dispara alertas de cancelación por Notificaciones).
 - [ ] Relación evento ↔ organizador (hoy no existe en el front).
 - [ ] Subida de imágenes **(a confirmar dónde)**: disco del servidor en
@@ -195,25 +206,40 @@ hablan solo por interfaz, nunca contra la implementación del otro.
          **Diseñado, pendiente (decisión del 13/10):** no se integra Mercado Pago real.
       Pagos sigue con `PagosFake` y el requisito REST lo cubre la API propia. El diseño
       está en la sección 12.1 de `docs/documentacion/Palco_Documentacion_Completa.md`.
-      Se retoma si la cátedra pide una pasarela real.
+      La cátedra aceptó la pasarela simulada el 16/10: Mercado Pago real queda
+      fuera del alcance.
 - [ ] Reembolsos (`IPagos` los menciona; definir cuándo: evento cancelado).
 - [ ] Al aprobarse el pago, publicar `PAGO_CONFIRMADO` (Fase 6).
 - [ ] Manejar pago rechazado, pendiente y vencido.
 - [ ] "Asignar después por link" para que otro titular complete sus datos.
 - [ ] `GET /api/ventas/{id}` (solo el dueño), con el estado de emisión.
 
-## Fase 5 — `ServicioDeFacturación` (AFIP/ARCA)
+## Fase 5 — `ServicioDeFacturación` (ARCA, simulado)
 
-- [ ] `IFacturacion` con implementación `AfipFacturacion`: cliente JAX-WS
-      generado desde los WSDL de AFIP (WSAA para autenticación, WSFEv1 para
-      factura electrónica).
-- [ ] Usar el ambiente de **homologación** de AFIP (requiere certificado de
-      prueba).
-- [ ] Implementación simulada `FacturacionFake` para desarrollo y tests,
-      elegible por configuración (es el desacoplamiento que plantea el ESB).
-- [ ] Disparar la facturación de forma asincrónica después del pago
-      (suscriptor del tópico o cola propia) y reintentar si AFIP no responde.
-- [ ] Guardar CAE y número de comprobante en `Factura`.
+Diseño decidido el 16/10, todo simulado (la cátedra aceptó que la integración
+con ARCA sea simulada por ahora). Se eligió el más simple: reusa el tópico, la
+suscripción durable y los reintentos del broker, y Ventas no cambia. Lo
+implementa Santiago Loto para el 13/11.
+
+- [ ] ARCA como sistema legado simulado: un servicio SOAP propio (JAX-WS,
+      clase con `@WebService`) en un WAR aparte, que representa el sistema
+      externo. El WSDL lo publica WildFly desde la clase: sumar la capa
+      `webservices` al servidor.
+- [ ] La numeración y el CAE los asigna el ARCA simulado.
+- [ ] MDB nuevo en Facturación con suscripción durable a
+      `topico.compra-confirmada`: por cada compra confirmada pide la factura
+      por SOAP (operación síncrona) y guarda número y CAE en su esquema
+      (`Factura`).
+- [ ] Cliente SOAP con una interfaz anotada y `Service.create` sobre el WSDL,
+      sin generar código.
+- [ ] Si ARCA no responde, el MDB falla y reintenta el broker (5 entregas
+      cada 2 segundos y después la `DLQ`). No hay cola de reintento aparte.
+- [ ] Ventas no cambia: la factura se consulta en Facturación y
+      `facturaEstado` sigue en `NO_APLICA`.
+- [ ] Deshabilitar DTD y entidades externas en el procesamiento XML (SEC-I01).
+- Descartado el 16/10: el cliente generado desde los WSDL reales de AFIP
+  (WSAA y WSFEv1), el ambiente de homologación con certificado y la espera de
+  5 segundos con cola de reintento.
 
 ## Fase 6 — Mensajería JMS: pago confirmado
 
@@ -266,7 +292,8 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
 - [ ] Recordatorios antes del evento (`@Schedule` + Notificaciones).
 - [ ] Alertas de cancelación de evento.
 - [ ] Aviso al vendedor cuando se vende su entrada en reventa.
-- [ ] Reintentos de factura (Fase 5).
+- [ ] Reintentos de factura (Fase 5): los hace el broker con los reintentos
+      que ya existen (decisión del 16/10), sin cola aparte.
 
 ## Fase 7 — `ServicioDeReventa`
 
@@ -425,9 +452,24 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
       cada organizador solo sus eventos.
 - [ ] Rate limiting en login, registro, verificación y escaneos.
 - [ ] Cookies `HttpOnly`, `Secure`, `SameSite`; CORS restringido.
-- [ ] Usuario y contraseña en el broker; solo los componentes publican.
+- [x] Usuario y contraseña en el broker (SEC-I02): riesgo aceptado el 16/10.
+      El broker está embebido en el mismo WildFly, los servicios se conectan
+      por in-vm y la interfaz pública del servidor queda en 127.0.0.1 por
+      defecto: ningún sistema externo se conecta al broker. Se revisa si el
+      sistema se despliega fuera de una sola máquina.
+- [x] Secreto de servicios fuera de desarrollo, decidido el 16/10: no se
+      bloquea el arranque. Es un requisito de despliegue: definir
+      `PALCO_SECRETO_SERVICIOS` con el mismo valor en todos los servicios; si
+      falta, el log lo avisa. En desarrollo se usa el de `backend/.env`.
+- [x] Endpoints de prueba de Notificaciones (`/pruebas/*`), decidido el
+      16/10: se mantienen porque los usan la demo, la evidencia y la colección
+      de Postman; son solo de desarrollo y piden rol `servicio`. Para
+      producción habría que deshabilitarlos.
 - [ ] DNI en los mensajes del tópico: definir si viaja completo o solo ids.
-- [ ] Certificados de AFIP y credenciales de Mercado Pago fuera del repo.
+- [ ] Credenciales fuera del repo. ARCA y la pasarela son simuladas (16/10),
+      así que hoy no hay certificados de ARCA ni credenciales de Mercado Pago.
+- [ ] Deshabilitar DTD y entidades externas al procesar XML en Facturación
+      (SEC-I01), al implementar el SOAP.
 
 ## Fase 13 — Infraestructura y deploy
 
@@ -470,19 +512,56 @@ la cátedra".
 |---|---|---|---|---|
 | 04/09 | 1.er check point TPO | Entrega Parcial N.º 1 (31/08): componentes candidatos con su interfaz, diagrama de arquitectura, stack y un componente desplegado. Sin defensa | Ya pasó | — |
 | 18/09 | 1.ª entrega parcial | Entrega Obligatoria N.º 1 (14/09): tres componentes desplegados, uno stateful y uno stateless, tres patrones, seguridad declarativa y documento de 5 a 8 páginas. Con defensa oral | Ya pasó | — |
-| **23/10**, sin confirmar | No figura con nombre: ese día hay clase | Entrega Parcial N.º 2 (19/10), checkpoint formativo sin defensa: diagrama de arquitectura de integración (SOA); clasificación justificada de cada integración externa en síncrona (SOAP o REST) o asincrónica (cola o tópico); y un proceso de negocio de punta a punta con mensajería real y broker configurado | **Listo para entregar**: documento, diagrama y evidencia en `docs/entrega3/`. Falta: el tag, la evidencia tomada desde ese tag, la lectura de los cinco, confirmar la fecha de la carátula (dice 23/10) y subirlo el jueves 22/10 | 2, 3, 4 y 6 |
-| **06/11** | Entrega del diseño del TP Obligatorio | La consigna no la nombra: a confirmar con la cátedra | Sin definir. Hasta tener respuesta se prepara el borrador del documento técnico con los diagramas de secuencia, el WSDL y `docs/api/openapi.yaml` al día; se sube el jueves 05/11 | 5 y 11 |
-| **13/11** | 2.ª Entrega PARCIAL | Entrega Obligatoria N.º 2 — 2.º Parcial (09/11), con defensa oral de 20 a 25 minutos y nota mínima 4. Hay que entregar: dos procesos con mensajería de punta a punta (uno por cola y uno por tópico); un servicio SOAP con su WSDL, justificado como sistema legado; un servicio REST (partner moderno o API de consumo externo); transacciones declarativas en un flujo crítico de varios pasos; documento técnico actualizado, de 8 a 12 páginas, con un diagrama de secuencia por integración; y la declaración del uso de IA. Hay que defender: una demo que cruce componentes, mensajería y servicios web; por qué cada integración es síncrona o asincrónica; y qué pasa con la transacción si algo falla a mitad del flujo | Hecho: la cola y el tópico (emisión de entradas; aviso y auditoría), la API REST propia y la transacción declarativa que confirma la compra. **No existen el servicio SOAP con su WSDL ni el documento técnico con los diagramas de secuencia.** Falta además una prueba de la falla a mitad del flujo que quede en el repo y se pueda repetir | 4, 5, 6 y 11 |
+| **23/10**, sin confirmar | No figura con nombre: ese día hay clase | Entrega Parcial N.º 2 (19/10), checkpoint formativo sin defensa: diagrama de arquitectura de integración (SOA); clasificación justificada de cada integración externa en síncrona (SOAP o REST) o asincrónica (cola o tópico); y un proceso de negocio de punta a punta con mensajería real y broker configurado | **Listo para entregar**: documento, diagrama y evidencia en `docs/entrega3/`. Falta: el tag, la evidencia tomada desde ese tag, la lectura de los cinco y subirlo el jueves 22/10. La cátedra respondió el 16/10 que se entrega con las fechas del cronograma de los viernes; como el cronograma no nombra este checkpoint, sigue el 23/10 de la carátula | 2, 3, 4 y 6 |
+| **06/11** | Entrega del diseño del TP Obligatorio | La consigna no la nombra. La cátedra respondió el 16/10 que la documentación es técnica, con diagramas de casos de uso y casos de uso, sin Figma ni manual de usuario | Se prepara el borrador del documento técnico con los diagramas de secuencia, los diagramas de casos de uso y los casos de uso, el WSDL y `docs/api/openapi.yaml` al día; se sube el jueves 05/11 | 5 y 11 |
+| **13/11** | 2.ª Entrega PARCIAL | Entrega Obligatoria N.º 2 — 2.º Parcial (09/11), con defensa oral de 20 a 25 minutos y nota mínima 4. Hay que entregar: dos procesos con mensajería de punta a punta (uno por cola y uno por tópico); un servicio SOAP con su WSDL, justificado como sistema legado; un servicio REST (partner moderno o API de consumo externo); transacciones declarativas en un flujo crítico de varios pasos; documento técnico actualizado, de 8 a 12 páginas de contenido (sin contar los anexos, confirmado el 16/10), con un diagrama de secuencia por integración; y la declaración del uso de IA. Hay que defender: una demo que cruce componentes, mensajería y servicios web; por qué cada integración es síncrona o asincrónica; y qué pasa con la transacción si algo falla a mitad del flujo | Hecho: la cola y el tópico (emisión de entradas; aviso y auditoría), la API REST propia y la transacción declarativa que confirma la compra. **No existen el servicio SOAP con su WSDL ni el documento técnico con los diagramas de secuencia.** El diseño del SOAP se decidió el 16/10 (Fase 5) y lo implementa Santiago Loto. Faltan además los diagramas de casos de uso y los casos de uso, la declaración del uso de IA (la escribe el grupo) y una prueba de la falla a mitad del flujo que quede en el repo y se pueda repetir (Julian Zuchowicki) | 4, 5, 6 y 11 |
 | **20/11** | 3.er Check point TPO | La consigna no lo nombra: a confirmar con la cátedra | Sin definir. El plan es mostrar Validación y Reventa funcionando | 7, 8 y 10 |
-| **27/11** | Prueba del TP Obligatorio | La consigna no la nombra así: qué se hace ese día, a confirmar con la cátedra. Se toma como límite para lo que pide la Entrega Final (30/11 en el detalle de la consigna): sistema completo que cumpla el checklist de la sección 6; documentación final de 10 a 15 páginas; historial de git incremental y con participación visible de todos; demo completa, preguntas individuales y reflexión del equipo | Implementados 5 de los 8 componentes (Usuarios, Eventos, Ventas, Pagos y Notificaciones). Faltan Facturación, Validación y Reventa; Mercado Pago real con su webhook; el frontend de reventa, puerta y panel; la documentación final; y que en git se vea a los cinco (hoy no hay commits a nombre de Joaquin Molina) | 4, 5, 7 a 12 |
-| 04/12 u 11/12 | Recuperatorio o final adelantado (04/12) y final regular (11/12) | El encabezado de la consigna da esas dos fechas para la Entrega Final. En cuál se defiende: a confirmar con la cátedra | Sin definir | — |
+| **27/11** | Prueba del TP Obligatorio | La consigna no la nombra así: qué se hace ese día, a confirmar con la cátedra. Se toma como límite para lo que pide la Entrega Final (30/11 en el detalle de la consigna): sistema completo que cumpla el checklist de la sección 6; documentación final de 10 a 15 páginas; historial de git incremental y con participación visible de todos; demo completa, preguntas individuales y reflexión del equipo (los aprendizajes los escribe el grupo) | Implementados 5 de los 8 componentes (Usuarios, Eventos, Ventas, Pagos y Notificaciones). Faltan Facturación, Validación y Reventa; el frontend de reventa, puerta y panel; la documentación final; y que en git se vea a los cinco (hoy no hay commits a nombre de Joaquin Molina) | 4, 5, 7 a 12 |
+| **04/12** | Final adelantado | El encabezado de la consigna da el 04/12 y el 11/12 para la Entrega Final. El grupo decidió el 16/10 defenderla el viernes 04/12 (final adelantado); el 11/12 (final regular) queda como alternativa | Decidido | — |
 
 - El 16/10, el 23/10 y el 30/10 hay clase de "Desarrollo de una aplicación
   integrada", sin entrega con nombre.
-- **El 23/10 no está confirmado.** Sale del patrón de las demás fechas (las
-  del viernes caen cuatro días después de las del lunes). Si la cátedra dice
-  otra fecha, se cambia acá.
+- **El 23/10 sale del cronograma de los viernes.** La cátedra respondió el
+  16/10 que se entrega con las fechas de ese cronograma. Como no nombra este
+  checkpoint, se toma el 23/10 por el patrón de las demás fechas (las del
+  viernes caen cuatro días después de las del lunes).
 - **Formato de cada entrega** (consigna, sección 9): enlace al repositorio y
   documento técnico en PDF, subidos al aula virtual. La hora límite que da la
   consigna (13:30) es de la comisión del lunes y falta confirmarla: cada
   entrega se sube el jueves anterior.
+
+### Respuestas de la cátedra (16/10)
+
+- El grupo de cinco está aceptado.
+- Las integraciones con ARCA son simuladas por ahora, y también se acepta la
+  pasarela de pagos simulada (`PagosFake`).
+- Se entrega con las fechas del cronograma de la comisión del viernes.
+- La documentación que piden es técnica, con diagramas de casos de uso y
+  casos de uso. La consigna no pide Figma ni manual de usuario.
+- Las 8 a 12 páginas del documento técnico son de contenido, sin contar los
+  anexos.
+- Siguen sin respuesta: la hora límite de subida; si una cola y un tópico que
+  salen del mismo evento cuentan como dos procesos asincrónicos; y si se
+  acepta la base como último recurso en lugar de un datasource XA.
+
+### Decisiones del grupo (16/10)
+
+- Vigencia de la sesión: 8 horas, sin refresh token (Fase 2).
+- Permisos por destino en el broker: riesgo aceptado (Fase 12).
+- Facturación por SOAP: todo simulado, con el diseño de la Fase 5. La
+  implementa Santiago Loto para el 13/11.
+- Secreto de servicios fuera de desarrollo: requisito de despliegue, sin
+  bloquear el arranque (Fase 12).
+- Endpoints `/pruebas/*` de Notificaciones: se mantienen (Fase 12).
+- La declaración del uso de IA y los aprendizajes del equipo los escribe el
+  grupo.
+- La Entrega Final se defiende el viernes 04/12 (final adelantado).
+- Los pendientes de Sebastian Deya pasan a Julian Zuchowicki: la conciliación
+  de pagos con una prueba repetible de una falla a mitad de la compra; la capa
+  de datos en Usuarios, Eventos y Notificaciones, con los tests de Eventos; y
+  lo que quede de Ventas. Lo que Sebastian ya hizo no cambia.
+
+### Nuevo pendiente
+
+- [ ] Diagramas de casos de uso y casos de uso para el documento técnico (los
+      pide la cátedra; hoy no existen). Responsable: a definir.

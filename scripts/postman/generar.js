@@ -1036,15 +1036,15 @@ const seguridad = carpeta('4 Seguridad (clase 11)',
       ],
       tests: [estado(401), esProblema],
     }),
-    pedido('SEC-W05c Login: el token dura 15 minutos o menos', 'POST', url('baseUsuarios', ['login']), {
-      descripcion: 'Criterio de la matriz: vigencia del token de hasta 15 minutos. Hoy dura 8 horas y el cambio '
-        + 'está a decidir por el equipo, así que esta aserción falla hasta entonces.',
+    pedido('SEC-W05c Login: la sesión dura 8 horas', 'POST', url('baseUsuarios', ['login']), {
+      descripcion: 'El criterio de la matriz pide una vigencia corta. El grupo decidió el 16/10 mantener la sesión '
+        + 'en 8 horas, sin refresh token, y justificarlo: comprueba que el token dura exactamente eso.',
       cabeceras: [JSON_CT],
       cuerpo: TITULAR,
       tests: [
         estado(200),
         "const p = JSON.parse(atob(pm.response.json().token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));",
-        "pm.test('exp - iat <= 900 s', () => pm.expect(p.exp - p.iat).to.be.at.most(900));",
+        "pm.test('exp - iat = 8 h (28.800 s)', () => pm.expect(p.exp - p.iat).to.eql(28800));",
       ],
     }),
     pedido('SEC-W06 POST /v1/ventas sin Idempotency-Key (400, sin información interna)', 'POST',

@@ -4091,7 +4091,7 @@
           ]
         },
         {
-          "name": "SEC-W05c Login: el token dura 15 minutos o menos",
+          "name": "SEC-W05c Login: la sesión dura 8 horas",
           "request": {
             "method": "POST",
             "header": [
@@ -4110,7 +4110,7 @@
               ],
               "query": []
             },
-            "description": "Criterio de la matriz: vigencia del token de hasta 15 minutos. Hoy dura 8 horas y el cambio está a decidir por el equipo, así que esta aserción falla hasta entonces.",
+            "description": "El criterio de la matriz pide una vigencia corta. El grupo decidió el 16/10 mantener la sesión en 8 horas, sin refresh token, y justificarlo: comprueba que el token dura exactamente eso.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"titular@palco.test\",\n  \"password\": \"palco1234\"\n}",
@@ -4129,7 +4129,7 @@
                 "exec": [
                   "pm.test('responde 200', () => pm.response.to.have.status(200));",
                   "const p = JSON.parse(atob(pm.response.json().token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));",
-                  "pm.test('exp - iat <= 900 s', () => pm.expect(p.exp - p.iat).to.be.at.most(900));"
+                  "pm.test('exp - iat = 8 h (28.800 s)', () => pm.expect(p.exp - p.iat).to.eql(28800));"
                 ]
               }
             }

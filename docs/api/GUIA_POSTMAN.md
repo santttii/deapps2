@@ -115,7 +115,7 @@ No hay ids fijos: los `V-…`, `T-…` y `P-…` salen de las respuestas.
 2. Dejá todos los requests tildados y en el orden en que están. No hace falta poner demora ni iteraciones.
 3. `Run Palco API`.
 
-Tienen que ejecutarse 74 requests. Las carpetas 1 a 4, con todos sus tests en verde salvo SEC-W05c (sección 13), que queda en rojo a propósito hasta que el grupo decida la vigencia del token. Los 6 de las subcarpetas "Pasos manuales" y "Pendientes" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
+Tienen que ejecutarse 74 requests. Las carpetas 1 a 4, con todos sus tests en verde. Los 6 de las subcarpetas "Pasos manuales" y "Pendientes" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
 
 La corrida se comprobó con Newman, que usa el mismo motor que el Runner. Falta repetirla una vez en la ventana de Postman, con el servidor redesplegado (para que exista `otro.titular@palco.test`), para sacar la captura.
 
@@ -281,11 +281,11 @@ Comprueba desde afuera los criterios de la matriz de seguridad de la clase 11 (`
 | SEC-W02b | — | Sin token: 401 `no-autenticado` con `WWW-Authenticate: Bearer` | Pasa |
 | SEC-W03a y SEC-W03b | B | Login con un email que no existe y con la clave mal: el mismo 401 con el mismo mensaje, así no se puede saber qué cuentas hay. El email inexistente es nuevo en cada corrida | Pasa |
 | SEC-W05a y SEC-W05b | A | Token con la firma alterada y token `alg=none` (sin firma, que dice ser de organizer): 401 | Pasa: 401 en `application/problem+json` (`/problemas/token-invalido`), con `WWW-Authenticate` y CORS |
-| SEC-W05c | A | El token dura 15 minutos o menos | **Falla**: dura 8 horas. Está a decidir por el equipo si se baja la vigencia o se justifica la de hoy; si se justifica, este test se ajusta a esa decisión |
+| SEC-W05c | A | La sesión dura 8 horas | Pasa. El criterio de la matriz pide una vigencia corta; el grupo decidió el 16/10 mantener 8 horas sin refresh token y justificarlo, y la prueba comprueba esa vigencia |
 | SEC-W06 | A | `POST /v1/ventas` sin `Idempotency-Key`: 400 `datos-invalidos`, sin nombres de clases, trazas ni SQL en el cuerpo | Pasa |
 | SEC-D02 | A | `GET /yo` no devuelve la contraseña ni el hash | Pasa |
 | SEC-W04 | Email propio | Cinco login fallidos seguidos y el sexto: 429 `demasiados-intentos` con `Retry-After` | Pasa: los cinco primeros responden 401 y el sexto 429 con `Retry-After` |
 
 **SEC-W04 no toca las cuentas de prueba.** Antes de enviarse genera un email nuevo, `intentos-…@palco.test`, y manda con él los cinco intentos fallidos, uno después del otro; el request es el sexto. Así el límite no bloquea las cuentas que usan los demás requests, y una corrida no arrastra los intentos de la anterior. Va último en la colección.
 
-Corrida del 16/10 con el servidor armado desde cero con esos cambios: 74 requests, 252 aserciones y 1 falla, SEC-W05c, que queda en rojo hasta que el grupo decida la vigencia del token, que sigue pendiente. Si el servidor arrancó con un `PALCO_SECRETO_SERVICIOS` propio, Newman se corre con `--env-var secretoServicios=<el valor>`.
+Corrida del 16/10 con el servidor armado desde cero con esos cambios y la decisión de mantener la sesión en 8 horas: 74 requests, 252 aserciones, 0 fallas. Si el servidor arrancó con un `PALCO_SECRETO_SERVICIOS` propio, Newman se corre con `--env-var secretoServicios=<el valor>`.

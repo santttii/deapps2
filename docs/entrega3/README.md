@@ -1,4 +1,4 @@
-# Entrega Parcial N.º 2 (23/10/2026, a confirmar) — carpeta de la entrega
+# Entrega Parcial N.º 2 (23/10/2026) — carpeta de la entrega
 
 Acá está el documento técnico de la entrega y todo lo que lo respalda. Describe el estado del servidor de desarrollo el 14/10/2026 entre las 17:56 y las 18:00, armado desde cero ese día desde el commit `580dd05`, el del tag `entrega-parcial-2`.
 
@@ -28,6 +28,12 @@ Además, la sección 5 lista las diferencias con la Entrega Parcial N.º 1, los 
 
 - `Diagrama_Integracion_SOA.drawio.png`: la exportación del diagrama desde app.diagrams.net.
 - `evidencia/postman-runner.png`: la captura de la corrida de la colección de Postman.
-- Confirmar con la cátedra la fecha de la entrega. El grupo cursa en la comisión de los viernes y la consigna, escrita para la del lunes, dice 19/10. El cronograma de los viernes no nombra este checkpoint: se toma el viernes 23/10/2026, cuatro días después como las otras fechas, y así figura en la carátula. También falta confirmar la hora límite: las 13:30 de la consigna son de la comisión del lunes.
-- Lo que el documento marca como pendiente en un comentario junto a la carátula: la fecha de la entrega.
-- Los anexos (documentación funcional, manual de usuario y prototipo): no se hicieron. La consigna no los pide para esta entrega y la consulta a la cátedra todavía no tiene respuesta.
+- Confirmar con la cátedra la hora límite: las 13:30 de la consigna son de la comisión del lunes. Mientras tanto, la entrega se sube el jueves 22/10.
+- El comentario junto a la carátula del documento todavía pide confirmar la fecha. Con la respuesta de la cátedra del 16/10 (ver abajo) queda pendiente solo la hora límite.
+- Los anexos (documentación funcional, manual de usuario y prototipo): no se hicieron. La consigna no los pide para esta entrega, y la cátedra respondió el 16/10 que la documentación es técnica y no pide Figma ni manual de usuario.
+
+## Lo que respondió la cátedra (16/10)
+
+- El grupo de cinco está aceptado.
+- Se entrega con las fechas del cronograma de la comisión del viernes. Como el cronograma no nombra este checkpoint, se mantiene el viernes 23/10/2026 de la carátula, cuatro días después del 19/10 de la consigna, como las otras fechas.
+- La hora límite de subida sigue sin confirmar.
