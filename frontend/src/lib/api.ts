@@ -12,8 +12,9 @@ const MENSAJE_DATOS_INVALIDOS = 'No pudimos procesar los datos. Revisá el formu
 const MENSAJE_SIN_SESION = 'Tenés que iniciar sesión.';
 
 // Estados en los que el mensaje del backend ya está escrito para el usuario. 402, 422 y 504 los
-// usa Ventas: pago rechazado, regla de negocio y servicio externo que no respondió.
-const ESTADOS_CON_MENSAJE_PROPIO = [401, 402, 403, 404, 409, 422, 504];
+// usa Ventas: pago rechazado, regla de negocio y servicio externo que no respondió. 429 lo usa el
+// login cuando hubo demasiados intentos fallidos.
+const ESTADOS_CON_MENSAJE_PROPIO = [401, 402, 403, 404, 409, 422, 429, 504];
 
 export class ErrorApi extends Error {
   estado: number; // código HTTP; 0 = no hubo una respuesta válida de la API
@@ -85,10 +86,11 @@ function armarUrl(ruta: string, consulta: OpcionesPedido['consulta'] = {}): stri
   return URL_BASE + ruta + (texto ? `?${texto}` : '');
 }
 
-// El backend rechaza un token que no acepta (vencido, o firmado antes de un reinicio del
-// servidor) con una respuesta sin cabeceras CORS: el navegador la informa como error de red y
-// no deja ver el 401. Un corte de red de verdad se ve igual. Para distinguirlos se prueba ese
-// mismo token en GET /api/usuarios/yo (todos los servicios validan el token con la misma clave):
+// Desde el 16/10 el backend responde el token que no acepta (vencido, o firmado antes de un
+// reinicio del servidor) con un 401 con cabeceras CORS, y la sesión se cierra por la rama común.
+// Esto queda para cuando la respuesta no se puede leer (un corte de red, o un servidor sin ese
+// cambio). Para distinguir los dos casos se prueba ese mismo token en GET /api/usuarios/yo
+// (todos los servicios validan el token con la misma clave):
 //   - si contesta bien, el token sirve y lo que falló fue la red: la sesión no se toca;
 //   - si tampoco se puede leer la respuesta, se pregunta sin token al health de Usuarios: si
 //     ese contesta, el servidor está vivo y lo que rechaza es el token.
