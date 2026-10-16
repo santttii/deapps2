@@ -2,6 +2,7 @@ package com.palco.common.rest;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -157,6 +158,21 @@ public final class ManejadoresDeErrores {
         }
     }
 
+    /**
+     * Demasiados intentos seguidos → 429. {@code Retry-After} dice en cuántos segundos se
+     * puede volver a intentar (RFC 9110, 10.2.3); el cliente no tiene que adivinarlo.
+     */
+    @Provider
+    public static class DemasiadosIntentos extends Manejador
+            implements ExceptionMapper<ErroresDeNegocio.DemasiadosIntentos> {
+        @Override
+        public Response toResponse(ErroresDeNegocio.DemasiadosIntentos e) {
+            return respuesta(Problema.de(429, e.tipo(), "Demasiados intentos", e.getMessage(), ruta()))
+                    .header(HttpHeaders.RETRY_AFTER, e.segundosDeEspera())
+                    .build();
+        }
+    }
+
     /** Otro servicio o la pasarela no respondió → 504. */
     @Provider
     public static class SinRespuesta extends Manejador implements ExceptionMapper<ErroresDeNegocio.SinRespuesta> {
@@ -213,15 +229,29 @@ public final class ManejadoresDeErrores {
         }
     }
 
-    /** Cualquier otra cosa → 500 sin filtrar detalles internos al cliente. */
+    /**
+     * Cualquier otra cosa → 500 sin filtrar detalles internos al cliente.
+     *
+     * Cada error lleva un id nuevo (un UUID al azar, que no dice nada del error) que
+     * se escribe en el log junto con la traza y viaja en la respuesta como
+     * {@code idError}. Quien reporta el problema pasa ese id y se encuentra su traza
+     * en el log sin mandarle al cliente ningún detalle interno.
+     */
     @Provider
     public static class Inesperado extends Manejador implements ExceptionMapper<Throwable> {
         private static final Logger LOG = Logger.getLogger(Inesperado.class.getName());
 
         @Override
         public Response toResponse(Throwable e) {
-            LOG.log(Level.SEVERE, "Error no manejado", e);
-            return responder(500, "error-inesperado", "Error inesperado", "Ocurrió un error inesperado.");
+            return respuesta(registrar(e, ruta())).build();
+        }
+
+        /** Escribe el error en el log con un id nuevo y devuelve el problema que lo lleva. */
+        static Problema registrar(Throwable e, String ruta) {
+            String id = UUID.randomUUID().toString();
+            LOG.log(Level.SEVERE, "Error no manejado (idError " + id + ")", e);
+            return Problema.de(500, "error-inesperado", "Error inesperado", "Ocurrió un error inesperado.", ruta)
+                    .conIdError(id);
         }
     }
 }

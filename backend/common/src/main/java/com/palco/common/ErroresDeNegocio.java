@@ -116,6 +116,25 @@ public final class ErroresDeNegocio {
         }
     }
 
+    /**
+     * Demasiados intentos seguidos de la misma operación (el login) → 429 con la
+     * cabecera {@code Retry-After}. Lleva cuántos segundos faltan para que se pueda
+     * volver a intentar; nunca menos de 1, porque 0 invitaría a reintentar ya.
+     */
+    @ApplicationException(rollback = true)
+    public static class DemasiadosIntentos extends ErrorDeNegocio {
+        private final long segundosDeEspera;
+
+        public DemasiadosIntentos(String mensaje, long segundosDeEspera) {
+            super("demasiados-intentos", mensaje);
+            this.segundosDeEspera = Math.max(1, segundosDeEspera);
+        }
+
+        public long segundosDeEspera() {
+            return segundosDeEspera;
+        }
+    }
+
     /** Otro servicio o la pasarela no respondió a tiempo → 504. */
     @ApplicationException(rollback = true)
     public static class SinRespuesta extends ErrorDeNegocio {

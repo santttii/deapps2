@@ -23,6 +23,13 @@ class ErroresDeNegocioTest {
         assertEquals("conflicto", new ErroresDeNegocio.Conflicto("x").tipo());
         assertEquals("regla-incumplida", new ErroresDeNegocio.ReglaIncumplida("x").tipo());
         assertEquals("sin-respuesta", new ErroresDeNegocio.SinRespuesta("x").tipo());
+        assertEquals("demasiados-intentos", new ErroresDeNegocio.DemasiadosIntentos("x", 60).tipo());
+    }
+
+    @Test
+    void demasiadosIntentosNuncaPideEsperarMenosDeUnSegundo() {
+        assertEquals(900, new ErroresDeNegocio.DemasiadosIntentos("x", 900).segundosDeEspera());
+        assertEquals(1, new ErroresDeNegocio.DemasiadosIntentos("x", 0).segundosDeEspera());
     }
 
     @Test
@@ -54,7 +61,8 @@ class ErroresDeNegocioTest {
                 ErroresDeNegocio.NoEncontrado.class,
                 ErroresDeNegocio.Conflicto.class,
                 ErroresDeNegocio.ReglaIncumplida.class,
-                ErroresDeNegocio.SinRespuesta.class);
+                ErroresDeNegocio.SinRespuesta.class,
+                ErroresDeNegocio.DemasiadosIntentos.class);
         for (Class<?> clase : clases) {
             ApplicationException anotacion = clase.getDeclaredAnnotation(ApplicationException.class);
             assertNotNull(anotacion, clase.getSimpleName() + " no tiene @ApplicationException");

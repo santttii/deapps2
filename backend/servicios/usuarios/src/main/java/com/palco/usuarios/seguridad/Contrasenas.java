@@ -12,11 +12,19 @@ import javax.crypto.spec.PBEKeySpec;
  * Hash de contraseñas con PBKDF2-HMAC-SHA256 (incluido en Java, sin
  * dependencias). Formato guardado:
  * {@code pbkdf2-sha256$<iteraciones>$<sal base64>$<hash base64>}.
+ *
+ * Las iteraciones van en el hash guardado: subirlas solo cambia los hashes
+ * nuevos, y uno viejo (por ejemplo, los de las cuentas de prueba de V2 y V3,
+ * con 310.000) se sigue verificando con las suyas.
  */
 public final class Contrasenas {
 
     private static final String PREFIJO = "pbkdf2-sha256";
-    private static final int ITERACIONES = 310_000;
+    /**
+     * Las que recomienda hoy OWASP para PBKDF2-HMAC-SHA256 (Password Storage Cheat
+     * Sheet). Antes eran 310.000, la recomendación anterior.
+     */
+    public static final int ITERACIONES = 600_000;
     private static final int BYTES_SAL = 16;
     private static final int BITS_HASH = 256;
     private static final SecureRandom AZAR = new SecureRandom();

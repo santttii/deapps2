@@ -18,13 +18,22 @@ import jakarta.json.bind.annotation.JsonbPropertyOrder;
  *                 problema es solo el código HTTP (un 405, por ejemplo)
  * @param instance ruta del pedido que falló
  * @param errores  errores de validación por campo (extensión propia); solo aparece si hay alguno
+ * @param idError  id del error inesperado (extensión propia, solo en los 500): el mismo que queda
+ *                 en el log del servidor junto con la traza, para encontrarla cuando alguien
+ *                 reporta el error. Los demás errores no lo llevan
  */
 // El orden es el del estándar; sin esta anotación JSON-B los escribe alfabéticamente.
-@JsonbPropertyOrder({ "type", "title", "status", "detail", "instance", "errores" })
+@JsonbPropertyOrder({ "type", "title", "status", "detail", "instance", "errores", "idError" })
 // Los campos sin valor no se escriben, aunque JsonProvider incluya los null en el resto de la API.
 @JsonbNillable(false)
 public record Problema(String type, String title, int status, String detail, String instance,
-        Map<String, String> errores) {
+        Map<String, String> errores, String idError) {
+
+    /** Problema sin id de error: así salen todos menos el 500 inesperado. */
+    public Problema(String type, String title, int status, String detail, String instance,
+            Map<String, String> errores) {
+        this(type, title, status, detail, instance, errores, null);
+    }
 
     /** Lo que antecede al tipo de problema en {@code type}. */
     public static final String PREFIJO_TIPO = "/problemas/";
@@ -42,5 +51,10 @@ public record Problema(String type, String title, int status, String detail, Str
             Map<String, String> errores) {
         return new Problema(PREFIJO_TIPO + tipo, titulo, estado, detalle, instancia,
                 errores == null || errores.isEmpty() ? null : errores);
+    }
+
+    /** El mismo problema, con el id con el que quedó registrado en el log. */
+    public Problema conIdError(String id) {
+        return new Problema(type, title, status, detail, instance, errores, id);
     }
 }

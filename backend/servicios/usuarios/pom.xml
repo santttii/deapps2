@@ -22,6 +22,15 @@
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
         </dependency>
+        <dependency>
+            <!-- Solo para MigracionesEnH2Test: corre las migraciones sobre la misma base que usa
+                 WildFly en desarrollo (H2 en modo PostgreSQL). En el servidor H2 lo pone WildFly,
+                 por eso no viaja en el WAR. Misma versión que trae el servidor. -->
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>2.4.240</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

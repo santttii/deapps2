@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -44,7 +45,21 @@ import com.palco.usuarios.seguridad.Tokens;
 /**
  * Stateless: cada operación recibe todo lo que necesita (los datos del pedido
  * o el id del token) y lo que tiene que durar queda en la base, así que el
- * contenedor reutiliza un pool de instancias.
+ * contenedor reutiliza un pool de instancias. Los inicios de sesión fallidos
+ * también quedan en la base (tabla {@code intento_login}, ver {@link IntentosDeLogin}),
+ * y no en memoria: así el límite vale igual con varias instancias del servicio y
+ * no se reinicia con un redespliegue.
+ *
+ * Límite de intentos de login (SEC-W04): 5 fallidos en 15 minutos para un
+ * mismo email bloquean
+ * ese email hasta que el más viejo de esos fallidos salga de la ventana. Mientras
+ * tanto todo login responde 429 con {@code Retry-After}, aunque la contraseña
+ * sea la correcta: si no, el bloqueo no frenaría a quien sigue probando. Se
+ * cuenta por email, exista o no la cuenta, y el mensaje es el mismo, para no
+ * revelar qué emails están registrados. Estas constantes son de seguridad de
+ * Usuarios, como {@code MAX_INTENTOS_CODIGO}, y no reglas del negocio de venta
+ * de entradas: por eso están acá y no en {@code ReglasDeNegocio}, que además
+ * tiene una copia en el frontend.
  */
 @Stateless
 public class ServicioDeUsuarios implements IUsuarios {
@@ -58,19 +73,32 @@ public class ServicioDeUsuarios implements IUsuarios {
     static final Duration VIGENCIA_CODIGO = Duration.ofMinutes(15);
     static final Duration ESPERA_REENVIO = Duration.ofSeconds(30);
     static final int MAX_INTENTOS_CODIGO = 5;
+    static final int MAX_INTENTOS_LOGIN = 5;
+    static final Duration VENTANA_INTENTOS_LOGIN = Duration.ofMinutes(15);
 
     private static final String ERROR_LOGIN = "Revisá el email y la contraseña.";
+    private static final String ERROR_DEMASIADOS_INTENTOS =
+            "Hubo demasiados intentos fallidos. Esperá unos minutos y volvé a probar.";
 
     private static final SecureRandom AZAR = new SecureRandom();
 
-    /** Hash de una contraseña que nadie tiene, para igualar tiempos cuando el email no existe. */
-    private static final String HASH_FALSO = Contrasenas.hashear(UUID.randomUUID().toString());
+    /**
+     * Hash de una contraseña que nadie tiene, para igualar tiempos cuando el email no existe.
+     * Se arma con {@code Contrasenas.hashear}, así cuesta lo mismo que el hash de una cuenta nueva.
+     */
+    static final String HASH_FALSO = Contrasenas.hashear(UUID.randomUUID().toString());
 
     @PersistenceContext(unitName = "usuarios")
     EntityManager em;
 
     @Inject
     ClavesJwt claves;
+
+    @Inject
+    IntentosDeLogin intentos;
+
+    /** De dónde sale la hora; los tests ponen un reloj fijo para mover la ventana de 15 minutos. */
+    Clock reloj = Clock.systemDefaultZone();
 
     @Override
     public RegistroPendienteDto registrar(RegistroDto r) {
@@ -168,12 +196,26 @@ public class ServicioDeUsuarios implements IUsuarios {
 
     @Override
     public SesionDto iniciarSesion(LoginDto login) {
-        Optional<Usuario> usuario = buscarPorEmail(normalizarEmail(login.email()));
+        String email = normalizarEmail(login.email());
+        String emailHash = sha256(email);
+        LocalDateTime ahora = LocalDateTime.now(reloj);
+        LocalDateTime desde = ahora.minus(VENTANA_INTENTOS_LOGIN);
+
+        // Antes de mirar la contraseña: bloqueado, ni la correcta entra.
+        List<LocalDateTime> fallidos = intentos.recientes(emailHash, desde, MAX_INTENTOS_LOGIN);
+        if (fallidos.size() >= MAX_INTENTOS_LOGIN) {
+            throw new ErroresDeNegocio.DemasiadosIntentos(ERROR_DEMASIADOS_INTENTOS,
+                    segundosHastaLiberar(fallidos.get(MAX_INTENTOS_LOGIN - 1), ahora));
+        }
+
+        Optional<Usuario> usuario = buscarPorEmail(email);
         // Se calcula el hash aunque el email no exista, para no revelar por el tiempo de respuesta qué emails existen.
         String hash = usuario.map(Usuario::getPasswordHash).orElse(HASH_FALSO);
         if (!Contrasenas.verificar(login.password(), hash) || usuario.isEmpty()) {
-            throw new ErroresDeNegocio.NoAutenticado(ERROR_LOGIN);
+            intentos.registrar(emailHash, ahora, desde);
+            throw new CredencialesIncorrectas();
         }
+        intentos.olvidar(emailHash);
         if (!usuario.get().isEmailVerificado()) {
             throw new ErroresDeNegocio.Conflicto("Verificá tu email antes de iniciar sesión.");
         }
@@ -224,6 +266,16 @@ public class ServicioDeUsuarios implements IUsuarios {
         claims.put("exp", ahora.plus(DURACION_TOKEN_DE_SERVICIO).getEpochSecond());
         claims.put("jti", UUID.randomUUID().toString());
         return claims;
+    }
+
+    /**
+     * Segundos hasta que el fallido más viejo de los que bloquean salga de la ventana,
+     * redondeados hacia arriba: si se redondeara hacia abajo, quien respeta el
+     * {@code Retry-After} llegaría un instante antes y volvería a recibir 429.
+     */
+    static long segundosHastaLiberar(LocalDateTime fallidoMasViejo, LocalDateTime ahora) {
+        long milisegundos = Duration.between(ahora, fallidoMasViejo.plus(VENTANA_INTENTOS_LOGIN)).toMillis();
+        return Math.max(1, Math.ceilDiv(milisegundos, 1000));
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -295,6 +347,18 @@ public class ServicioDeUsuarios implements IUsuarios {
     public static class CodigoIncorrecto extends ErroresDeNegocio.DatosInvalidos {
         public CodigoIncorrecto() {
             super("codigo", "El código no es correcto.");
+        }
+    }
+
+    /**
+     * Email o contraseña incorrectos → 401, con el mismo texto exista o no la cuenta.
+     * Como {@link CodigoIncorrecto}, NO deshace la transacción: el intento fallido
+     * tiene que quedar guardado para que cuente en el límite.
+     */
+    @jakarta.ejb.ApplicationException(rollback = false)
+    public static class CredencialesIncorrectas extends ErroresDeNegocio.NoAutenticado {
+        public CredencialesIncorrectas() {
+            super(ERROR_LOGIN);
         }
     }
 }
