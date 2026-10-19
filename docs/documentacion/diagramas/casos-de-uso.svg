@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="900" viewBox="0 0 1000 900" font-family="Arial, Helvetica, sans-serif">
+<title>Casos de uso de Palco</title>
+
+<defs>
+  <marker id="lleno" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10 z" fill="#1f2937"/>
+  </marker>
+  <marker id="abierto" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#4b5563" stroke-width="1.4"/>
+  </marker>
+  <marker id="async" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#2b5797" stroke-width="1.8"/>
+  </marker>
+  <marker id="triangulo" viewBox="0 0 14 12" refX="13" refY="6" markerWidth="14" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L14,6 L0,12 z" fill="#ffffff" stroke="#1f2937" stroke-width="1.2"/>
+  </marker>
+</defs>
+<rect x="0" y="0" width="1000" height="900" fill="#ffffff"/>
+<text x="24.0" y="40.0" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#1f2937" text-anchor="start" font-weight="bold">Casos de uso de Palco</text>
+<text x="24.0" y="64.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Actores: las tres personas del sistema y los dos sistemas externos, los dos simulados. Estado del código al 16/10/2026.</text>
+<rect x="230" y="92" width="560" height="720" rx="6" fill="#fbfcfd" stroke="#1f2937" stroke-width="1.4"/>
+<text x="244.0" y="118.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" font-weight="bold">Palco: venta de entradas nominativas con reventa oficial</text>
+<line x1="134" y1="426" x2="250.0" y2="170.0" stroke="#1f2937" stroke-width="1.4"/>
+<line x1="134" y1="426" x2="250.0" y2="260.0" stroke="#1f2937" stroke-width="1.4"/>
+<line x1="134" y1="426" x2="250.0" y2="350.0" stroke="#1f2937" stroke-width="1.4"/>
+<line x1="134" y1="426" x2="518.0" y2="440.0" stroke="#1f2937" stroke-width="1.4"/>
+<line x1="134" y1="426" x2="250.0" y2="530.0" stroke="#9a6b16" stroke-width="1.4" stroke-dasharray="6 4"/>
+<line x1="134" y1="426" x2="250.0" y2="620.0" stroke="#1f2937" stroke-width="1.4"/>
+<line x1="134" y1="426" x2="250.0" y2="710.0" stroke="#9a6b16" stroke-width="1.4" stroke-dasharray="6 4"/>
+<line x1="881" y1="216" x2="770.0" y2="200.0" stroke="#1f2937" stroke-width="1.4"/>
+<line x1="881" y1="216" x2="770.0" y2="290.0" stroke="#9a6b16" stroke-width="1.4" stroke-dasharray="6 4"/>
+<line x1="881" y1="216" x2="702.0" y2="440.0" stroke="#1f2937" stroke-width="1.4"/>
+<line x1="881" y1="486" x2="778.0" y2="580.0" stroke="#1f2937" stroke-width="1.4"/>
+<line x1="881" y1="486" x2="702.0" y2="440.0" stroke="#1f2937" stroke-width="1.4"/>
+<line x1="815" y1="658" x2="520.0" y2="620.0" stroke="#1f2937" stroke-width="1.4"/>
+<line x1="815" y1="753" x2="520.0" y2="620.0" stroke="#1f2937" stroke-width="1.4"/>
+<line x1="815" y1="778" x2="520.0" y2="710.0" stroke="#9a6b16" stroke-width="1.4" stroke-dasharray="6 4"/>
+<ellipse cx="385" cy="170" rx="135" ry="30" fill="#ffffff" stroke="#1f2937" stroke-width="1.5"/>
+<text x="385.0" y="175.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle">Registrarse</text>
+<ellipse cx="385" cy="260" rx="135" ry="30" fill="#ffffff" stroke="#1f2937" stroke-width="1.5"/>
+<text x="385.0" y="265.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle">Consultar el catálogo</text>
+<ellipse cx="385" cy="350" rx="135" ry="30" fill="#ffffff" stroke="#1f2937" stroke-width="1.5"/>
+<text x="385.0" y="355.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle">Ver mis entradas</text>
+<ellipse cx="610" cy="440" rx="92" ry="30" fill="#ffffff" stroke="#1f2937" stroke-width="1.5"/>
+<text x="610.0" y="445.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle">Iniciar sesión</text>
+<ellipse cx="385" cy="530" rx="135" ry="30" fill="#fbf3e2" stroke="#9a6b16" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="385.0" y="535.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle">Publicar en reventa</text>
+<ellipse cx="385" cy="620" rx="135" ry="30" fill="#ffffff" stroke="#1f2937" stroke-width="1.5"/>
+<text x="385.0" y="625.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle">Comprar entradas</text>
+<ellipse cx="385" cy="710" rx="135" ry="30" fill="#fbf3e2" stroke="#9a6b16" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="385.0" y="715.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle">Comprar en reventa</text>
+<ellipse cx="660" cy="200" rx="110" ry="30" fill="#ffffff" stroke="#1f2937" stroke-width="1.5"/>
+<text x="660.0" y="205.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle">Crear evento</text>
+<ellipse cx="660" cy="290" rx="110" ry="30" fill="#fbf3e2" stroke="#9a6b16" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="660.0" y="295.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle">Ver estadísticas</text>
+<ellipse cx="660" cy="580" rx="118" ry="30" fill="#e4ebf3" stroke="#1f2937" stroke-width="1.5"/>
+<text x="660.0" y="585.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle">Validar entrada en puerta</text>
+<circle cx="110" cy="402" r="12" fill="#ffffff" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="110" y1="414" x2="110" y2="448" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="90" y1="426" x2="130" y2="426" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="110" y1="448" x2="94" y2="474" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="110" y1="448" x2="126" y2="474" stroke="#1f2937" stroke-width="1.6"/>
+<text x="110.0" y="496.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">Comprador</text>
+<text x="110.0" y="514.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">rol user</text>
+<circle cx="905" cy="192" r="12" fill="#ffffff" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="905" y1="204" x2="905" y2="238" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="885" y1="216" x2="925" y2="216" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="905" y1="238" x2="889" y2="264" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="905" y1="238" x2="921" y2="264" stroke="#1f2937" stroke-width="1.6"/>
+<text x="905.0" y="286.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">Organizador</text>
+<text x="905.0" y="304.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">rol organizer</text>
+<circle cx="905" cy="462" r="12" fill="#ffffff" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="905" y1="474" x2="905" y2="508" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="885" y1="486" x2="925" y2="486" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="905" y1="508" x2="889" y2="534" stroke="#1f2937" stroke-width="1.6"/>
+<line x1="905" y1="508" x2="921" y2="534" stroke="#1f2937" stroke-width="1.6"/>
+<text x="905.0" y="556.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">Personal de puerta</text>
+<text x="905.0" y="574.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">rol staff</text>
+<rect x="815" y="628" width="170" height="70" rx="4" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="900.0" y="648.0" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#4b5563" text-anchor="middle">«sistema externo»</text>
+<text x="900.0" y="667.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ARCA</text>
+<text x="900.0" y="685.0" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#4b5563" text-anchor="middle">simulado, SOAP</text>
+<rect x="815" y="728" width="170" height="70" rx="4" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="900.0" y="748.0" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#4b5563" text-anchor="middle">«sistema externo»</text>
+<text x="900.0" y="767.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Pasarela de pago</text>
+<text x="900.0" y="785.0" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#4b5563" text-anchor="middle">simulada: PagosFake</text>
+<ellipse cx="60" cy="850" rx="34" ry="13" fill="#ffffff" stroke="#1f2937" stroke-width="1.5"/>
+<text x="104.0" y="855.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Implementado</text>
+<ellipse cx="260" cy="850" rx="34" ry="13" fill="#fbf3e2" stroke="#9a6b16" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="304.0" y="855.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Diseñado, pendiente</text>
+<ellipse cx="500" cy="850" rx="34" ry="13" fill="#e4ebf3" stroke="#1f2937" stroke-width="1.5"/>
+<text x="544.0" y="855.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Implementado, sin probar en el servidor</text>
+<text x="24.0" y="880.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">Línea punteada: asociación pendiente. La compra pide la sesión iniciada; el aviso, la auditoría y la factura salen solos al confirmarse el pago.</text>
+</svg>

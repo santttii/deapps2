@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import jakarta.ejb.Local;
 
+import com.palco.ventas.dominio.TitularDeVenta;
 import com.palco.ventas.dominio.Venta;
 
 /**
@@ -70,6 +71,9 @@ public interface VentaRepository {
      * aunque la reserva haya vencido: es el reintento de un pago del que no se
      * supo el resultado, y esa marca siguió reteniendo el cupo.
      * Desde ese momento la venta no se puede cancelar ni vencer.
+     *
+     * En el mismo UPDATE anota {@code ahora} como el instante del último
+     * intento ({@code pago_intentado}): un reintento lo vuelve a anotar.
      */
     boolean guardarClaveDePago(String ventaId, String clavePago, LocalDateTime ahora);
 
@@ -95,4 +99,43 @@ public interface VentaRepository {
 
     /** {@code CONFIRMADA} → {@code EMITIDA}, cuando sus entradas ya tienen código. */
     boolean marcarEmitida(String ventaId);
+
+    // ---- Lo que usa la conciliación de los pagos sin resultado ----
+
+    /**
+     * Guarda la copia de los titulares de una compra que está por cobrarse.
+     * Corre en una transacción propia, que termina al volver: la copia queda
+     * confirmada antes del cobro y no se deshace si después se deshace la
+     * transacción del pago. Si la venta ya tenía su copia (un reintento, o un
+     * pago nuevo después de un rechazo) no hace nada: los titulares de una
+     * compra no cambian.
+     */
+    void respaldarTitulares(String ventaId, List<TitularDeVenta> titulares);
+
+    /** La copia de los titulares de la venta, en el orden del pedido; vacía si nunca se intentó pagar. */
+    List<TitularDeVenta> buscarTitulares(String ventaId);
+
+    /**
+     * Las ventas con un intento de pago sin resultado que ya se pueden
+     * conciliar: {@code EN_CHECKOUT}, con clave de pago, y cuyo último intento
+     * empezó en {@code intentadosHasta} o antes (o no tiene fecha, porque es
+     * anterior a esa columna). Las de reserva más vieja primero.
+     */
+    List<Venta> buscarPagosSinResultado(LocalDateTime intentadosHasta);
+
+    /**
+     * {@code EN_CHECKOUT} → {@code CONFIRMADA} con el pago que encontró la
+     * conciliación. Exige además que la clave anotada sea la de ese pago: si
+     * otro pedido ya cerró la venta, no cambia nada.
+     */
+    boolean confirmarConciliada(String ventaId, String clavePago, String pagoId, LocalDateTime ahora);
+
+    /**
+     * {@code EN_CHECKOUT} → {@code VENCIDA} y sin clave de pago, cuando la
+     * conciliación comprobó que ese intento no cobró. Exige que la clave
+     * anotada sea esa y que el último intento haya empezado en
+     * {@code intentadosHasta} o antes: si mientras tanto llegó un reintento,
+     * el UPDATE no cambia nada y la venta no se vence con un cobro en camino.
+     */
+    boolean vencerPagoSinCobro(String ventaId, String clavePago, LocalDateTime intentadosHasta);
 }

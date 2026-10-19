@@ -314,11 +314,15 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
 
 - [ ] QR firmado (HMAC o JWT con el id de la entrada) para que no se pueda
       falsificar. Reemplaza el QR decorativo de `src/components/QRCode.tsx`.
-- [ ] `POST /api/validacion/escaneos` (solo `staff`): devuelve `valida`,
-      `usada` o `invalida` y marca la entrada como usada de forma atómica
-      (uso único aunque escaneen dos puertas a la vez).
-- [ ] Contrastar con el documento del titular (devuelve nombre y DNI para que
+- [x] `POST /api/v1/validacion/escaneos` (solo `staff`): devuelve `VALIDA`,
+      `YA_USADA`, `INEXISTENTE`, `OTRO_EVENTO` o `NO_HABILITADA` y le pide a
+      Ventas (`POST /api/v1/entradas/usos`, rol `servicio`) que use la entrada
+      con un UPDATE condicional (uso único aunque escaneen dos puertas a la vez).
+      Solo el backend: la pantalla de puerta sigue con datos locales.
+- [x] Contrastar con el documento del titular (devuelve nombre y DNI para que
       el staff lo compare).
+- [x] Registro de cada escaneo (código, resultado, quién y cuándo):
+      `GET /api/v1/validacion/escaneos?eventoId=` para `staff` y `organizer`.
 - [ ] Ingreso manual por código `PLC-XXXXXX`.
 - [ ] Contadores en vivo y últimos escaneos por evento.
 - [ ] Asignar staff a eventos.
@@ -372,7 +376,7 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
           checkout lo avisa al entrar, sin pedir los titulares, y solo compra
           `titular@palco.test`.
   - [ ] `PUBLICAR_REVENTA`, `RETIRAR_PUBLICACION`, `COMPRAR_REVENTA` → `/api/publicaciones/*`
-  - [ ] `MARCAR_ENTRADA_USADA` → `/api/validacion/escaneos`
+  - [ ] `MARCAR_ENTRADA_USADA` → `/api/v1/validacion/escaneos`
 - [x] Checkout por pasos contra el backend (cada paso es una llamada): al
       terminar "Titulares" se inicia la compra y en "Pago" se paga o se cancela.
 - [x] Confirmación con estado "emitiendo entradas…" hasta que la emisión

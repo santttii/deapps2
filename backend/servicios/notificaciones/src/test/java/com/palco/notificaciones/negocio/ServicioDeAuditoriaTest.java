@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -15,30 +14,30 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 
 import jakarta.json.bind.JsonbBuilder;
-import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceException;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.notificaciones.Ejemplos;
 import com.palco.notificaciones.api.Dtos.RegistroDeAuditoriaDto;
+import com.palco.notificaciones.datos.RegistroDeAuditoriaRepository;
 import com.palco.notificaciones.dominio.RegistroDeAuditoria;
 
-/** Qué guarda auditoría y cuándo no guarda. El EntityManager es un doble: no hay base ni servidor. */
+/** Qué guarda auditoría y cuándo no guarda. El repositorio es un doble: no hay base ni servidor. */
 class ServicioDeAuditoriaTest {
 
     private static final String ID_DEL_MENSAJE = "ID:8f1c2d3e-0000-1111-2222-333344445555";
 
-    private final EntityManager em = mock(EntityManager.class);
+    private final RegistroDeAuditoriaRepository registros = mock(RegistroDeAuditoriaRepository.class);
     private final ServicioDeAuditoria servicio = new ServicioDeAuditoria();
 
     ServicioDeAuditoriaTest() {
-        servicio.em = em;
+        servicio.registros = registros;
     }
 
     @Test
@@ -69,18 +68,9 @@ class ServicioDeAuditoriaTest {
     }
 
     @Test
-    void elInsertSeMandaALaBaseAntesDeVolver() {
-        servicio.registrar(ID_DEL_MENSAJE, Ejemplos.pagoConfirmado(), "{}");
-
-        // Con el id asignado en código, persist solo anota la fila: el INSERT sale en el flush.
-        InOrder enOrden = inOrder(em);
-        enOrden.verify(em).persist(any(RegistroDeAuditoria.class));
-        enOrden.verify(em).flush();
-    }
-
-    @Test
     void siLaBaseRechazaElInsertLaFallaSaleDeRegistrar() {
-        doThrow(new PersistenceException("la base no responde")).when(em).flush();
+        // El repositorio manda el INSERT en el momento (lo prueba RegistroDeAuditoriaEnH2Test).
+        doThrow(new PersistenceException("la base no responde")).when(registros).guardar(any());
 
         // Sale de registrar, y no recién al confirmar la transacción: el MDB no llega a
         // escribir en el log que procesó el mensaje.
@@ -90,11 +80,22 @@ class ServicioDeAuditoriaTest {
 
     @Test
     void siElBrokerReentregaElMismoMensajeNoLoRegistraDosVeces() {
-        when(em.find(RegistroDeAuditoria.class, ID_DEL_MENSAJE)).thenReturn(filaDeEjemplo());
+        when(registros.existe(ID_DEL_MENSAJE)).thenReturn(true);
 
         servicio.registrar(ID_DEL_MENSAJE, Ejemplos.pagoConfirmado(), "{}");
 
-        verify(em, never()).persist(any());
+        verify(registros, never()).guardar(any());
+    }
+
+    @Test
+    void elListadoPideLasUltimasCincuentaYLasDevuelveEnElMismoOrden() {
+        RegistroDeAuditoria nueva = new RegistroDeAuditoria("ID:2", "PAGO_CONFIRMADO", "V-2", "user-titular",
+                "ev-1", 1000, "{}", LocalDateTime.parse("2026-10-16T21:31:00"));
+        when(registros.ultimos(50)).thenReturn(List.of(nueva, filaDeEjemplo()));
+
+        List<RegistroDeAuditoriaDto> listado = servicio.listar();
+
+        assertEquals(List.of("ID:2", ID_DEL_MENSAJE), listado.stream().map(RegistroDeAuditoriaDto::mensajeId).toList());
     }
 
     @Test
@@ -111,7 +112,7 @@ class ServicioDeAuditoriaTest {
 
     private RegistroDeAuditoria filaGuardada() {
         ArgumentCaptor<RegistroDeAuditoria> guardada = ArgumentCaptor.forClass(RegistroDeAuditoria.class);
-        verify(em).persist(guardada.capture());
+        verify(registros).guardar(guardada.capture());
         return guardada.getValue();
     }
 

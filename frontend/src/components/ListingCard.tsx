@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Evento, Publicacion, Sector } from '../types';
-import { calcularTope, money } from '../lib/format';
+import { money } from '../lib/format';
 import Button from './Button';
 import ProgressBar from './ProgressBar';
 
@@ -13,7 +13,8 @@ interface ListingCardProps {
 }
 
 export default function ListingCard({ publicacion, evento, sector, onComprar, href }: ListingCardProps) {
-  const tope = calcularTope(publicacion.precioOriginal);
+  // El tope lo calcula Reventa (lo pagado + 10%) y viaja en la publicación.
+  const tope = publicacion.precioMaximo;
   const porcentaje = (publicacion.precio / tope) * 100;
 
   return (

@@ -1,5 +1,7 @@
 package com.palco.ventas.negocio.externos;
 
+import java.util.Optional;
+
 /**
  * El cobro visto desde Ventas: lo único que la compra necesita saber de un
  * pago. Ventas depende de esta interfaz y no de quién cobra. Tiene dos
@@ -24,4 +26,18 @@ public interface Cobros {
      * @param claveIdempotencia la del pedido de pago: repetirla no cobra dos veces
      */
     ResultadoDeCobro cobrar(String ventaId, long monto, String medioDePago, String token, String claveIdempotencia);
+
+    /**
+     * Cómo terminó el cobro que se pidió para esa venta con esa clave, sin
+     * cobrar nada. Lo usa la conciliación después de un cobro sin resultado.
+     *
+     * Vacío solo si quien cobra contestó con certeza que con esa clave no hay
+     * ningún cobro. Si no contesta, o contesta algo que no permite saberlo
+     * (un estado que todavía no es aprobado ni rechazado, un 404 que no es el
+     * suyo), lanza {@code ErroresDeNegocio.SinRespuesta}: ante la duda no se
+     * libera un cupo que pudo haberse cobrado.
+     *
+     * @param claveIdempotencia la misma que se pasó a {@link #cobrar}
+     */
+    Optional<ResultadoDeCobro> buscarCobro(String ventaId, String claveIdempotencia);
 }

@@ -4,6 +4,7 @@ import { useApp } from '../store/AppContext';
 import { mensajeDeError } from '../lib/api';
 import { money } from '../lib/format';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
+import { useReventas } from '../lib/useReventas';
 import { listarEventos } from '../servicios/eventos';
 import EventCard from '../components/EventCard';
 import ImagePlaceholder from '../components/ImagePlaceholder';
@@ -35,6 +36,10 @@ export default function CatalogPage() {
   const [busqueda, setBusqueda] = useState('');
   const [resultado, setResultado] = useState<ResultadoFiltrado | null>(null);
   const [reintentos, setReintentos] = useState(0);
+  // Reventa lista por evento: se piden las publicaciones activas de cada evento del catálogo. Si
+  // Reventa no responde, la franja y las marcas de reventa no se muestran y el catálogo sigue.
+  const { publicaciones: publicacionesActivas } = useReventas(state.eventos.map((e) => e.id));
+  const eventosConReventa = new Set(publicacionesActivas.map((p) => p.eventoId));
 
   const termino = busqueda.trim();
   const terminoDemorado = useDebouncedValue(termino, 300);
@@ -88,8 +93,6 @@ export default function CatalogPage() {
   // El destacado y la franja de reventa salen del catálogo completo, no de la grilla filtrada:
   // así no desaparecen al elegir una categoría.
   const eventoDestacado = state.eventos.find((e) => e.destacado);
-  const publicacionesActivas = state.publicaciones.filter((p) => p.estado === 'activa');
-  const eventosConReventa = new Set(publicacionesActivas.map((p) => p.eventoId));
   const franjaReventa = publicacionesActivas
     .flatMap((publicacion) => {
       const evento = state.eventos.find((e) => e.id === publicacion.eventoId);

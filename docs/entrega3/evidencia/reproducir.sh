@@ -83,7 +83,7 @@ curl -s -H "Authorization: Bearer $T" $H/api/v1/entradas/$E; echo
 titulo "5. Contadores del broker después de la compra, y la diferencia"
 read -r D1 D2 D3 D4 D5 D6 D7 <<< "$(contadores)"
 mostrar "$D1" "$D2" "$D3" "$D4" "$D5" "$D6" "$D7"
-echo "diferencia: cola agregados +$((D1 - A1)) (se espera +1) | tópico agregados +$((D4 - A4)) (se espera +2, una copia por suscripción) | DLQ +$((D7 - A7)) (se espera +0)"
+echo "diferencia: cola agregados +$((D1 - A1)) (se espera +1) | tópico agregados +$((D4 - A4)) (se espera una copia por suscripción del tópico) | DLQ +$((D7 - A7)) (se espera +0)"
 
 titulo "6. Líneas del log del servidor con el id de la venta: grep -n $V $LOG"
 grep -n "$V" "$LOG"

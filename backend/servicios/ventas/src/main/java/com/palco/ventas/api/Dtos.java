@@ -80,6 +80,21 @@ public final class Dtos {
             String token) {
     }
 
+    /**
+     * El pedido de Validación para usar una entrada en la puerta: el código QR
+     * leído y el evento que controla esa puerta. El código viaja en el cuerpo
+     * y no en la ruta, así no queda escrito en el log de accesos del servidor.
+     */
+    public record UsoDeEntradaDto(
+            @NotBlank(message = "Falta el código QR.")
+            @Size(max = 200, message = "El código QR tiene hasta 200 caracteres.")
+            String codigoQr,
+
+            @NotBlank(message = "Falta el evento.")
+            @Size(max = 40, message = "El id del evento tiene hasta 40 caracteres.")
+            String eventoId) {
+    }
+
     /** Un renglón de la venta, con el nombre y el precio del sector que devolvió Eventos al reservar. */
     public record ItemDto(String sectorId, String sector, int cantidad, long precioUnitario) {
     }

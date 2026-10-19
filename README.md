@@ -17,8 +17,11 @@ El repo tiene dos partes:
   broker JMS (ActiveMQ Artemis) que trae el servidor. Funcionan Usuarios,
   Eventos, Ventas (compra con reserva de cupo, pago y emisión asincrónica de
   las entradas), Pagos (con una pasarela simulada) y Notificaciones (aviso y
-  auditoría de cada compra, por tópico). Validación, Reventa y Facturación
-  solo responden su `health`. El plan completo está en [`TODO.md`](TODO.md).
+  auditoría de cada compra, por tópico). Validación tiene el backend del
+  escaneo en puerta (la pantalla todavía usa datos locales). Facturación
+  factura cada compra confirmada (suscriptor del tópico) pidiéndole el CAE por
+  SOAP a un ARCA simulado, que se despliega aparte en `/legado/arca`. Reventa
+  solo responde su `health`. El plan completo está en [`TODO.md`](TODO.md).
 
 ## Índice
 
@@ -77,9 +80,12 @@ cp .env.example .env   # la primera vez
 
 La primera vez tarda unos minutos porque descarga WildFly 41. Queda en
 `http://localhost:8080`. Usuarios, Eventos y Notificaciones van en
-`/api/<servicio>`; Ventas, en `/api/v1`, y Pagos, en `/api/v1/pagos`. Para
+`/api/<servicio>`; Ventas, en `/api/v1`; Pagos, en `/api/v1/pagos`, y
+Validación, en `/api/v1/validacion`, y Facturación, en `/api/v1/facturas`. Para
 comprobar que anda: `curl localhost:8080/api/eventos/health` (para Ventas,
-`/api/v1/health`; para Pagos, `/api/v1/pagos/health`).
+`/api/v1/health`; para Pagos, `/api/v1/pagos/health`; para Validación,
+`/api/v1/validacion/health`; para Facturación, `/api/v1/facturas/health`). El
+ARCA simulado publica su WSDL en `http://localhost:8080/legado/arca?wsdl`.
 
 En Windows, desde Git Bash y con un JDK 25:
 
@@ -108,7 +114,7 @@ Rutas comprobadas contra el código y contra el servidor en marcha el 14/10/2026
 
 | Servicio | Endpoint | Rol | Qué hace |
 |---|---|---|---|
-| todos | `GET /api/<servicio>/health` (Ventas: `/api/v1/health`; Pagos: `/api/v1/pagos/health`) | pública | Estado del servicio y de la base |
+| todos | `GET /api/<servicio>/health` (Ventas: `/api/v1/health`; Pagos: `/api/v1/pagos/health`; Validación: `/api/v1/validacion/health`; Facturación: `/api/v1/facturas/health`) | pública | Estado del servicio y de la base |
 | Usuarios | `POST /api/usuarios/registro` | pública | Alta de cuenta; genera un código de 6 dígitos |
 | Usuarios | `POST /api/usuarios/verificacion` | pública | `{"email", "codigo"}` → activa la cuenta y devuelve la sesión |
 | Usuarios | `POST /api/usuarios/verificacion/reenvio` | pública | Código nuevo (uno cada 30 segundos) |
@@ -132,6 +138,8 @@ Rutas comprobadas contra el código y contra el servidor en marcha el 14/10/2026
 | Notificaciones | `POST /api/notificaciones/pruebas/pago-confirmado` | `servicio` | Publica un `PAGO_CONFIRMADO` de prueba |
 | Notificaciones | `POST /api/notificaciones/pruebas/pago-confirmado-con-falla` | `servicio` | Publica y falla: la transacción se deshace y el mensaje no sale (409) |
 | Notificaciones | `POST /api/notificaciones/pruebas/mensaje-invalido` | `servicio` | Publica un texto inválido, para ver los reintentos y la DLQ |
+| Facturación | `GET /api/v1/facturas/{ventaId}` | `user`, `servicio` | La factura de una compra (número de comprobante y CAE). El comprador ve solo la suya; ajena o todavía sin facturar: 404 |
+| ARCA simulado | `POST /legado/arca` (SOAP, `FECAESolicitar`); WSDL en `GET /legado/arca?wsdl` | pública | Sistema externo simulado: da número y CAE. No es parte de la API de Palco |
 
 La pasarela de Pagos es simulada: el token de pago `tok_test` aprueba,
 `tok_rechazado` rechaza y `tok_sin_respuesta` simula que la pasarela no
@@ -318,7 +326,8 @@ backend/
 ├── common/               # Lo compartido: reglas de negocio, errores, JSON, CORS, health, migraciones
 ├── servicios/            # Un WAR por servicio: /api/<servicio>, o /api/v1 (Ventas) y /api/v1/pagos (Pagos)
 │   ├── usuarios/  eventos/  ventas/  pagos/
-│   └── validacion/  reventa/  notificaciones/  facturacion/
+│   ├── validacion/  reventa/  notificaciones/  facturacion/
+│   └── arca/        # ARCA simulado (sistema externo, SOAP): no es un servicio de Palco
 └── servidor/             # Arma WildFly (base, broker JMS) y despliega los 8 WAR
 ```
 

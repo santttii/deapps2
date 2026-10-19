@@ -58,8 +58,6 @@ export default function ConfirmationPage() {
         setOrden(recibida);
         // La venta trae sus entradas; se muestran cuando está emitida, porque antes no tienen QR.
         if (recibida.estado === 'emitida') {
-          // Copia para la reventa, que todavía es local.
-          dispatch({ type: 'GUARDAR_ENTRADAS', payload: { entradas: recibida.entradas, compradorId } });
           setEntradas(recibida.entradas);
           setFase('lista');
           return;
@@ -82,7 +80,7 @@ export default function ConfirmationPage() {
       vigente = false;
       clearTimeout(temporizador);
     };
-  }, [ordenId, compradorId, vueltas, dispatch]);
+  }, [ordenId, compradorId, vueltas]);
 
   function volverAConsultar() {
     setFase('esperando');

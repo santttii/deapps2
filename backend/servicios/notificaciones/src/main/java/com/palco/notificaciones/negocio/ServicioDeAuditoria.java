@@ -8,13 +8,13 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import jakarta.ejb.Stateless;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import jakarta.inject.Inject;
 
 import com.palco.common.Textos;
 import com.palco.common.mensajeria.DestinosJms;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.notificaciones.api.Dtos.RegistroDeAuditoriaDto;
+import com.palco.notificaciones.datos.RegistroDeAuditoriaRepository;
 import com.palco.notificaciones.dominio.RegistroDeAuditoria;
 
 /**
@@ -22,6 +22,10 @@ import com.palco.notificaciones.dominio.RegistroDeAuditoria;
  * durar queda en la base, así que el contenedor reutiliza un pool de
  * instancias. El reloj no es estado de una conversación: es el mismo para
  * todas las instancias y solo se reemplaza en los tests.
+ *
+ * Decide qué se guarda y cuándo no (la reentrega del broker); el acceso a la
+ * base está en {@link RegistroDeAuditoriaRepository}, que se suma a la
+ * transacción del MDB.
  */
 @Stateless
 public class ServicioDeAuditoria implements IAuditoria {
@@ -30,8 +34,8 @@ public class ServicioDeAuditoria implements IAuditoria {
 
     static final int MAXIMO_A_LISTAR = 50;
 
-    @PersistenceContext(unitName = "notificaciones")
-    EntityManager em;
+    @Inject
+    RegistroDeAuditoriaRepository registros;
 
     /** De acá sale el "ahora". El servidor corre en hora argentina y la columna guarda hora universal (UTC). */
     Clock reloj = Clock.systemUTC();
@@ -40,12 +44,14 @@ public class ServicioDeAuditoria implements IAuditoria {
     public void registrar(String mensajeId, PagoConfirmadoMensaje mensaje, String cuerpo) {
         // El id del mensaje es la clave primaria y no cambia cuando el broker reentrega:
         // si la fila ya está, este mensaje ya se registró y no hay nada que hacer.
-        if (em.find(RegistroDeAuditoria.class, mensajeId) != null) {
+        if (registros.existe(mensajeId)) {
             LOG.info("El mensaje " + Textos.enUnaLinea(mensajeId)
                     + " ya estaba registrado (reentrega del broker): no se repite.");
             return;
         }
-        em.persist(new RegistroDeAuditoria(
+        // guardar manda el INSERT en el momento: si la base lo rechaza, la falla sale de acá y
+        // quien llama no llega a escribir en el log que procesó un mensaje cuya fila no existe.
+        registros.guardar(new RegistroDeAuditoria(
                 mensajeId,
                 // El MDB filtra por tipoEvento: lo único que llega hasta acá es PAGO_CONFIRMADO.
                 DestinosJms.PAGO_CONFIRMADO,
@@ -55,10 +61,6 @@ public class ServicioDeAuditoria implements IAuditoria {
                 mensaje.montoTotal(),
                 cuerpo,
                 ahoraEnUtc()));
-        // Como el id lo asigna el código, el INSERT sale recién acá. Se fuerza ahora para que,
-        // si la base lo rechaza, la falla salga de este método: quien llama no llega a
-        // escribir en el log que procesó un mensaje cuya fila no existe.
-        em.flush();
     }
 
     /** La hora del reloj pasada a UTC a mano, para no depender de la zona con que se lo haya creado. */
@@ -68,13 +70,7 @@ public class ServicioDeAuditoria implements IAuditoria {
 
     @Override
     public List<RegistroDeAuditoriaDto> listar() {
-        // recibidoEn está truncada a segundos: el mensajeId solo desempata para que la
-        // respuesta sea siempre la misma, no dice cuál de los dos mensajes llegó primero.
-        return em.createQuery("""
-                        select r from RegistroDeAuditoria r
-                        order by r.recibidoEn desc, r.mensajeId desc""", RegistroDeAuditoria.class)
-                .setMaxResults(MAXIMO_A_LISTAR)
-                .getResultList()
+        return registros.ultimos(MAXIMO_A_LISTAR)
                 .stream()
                 .map(ServicioDeAuditoria::aDto)
                 .toList();

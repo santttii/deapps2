@@ -1,5 +1,6 @@
 package com.palco.ventas.negocio.externos;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -58,7 +59,8 @@ import com.palco.common.seguridad.TokenDeServicio;
  * veces, porque Pagos la reconoce y devuelve el pago que ya había guardado.
  *
  * Entre los dos servicios no hay transacción: el pago queda guardado en Pagos
- * apenas responde, aunque después la compra falle en Ventas.
+ * apenas responde, aunque después la compra falle en Ventas. Para ese caso
+ * está {@link #buscarCobro}, la consulta por clave que usa la conciliación.
  *
  * Es un bean {@code @ApplicationScoped}: una sola instancia para todo el
  * servicio, que comparte un único cliente HTTP y no guarda ningún dato de las
@@ -95,6 +97,12 @@ public class ClienteDePagos implements Cobros {
 
     /** El {@code type} del 409 con el que Pagos dice que esa clave ya cobró otra venta u otro monto. */
     static final String TIPO_CLAVE_REUTILIZADA = "/problemas/clave-reutilizada";
+
+    /** El {@code type} del 404 con el que Pagos dice que con esa clave no hay ningún pago. */
+    static final String TIPO_NO_ENCONTRADO = "/problemas/no-encontrado";
+
+    /** El parámetro de la consulta por clave: {@code GET /api/v1/pagos?claveIdempotencia=...}. */
+    static final String PARAMETRO_CLAVE = "claveIdempotencia";
 
     /** De un error de Pagos (Problem Details) solo se lee el {@code type}. */
     public record Problema(String type) {
@@ -149,6 +157,73 @@ public class ClienteDePagos implements Cobros {
                 throw new ErroresDeNegocio.SinRespuesta(PAGOS_NO_RESPONDE);
             }
         };
+    }
+
+    /**
+     * Le pregunta a Pagos por el cobro de esa clave
+     * ({@code GET /api/v1/pagos?claveIdempotencia=<ventaId>:<clave>}), la misma
+     * clave derivada que viajó al cobrar. Traduce así:
+     *
+     * <ul>
+     * <li>200 con un pago de esta venta, aprobado o rechazado: ese resultado;</li>
+     * <li>404 con {@code "type": "/problemas/no-encontrado"}: vacío. Es el 404 que
+     * arma Pagos cuando la clave no cobró;</li>
+     * <li>401: se renueva el token de servicio y se reintenta una sola vez;</li>
+     * <li>cualquier otra cosa, o ninguna respuesta: {@code SinRespuesta}. Entre
+     * ellas, un 404 sin ese cuerpo (el servidor lo da sin entrar a Pagos cuando
+     * el servicio no está desplegado), un pago de otra venta o uno que todavía
+     * no tiene resultado.</li>
+     * </ul>
+     *
+     * Solo lee: repetir la consulta no cobra ni cambia nada en Pagos.
+     */
+    @Override
+    public Optional<ResultadoDeCobro> buscarCobro(String ventaId, String claveIdempotencia) {
+        String clave = claveParaPagos(ventaId, claveIdempotencia);
+        Respuesta respuesta = consultar(clave, tokenParaConsultar(ventaId));
+        if (respuesta.estado() == 401) {
+            tokenDeServicio.invalidar();
+            respuesta = consultar(clave, tokenParaConsultar(ventaId));
+        }
+        if (respuesta.estado() == 200) {
+            return Optional.of(leerPagoDeLaVenta(respuesta.cuerpo(), ventaId));
+        }
+        if (respuesta.estado() == 404 && TIPO_NO_ENCONTRADO.equals(tipoDeProblema(respuesta.cuerpo()))) {
+            return Optional.empty();
+        }
+        LOG.warning("Pagos respondió " + respuesta.estado() + " a la consulta del cobro de la venta " + ventaId
+                + ": no se sabe cómo terminó.");
+        throw new ErroresDeNegocio.SinRespuesta(PAGOS_NO_RESPONDE);
+    }
+
+    /** El token de servicio para la consulta. Si Usuarios no lo entrega, no se sabe nada del cobro. */
+    private String tokenParaConsultar(String ventaId) {
+        try {
+            return tokenDeServicio.obtener();
+        } catch (ErroresDeNegocio.SinRespuesta e) {
+            LOG.warning("No se consiguió el token de servicio para consultar el cobro de la venta " + ventaId
+                    + ". Motivo: " + e.getMessage());
+            throw new ErroresDeNegocio.SinRespuesta(PAGOS_NO_RESPONDE);
+        }
+    }
+
+    /**
+     * El pago de un 200 de la consulta. Además de lo que exige
+     * {@link #leerResultado}, tiene que ser de esta venta: la clave lleva el id
+     * de la venta adelante, así que otra venta sería un error de Pagos, y con
+     * eso no se confirma ni se vence nada.
+     */
+    static ResultadoDeCobro leerPagoDeLaVenta(String json, String ventaId) {
+        Pago pago;
+        try {
+            pago = JSONB.fromJson(json, Pago.class);
+        } catch (JsonbException e) {
+            pago = null;
+        }
+        if (pago == null || !ventaId.equals(pago.ventaId())) {
+            throw new ErroresDeNegocio.SinRespuesta("Pagos respondió un pago que no es de la venta " + ventaId + ".");
+        }
+        return leerResultado(json);
     }
 
     /**
@@ -261,6 +336,25 @@ public class ClienteDePagos implements Cobros {
         } catch (ProcessingException e) {
             // Sin conexión o se cumplió el tiempo de espera: no se sabe si Pagos llegó a cobrar.
             LOG.warning("Pagos no respondió al cobrar: " + e.getMessage());
+            throw new ErroresDeNegocio.SinRespuesta(PAGOS_NO_RESPONDE);
+        }
+    }
+
+    /**
+     * Hace la consulta HTTP por clave y devuelve el código y el cuerpo. Como
+     * {@link #enviar}, no es privado para que el test lo reemplace.
+     */
+    Respuesta consultar(String claveIdempotencia, String tokenDeServicio) {
+        try (Response respuesta = cliente.target(TokenDeServicio.URL_INTERNA + RUTA_DE_PAGOS)
+                .queryParam(PARAMETRO_CLAVE, claveIdempotencia)
+                .request(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenDeServicio)
+                .get()) {
+            // El cuerpo interesa en un 200 (el pago) y en un 404 (el type, para saber si es el de Pagos).
+            int estado = respuesta.getStatus();
+            return new Respuesta(estado, estado == 200 || estado == 404 ? respuesta.readEntity(String.class) : null);
+        } catch (ProcessingException e) {
+            LOG.warning("Pagos no respondió a la consulta de un cobro: " + e.getMessage());
             throw new ErroresDeNegocio.SinRespuesta(PAGOS_NO_RESPONDE);
         }
     }

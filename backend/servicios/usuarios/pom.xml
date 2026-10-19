@@ -23,12 +23,20 @@
             <artifactId>mockito-core</artifactId>
         </dependency>
         <dependency>
-            <!-- Solo para MigracionesEnH2Test: corre las migraciones sobre la misma base que usa
+            <!-- Para MigracionesEnH2Test y RepositoriosEnH2Test: corre las migraciones sobre la misma base que usa
                  WildFly en desarrollo (H2 en modo PostgreSQL). En el servidor H2 lo pone WildFly,
                  por eso no viaja en el WAR. Misma versión que trae el servidor. -->
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <version>2.4.240</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- Solo para RepositoriosEnH2Test: corre las consultas de los repositorios con Hibernate
+                 contra H2. En el servidor Hibernate lo pone WildFly. Misma versión que trae WildFly 41. -->
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>7.4.5.Final</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

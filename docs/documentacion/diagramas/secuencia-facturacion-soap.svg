@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="1493" viewBox="0 0 1040 1493" font-family="Arial, Helvetica, sans-serif">
+<title>Facturación por SOAP con el ARCA simulado</title>
+
+<defs>
+  <marker id="lleno" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10 z" fill="#1f2937"/>
+  </marker>
+  <marker id="abierto" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#4b5563" stroke-width="1.4"/>
+  </marker>
+  <marker id="async" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#2b5797" stroke-width="1.8"/>
+  </marker>
+  <marker id="triangulo" viewBox="0 0 14 12" refX="13" refY="6" markerWidth="14" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L14,6 L0,12 z" fill="#ffffff" stroke="#1f2937" stroke-width="1.2"/>
+  </marker>
+</defs>
+<rect x="0" y="0" width="1040" height="1493" fill="#ffffff"/>
+<line x1="88.69565217391305" y1="201" x2="88.69565217391305" y2="1405" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="232.46376811594203" y1="201" x2="232.46376811594203" y2="1405" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="394.2028985507246" y1="201" x2="394.2028985507246" y2="1405" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="555.9420289855072" y1="201" x2="555.9420289855072" y2="1405" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="706.8985507246377" y1="201" x2="706.8985507246377" y2="1405" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="843.4782608695652" y1="201" x2="843.4782608695652" y2="1405" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="962.0869565217392" y1="201" x2="962.0869565217392" y2="1405" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<rect x="343.10646376811593" y="503" width="642.7820869565219" height="410" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<line x1="343.10646376811593" y1="571" x2="985.8885507246378" y2="571" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6 4"/>
+<rect x="195.25333333333333" y="1089" width="254.45774" height="72" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<rect x="183.25333333333333" y="965" width="790.8336231884059" height="338" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<line x1="183.25333333333333" y1="1215" x2="974.0869565217392" y2="1215" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6 4"/>
+<text x="24.0" y="40.0" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#1f2937" text-anchor="start" font-weight="bold">Facturación por SOAP con el ARCA simulado</text>
+<rect x="703.91782" y="18" width="312.08218" height="26" rx="4" fill="#fbf3e2" stroke="#9a6b16" stroke-width="1"/>
+<text x="860.0" y="36.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#9a6b16" text-anchor="middle" font-weight="bold">Estado: Implementado, sin probar en el servidor</text>
+<text x="24.0" y="68.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Integración I3. Facturación es el tercer suscriptor del tópico y le pide el CAE por SOAP al ARCA simulado, un WAR aparte que hace de sistema legado. Ventas no</text>
+<text x="24.0" y="85.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">cambia: la venta sigue con facturaEstado NO_APLICA.</text>
+<rect x="30.0" y="114" width="117.4" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="88.7" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ServicioDe</text>
+<text x="88.7" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Ventas</text>
+<text x="88.7" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">sin cambios</text>
+<rect x="159.4" y="114" width="146.1" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="232.5" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">topico.</text>
+<text x="232.5" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">compra-confirmada</text>
+<text x="232.5" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">Artemis</text>
+<rect x="317.5" y="114" width="153.3" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="394.2" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">FacturacionDe</text>
+<text x="394.2" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ComprasMDB</text>
+<text x="394.2" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">durable, maxSession 1</text>
+<rect x="482.9" y="114" width="146.1" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="555.9" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ServicioDe</text>
+<text x="555.9" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Facturacion</text>
+<text x="555.9" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">stateless,</text>
+<text x="555.9" y="189.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">NOT_SUPPORTED</text>
+<rect x="641.0" y="114" width="131.8" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="706.9" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ArcaSimulado</text>
+<text x="706.9" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">@WebService en</text>
+<text x="706.9" y="171.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">/legado/arca</text>
+<rect x="784.8" y="114" width="117.4" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="843.5" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Base de</text>
+<text x="843.5" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Facturación</text>
+<text x="843.5" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">tabla factura</text>
+<rect x="914.2" y="114" width="95.8" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="962.1" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">DLQ</text>
+<text x="962.1" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">java:/jms/</text>
+<text x="962.1" y="171.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">queue/DLQ</text>
+<text x="160.6" y="242.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">1. PAGO_CONFIRMADO, como hoy</text>
+<line x1="91.7" y1="253" x2="229.5" y2="253" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="313.3" y="282.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">2. copia para la suscripción durable (clientId</text>
+<text x="313.3" y="302.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">palco-facturacion, subscriptionName</text>
+<text x="313.3" y="322.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">facturacion-compras-confirmadas)</text>
+<line x1="235.5" y1="333" x2="391.2" y2="333" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="438.2" y="362.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">3. PagoConfirmadoMensaje.desdeJson: lee y</text>
+<text x="438.2" y="382.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">valida el contrato</text>
+<polyline points="394.2028985507246,353 428.2028985507246,353 428.2028985507246,389 398.2028985507246,389" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="475.1" y="418.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">4. emitirFactura(mensaje); la transacción del</text>
+<text x="475.1" y="438.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">MDB queda suspendida</text>
+<line x1="397.2" y1="449" x2="552.9" y2="449" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="699.7" y="478.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">5. facturas.buscarPorVenta(ventaId)</text>
+<line x1="558.9" y1="489" x2="840.5" y2="489" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="475.1" y="547.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">la factura guardada, sin llamar a ARCA</text>
+<line x1="552.9" y1="557" x2="397.2" y2="557" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="631.4" y="616.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">6. ArcaSoap: FECAESolicitar por SOAP (CbteTipo 6, PtoVta 1,</text>
+<text x="631.4" y="636.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">ImpTotal, CbteFch, IdVenta); Service.create sobre</text>
+<text x="631.4" y="656.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">/legado/arca?wsdl; 2 s para conectar y 5 para leer</text>
+<line x1="558.9" y1="667" x2="703.9" y2="667" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="750.9" y="696.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">7. Talonario: numera por punto de</text>
+<text x="750.9" y="716.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">venta y tipo; si esa venta ya tiene</text>
+<text x="750.9" y="736.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">comprobante, devuelve el mismo</text>
+<polyline points="706.8985507246377,687 740.8985507246377,687 740.8985507246377,743 710.8985507246377,743" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="631.4" y="771.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">Resultado A: número, CAE de 14 dígitos y su</text>
+<text x="631.4" y="789.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">vencimiento</text>
+<line x1="703.9" y1="799" x2="558.9" y2="799" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="699.7" y="828.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">8. facturas.guardar, en la transacción corta del</text>
+<text x="699.7" y="848.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">repositorio (única por venta)</text>
+<line x1="558.9" y1="859" x2="840.5" y2="859" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="475.1" y="887.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">FacturaDto</text>
+<line x1="552.9" y1="897" x2="397.2" y2="897" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M343.10646376811593,503 L376.5465637681159,503 L376.5465637681159,517 L368.5465637681159,525 L343.10646376811593,525 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="350.1" y="519.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">alt</text>
+<text x="384.5" y="520.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[la venta ya tiene factura (mensaje repetido)]</text>
+<text x="351.1" y="590.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[no tiene factura]</text>
+<text x="313.3" y="941.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">commit: la copia queda consumida</text>
+<line x1="391.2" y1="951" x2="235.5" y2="951" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="631.4" y="1009.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">tiempo vencido o falla: SinRespuesta; Resultado R:</text>
+<text x="631.4" y="1027.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">ReglaIncumplida comprobante-rechazado</text>
+<line x1="703.9" y1="1037" x2="558.9" y2="1037" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="438.2" y="1066.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">9. contexto.setRollbackOnly(): no se guardó nada</text>
+<polyline points="394.2028985507246,1057 428.2028985507246,1057 428.2028985507246,1075 398.2028985507246,1075" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="313.3" y="1134.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">10. reentrega el mismo mensaje</text>
+<line x1="235.5" y1="1145" x2="391.2" y2="1145" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<path d="M195.25333333333333,1089 L238.70863333333332,1089 L238.70863333333332,1103 L230.70863333333332,1111 L195.25333333333333,1111 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="202.3" y="1105.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">loop</text>
+<text x="246.7" y="1106.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[hasta 5 entregas, cada 2 s]</text>
+<text x="597.3" y="1190.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">11. agotados los intentos: a la DLQ; se recupera con move-messages (sección 10.6)</text>
+<line x1="235.5" y1="1201" x2="959.1" y2="1201" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="276.5" y="1260.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">12. La suscripción durable guarda los mensajes y</text>
+<text x="276.5" y="1280.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">los entrega al volver</text>
+<polyline points="232.46376811594203,1251 266.463768115942,1251 266.463768115942,1287 236.46376811594203,1287" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<path d="M183.25333333333333,965 L216.69343333333333,965 L216.69343333333333,979 L208.69343333333333,987 L183.25333333333333,987 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="190.3" y="981.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">alt</text>
+<text x="224.7" y="982.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[ARCA no responde, SOAP Fault o Resultado R]</text>
+<text x="191.3" y="1234.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[Facturación detenido]</text>
+<path d="M28,1317 L551.4492753623189,1317 L561.4492753623189,1327 L561.4492753623189,1385 L28,1385 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
+<text x="38.0" y="1337.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">Consulta: GET /api/v1/facturas/{ventaId}, rol user (solo la propia) o servicio; 404 si no</text>
+<text x="38.0" y="1355.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">hay factura. El XML lo lee el cliente SOAP de WildFly con DTD y entidades externas</text>
+<text x="38.0" y="1373.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">deshabilitadas (SEC-I01).</text>
+<line x1="24" y1="1421" x2="64" y2="1421" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="74.0" y="1426.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Llamada síncrona (SOAP o local)</text>
+<line x1="301.546" y1="1421" x2="341.546" y2="1421" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="351.5" y="1426.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Respuesta</text>
+<line x1="445.036" y1="1421" x2="485.036" y2="1421" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="495.0" y="1426.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Mensaje asincrónico (JMS)</text>
+<text x="24.0" y="1449.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">Fuente: FacturacionDeComprasMDB, ServicioDeFacturacion, ArcaSoap, PuertoArca, FabricaDeArca, FacturasResource, ArcaSimulado y Talonario; tabla factura con</text>
+<text x="24.0" y="1465.3" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">factura_venta_unica.</text>
+</svg>

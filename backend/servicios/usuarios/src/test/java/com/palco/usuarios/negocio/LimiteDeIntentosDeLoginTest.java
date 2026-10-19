@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -23,14 +22,14 @@ import java.util.Comparator;
 import java.util.List;
 
 import jakarta.ejb.ApplicationException;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
 
 import org.junit.jupiter.api.Test;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.usuarios.api.Dtos.LoginDto;
 import com.palco.usuarios.api.Dtos.SesionDto;
+import com.palco.usuarios.datos.IntentoLoginRepository;
+import com.palco.usuarios.datos.UsuarioRepository;
 import com.palco.usuarios.dominio.Rol;
 import com.palco.usuarios.dominio.Usuario;
 import com.palco.usuarios.seguridad.ClavesJwt;
@@ -49,16 +48,15 @@ class LimiteDeIntentosDeLoginTest {
     private static final String HASH = Contrasenas.hashear(CLAVE);
     private static final ZoneId ZONA = ZoneId.of("America/Argentina/Buenos_Aires");
 
-    private final EntityManager em = mock(EntityManager.class);
+    private final UsuarioRepository usuarios = mock(UsuarioRepository.class);
     private final ClavesJwt claves = mock(ClavesJwt.class);
     private final IntentosEnMemoria intentos = new IntentosEnMemoria();
     private final ServicioDeUsuarios servicio = new ServicioDeUsuarios();
     private final List<Usuario> cuentas = new ArrayList<>();
     private Instant ahora = Instant.parse("2026-10-23T12:00:00Z");
 
-    @SuppressWarnings("unchecked")
     LimiteDeIntentosDeLoginTest() throws Exception {
-        servicio.em = em;
+        servicio.usuarios = usuarios;
         servicio.claves = claves;
         servicio.intentos = intentos;
         servicio.reloj = new Clock() {
@@ -88,15 +86,10 @@ class LimiteDeIntentosDeLoginTest {
         cuentas.add(titular);
 
         // La búsqueda por email devuelve la cuenta solo si el email pedido es el suyo.
-        TypedQuery<Usuario> consulta = mock(TypedQuery.class);
-        String[] pedido = new String[1];
-        when(em.createQuery(anyString(), eq(Usuario.class))).thenReturn(consulta);
-        when(consulta.setParameter(eq("email"), anyString())).thenAnswer(i -> {
-            pedido[0] = i.getArgument(1);
-            return consulta;
+        when(usuarios.buscarPorEmail(anyString())).thenAnswer(i -> {
+            String pedido = i.getArgument(0);
+            return cuentas.stream().filter(u -> u.getEmail().equals(pedido)).findFirst();
         });
-        when(consulta.getResultStream())
-                .thenAnswer(i -> cuentas.stream().filter(u -> u.getEmail().equals(pedido[0])));
     }
 
     @Test
@@ -202,7 +195,7 @@ class LimiteDeIntentosDeLoginTest {
     }
 
     /** Hace lo mismo que la tabla intento_login, en una lista. */
-    static class IntentosEnMemoria extends IntentosDeLogin {
+    static class IntentosEnMemoria implements IntentoLoginRepository {
         record Guardado(String emailHash, LocalDateTime momento) {
         }
 

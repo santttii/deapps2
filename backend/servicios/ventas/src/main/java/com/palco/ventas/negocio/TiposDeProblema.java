@@ -58,6 +58,15 @@ public final class TiposDeProblema {
      */
     public static final String OPERACION_EN_CURSO = "operacion-en-curso";
 
+    /** 409: la entrada ya se usó para entrar y no vuelve a servir. */
+    public static final String ENTRADA_YA_USADA = "entrada-ya-usada";
+
+    /** 409: la entrada es de otro evento que el que controla la puerta. No se marca como usada. */
+    public static final String ENTRADA_DE_OTRO_EVENTO = "entrada-de-otro-evento";
+
+    /** 409: la entrada no sirve para entrar: está publicada o vendida en la reventa, o quedó anulada. */
+    public static final String ENTRADA_NO_HABILITADA = "entrada-no-habilitada";
+
     private TiposDeProblema() {
     }
 }

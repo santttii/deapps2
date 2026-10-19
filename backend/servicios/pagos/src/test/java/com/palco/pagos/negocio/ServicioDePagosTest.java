@@ -202,6 +202,55 @@ class ServicioDePagosTest {
         assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.obtener("P-noexiste"));
     }
 
+    // ---- La consulta por clave, que usa la conciliación de Ventas ----
+
+    @Test
+    void buscarPorClaveDevuelveElPagoAprobadoQueSeGuardoConEsaClave() {
+        PagoDto aprobado = servicio.procesarPago(pedido("V-3f9a1c2b", 60500, "tok_test"), CLAVE);
+
+        assertEquals(aprobado, servicio.buscarPorClave(CLAVE));
+        // Consultar no cobra: la pasarela se llamó una sola vez, al procesar el pago.
+        assertEquals(1, pasarela.cobros);
+    }
+
+    @Test
+    void buscarPorClaveTambienDevuelveUnRechazo() {
+        // Para la conciliación, un rechazo guardado es una respuesta: esa clave no cobró.
+        servicio.procesarPago(pedido("V-3f9a1c2b", 60500, "tok_rechazado"), CLAVE);
+
+        PagoDto encontrado = servicio.buscarPorClave(CLAVE);
+
+        assertEquals("RECHAZADO", encontrado.estado());
+        assertEquals("fondos_insuficientes", encontrado.motivo());
+    }
+
+    @Test
+    void buscarPorClaveDevuelveElPagoDeEsaClaveYNoElDeOtraDeLaMismaVenta() {
+        servicio.procesarPago(pedido("V-3f9a1c2b", 60500, "tok_rechazado"), CLAVE);
+        PagoDto aprobado = servicio.procesarPago(pedido("V-3f9a1c2b", 60500, "tok_test"), OTRA_CLAVE);
+
+        assertEquals(aprobado, servicio.buscarPorClave(OTRA_CLAVE));
+        assertEquals("RECHAZADO", servicio.buscarPorClave(CLAVE).estado());
+    }
+
+    @Test
+    void conUnaClaveQueNoCobroBuscarPorClaveEsNoEncontrado() {
+        ErroresDeNegocio.NoEncontrado error = assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> servicio.buscarPorClave(CLAVE));
+
+        assertEquals("no-encontrado", error.tipo());
+        assertEquals(0, pasarela.cobros);
+    }
+
+    @Test
+    void siLaPasarelaNoRespondioLaClaveSigueSinPago() {
+        // Es el caso que deja una venta sin resultado: Pagos no guardó nada, y la consulta lo dice.
+        assertThrows(ErroresDeNegocio.SinRespuesta.class,
+                () -> servicio.procesarPago(pedido("V-3f9a1c2b", 60500, "tok_sin_respuesta"), CLAVE));
+
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.buscarPorClave(CLAVE));
+    }
+
     // ---------------------------------------------------------------------------------------------
 
     private static NuevoPagoDto pedido(String ventaId, long monto, String token) {

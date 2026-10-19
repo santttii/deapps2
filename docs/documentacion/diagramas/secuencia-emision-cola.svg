@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1250" viewBox="0 0 1000 1250" font-family="Arial, Helvetica, sans-serif">
+<title>Emisión por la cola, parte 1: publicación y consumo</title>
+
+<defs>
+  <marker id="lleno" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10 z" fill="#1f2937"/>
+  </marker>
+  <marker id="abierto" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#4b5563" stroke-width="1.4"/>
+  </marker>
+  <marker id="async" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#2b5797" stroke-width="1.8"/>
+  </marker>
+  <marker id="triangulo" viewBox="0 0 14 12" refX="13" refY="6" markerWidth="14" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L14,6 L0,12 z" fill="#ffffff" stroke="#1f2937" stroke-width="1.2"/>
+  </marker>
+</defs>
+<rect x="0" y="0" width="1000" height="1250" fill="#ffffff"/>
+<line x1="137.33333333333331" y1="167.5" x2="137.33333333333331" y2="1161.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="381" y1="167.5" x2="381" y2="1161.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="641.6666666666665" y1="167.5" x2="641.6666666666665" y2="1161.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="873.9999999999999" y1="167.5" x2="873.9999999999999" y2="1161.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<rect x="339.3133333333332" y="601.5" width="634.6866666666667" height="476" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<line x1="339.3133333333332" y1="865.5" x2="974" y2="865.5" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6 4"/>
+<line x1="339.3133333333332" y1="951.5" x2="974" y2="951.5" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6 4"/>
+<text x="24.0" y="40.0" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#1f2937" text-anchor="start" font-weight="bold">Emisión por la cola, parte 1: publicación y consumo</text>
+<rect x="818.73612" y="18" width="157.26388" height="26" rx="4" fill="#e7f2ea" stroke="#2f6b3a" stroke-width="1"/>
+<text x="897.4" y="36.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#2f6b3a" text-anchor="middle" font-weight="bold">Estado: Implementado</text>
+<text x="24.0" y="68.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Integración I4: proceso asincrónico punto a punto. Un único responsable emite cada compra exactamente una vez, y es idempotente. Los reintentos y la DLQ</text>
+<text x="24.0" y="85.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">siguen en la parte 2.</text>
+<rect x="30.0" y="114" width="214.7" height="53.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="137.3" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ServicioDeVentas</text>
+<text x="137.3" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">confirmarCompra, REQUIRED</text>
+<rect x="256.7" y="114" width="248.7" height="53.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="381.0" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">cola.emision-entradas</text>
+<text x="381.0" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">java:/jms/queue/emisionEntradas</text>
+<rect x="517.3" y="114" width="248.7" height="53.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="641.7" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">EmisionDeEntradasMDB</text>
+<text x="641.7" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">Ventas, onMessage REQUIRED</text>
+<rect x="778.0" y="114" width="192.0" height="53.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="874.0" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Base de Ventas</text>
+<text x="874.0" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">esquema ventas</text>
+<rect x="24" y="193.5" width="952" height="28" fill="#eef2f7" stroke="none"/>
+<text x="34.0" y="212.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" font-weight="bold">A. Publicación dentro de la transacción del pago</text>
+<text x="505.7" y="252.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">1. ventas.confirmar (venta CONFIRMADA) y entradas.guardar (PENDIENTE_EMISION)</text>
+<line x1="140.3" y1="263.5" x2="871.0" y2="263.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="259.2" y="292.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">2. PublicadorPagoConfirmadoJms.publicar</text>
+<text x="259.2" y="312.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">(MANDATORY): TextMessage JSON, tipoEvento</text>
+<text x="259.2" y="332.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">= PAGO_CONFIRMADO, persistente</text>
+<line x1="140.3" y1="343.5" x2="378.0" y2="343.5" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<path d="M97.33333333333331,357.5 L903.9999999999999,357.5 L913.9999999999999,367.5 L913.9999999999999,407.5 L97.33333333333331,407.5 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
+<text x="107.3" y="378.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">Commit: se prepara el broker (recurso XA, java:/JmsXA), se confirma PalcoDS (último recurso, no XA) y después el broker. Si la</text>
+<text x="107.3" y="396.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">transacción se deshace, el mensaje no sale (escenario 13). El pago ya respondió 201: nadie espera la emisión.</text>
+<rect x="24" y="421.5" width="952" height="28" fill="#eef2f7" stroke="none"/>
+<text x="34.0" y="440.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" font-weight="bold">B. Consumo</text>
+<text x="511.3" y="480.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">3. entrega el mensaje (selector tipoEvento =</text>
+<text x="511.3" y="500.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">'PAGO_CONFIRMADO'; cada mensaje va a una</text>
+<text x="511.3" y="520.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">sola sesión)</text>
+<line x1="384.0" y1="531.5" x2="638.7" y2="531.5" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="685.7" y="560.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">4. PagoConfirmadoMensaje.desdeJson:</text>
+<text x="685.7" y="580.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">lee y valida el contrato</text>
+<polyline points="641.6666666666665,551.5 675.6666666666665,551.5 675.6666666666665,587.5 645.6666666666665,587.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="757.8" y="646.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">5. entradas.emitirPendientes: UPDATE entrada a</text>
+<text x="757.8" y="666.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">VALIDA con codigoQr, solo si sigue</text>
+<text x="757.8" y="686.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">PENDIENTE_EMISION</text>
+<line x1="644.7" y1="697.5" x2="871.0" y2="697.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="757.8" y="726.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">6. ventas.marcarEmitida: UPDATE venta a</text>
+<text x="757.8" y="746.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">EMITIDA, solo si sigue CONFIRMADA</text>
+<line x1="644.7" y1="757.5" x2="871.0" y2="757.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="757.8" y="785.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">filas cambiadas; con un mensaje repetido, 0: &quot;es un</text>
+<text x="757.8" y="803.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">mensaje repetido y no cambió nada&quot;</text>
+<line x1="871.0" y1="813.5" x2="644.7" y2="813.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="511.3" y="841.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">commit: el mensaje queda consumido</text>
+<line x1="638.7" y1="851.5" x2="384.0" y2="851.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="511.3" y="909.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">WARNING en el log; el mensaje se consume y no va</text>
+<text x="511.3" y="927.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">a la DLQ</text>
+<line x1="638.7" y1="937.5" x2="384.0" y2="937.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="685.7" y="996.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">7. contexto.setRollbackOnly() o excepción:</text>
+<text x="685.7" y="1016.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">no queda nada escrito</text>
+<polyline points="641.6666666666665,987.5 675.6666666666665,987.5 675.6666666666665,1023.5 645.6666666666665,1023.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="511.3" y="1051.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">rollback: el broker reentrega (parte 2)</text>
+<line x1="638.7" y1="1061.5" x2="384.0" y2="1061.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M339.3133333333332,601.5 L372.7534333333332,601.5 L372.7534333333332,615.5 L364.7534333333332,623.5 L339.3133333333332,623.5 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="346.3" y="617.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">alt</text>
+<text x="380.8" y="618.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[mensaje válido y venta existente]</text>
+<text x="347.3" y="884.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[la venta no existe en Ventas]</text>
+<text x="347.3" y="970.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[MensajeInvalido o falla del consumidor]</text>
+<path d="M341,1091.5 L903.9999999999999,1091.5 L913.9999999999999,1101.5 L913.9999999999999,1141.5 L341,1141.5 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
+<text x="351.0" y="1112.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">Con el consumidor detenido (stop-delivery), el mensaje espera en la cola y se emite al</text>
+<text x="351.0" y="1130.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">reanudarlo (escenario 10). Un mensaje repetido no emite dos veces (escenario 8).</text>
+<line x1="24" y1="1177.5" x2="64" y2="1177.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="74.0" y="1182.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Llamada síncrona</text>
+<line x1="212.704" y1="1177.5" x2="252.704" y2="1177.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="262.7" y="1182.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Respuesta</text>
+<line x1="356.194" y1="1177.5" x2="396.194" y2="1177.5" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="406.2" y="1182.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Mensaje asincrónico (JMS)</text>
+<text x="24.0" y="1205.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">Fuente: EmisionDeEntradasMDB, EntradaRepositoryJpa, VentaRepositoryJpa, PublicadorPagoConfirmadoJms, DestinosJms y configurar.cli (address-setting=#:</text>
+<text x="24.0" y="1221.8" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">max-delivery-attempts 5, redelivery-delay 2000). Evidencia: escenarios 7, 8, 10 y 13.</text>
+</svg>

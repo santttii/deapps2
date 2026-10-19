@@ -42,4 +42,19 @@ public interface EntradaRepository {
      * tiene entradas o no existe.
      */
     int emitirPendientes(String ventaId, LocalDateTime ahora);
+
+    /**
+     * La entrada con ese código QR y su venta cargada (de ahí sale el evento),
+     * o vacío si ningún código coincide. Es lo que lee la validación en puerta.
+     */
+    Optional<Entrada> buscarPorCodigoQr(String codigoQr);
+
+    /**
+     * Pasa la entrada de {@code VALIDA} a {@code USADA} con un solo UPDATE
+     * condicional. Devuelve {@code true} si esta llamada la usó y
+     * {@code false} si no estaba {@code VALIDA}: ya la había usado otro
+     * escaneo, está en la reventa o quedó anulada. Si dos puertas la escanean
+     * a la vez, la base deja pasar a una sola.
+     */
+    boolean marcarUsada(String entradaId);
 }

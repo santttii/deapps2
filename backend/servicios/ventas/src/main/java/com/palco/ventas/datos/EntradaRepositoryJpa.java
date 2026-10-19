@@ -90,6 +90,33 @@ public class EntradaRepositoryJpa implements EntradaRepository {
         return emitidas;
     }
 
+    @Override
+    public Optional<Entrada> buscarPorCodigoQr(String codigoQr) {
+        return em.createQuery("select e from Entrada e join fetch e.venta where e.codigoQr = :codigo",
+                        Entrada.class)
+                .setParameter("codigo", codigoQr)
+                .getResultStream()
+                .findFirst();
+    }
+
+    @Override
+    public boolean marcarUsada(String entradaId) {
+        // La condición sobre el estado va dentro del UPDATE y no en un "if" del código: entre leer la
+        // entrada y escribirla puede llegar otro escaneo. La base bloquea la fila mientras la actualiza,
+        // así que de dos UPDATE simultáneos solo uno la encuentra VALIDA y cambia una fila; el otro
+        // espera, ya la ve USADA y no cambia ninguna.
+        int cambiadas = em.createQuery("""
+                        update Entrada e set e.estado = :usada
+                        where e.id = :id and e.estado = :valida""")
+                .setParameter("id", entradaId)
+                .setParameter("usada", EstadoEntrada.USADA)
+                .setParameter("valida", EstadoEntrada.VALIDA)
+                .executeUpdate();
+        // Igual que en la emisión: el UPDATE fue directo a la base y lo que estaba cargado quedó viejo.
+        em.clear();
+        return cambiadas == 1;
+    }
+
     /** Un UUID al azar: texto opaco, único y que no se puede adivinar a partir del id de la entrada. */
     private static String nuevoCodigoQr() {
         return UUID.randomUUID().toString();

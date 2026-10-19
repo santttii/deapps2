@@ -69,7 +69,7 @@ function perderSesion(tokenRechazado: string | null): void {
 
 // Comprueba que la sesión guardada siga vigente; si se borró o venció, la da por perdida, igual
 // que pedir() cuando no encuentra el token. Es para lo que necesita sesión y no llama al backend
-// (el cambio de página, la reventa local): sin esto seguiría adelante con la sesión que quedó en
+// (el cambio de página): sin esto seguiría adelante con la sesión que quedó en
 // memoria. No detecta un token que el servidor ya no acepta: eso solo lo sabe el servidor.
 export function comprobarSesion(): boolean {
   if (leerSesion()) return true;

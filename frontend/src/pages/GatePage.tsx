@@ -1,54 +1,77 @@
-import { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useApp } from '../store/AppContext';
+import { mensajeDeError } from '../lib/api';
+import { fechaHora, formatearDNI } from '../lib/format';
+import { escanear, listarEscaneos, type Escaneo, type ResultadoDeEscaneo } from '../servicios/validacion';
 import ImagePlaceholder from '../components/ImagePlaceholder';
 import Button from '../components/Button';
+import Input from '../components/Input';
 import PageTransition from '../components/PageTransition';
 
-type EstadoResultado = 'valida' | 'usada' | 'invalida';
-
-interface Escaneo {
-  id: string;
-  hora: string;
-  resultado: EstadoResultado;
-}
-
-const RESULTADO_VALIDO = {
-  titular: 'Martina Suárez',
-  dni: '30.111.222',
-  sector: 'Platea B',
-  origen: 'compra' as const,
+const TITULO_RESULTADO: Record<ResultadoDeEscaneo['resultado'], string> = {
+  VALIDA: '✓ Entrada válida',
+  YA_USADA: 'Entrada ya utilizada',
+  INEXISTENTE: 'Código no reconocido',
+  OTRO_EVENTO: 'Entrada de otro evento',
+  NO_HABILITADA: 'Entrada no habilitada',
+  SIN_RESPUESTA: 'Sin respuesta',
 };
 
+function hora(iso: string): string {
+  return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+}
+
+// Control de acceso del personal de puerta (rol staff). Cada código leído (o tipeado) va a
+// Validación (POST /api/v1/validacion/escaneos), que consulta a Ventas y marca la entrada como
+// usada en el mismo paso: no hay un segundo botón de "marcar ingreso". El resultado, el texto y
+// el titular para contrastar con el documento vienen del backend.
 export default function GatePage() {
-  const [estado, setEstado] = useState<EstadoResultado>('valida');
-  const [codigoManual, setCodigoManual] = useState(false);
-  const [ingresos, setIngresos] = useState(8212);
-  const [rechazos, setRechazos] = useState(14);
-  const [restantes, setRestantes] = useState(728);
-  const [escaneos, setEscaneos] = useState<Escaneo[]>([
-    { id: 'PLC-9F2K1A', hora: '20:14', resultado: 'valida' },
-    { id: 'PLC-7B3M2C', hora: '20:13', resultado: 'valida' },
-    { id: 'PLC-2X9K0P', hora: '20:11', resultado: 'usada' },
-  ]);
+  const { state } = useApp();
+  const [eventoId, setEventoId] = useState('');
+  const [codigo, setCodigo] = useState('');
+  const [resultado, setResultado] = useState<ResultadoDeEscaneo | null>(null);
+  const [error, setError] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [registro, setRegistro] = useState<Escaneo[]>([]);
+  const [vueltas, setVueltas] = useState(0); // sube después de cada escaneo
 
-  function marcarIngreso() {
-    setIngresos((v) => v + 1);
-    setRestantes((v) => Math.max(0, v - 1));
-    registrarEscaneo('valida');
+  const evento = state.eventos.find((e) => e.id === eventoId) ?? state.eventos[0];
+  const idEvento = evento?.id;
+
+  // El registro de esta puerta, del más nuevo al más viejo. Si no se puede leer, la puerta sigue
+  // escaneando: el registro es informativo.
+  useEffect(() => {
+    if (!idEvento) return;
+    let vigente = true;
+    listarEscaneos(idEvento)
+      .then((lista) => vigente && setRegistro(lista))
+      .catch(() => vigente && setRegistro([]));
+    return () => {
+      vigente = false;
+    };
+  }, [idEvento, vueltas]);
+
+  async function enviar(e: FormEvent) {
+    e.preventDefault();
+    if (!idEvento || !codigo.trim()) return;
+    setEnviando(true);
+    setError('');
+    try {
+      setResultado(await escanear(codigo, idEvento));
+      setCodigo('');
+      setVueltas((n) => n + 1);
+    } catch (err) {
+      // 504: Ventas no respondió y no se sabe si la entrada quedó usada. Hay que escanear de nuevo.
+      setResultado(null);
+      setError(mensajeDeError(err));
+    } finally {
+      setEnviando(false);
+    }
   }
 
-  function rechazar() {
-    setRechazos((v) => v + 1);
-    registrarEscaneo(estado === 'valida' ? 'usada' : estado);
-  }
-
-  function registrarEscaneo(resultado: EstadoResultado) {
-    const hora = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-    setEscaneos((prev) => [
-      { id: `PLC-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, hora, resultado },
-      ...prev,
-    ]);
-  }
+  const ingresos = registro.filter((r) => r.resultado === 'VALIDA').length;
+  const rechazos = registro.filter((r) => r.resultado !== 'VALIDA' && r.resultado !== 'SIN_RESPUESTA').length;
 
   return (
     <PageTransition>
@@ -57,9 +80,9 @@ export default function GatePage() {
 
         <div className="mt-6 grid grid-cols-1 gap-8 md:grid-cols-2">
           <div>
-            <div className="relative h-[420px] overflow-hidden border border-wire">
+            <div className="relative h-[320px] overflow-hidden border border-wire">
               <ImagePlaceholder etiqueta="visor de cámara" className="h-full w-full" />
-              <div className="absolute left-1/2 top-1/2 h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 overflow-hidden border-2 border-ink">
+              <div className="absolute left-1/2 top-1/2 h-[200px] w-[200px] -translate-x-1/2 -translate-y-1/2 overflow-hidden border-2 border-ink">
                 <motion.div
                   className="absolute left-0 right-0 h-0.5 bg-accent"
                   animate={{ top: ['0%', '100%'] }}
@@ -67,93 +90,103 @@ export default function GatePage() {
                 />
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Button variant="secondary" onClick={() => setCodigoManual((v) => !v)}>
-                Ingresar código manual
-              </Button>
-              <Button variant="secondary">Modo offline</Button>
-            </div>
-            {codigoManual && (
-              <input
-                placeholder="PLC-XXXXXX"
-                className="mt-3 min-h-[44px] w-full max-w-xs border border-edge px-3 text-sm uppercase"
-              />
-            )}
 
-            <div className="mt-8 flex gap-3">
-              {(['valida', 'usada', 'invalida'] as EstadoResultado[]).map((e) => (
-                <button
-                  key={e}
-                  onClick={() => setEstado(e)}
-                  className={`font-mono-label px-3 py-2 text-[11px] ${
-                    estado === e ? 'bg-ink text-paper' : 'border border-edge text-graphite'
-                  }`}
+            <form onSubmit={enviar} className="mt-4 flex flex-col gap-3">
+              <label className="flex flex-col gap-1.5">
+                <span className="font-mono-label text-[11px] text-muted">Evento de esta puerta</span>
+                <select
+                  value={idEvento ?? ''}
+                  onChange={(e) => {
+                    setEventoId(e.target.value);
+                    setResultado(null);
+                    setError('');
+                  }}
+                  className="min-h-[44px] border border-edge bg-paper px-3 text-sm"
                 >
-                  demo: {e}
-                </button>
-              ))}
-            </div>
+                  {state.eventos.map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.titulo} · {fechaHora(ev.fechaISO)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {/* El lector de QR entrega el texto del código; acá también se puede tipear. */}
+              <Input
+                label="Código QR"
+                value={codigo}
+                onChange={(e) => setCodigo(e.target.value)}
+                placeholder="Contenido del QR"
+                autoComplete="off"
+              />
+              <Button type="submit" loading={enviando} loadingText="Validando…" disabled={!idEvento || !codigo.trim()}>
+                Validar entrada
+              </Button>
+            </form>
           </div>
 
           <div>
             <AnimatePresence mode="wait">
-              <motion.div
-                key={estado}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18 }}
-                className={`border-2 p-6 ${estado === 'valida' ? 'border-accent' : 'border-ink'}`}
-              >
-                {estado === 'valida' && (
-                  <>
-                    <p className="text-lg font-semibold text-accent">✓ Entrada válida</p>
-                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="font-mono-label text-[10px] text-muted">Titular</p>
-                        <p>{RESULTADO_VALIDO.titular}</p>
-                      </div>
-                      <div>
-                        <p className="font-mono-label text-[10px] text-muted">Documento</p>
-                        <p>{RESULTADO_VALIDO.dni}</p>
-                      </div>
-                      <div>
-                        <p className="font-mono-label text-[10px] text-muted">Sector</p>
-                        <p>{RESULTADO_VALIDO.sector}</p>
-                      </div>
-                      <div>
-                        <p className="font-mono-label text-[10px] text-muted">Origen</p>
-                        <p className="capitalize">{RESULTADO_VALIDO.origen}</p>
-                      </div>
-                    </div>
-                    <p className="mt-4 text-xs text-muted">
-                      Pedí el documento y contrastá el nombre antes de marcar el ingreso.
-                    </p>
-                    <div className="mt-5 flex gap-3">
-                      <Button onClick={marcarIngreso}>Marcar ingreso</Button>
-                      <Button variant="secondary" onClick={rechazar}>
-                        Rechazar
-                      </Button>
-                    </div>
-                  </>
-                )}
-                {estado === 'usada' && (
-                  <>
-                    <p className="text-lg font-semibold text-ink">Entrada ya utilizada</p>
-                    <p className="mt-3 text-sm text-graphite">Primer ingreso: hoy 19:42hs</p>
-                    <p className="text-sm text-graphite">Puesto: Portón 1 · Popular norte</p>
-                  </>
-                )}
-                {estado === 'invalida' && (
-                  <>
-                    <p className="text-lg font-semibold text-ink">Código no reconocido</p>
-                    <p className="font-mono-label mt-3 text-[12px] text-muted">PLC-000000</p>
-                  </>
-                )}
-              </motion.div>
+              {(resultado || error) && (
+                <motion.div
+                  key={resultado?.id ?? 'error'}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.18 }}
+                  role="status"
+                  aria-live="polite"
+                  className={`border-2 p-6 ${resultado?.puedeEntrar ? 'border-accent' : 'border-ink'}`}
+                >
+                  {error && !resultado && (
+                    <>
+                      <p className="text-lg font-semibold text-ink">No se pudo validar</p>
+                      <p className="mt-3 text-sm text-graphite">{error}</p>
+                      <p className="mt-2 text-xs text-muted">Escaneá la entrada de nuevo.</p>
+                    </>
+                  )}
+                  {resultado && (
+                    <>
+                      <p className={`text-lg font-semibold ${resultado.puedeEntrar ? 'text-accent' : 'text-ink'}`}>
+                        {TITULO_RESULTADO[resultado.resultado] ?? resultado.resultado}
+                      </p>
+                      <p className="mt-2 text-sm text-graphite">{resultado.mensaje}</p>
+                      {resultado.entrada && (
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="font-mono-label text-[10px] text-muted">Titular</p>
+                            <p>{resultado.entrada.titular.nombre}</p>
+                          </div>
+                          <div>
+                            <p className="font-mono-label text-[10px] text-muted">Documento</p>
+                            <p>{formatearDNI(resultado.entrada.titular.dni)}</p>
+                          </div>
+                          <div>
+                            <p className="font-mono-label text-[10px] text-muted">Sector</p>
+                            <p>{resultado.entrada.sector}</p>
+                          </div>
+                          <div>
+                            <p className="font-mono-label text-[10px] text-muted">Entrada</p>
+                            <p className="font-mono-label text-[11px]">{resultado.entrada.id}</p>
+                          </div>
+                        </div>
+                      )}
+                      {resultado.puedeEntrar && (
+                        <p className="mt-4 text-xs text-muted">
+                          Pedí el documento y contrastá el nombre: la entrada ya quedó marcada como usada.
+                        </p>
+                      )}
+                      {resultado.usoAnterior && (
+                        <p className="mt-3 text-sm text-graphite">
+                          Escaneo anterior: {fechaHora(resultado.usoAnterior.escaneado)} · {resultado.usoAnterior.escaneadoPor}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </motion.div>
+              )}
             </AnimatePresence>
 
-            <div className="mt-8 grid grid-cols-3 gap-3 text-center">
+            <div className="mt-8 grid grid-cols-2 gap-3 text-center">
               <div className="border border-wire p-4">
                 <p className="text-xl font-semibold text-ink">{ingresos.toLocaleString('es-AR')}</p>
                 <p className="font-mono-label text-[10px] text-muted">ingresos</p>
@@ -162,35 +195,20 @@ export default function GatePage() {
                 <p className="text-xl font-semibold text-ink">{rechazos.toLocaleString('es-AR')}</p>
                 <p className="font-mono-label text-[10px] text-muted">rechazos</p>
               </div>
-              <div className="border border-wire p-4">
-                <p className="text-xl font-semibold text-ink">{restantes.toLocaleString('es-AR')}</p>
-                <p className="font-mono-label text-[10px] text-muted">restantes</p>
-              </div>
             </div>
 
             <h2 className="mt-8 text-sm font-semibold text-ink">Últimos escaneos</h2>
             <div className="mt-3 flex flex-col gap-2">
-              <AnimatePresence initial={false}>
-                {escaneos.slice(0, 6).map((e) => (
-                  <motion.div
-                    layout
-                    key={e.id}
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center justify-between border border-wire px-4 py-2 text-sm"
-                  >
-                    <span className="font-mono-label text-[11px]">{e.id}</span>
-                    <span
-                      className={`font-mono-label text-[10px] ${
-                        e.resultado === 'valida' ? 'text-accent' : 'text-faint'
-                      }`}
-                    >
-                      {e.resultado}
-                    </span>
-                    <span className="font-mono-label text-[10px] text-muted">{e.hora}</span>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+              {registro.length === 0 && <p className="text-sm text-muted">Todavía no hay escaneos en este evento.</p>}
+              {registro.slice(0, 6).map((e) => (
+                <div key={e.id} className="flex items-center justify-between border border-wire px-4 py-2 text-sm">
+                  <span className="font-mono-label text-[11px]">…{e.codigoParcial}</span>
+                  <span className={`font-mono-label text-[10px] ${e.resultado === 'VALIDA' ? 'text-accent' : 'text-faint'}`}>
+                    {e.resultado.toLowerCase().replace('_', ' ')}
+                  </span>
+                  <span className="font-mono-label text-[10px] text-muted">{hora(e.escaneado)}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>

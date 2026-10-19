@@ -1,6 +1,7 @@
 package com.palco.ventas.negocio.externos;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -53,6 +54,19 @@ public class CobrosFake implements Cobros {
             return new ResultadoDeCobro(pagoId, ResultadoDeCobro.RECHAZADO, MOTIVO_DE_RECHAZO);
         }
         return new ResultadoDeCobro(pagoId, ResultadoDeCobro.APROBADO, null);
+    }
+
+    /**
+     * El simulador no guarda los cobros, así que no sabe cómo terminó uno: un
+     * cobro aprobado y luego perdido por una falla de Ventas no deja rastro.
+     * Responde que no se sabe, y la venta queda retenida, como antes de que
+     * existiera la conciliación. La conciliación de verdad se prueba con el
+     * servicio de Pagos, que es el cobro por defecto.
+     */
+    @Override
+    public Optional<ResultadoDeCobro> buscarCobro(String ventaId, String claveIdempotencia) {
+        throw new ErroresDeNegocio.SinRespuesta("El simulador de cobros no guarda los cobros: no puede decir si la venta "
+                + ventaId + " se cobró.");
     }
 
     /**

@@ -13,7 +13,46 @@
     <artifactId>palco-facturacion</artifactId>
     <packaging>war</packaging>
     <name>Palco — ServicioDeFacturación</name>
-    <description>Factura electrónica contra AFIP/ARCA. Interfaz: IFacturacion.</description>
+    <description>
+        Factura cada compra confirmada pidiéndole el CAE a ARCA (simulado) por SOAP. Interfaz: IFacturacion.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <!-- ConfigProvider, para leer la dirección del WSDL y los tiempos de espera. Versión y alcance del pom padre. -->
+            <groupId>org.eclipse.microprofile.config</groupId>
+            <artifactId>microprofile-config-api</artifactId>
+        </dependency>
+        <dependency>
+            <!-- El cliente SOAP (Service.create). Lo pone WildFly con la capa "webservices": provided. -->
+            <groupId>jakarta.xml.ws</groupId>
+            <artifactId>jakarta.xml.ws-api</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Dobles de prueba de lo que pone el servidor: el mensaje JMS, el contexto del MDB y el token. -->
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Para el test del cliente SOAP: publica un ARCA de prueba con Endpoint.publish, sin WildFly. -->
+            <groupId>com.sun.xml.ws</groupId>
+            <artifactId>jaxws-rt</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Solo para los tests contra H2 en modo PostgreSQL (la base de WildFly en desarrollo).
+                 En el servidor H2 e Hibernate los pone WildFly. Mismas versiones que trae WildFly 41. -->
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>2.4.240</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>7.4.5.Final</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
     <build>
         <finalName>facturacion</finalName>

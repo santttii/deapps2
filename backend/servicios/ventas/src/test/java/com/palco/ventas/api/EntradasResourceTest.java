@@ -23,7 +23,9 @@ import com.palco.common.ErroresDeNegocio;
 import com.palco.ventas.api.Dtos.EnlaceDto;
 import com.palco.ventas.api.Dtos.EntradaDto;
 import com.palco.ventas.api.Dtos.TitularDto;
+import com.palco.ventas.api.Dtos.UsoDeEntradaDto;
 import com.palco.ventas.negocio.ComprasEnCurso;
+import com.palco.ventas.negocio.UsoDeEntradas;
 
 /**
  * Lo que el recurso de entradas decide por su cuenta, sin servidor: de quién
@@ -69,6 +71,30 @@ class EntradasResourceTest {
 
         assertNotNull(roles, "obtener no declara quién la puede llamar");
         assertArrayEquals(new String[] { "user" }, roles.value());
+    }
+
+    @Test
+    void usarDelegaElCodigoYElEventoYDevuelveLaEntradaConSuEnlace() {
+        UsoDeEntradas usos = mock(UsoDeEntradas.class);
+        EntradaDto usada = new EntradaDto("T-9c41d07e", "V-3f9a1c2b", "ev-1", "sec-1-4", "Platea B",
+                new TitularDto("Ana Gómez", "30123456"), 27_500, "USADA", "qr-1", "2026-10-19T21:00:07Z", Map.of());
+        when(usos.marcarUsada("qr-1", "ev-1")).thenReturn(usada);
+        recurso.usos = usos;
+
+        EntradaDto respuesta = recurso.usar(new UsoDeEntradaDto("qr-1", "ev-1"), pedidoEnLaRaiz());
+
+        assertEquals(Map.of("self", new EnlaceDto("/api/v1/entradas/T-9c41d07e", "GET")), respuesta.enlaces());
+        assertEquals("USADA", respuesta.estado());
+    }
+
+    @Test
+    void usarUnaEntradaEsSoloParaOtrosServicios() throws NoSuchMethodException {
+        RolesAllowed roles = EntradasResource.class
+                .getMethod("usar", UsoDeEntradaDto.class, UriInfo.class)
+                .getAnnotation(RolesAllowed.class);
+
+        assertNotNull(roles, "usar no declara quién la puede llamar");
+        assertArrayEquals(new String[] { "servicio" }, roles.value());
     }
 
     // ---------------------------------------------------------------------------------------------

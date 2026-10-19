@@ -32,4 +32,18 @@ public interface IPagos {
 
     /** El pago con ese id, o {@code NoEncontrado}. */
     PagoDto obtener(String pagoId);
+
+    /**
+     * El pago que se guardó con esa clave de idempotencia, o
+     * {@code NoEncontrado} si con esa clave no hay ninguno. Es la consulta de
+     * la conciliación de Ventas: después de un cobro sin resultado, Ventas
+     * pregunta por la misma clave que mandó al cobrar ({@code <ventaId>:<clave>}).
+     *
+     * Un {@code NoEncontrado} es una respuesta segura: la clave es única y el
+     * pago se guarda antes de responder el cobro, así que si no está, esa
+     * clave no cobró. La excepción es un cobro que todavía espera a la
+     * pasarela; por eso Ventas no pregunta hasta que pasó un margen desde el
+     * intento.
+     */
+    PagoDto buscarPorClave(String claveIdempotencia);
 }

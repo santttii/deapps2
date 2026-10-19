@@ -1,4 +1,4 @@
-import { TASA_SERVICIO, TOPE_REVENTA } from '../types';
+import { MINIMO_REVENTA, TASA_SERVICIO, TOPE_REVENTA } from '../types';
 
 export function money(value: number): string {
   return `$${Math.round(value).toLocaleString('es-AR')}`;
@@ -22,7 +22,7 @@ export function calcularTope(precioPagado: number): number {
 }
 
 export function calcularMinimoReventa(precioPagado: number): number {
-  return Math.ceil(precioPagado * 0.5);
+  return Math.ceil(precioPagado * MINIMO_REVENTA);
 }
 
 // Cargo por servicio estimado, para el resumen del checkout antes de reservar. El importe que

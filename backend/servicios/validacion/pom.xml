@@ -15,6 +15,29 @@
     <name>Palco — ServicioDeValidación</name>
     <description>Valida autenticidad y uso único de la entrada en puerta (stateless). Interfaz: IValidacion.</description>
 
+    <dependencies>
+        <dependency>
+            <!-- Dobles de prueba para testear el negocio sin servidor. La versión y el alcance (test) vienen del pom padre. -->
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Solo para RegistroEnH2Test: corre la migración y las consultas del repositorio contra H2
+                 en modo PostgreSQL, la base de WildFly en desarrollo. En el servidor H2 e Hibernate los
+                 pone WildFly, por eso no viajan en el WAR. Mismas versiones que en Ventas. -->
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>2.4.240</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>7.4.5.Final</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
     <build>
         <finalName>validacion</finalName>
     </build>

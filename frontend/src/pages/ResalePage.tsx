@@ -1,20 +1,22 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../store/AppContext';
 import { useToast } from '../components/ToastProvider';
-import { calcularMinimoReventa, calcularTope, money, sleep } from '../lib/format';
-import { HORAS_LIMITE_REVENTA } from '../types';
+import { money } from '../lib/format';
+import { useReventas } from '../lib/useReventas';
+import type { Publicacion } from '../types';
 import Button from '../components/Button';
-import Modal from '../components/Modal';
-import Input from '../components/Input';
+import CompraReventaModal from '../components/CompraReventaModal';
 import ProgressBar from '../components/ProgressBar';
 import PageTransition from '../components/PageTransition';
 
 type Orden = 'menor' | 'mayor';
 
+// Listado de la reventa oficial de todos los eventos del catálogo. Las publicaciones son de
+// Reventa; publicar y retirar se hace desde "Mis entradas", donde está cada entrada propia.
 export default function ResalePage() {
-  const { state, dispatch, usuarioActual } = useApp();
+  const { state, usuarioActual } = useApp();
   const { mostrarToast } = useToast();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -22,125 +24,28 @@ export default function ResalePage() {
   const [eventoFiltro, setEventoFiltro] = useState(params.get('evento') ?? 'todos');
   const [sectorFiltro, setSectorFiltro] = useState('todos');
   const [orden, setOrden] = useState<Orden>('menor');
-  const [comprando, setComprando] = useState<string | null>(null);
-  const [procesandoCompra, setProcesandoCompra] = useState(false);
+  const [comprando, setComprando] = useState<Publicacion | null>(null);
 
-  const [entradaAPublicar, setEntradaAPublicar] = useState('');
-  const [precioPublicar, setPrecioPublicar] = useState('');
-  const [errorPublicar, setErrorPublicar] = useState('');
-
-  // Las publicaciones son datos locales; los eventos vienen del servidor. Si un evento ya no
-  // existe allá (la base de desarrollo se reinicia), sus publicaciones no se muestran.
-  const publicacionesActivas = state.publicaciones.filter(
-    (p) => p.estado === 'activa' && state.eventos.some((e) => e.id === p.eventoId),
-  );
-
+  const reventas = useReventas(state.eventos.map((e) => e.id));
   const eventoActivo = state.eventos.find((e) => e.slug === eventoFiltro);
 
   const publicacionesFiltradas = useMemo(() => {
-    let lista = publicacionesActivas;
+    let lista = reventas.publicaciones;
     if (eventoActivo) lista = lista.filter((p) => p.eventoId === eventoActivo.id);
     if (sectorFiltro !== 'todos') lista = lista.filter((p) => p.sectorId === sectorFiltro);
-    lista = [...lista].sort((a, b) => (orden === 'menor' ? a.precio - b.precio : b.precio - a.precio));
-    return lista;
-  }, [publicacionesActivas, eventoActivo, sectorFiltro, orden]);
+    return [...lista].sort((a, b) => (orden === 'menor' ? a.precio - b.precio : b.precio - a.precio));
+  }, [reventas.publicaciones, eventoActivo, sectorFiltro, orden]);
 
   const sectoresDisponibles = eventoActivo ? eventoActivo.sectores : [];
+  const eventoCompra = comprando ? state.eventos.find((e) => e.id === comprando.eventoId) : undefined;
 
-  const publicacion = state.publicaciones.find((p) => p.id === comprando);
-  const eventoCompra = publicacion ? state.eventos.find((e) => e.id === publicacion.eventoId) : undefined;
-  const sectorCompra = publicacion && eventoCompra ? eventoCompra.sectores.find((s) => s.id === publicacion.sectorId) : undefined;
-
-  function intentarComprar(publicacionId: string) {
+  function intentarComprar(publicacion: Publicacion) {
     if (!usuarioActual) {
       mostrarToast('Iniciá sesión para comprar en la reventa oficial.');
       navigate('/ingresar?next=/reventa');
       return;
     }
-    setComprando(publicacionId);
-  }
-
-  async function confirmarCompra() {
-    if (!publicacion || !eventoCompra || !sectorCompra || !usuarioActual) return;
-    setProcesandoCompra(true);
-    await sleep(900);
-    const entradaOriginal = state.entradas.find((e) => e.id === publicacion.entradaId);
-    dispatch({
-      type: 'COMPRAR_REVENTA',
-      payload: {
-        publicacionId: publicacion.id,
-        compradorId: usuarioActual.id,
-        entradaNueva: {
-          id: `PLC-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-          ordenId: entradaOriginal?.ordenId ?? '',
-          eventoId: eventoCompra.id,
-          sectorId: sectorCompra.id,
-          precioPagado: publicacion.precio,
-          titular: { nombre: usuarioActual.nombre, apellido: usuarioActual.apellido, dni: usuarioActual.dni },
-          estado: 'valida',
-          origen: 'reventa',
-          emitidaISO: new Date().toISOString(),
-        },
-      },
-    });
-    setProcesandoCompra(false);
-    setComprando(null);
-    mostrarToast('Compraste la entrada por reventa oficial.');
-    navigate('/mis-entradas');
-  }
-
-  const entradasPropiasPublicables = usuarioActual
-    ? state.entradas.filter(
-        (e) =>
-          e.propietarioId === usuarioActual.id &&
-          e.estado === 'valida' &&
-          state.eventos.some((ev) => ev.id === e.eventoId),
-      )
-    : [];
-  const entradaSeleccionada = entradasPropiasPublicables.find((e) => e.id === entradaAPublicar);
-  const topeSeleccion = entradaSeleccionada ? calcularTope(entradaSeleccionada.precioPagado) : 0;
-  const minimoSeleccion = entradaSeleccionada ? calcularMinimoReventa(entradaSeleccionada.precioPagado) : 0;
-  const precioNumerico = Number(precioPublicar || 0);
-
-  function publicarLaMia() {
-    if (!usuarioActual) return;
-    if (!entradaSeleccionada) {
-      setErrorPublicar('Elegí una entrada.');
-      return;
-    }
-    const evento = state.eventos.find((e) => e.id === entradaSeleccionada.eventoId);
-    const horas = evento ? (new Date(evento.fechaISO).getTime() - Date.now()) / 36e5 : Infinity;
-    if (horas < HORAS_LIMITE_REVENTA) {
-      setErrorPublicar('La reventa cierra 3 horas antes del evento.');
-      return;
-    }
-    if (precioNumerico > topeSeleccion) {
-      setErrorPublicar(`El máximo permitido es ${money(topeSeleccion)}.`);
-      return;
-    }
-    if (precioNumerico < minimoSeleccion) {
-      setErrorPublicar(`El mínimo es ${money(minimoSeleccion)}.`);
-      return;
-    }
-    dispatch({
-      type: 'PUBLICAR_REVENTA',
-      payload: {
-        id: `pub-${Date.now()}`,
-        entradaId: entradaSeleccionada.id,
-        eventoId: entradaSeleccionada.eventoId,
-        sectorId: entradaSeleccionada.sectorId,
-        precioOriginal: entradaSeleccionada.precioPagado,
-        precio: precioNumerico,
-        // Quien vende es el usuario de la sesión, aunque la entrada esté a nombre de otra persona.
-        vendedorDni: usuarioActual.dni,
-        estado: 'activa',
-        creadaISO: new Date().toISOString(),
-      },
-    });
-    setEntradaAPublicar('');
-    setPrecioPublicar('');
-    setErrorPublicar('');
-    mostrarToast('Publicaste tu entrada en la reventa oficial.');
+    setComprando(publicacion);
   }
 
   return (
@@ -198,11 +103,25 @@ export default function ResalePage() {
           </select>
         </div>
 
+        {reventas.cargando && (
+          <p role="status" className="mt-6 text-sm text-muted">
+            Cargando publicaciones…
+          </p>
+        )}
+        {reventas.error && (
+          <p role="alert" className="mt-6 text-sm text-muted">
+            {reventas.error}{' '}
+            <button type="button" className="text-accent underline" onClick={reventas.recargar}>
+              Reintentar
+            </button>
+          </p>
+        )}
+
         <div className="mt-6 hidden overflow-x-auto border border-wire sm:block">
           <table className="w-full text-sm">
             <thead className="bg-fill">
               <tr>
-                {['Evento', 'Sector', 'Original', 'Tope', 'Publicada', 'Acción'].map((h) => (
+                {['Evento', 'Sector', 'Tope', 'Precio', 'Acción'].map((h) => (
                   <th key={h} className="font-mono-label px-4 py-3 text-left text-[10px] text-muted">
                     {h}
                   </th>
@@ -213,26 +132,20 @@ export default function ResalePage() {
               {publicacionesFiltradas.map((p) => {
                 const evento = state.eventos.find((e) => e.id === p.eventoId);
                 const sector = evento?.sectores.find((s) => s.id === p.sectorId);
-                const esPropia = usuarioActual && p.vendedorDni === usuarioActual.dni;
                 return (
                   <motion.tr layout key={p.id} className="border-t border-wire">
                     <td className="px-4 py-3">{evento?.titulo}</td>
                     <td className="px-4 py-3">{sector?.nombre}</td>
-                    <td className="px-4 py-3">{money(p.precioOriginal)}</td>
-                    <td className="px-4 py-3">{money(calcularTope(p.precioOriginal))}</td>
+                    <td className="px-4 py-3">{money(p.precioMaximo)}</td>
                     <td className="px-4 py-3 font-medium text-ink">{money(p.precio)}</td>
                     <td className="px-4 py-3">
-                      {esPropia ? (
-                        <span className="font-mono-label text-[10px] text-muted">tu publicación</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => intentarComprar(p.id)}
-                          className="border border-wire px-3 py-1.5 text-xs"
-                        >
-                          Comprar
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => intentarComprar(p)}
+                        className="border border-wire px-3 py-1.5 text-xs"
+                      >
+                        Comprar
+                      </button>
                     </td>
                   </motion.tr>
                 );
@@ -245,23 +158,15 @@ export default function ResalePage() {
           {publicacionesFiltradas.map((p) => {
             const evento = state.eventos.find((e) => e.id === p.eventoId);
             const sector = evento?.sectores.find((s) => s.id === p.sectorId);
-            const esPropia = usuarioActual && p.vendedorDni === usuarioActual.dni;
             return (
               <div key={p.id} className="border border-wire p-4 text-sm">
                 <p className="font-medium">{evento?.titulo}</p>
                 <p className="text-muted">{sector?.nombre}</p>
-                <div className="mt-2 flex justify-between">
-                  <span>Original: {money(p.precioOriginal)}</span>
-                  <span>Tope: {money(calcularTope(p.precioOriginal))}</span>
-                </div>
+                <p className="mt-2">Tope: {money(p.precioMaximo)}</p>
                 <p className="mt-1 font-semibold">{money(p.precio)}</p>
-                {esPropia ? (
-                  <span className="font-mono-label text-[10px] text-muted">tu publicación</span>
-                ) : (
-                  <Button variant="secondary" className="mt-2 w-full" onClick={() => intentarComprar(p.id)}>
-                    Comprar
-                  </Button>
-                )}
+                <Button variant="secondary" className="mt-2 w-full" onClick={() => intentarComprar(p)}>
+                  Comprar
+                </Button>
               </div>
             );
           })}
@@ -281,67 +186,20 @@ export default function ResalePage() {
 
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-ink">Publicar la mía</h2>
-            {!usuarioActual ? (
-              <p className="mt-2 text-sm text-muted">Ingresá a tu cuenta para publicar una entrada.</p>
-            ) : entradasPropiasPublicables.length === 0 ? (
-              <p className="mt-2 text-sm text-muted">No tenés entradas disponibles para publicar.</p>
-            ) : (
-              <div className="mt-4 flex flex-col gap-3">
-                <select
-                  value={entradaAPublicar}
-                  onChange={(e) => setEntradaAPublicar(e.target.value)}
-                  className="min-h-[44px] border border-edge bg-paper px-3 text-sm"
-                >
-                  <option value="">Elegí una entrada</option>
-                  {entradasPropiasPublicables.map((e) => {
-                    const evento = state.eventos.find((ev) => ev.id === e.eventoId);
-                    return (
-                      <option key={e.id} value={e.id}>
-                        {evento?.titulo} · {e.id}
-                      </option>
-                    );
-                  })}
-                </select>
-                {entradaSeleccionada && (
-                  <p className="text-xs text-muted">
-                    Pagaste {money(entradaSeleccionada.precioPagado)} · tope {money(topeSeleccion)}
-                  </p>
-                )}
-                <Input
-                  label="Precio de publicación"
-                  hideLabel
-                  type="number"
-                  value={precioPublicar}
-                  onChange={(e) => setPrecioPublicar(e.target.value)}
-                  error={errorPublicar}
-                  disabled={!entradaSeleccionada}
-                />
-                <Button onClick={publicarLaMia} disabled={!entradaSeleccionada}>
-                  Publicar
-                </Button>
-              </div>
-            )}
+            <p className="mt-2 text-sm text-muted">
+              Se publica desde <Link to="/mis-entradas" className="text-accent underline">Mis entradas</Link>,
+              eligiendo la entrada. Si la compra la hace otra persona, la entrada se emite de nuevo a su nombre.
+            </p>
           </div>
         </div>
       </div>
 
-      <Modal abierto={!!comprando} onCerrar={() => setComprando(null)} titulo="Confirmar compra">
-        {publicacion && eventoCompra && sectorCompra && (
-          <div className="flex flex-col gap-3 text-sm text-graphite">
-            <p>
-              {eventoCompra.titulo} · {sectorCompra.nombre}
-            </p>
-            <p>
-              Precio: <span className="font-semibold text-ink">{money(publicacion.precio)}</span> ·
-              tope {money(calcularTope(publicacion.precioOriginal))}
-            </p>
-            <p>La entrada se remite a tu nombre, ligada a tu DNI.</p>
-            <Button loading={procesandoCompra} loadingText="Procesando…" onClick={confirmarCompra}>
-              Confirmar compra
-            </Button>
-          </div>
-        )}
-      </Modal>
+      <CompraReventaModal
+        publicacion={comprando}
+        evento={eventoCompra}
+        onCerrar={() => setComprando(null)}
+        onListadoVencido={reventas.recargar}
+      />
     </PageTransition>
   );
 }

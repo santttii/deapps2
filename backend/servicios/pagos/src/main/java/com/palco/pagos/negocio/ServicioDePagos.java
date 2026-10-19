@@ -95,6 +95,14 @@ public class ServicioDePagos implements IPagos {
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe el pago " + pagoId + "."));
     }
 
+    @Override
+    public PagoDto buscarPorClave(String claveIdempotencia) {
+        // Solo lee: no cobra ni guarda nada, así que preguntar dos veces da la misma respuesta.
+        return pagos.buscarPorClave(claveIdempotencia)
+                .map(ServicioDePagos::aDto)
+                .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No hay ningún pago con esa clave de idempotencia."));
+    }
+
     /**
      * Una clave identifica un solo pedido. Si vuelve con otra venta u otro
      * monto no es una repetición sino un pedido distinto con una clave ajena:

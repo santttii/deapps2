@@ -110,6 +110,6 @@ read -r COLA0 TOPICO0 <<< "$(agregados "$ANTES")"
 read -r COLA1 TOPICO1 <<< "$(agregados "$DESPUES")"
 ESTADO=$(echo "$VENTA" | grep -o '"estado": "[A-Z_]*"' | tail -1)
 echo "Toma del $(date '+%F %T %z'): venta $V, pago $P, entrada $E"
-echo "venta: $ESTADO (se espera EMITIDA) | cola agregados +$((COLA1 - COLA0)) (se espera +1) | tópico agregados +$((TOPICO1 - TOPICO0)) (se espera +2)"
+echo "venta: $ESTADO (se espera EMITIDA) | cola agregados +$((COLA1 - COLA0)) (se espera +1) | tópico agregados +$((TOPICO1 - TOPICO0)) (se espera una copia por suscripción: 2 hasta el 16/10, 3 con Facturación)"
 echo "Archivos escritos en $D: broker-antes.txt compra.txt venta.txt entrada.txt broker-despues.txt server-log-extracto.txt auditoria.txt"
-[ "$ESTADO" = '"estado": "EMITIDA"' ] && [ $((COLA1 - COLA0)) -eq 1 ] && [ $((TOPICO1 - TOPICO0)) -eq 2 ]
+[ "$ESTADO" = '"estado": "EMITIDA"' ] && [ $((COLA1 - COLA0)) -eq 1 ] && [ $((TOPICO1 - TOPICO0)) -ge 2 ]

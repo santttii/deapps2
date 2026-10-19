@@ -38,6 +38,8 @@ export const DLQ = `${BROKER}/jms-queue=DLQ`;
 /** La cola interna donde el broker guarda las copias del suscriptor durable de auditoría. */
 export const COLA_DE_AUDITORIA = 'palco-auditoria.compras-confirmadas';
 export const SUSCRIPCION_DE_AUDITORIA = `${BROKER}/runtime-queue=${COLA_DE_AUDITORIA}`;
+/** La del suscriptor durable de facturación (clientId palco-facturacion, suscripción facturacion-compras-confirmadas). */
+export const COLA_DE_FACTURACION = 'palco-facturacion.facturacion-compras-confirmadas';
 export const MDB_EMISION = '/deployment=palco-ventas.war/subsystem=ejb3/message-driven-bean=EmisionDeEntradas';
 export const MDB_AUDITORIA = '/deployment=palco-notificaciones.war/subsystem=ejb3/message-driven-bean=AuditoriaDeCompras';
 

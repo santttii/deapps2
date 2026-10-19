@@ -16,6 +16,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -24,8 +25,8 @@ import com.palco.pagos.api.Dtos.PagoDto;
 import com.palco.pagos.negocio.IPagos;
 
 /**
- * API REST de ServicioDePagos, en {@code /api/v1/pagos}. Es interna: las dos
- * operaciones piden el rol {@code servicio}, que solo tiene un token de
+ * API REST de ServicioDePagos, en {@code /api/v1/pagos}. Es interna: todas
+ * las operaciones piden el rol {@code servicio}, que solo tiene un token de
  * servicio. El comprador paga contra ServicioDeVentas, y Ventas llama acá.
  *
  * Un rechazo de la pasarela responde 201 con {@code "estado": "RECHAZADO"}:
@@ -63,6 +64,28 @@ public class PagosResource {
             @NotNull(message = "Falta el cuerpo de la solicitud.") @Valid NuevoPagoDto pedido) {
         PagoDto pago = pagos.procesarPago(pedido, claveIdempotencia);
         return Response.created(URI.create(pago.pagoId())).entity(pago).build();
+    }
+
+    /**
+     * {@code GET /api/v1/pagos?claveIdempotencia=V-3f9a1c2b:5d3c1f0e-8a4b-4c7d-9e2f-1a2b3c4d5e6f}:
+     * el pago que se guardó con esa clave, o 404 {@code no-encontrado} si no hay
+     * ninguno. La usa la conciliación de Ventas para saber cómo terminó un cobro
+     * que quedó sin resultado. Devuelve un pago y no una lista porque la clave es
+     * única en la tabla.
+     *
+     * La clave va como parámetro de la consulta y no en la ruta: es un filtro
+     * sobre la colección de pagos, y así no se confunde con
+     * {@code /api/v1/pagos/{pagoId}}, que busca por el id del pago.
+     */
+    @GET
+    @RolesAllowed("servicio")
+    public PagoDto buscarPorClave(
+            @QueryParam("claveIdempotencia")
+            @NotBlank(message = "Falta el parámetro claveIdempotencia.")
+            @Size(max = LARGO_MAXIMO_DE_LA_CLAVE,
+                    message = "El parámetro claveIdempotencia tiene hasta " + LARGO_MAXIMO_DE_LA_CLAVE + " caracteres.")
+            String claveIdempotencia) {
+        return pagos.buscarPorClave(claveIdempotencia);
     }
 
     /** {@code GET /api/v1/pagos/P-3f9a1c2b} */

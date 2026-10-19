@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        El padre es palco-backend y no palco-servicios: ese pom les suma palco-common a todos sus
+        módulos, y este WAR representa un sistema externo que no tiene ninguna clase de Palco.
+        Así Facturación y el simulado solo comparten el contrato SOAP (el WSDL), no código.
+    -->
+    <parent>
+        <groupId>com.palco</groupId>
+        <artifactId>palco-backend</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>palco-arca</artifactId>
+    <packaging>war</packaging>
+    <name>Palco — ARCA simulado</name>
+    <description>
+        Sistema legado simulado: representa el servicio SOAP de factura electrónica de ARCA (WSFEv1).
+        Le da número de comprobante y CAE a cada factura que pide ServicioDeFacturación.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <!-- @WebService y JAXB. Versión y alcance (provided) vienen del pom padre. -->
+            <groupId>jakarta.xml.ws</groupId>
+            <artifactId>jakarta.xml.ws-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Para publicar el servicio en los tests con Endpoint.publish, sin WildFly -->
+            <groupId>com.sun.xml.ws</groupId>
+            <artifactId>jaxws-rt</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>arca</finalName>
+    </build>
+</project>

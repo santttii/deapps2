@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useApp } from '../store/AppContext';
 import { ErrorApi, mensajeDeError } from '../lib/api';
@@ -8,6 +8,10 @@ import { obtenerEvento } from '../servicios/eventos';
 import { soltarReserva } from '../servicios/ventas';
 import { MAX_ENTRADAS_POR_ORDEN } from '../types';
 import { useAnimatedNumber } from '../lib/useAnimatedNumber';
+import { useReventas } from '../lib/useReventas';
+import { useToast } from '../components/ToastProvider';
+import CompraReventaModal from '../components/CompraReventaModal';
+import type { Publicacion } from '../types';
 import ImagePlaceholder from '../components/ImagePlaceholder';
 import Button from '../components/Button';
 import Skeleton from '../components/Skeleton';
@@ -29,6 +33,8 @@ export default function EventPage() {
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
   const [fallo, setFallo] = useState<FalloDeCarga | null>(null);
   const [reintentos, setReintentos] = useState(0);
+  const [aComprar, setAComprar] = useState<Publicacion | null>(null);
+  const { mostrarToast } = useToast();
 
   // Si el evento ya está en el catálogo cargado se muestra enseguida. En paralelo se pide su
   // detalle al servidor: trae el stock actual y deja el evento en el estado para el checkout.
@@ -49,10 +55,9 @@ export default function EventPage() {
     };
   }, [slug, dispatch, reintentos]);
 
-  const publicacionesEvento = useMemo(
-    () => (evento ? state.publicaciones.filter((p) => p.eventoId === evento.id && p.estado === 'activa') : []),
-    [evento, state.publicaciones],
-  );
+  // Las publicaciones activas de la reventa oficial de este evento, de Reventa.
+  const reventas = useReventas(evento ? [evento.id] : []);
+  const publicacionesEvento = [...reventas.publicaciones].sort((a, b) => a.precio - b.precio);
 
   const totalEntradas = Object.values(cantidades).reduce((a, b) => a + b, 0);
   const total = evento ? evento.sectores.reduce((acc, s) => acc + (cantidades[s.id] ?? 0) * s.precio, 0) : 0;
@@ -110,6 +115,15 @@ export default function EventPage() {
       const nuevo = Math.max(0, actual + delta);
       return { ...prev, [sectorId]: nuevo };
     });
+  }
+
+  function intentarComprarReventa(publicacion: Publicacion) {
+    if (!usuarioActual) {
+      mostrarToast('Iniciá sesión para comprar en la reventa oficial.');
+      navigate(`/ingresar?next=${encodeURIComponent(`/evento/${slug}`)}`);
+      return;
+    }
+    setAComprar(publicacion);
   }
 
   function continuarCheckout() {
@@ -174,6 +188,46 @@ export default function EventPage() {
             revenderse por el canal oficial, con un tope de precio de +10% sobre lo
             pagado, hasta 3 horas antes del evento.
           </p>
+
+          <section id="reventa" className="mt-10" aria-labelledby="titulo-reventa">
+            <h2 id="titulo-reventa" className="text-[26px] font-semibold tracking-tight text-ink">
+              Reventa oficial
+            </h2>
+            {reventas.cargando ? (
+              <p role="status" className="mt-3 text-sm text-muted">
+                Cargando publicaciones…
+              </p>
+            ) : reventas.error ? (
+              <p role="alert" className="mt-3 text-sm text-muted">
+                {reventas.error}{' '}
+                <button type="button" className="text-accent underline" onClick={reventas.recargar}>
+                  Reintentar
+                </button>
+              </p>
+            ) : publicacionesEvento.length === 0 ? (
+              <p className="mt-3 text-sm text-muted">No hay entradas publicadas en la reventa de este evento.</p>
+            ) : (
+              <ul className="mt-4 flex flex-col gap-2">
+                {publicacionesEvento.map((p) => {
+                  const sector = evento.sectores.find((s) => s.id === p.sectorId);
+                  return (
+                    <li
+                      key={p.id}
+                      data-publicacion={p.id}
+                      className="flex flex-wrap items-center justify-between gap-3 border border-wire px-4 py-3 text-sm"
+                    >
+                      <span className="text-ink">{sector?.nombre ?? p.sectorId}</span>
+                      <span className="font-mono-label text-[10px] text-muted">tope {money(p.precioMaximo)}</span>
+                      <span className="font-semibold text-ink">{money(p.precio)}</span>
+                      <Button variant="secondary" onClick={() => intentarComprarReventa(p)}>
+                        Comprar
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
         </div>
 
         {/* El selector se ve en todos los anchos: en pantalla angosta queda debajo de la descripción.
@@ -247,12 +301,9 @@ export default function EventPage() {
           </div>
 
           {publicacionesEvento.length > 0 && (
-            <Link
-              to={`/reventa?evento=${evento.slug}`}
-              className="mt-4 block text-center text-sm text-accent underline"
-            >
+            <a href="#reventa" className="mt-4 block text-center text-sm text-accent underline">
               ¿Agotado? Ver reventa oficial ({publicacionesEvento.length} publicaciones)
-            </Link>
+            </a>
           )}
         </aside>
 
@@ -266,6 +317,13 @@ export default function EventPage() {
           </Button>
         </div>
       </div>
+
+      <CompraReventaModal
+        publicacion={aComprar}
+        evento={evento}
+        onCerrar={() => setAComprar(null)}
+        onListadoVencido={reventas.recargar}
+      />
     </PageTransition>
   );
 }

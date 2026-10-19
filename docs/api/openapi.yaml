@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Palco API
-  version: 1.1.0
+  version: 1.2.0
   description: >
     API REST de Palco, plataforma de venta de entradas con reventa oficial (tope +10%).
     Montos en pesos enteros. Fechas ISO 8601: las de Ventas en UTC (`2026-10-14T18:53:50Z`); la fecha del evento,
@@ -13,8 +13,14 @@ info:
 
     Cada servicio es un WAR con su propia raíz: Usuarios en `/api/usuarios`, Eventos en `/api/eventos`, Ventas en
     `/api/v1` (recursos `ventas` y `entradas`) y Pagos en `/api/v1/pagos`. Usuarios y Eventos todavía no pasaron a
-    `/api/v1`. Las rutas de abajo son relativas a `/api`.
-    Reventa, Validación y Facturación están desplegados y solo responden `GET /api/<servicio>/health`.
+    `/api/v1`, Validación en `/api/v1/validacion`, Reventa en `/api/v1/reventas` y Facturación en `/api/v1/facturas`.
+    Las rutas de abajo son relativas a `/api`. Cada servicio responde además `GET <su raíz>/health`.
+    ARCA (simulado) es un servicio SOAP aparte, en `/legado/arca` (WSDL en `/legado/arca?wsdl`), que solo llama
+    Facturación: no forma parte de esta API REST.
+
+
+    Las operaciones de la etiqueta `interno` y las de `pagos` son de uso entre servicios: requieren un token de rol
+    `servicio` y el frontend nunca las llama.
     Notificaciones expone operaciones internas de desarrollo (`/api/notificaciones/pruebas/*`, `auditoria`) que no
     forman parte de este contrato.
 servers:
@@ -31,6 +37,12 @@ tags:
   - name: pagos
     description: Uso interno. Solo lo llama Ventas, con un token de rol `servicio`.
   - name: reventas
+  - name: validacion
+    description: Validación en puerta. Escanea el personal de puerta (rol `staff`).
+  - name: facturas
+    description: Factura electrónica de cada compra, con el CAE de ARCA (simulado).
+  - name: interno
+    description: Uso interno de Ventas. Solo las llaman Validación y Reventa, con un token de rol `servicio`.
 
 paths:
   /usuarios/registro:
@@ -438,8 +450,11 @@ paths:
         Requiere rol `user`. Ventas cobra con `POST /v1/pagos` (pasarela simulada, por REST) y, si el pago se aprueba,
         publica `PAGO_CONFIRMADO` en la misma transacción (cola `emisionEntradas` y tópico `compraConfirmada`); las
         entradas se emiten de forma asincrónica. Es idempotente por `Idempotency-Key`.
-        La factura con ARCA (SOAP) y el cobro con Mercado Pago están diseñados, pendientes: no implementados al
-        14/10; por eso `facturaEstado` queda en `NO_APLICA`.
+        La factura la emite Facturación de forma asincrónica, al consumir el tópico (ver `GET /v1/facturas/{ventaId}`);
+        `facturaEstado` de la venta queda en `NO_APLICA`. El cobro con Mercado Pago está diseñado, pendiente.
+        Si después del cobro aprobado algo falla y la confirmación se deshace, la venta queda `EN_CHECKOUT` con el
+        intento anotado y la conciliación de pagos de Ventas (una vez por minuto, con 2 minutos de margen) le pregunta
+        a Pagos por la clave (`GET /v1/pagos?claveIdempotencia=`) y la confirma o la vence.
       parameters:
         - $ref: '#/components/parameters/VentaId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -543,6 +558,32 @@ paths:
               schema: { $ref: '#/components/schemas/Problema' }
         '504': { $ref: '#/components/responses/SinRespuesta' }
 
+    get:
+      tags: [pagos]
+      summary: Buscar un pago por su clave de idempotencia
+      description: >
+        Requiere rol `servicio`. La usa la conciliación de Ventas para saber cómo terminó un cobro que quedó sin
+        resultado. Devuelve un pago y no una lista porque la clave es única.
+      parameters:
+        - name: claveIdempotencia
+          in: query
+          required: true
+          schema: { type: string, maxLength: 80, example: 'V-3f9a1c2b:5d3c1f0e-8a4b-4c7d-9e2f-1a2b3c4d5e6f' }
+      responses:
+        '200':
+          description: Pago encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pago' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404':
+          description: No hay ningún pago con esa clave (`/problemas/no-encontrado`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
   /v1/pagos/{pagoId}:
     get:
       tags: [pagos]
@@ -564,12 +605,34 @@ paths:
         '404': { $ref: '#/components/responses/NoEncontrado' }
 
   /v1/reventas:
+    get:
+      tags: [reventas]
+      summary: Publicaciones activas de un evento
+      description: >
+        Público, como el catálogo. Devuelve solo las publicaciones `ACTIVA` del evento. Sin `eventoId` responde 400.
+      security: []
+      parameters:
+        - name: eventoId
+          in: query
+          required: true
+          schema: { type: string, maxLength: 40, example: ev-1 }
+      responses:
+        '200':
+          description: Lista de publicaciones activas (vacía si no hay)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Publicacion' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
     post:
       tags: [reventas]
       summary: Publicar una entrada propia en la reventa oficial
       description: >
-        Diseñado, pendiente: no implementado al 14/10 (el servicio de Reventa solo responde `GET /api/reventa/health`).
-        Requiere ser el titular verificado. El precio no puede superar pagado + 10% ni bajar de 50%.
+        Requiere rol `user` y ser el dueño de la entrada, que tiene que estar `VALIDA`. El precio va del 50% al 110%
+        de lo pagado por la entrada (`ReglasDeNegocio`). Reventa le pide a Ventas que deje la entrada `PUBLICADA`
+        (operación interna `POST /v1/operaciones-de-reventa/publicaciones`). La reventa cierra 3 horas antes del
+        evento.
       requestBody:
         required: true
         content:
@@ -577,27 +640,366 @@ paths:
             schema: { $ref: '#/components/schemas/NuevaPublicacion' }
       responses:
         '201':
-          description: Publicación creada
+          description: Publicación creada, en estado `ACTIVA`
           headers:
             Location:
-              schema: { type: string, example: /api/v1/reventas/R-0012 }
+              schema: { type: string, example: http://localhost:8080/api/v1/reventas/R-3f9a1c2b }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Publicacion' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
+        '404':
+          description: La entrada no existe o no es del usuario (`/problemas/no-encontrado`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '409':
+          description: >
+            La entrada no está `VALIDA`: ya publicada, usada, vendida o sin emitir (`/problemas/entrada-no-disponible`),
+            o faltan menos de 3 horas para el evento (`/problemas/reventa-cerrada`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
         '422':
-          description: El precio supera el tope o faltan menos de 3 horas para el evento
+          description: El precio está fuera del rango permitido (`/problemas/precio-fuera-de-rango`)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
               example:
-                type: /problemas/precio-sobre-tope
-                title: El precio supera el tope de reventa
+                type: /problemas/precio-fuera-de-rango
+                title: Regla de negocio incumplida
                 status: 422
-                detail: Pagaste $27500; el máximo permitido es $30250 y pediste $33000.
+                detail: El precio tiene que estar entre $13750 y $30250.
                 instance: /api/v1/reventas
-                topeMaximo: 30250
+        '504': { $ref: '#/components/responses/SinRespuesta' }
+
+  /v1/reventas/mias:
+    get:
+      tags: [reventas]
+      summary: Publicaciones del usuario autenticado
+      description: Requiere rol `user`. Todas las publicaciones del dueño del token, en todos los estados.
+      responses:
+        '200':
+          description: Lista de publicaciones (vacía si no publicó nada)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Publicacion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /v1/reventas/{publicacionId}:
+    parameters:
+      - $ref: '#/components/parameters/PublicacionId'
+    delete:
+      tags: [reventas]
+      summary: Retirar una publicación propia
+      description: >
+        Requiere rol `user` y ser quien publicó. La publicación pasa a `RETIRADA` y la entrada vuelve a `VALIDA`.
+        Una publicación de otro usuario responde 404.
+      responses:
+        '204':
+          description: Publicación retirada
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: La publicación ya se vendió, ya se retiró o la está comprando otra persona (`/problemas/publicacion-no-activa`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '504': { $ref: '#/components/responses/SinRespuesta' }
+
+  /v1/reventas/{publicacionId}/compra:
+    parameters:
+      - $ref: '#/components/parameters/PublicacionId'
+    post:
+      tags: [reventas]
+      summary: Comprar una entrada publicada en la reventa
+      description: >
+        Requiere rol `user`. Reventa cobra el precio más el cargo de servicio contra Pagos y le pide a Ventas la
+        transferencia (operación interna `POST /v1/operaciones-de-reventa/transferencias`): la entrada original queda
+        `VENDIDA` y el comprador recibe una entrada nueva, `VALIDA`, a nombre del titular indicado, dentro de una venta
+        propia. Es idempotente por `Idempotency-Key`: repetirla devuelve lo mismo sin cobrar de nuevo.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CompraDeReventa' }
+      responses:
+        '201':
+          description: Compra hecha
+          headers:
+            Location:
+              schema: { type: string, example: /api/v1/entradas/T-5b7e9a10 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CompraDeReventaHecha' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '402':
+          description: Pago rechazado por la pasarela (`/problemas/pago-rechazado`). La publicación sigue activa.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: >
+            La publicación ya no está activa (`/problemas/publicacion-no-activa`), es del mismo usuario
+            (`/problemas/compra-propia`) o faltan menos de 3 horas para el evento (`/problemas/reventa-cerrada`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '504':
+          description: >
+            Pagos o Ventas no respondieron a tiempo (`/problemas/sin-respuesta`). Se reintenta con la misma
+            `Idempotency-Key`: no se cobra de nuevo.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /v1/validacion/escaneos:
+    post:
+      tags: [validacion]
+      summary: Escanear el código QR de una entrada en la puerta
+      description: >
+        Requiere rol `staff`. Siempre responde 201: lo que se crea es el renglón del registro de la puerta, sea cual
+        sea el resultado. Si la persona puede entrar lo dicen `resultado` y `puedeEntrar`, no el código HTTP.
+        Con `VALIDA`, Validación le pide a Ventas que marque la entrada como `USADA` (operación interna
+        `POST /v1/entradas/usos`); un segundo escaneo del mismo código da `YA_USADA` con el uso anterior.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevoEscaneo' }
+      responses:
+        '201':
+          description: Escaneo registrado
+          headers:
+            Location:
+              schema: { type: string, example: http://localhost:8080/api/v1/validacion/escaneos/ESC-1a2b3c4d }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoDeEscaneo' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '504':
+          description: >
+            Ventas no respondió (`/problemas/sin-respuesta`). El intento queda en el registro como `SIN_RESPUESTA`:
+            hay que escanear de nuevo.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+    get:
+      tags: [validacion]
+      summary: Registro de la puerta de un evento
+      description: >
+        Requiere rol `staff` u `organizer`. Del escaneo más nuevo al más viejo. El código no viaja completo: solo
+        sus últimos caracteres (`codigoParcial`).
+      parameters:
+        - name: eventoId
+          in: query
+          required: true
+          schema: { type: string, maxLength: 40, example: ev-1 }
+      responses:
+        '200':
+          description: Registro de escaneos (vacío si no hubo ninguno)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Escaneo' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /v1/validacion/escaneos/{escaneoId}:
+    get:
+      tags: [validacion]
+      summary: Un renglón del registro de la puerta
+      description: Requiere rol `staff` u `organizer`.
+      parameters:
+        - name: escaneoId
+          in: path
+          required: true
+          schema: { type: string, example: ESC-1a2b3c4d }
+      responses:
+        '200':
+          description: Escaneo encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Escaneo' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /v1/facturas/{ventaId}:
+    parameters:
+      - $ref: '#/components/parameters/VentaId'
+    get:
+      tags: [facturas]
+      summary: Factura de una compra
+      description: >
+        Requiere rol `user` (solo la factura de una compra propia) o `servicio` (cualquiera). Las facturas no se
+        piden por HTTP: Facturación consume el tópico `compraConfirmada` y le pide el CAE a ARCA (simulado) por SOAP
+        (`/legado/arca?wsdl`). Por eso la factura aparece unos segundos después del pago. Una venta sin factura
+        todavía, inexistente o de otro comprador responde 404, igual en los tres casos.
+      responses:
+        '200':
+          description: Factura emitida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Factura' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /v1/entradas/usos:
+    post:
+      tags: [interno]
+      summary: Marcar una entrada como usada en la puerta
+      description: >
+        Uso interno: requiere rol `servicio` y la llama solo Validación. Responde 200 (no crea un recurso, cambia el
+        estado de una entrada que ya existía) con la entrada ya `USADA`. Repetirlo no la usa dos veces.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevoEscaneo' }
+      responses:
+        '200':
+          description: Entrada usada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Entrada' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: >
+            La entrada ya se usó (`/problemas/entrada-ya-usada`), es de otro evento
+            (`/problemas/entrada-de-otro-evento`) o no sirve para entrar: publicada, vendida o anulada
+            (`/problemas/entrada-no-habilitada`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /v1/operaciones-de-reventa/entradas/{entradaId}:
+    get:
+      tags: [interno]
+      summary: Consultar una entrada para la reventa
+      description: Uso interno, rol `servicio` (lo llama Reventa). Devuelve la entrada solo si es de ese vendedor.
+      parameters:
+        - name: entradaId
+          in: path
+          required: true
+          schema: { type: string, example: T-9c41d07e }
+        - name: vendedorId
+          in: query
+          required: true
+          schema: { type: string, example: user-titular }
+      responses:
+        '200':
+          description: Entrada encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntradaEnReventa' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /v1/operaciones-de-reventa/publicaciones:
+    post:
+      tags: [interno]
+      summary: Dejar una entrada PUBLICADA
+      description: Uso interno, rol `servicio` (lo llama Reventa al publicar).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PedidoDeVendedor' }
+      responses:
+        '200':
+          description: Entrada publicada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntradaEnReventa' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: La entrada no está `VALIDA` (`/problemas/entrada-no-disponible`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /v1/operaciones-de-reventa/retiros:
+    post:
+      tags: [interno]
+      summary: Devolver a VALIDA una entrada publicada
+      description: Uso interno, rol `servicio` (lo llama Reventa al retirar una publicación).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PedidoDeVendedor' }
+      responses:
+        '200':
+          description: Entrada de nuevo VALIDA
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntradaEnReventa' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: La entrada no está `PUBLICADA` (`/problemas/entrada-no-publicada`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
+  /v1/operaciones-de-reventa/transferencias:
+    post:
+      tags: [interno]
+      summary: Transferir una entrada vendida en la reventa
+      description: >
+        Uso interno, rol `servicio` (lo llama Reventa después de cobrar). La entrada original queda `VENDIDA` y nace
+        la venta del comprador con su entrada nueva, `VALIDA` y con código QR. Repetirlo devuelve lo mismo, también
+        con 201.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Transferencia' }
+      responses:
+        '201':
+          description: Transferencia hecha
+          headers:
+            Location:
+              schema: { type: string, example: http://localhost:8080/api/v1/ventas/V-7a1b2c3d }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferenciaHecha' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: La entrada no está `PUBLICADA` (`/problemas/entrada-no-publicada`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
 
 components:
   securitySchemes:
@@ -617,6 +1019,11 @@ components:
       required: true
       schema: { type: string, format: uuid }
       description: UUID por intento lógico. Repetir la clave devuelve la misma respuesta sin duplicar la operación.
+    PublicacionId:
+      name: publicacionId
+      in: path
+      required: true
+      schema: { type: string, example: R-3f9a1c2b }
     VentaId:
       name: ventaId
       in: path
@@ -940,14 +1347,152 @@ components:
       type: object
       required: [entradaId, precio]
       properties:
-        entradaId: { type: string, example: T-000981 }
-        precio: { type: integer, format: int64, example: 29000 }
+        entradaId: { type: string, maxLength: 40, example: T-9c41d07e }
+        precio:
+          type: integer
+          format: int64
+          description: Lo que paga el comprador por la entrada, sin el cargo de servicio. Del 50% al 110% de lo pagado
+          example: 29000
 
     Publicacion:
       type: object
       properties:
-        id: { type: string, example: R-0012 }
-        entradaId: { type: string }
-        precio: { type: integer, format: int64 }
-        topeMaximo: { type: integer, format: int64, example: 30250 }
+        id: { type: string, example: R-3f9a1c2b }
+        entradaId: { type: string, example: T-9c41d07e }
+        eventoId: { type: string, example: ev-1 }
+        sectorId: { type: string, example: sec-1-4 }
+        sector: { type: string, example: Platea B }
+        precio: { type: integer, format: int64, description: Sin el cargo de servicio, example: 29000 }
+        precioMaximo: { type: integer, format: int64, description: Tope de esa entrada (lo pagado más el 10%), example: 30250 }
         estado: { type: string, enum: [ACTIVA, VENDIDA, RETIRADA] }
+        publicada: { type: string, format: date-time }
+
+    CompraDeReventa:
+      type: object
+      required: [titular, medioDePago, token]
+      properties:
+        titular: { $ref: '#/components/schemas/Titular' }
+        medioDePago: { type: string, maxLength: 40, example: tarjeta }
+        token: { type: string, maxLength: 200, description: Token de la pasarela; no se guarda, example: tok_test }
+
+    EntradaTransferida:
+      type: object
+      properties:
+        id: { type: string, example: T-5b7e9a10 }
+        codigoQr: { type: string }
+        titular: { $ref: '#/components/schemas/Titular' }
+        eventoId: { type: string, example: ev-1 }
+        sectorId: { type: string, example: sec-1-4 }
+        precioPagado: { type: integer, format: int64, description: El precio de la publicación, example: 29000 }
+
+    CompraDeReventaHecha:
+      type: object
+      properties:
+        publicacion: { $ref: '#/components/schemas/Publicacion' }
+        entrada: { $ref: '#/components/schemas/EntradaTransferida' }
+        ventaId: { type: string, description: La venta del comprador en Ventas, example: V-7a1b2c3d }
+
+    NuevoEscaneo:
+      type: object
+      required: [codigoQr, eventoId]
+      properties:
+        codigoQr: { type: string, maxLength: 200 }
+        eventoId: { type: string, maxLength: 40, description: El evento que controla la puerta, example: ev-1 }
+
+    ResultadoDeEscaneo:
+      type: object
+      properties:
+        id: { type: string, example: ESC-1a2b3c4d }
+        resultado:
+          type: string
+          enum: [VALIDA, YA_USADA, INEXISTENTE, OTRO_EVENTO, NO_HABILITADA]
+        puedeEntrar: { type: boolean, description: true solo con VALIDA }
+        mensaje: { type: string, description: Texto para el personal de puerta }
+        eventoId: { type: string, example: ev-1 }
+        entrada:
+          description: Solo con VALIDA
+          oneOf:
+            - type: 'null'
+            - type: object
+              properties:
+                id: { type: string, example: T-d8e62a1e }
+                sectorId: { type: string }
+                sector: { type: string }
+                titular: { $ref: '#/components/schemas/Titular' }
+        usoAnterior:
+          description: Solo con YA_USADA, si este servicio registró el escaneo anterior
+          oneOf:
+            - type: 'null'
+            - type: object
+              properties:
+                escaneoId: { type: string }
+                resultado: { type: string, enum: [VALIDA, SIN_RESPUESTA] }
+                escaneadoPor: { type: string }
+                escaneado: { type: string, format: date-time }
+        escaneadoPor: { type: string, example: user-puerta }
+        escaneado: { type: string, format: date-time }
+
+    Escaneo:
+      type: object
+      properties:
+        id: { type: string, example: ESC-1a2b3c4d }
+        eventoId: { type: string, example: ev-1 }
+        codigoParcial: { type: string, description: Los últimos caracteres del código }
+        resultado:
+          type: string
+          enum: [VALIDA, YA_USADA, INEXISTENTE, OTRO_EVENTO, NO_HABILITADA, SIN_RESPUESTA]
+        entradaId: { type: [string, 'null'] }
+        escaneadoPor: { type: string }
+        escaneado: { type: string, format: date-time }
+
+    Factura:
+      type: object
+      properties:
+        ventaId: { type: string, example: V-3f9a1c2b }
+        compradorId: { type: string, example: user-titular }
+        eventoId: { type: string, example: ev-1 }
+        tipoComprobante: { type: integer, description: 'Código de ARCA: 6 es factura B', example: 6 }
+        puntoDeVenta: { type: integer, example: 1 }
+        numero: { type: integer, format: int64, example: 1 }
+        comprobante: { type: string, description: Punto de venta y número como se imprimen, example: 00001-00000001 }
+        cae: { type: string, pattern: '^\d{14}$', description: Código de autorización electrónico (simulado) }
+        vencimientoCae: { type: string, format: date }
+        importe: { type: integer, format: int64, description: El total cobrado, example: 60500 }
+        fecha: { type: string, format: date, description: 'Fecha del comprobante, en hora argentina' }
+        emitida: { type: string, format: date-time }
+
+    EntradaEnReventa:
+      type: object
+      properties:
+        entradaId: { type: string }
+        ventaId: { type: string }
+        eventoId: { type: string }
+        sectorId: { type: string }
+        sector: { type: string }
+        precioPagado: { type: integer, format: int64 }
+        estado: { type: string, enum: [PENDIENTE_EMISION, VALIDA, USADA, PUBLICADA, VENDIDA, ANULADA] }
+
+    PedidoDeVendedor:
+      type: object
+      required: [entradaId, vendedorId]
+      properties:
+        entradaId: { type: string, maxLength: 40 }
+        vendedorId: { type: string, maxLength: 40 }
+
+    Transferencia:
+      type: object
+      required: [publicacionId, entradaId, vendedorId, compradorId, titular, precio, pagoId]
+      properties:
+        publicacionId: { type: string, maxLength: 40 }
+        entradaId: { type: string, maxLength: 40 }
+        vendedorId: { type: string, maxLength: 40 }
+        compradorId: { type: string, maxLength: 40 }
+        titular: { $ref: '#/components/schemas/Titular' }
+        precio: { type: integer, format: int64, minimum: 1, description: Pasa a ser el precioPagado de la entrada nueva }
+        pagoId: { type: string, maxLength: 40 }
+
+    TransferenciaHecha:
+      type: object
+      properties:
+        ventaId: { type: string }
+        entrada: { $ref: '#/components/schemas/Entrada' }

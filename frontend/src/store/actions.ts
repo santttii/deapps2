@@ -1,4 +1,4 @@
-import type { Entrada, Evento, MedioPago, Publicacion } from '../types';
+import type { Evento, MedioPago } from '../types';
 
 export interface CarritoItem {
   sectorId: string;
@@ -32,11 +32,5 @@ export type Action =
   | { type: 'CATALOGO_FALLO'; payload: string }
   | { type: 'EVENTO_RECIBIDO'; payload: Evento }
   // Compra en curso. Las compras hechas no se guardan: se piden a Ventas (GET /api/v1/ventas).
-  | { type: 'SET_CARRITO'; payload: Carrito | null }
-  // Entradas emitidas que llegaron de Ventas. Se copian para la reventa, que todavía es local.
-  | { type: 'GUARDAR_ENTRADAS'; payload: { entradas: Entrada[]; compradorId: string } }
-  // Datos locales: lo que todavía no tiene backend.
-  | { type: 'PUBLICAR_REVENTA'; payload: Publicacion }
-  | { type: 'RETIRAR_PUBLICACION'; payload: { publicacionId: string } }
-  | { type: 'COMPRAR_REVENTA'; payload: { publicacionId: string; entradaNueva: Entrada; compradorId: string } }
-  | { type: 'MARCAR_ENTRADA_USADA'; payload: { entradaId: string } };
+  // Las publicaciones de reventa y los escaneos tampoco: se piden a Reventa y a Validación.
+  | { type: 'SET_CARRITO'; payload: Carrito | null };

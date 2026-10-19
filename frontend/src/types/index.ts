@@ -44,22 +44,23 @@ export interface Entrada {
   // Cuándo se obtuvo la entrada. En una compra es la fecha de la venta: Ventas no informa la hora
   // de emisión en el listado.
   emitidaISO: string;
-  // Lo que lleva el QR. Lo genera Ventas al emitir; las entradas de reventa local no lo tienen.
+  // Lo que lleva el QR. Lo genera Ventas al emitir; una compra en la reventa trae uno nuevo.
   codigoQr?: string;
 }
 
 export type EstadoPublicacion = 'activa' | 'vendida' | 'retirada';
 
+// Una publicación de la reventa oficial, como la devuelve Reventa (/api/v1/reventas). El backend
+// calcula precioMaximo (lo pagado + 10%); el frontend no lo recalcula para mostrarlo.
 export interface Publicacion {
   id: string;
   entradaId: string;
   eventoId: string;
   sectorId: string;
-  precioOriginal: number;
   precio: number;
-  vendedorDni: string;
+  precioMaximo: number;
   estado: EstadoPublicacion;
-  creadaISO: string;
+  publicadaISO: string;
 }
 
 export interface Usuario {
@@ -99,7 +100,9 @@ export interface Orden {
   sePuedePagar: boolean;
 }
 
+// Copia de common/ReglasDeNegocio: la reventa va del 50% al 110% de lo pagado.
 export const TOPE_REVENTA = 0.1;
+export const MINIMO_REVENTA = 0.5;
 export const TASA_SERVICIO = 0.1;
 export const MAX_ENTRADAS_POR_ORDEN = 6;
 export const HORAS_LIMITE_REVENTA = 3;

@@ -17,6 +17,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import jakarta.json.bind.JsonbBuilder;
 
@@ -77,6 +78,15 @@ class ClienteDePagosTest {
         @Override
         Respuesta enviar(String cuerpo, String claveIdempotencia, String tokenDeServicio) {
             llamadas.add(new Llamada(cuerpo, claveIdempotencia, tokenDeServicio));
+            if (caido) {
+                throw new ErroresDeNegocio.SinRespuesta("El servicio de pagos no responde. Probá de nuevo.");
+            }
+            return respuestas.removeFirst();
+        }
+
+        @Override
+        Respuesta consultar(String claveIdempotencia, String tokenDeServicio) {
+            llamadas.add(new Llamada(null, claveIdempotencia, tokenDeServicio));
             if (caido) {
                 throw new ErroresDeNegocio.SinRespuesta("El servicio de pagos no responde. Probá de nuevo.");
             }
@@ -358,5 +368,122 @@ class ClienteDePagosTest {
         assertEquals(primero.pagoId(), reintento.pagoId());
         assertEquals(pagosReal.clavesRecibidas.get(0), pagosReal.clavesRecibidas.get(1));
         assertEquals(1, pagosReal.ventaPorClave.size());
+    }
+
+    // ---- La consulta por clave, para la conciliación ----
+
+    /** El 404 que arma Pagos cuando con esa clave no hay ningún pago. */
+    private static final String NO_ENCONTRADO_JSON = """
+            {"type":"/problemas/no-encontrado","title":"No encontrado","status":404,
+             "detail":"No hay ningún pago con esa clave de idempotencia."}""";
+
+    private Optional<ResultadoDeCobro> buscar() {
+        return pagos.buscarCobro("V-3f9a1c2b", CLAVE);
+    }
+
+    /** Comprueba que la consulta termina en "no se sabe": la conciliación deja la venta como está. */
+    private void laConsultaNoSabe() {
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, this::buscar);
+    }
+
+    @Test
+    void laConsultaPreguntaPorLaMismaClaveDerivadaQueViajoAlCobrar() {
+        pagos.responde(200, APROBADO_JSON);
+
+        buscar();
+
+        assertEquals(1, pagos.llamadas.size());
+        assertEquals(CLAVE_EN_PAGOS, pagos.llamadas.get(0).claveIdempotencia());
+        assertEquals("token-1", pagos.llamadas.get(0).tokenDeServicio());
+    }
+
+    @Test
+    void unPagoAprobadoGuardadoVuelveConSuId() {
+        pagos.responde(200, APROBADO_JSON);
+
+        ResultadoDeCobro cobro = buscar().orElseThrow();
+
+        assertTrue(cobro.aprobado());
+        assertEquals("P-598c58a0", cobro.pagoId());
+    }
+
+    @Test
+    void unPagoRechazadoGuardadoVuelveConSuMotivo() {
+        pagos.responde(200, RECHAZADO_JSON);
+
+        ResultadoDeCobro cobro = buscar().orElseThrow();
+
+        assertFalse(cobro.aprobado());
+        assertEquals("fondos_insuficientes", cobro.motivo());
+    }
+
+    @Test
+    void elCuatrocientosCuatroDePagosQuiereDecirQueNoHayCobro() {
+        pagos.responde(404, NO_ENCONTRADO_JSON);
+
+        assertTrue(buscar().isEmpty());
+    }
+
+    @Test
+    void unCuatrocientosCuatroQueNoEsElDePagosNoSeLeeComoSinCobro() {
+        // Así responde el servidor cuando Pagos no está desplegado: no es Pagos diciendo "no hay pago".
+        pagos.responde(404, "<html><body>Not Found</body></html>");
+
+        laConsultaNoSabe();
+    }
+
+    @Test
+    void unCuatrocientosCuatroSinCuerpoTampocoSeLeeComoSinCobro() {
+        pagos.responde(404, null);
+
+        laConsultaNoSabe();
+    }
+
+    @Test
+    void siPagosNoRespondeLaConsultaNoSabe() {
+        pagos.caido = true;
+
+        laConsultaNoSabe();
+    }
+
+    @Test
+    void unErrorDePagosEnLaConsultaNoSabe() {
+        pagos.responde(500, null);
+
+        laConsultaNoSabe();
+    }
+
+    @Test
+    void unPagoQueTodaviaNoTieneResultadoNoSabe() {
+        pagos.responde(200, APROBADO_JSON.replace("APROBADO", "PENDIENTE"));
+
+        laConsultaNoSabe();
+    }
+
+    @Test
+    void unPagoDeOtraVentaNoSeUsa() {
+        pagos.responde(200, APROBADO_JSON.replace("V-3f9a1c2b", "V-otraventa"));
+
+        laConsultaNoSabe();
+    }
+
+    @Test
+    void conUnCuatrocientosUnoRenuevaElTokenYConsultaUnaVezMas() {
+        pagos.responde(401, null);
+        pagos.responde(200, APROBADO_JSON);
+
+        assertTrue(buscar().orElseThrow().aprobado());
+
+        verify(token).invalidar();
+        assertEquals(List.of("token-1", "token-2"), pagos.llamadas.stream().map(Llamada::tokenDeServicio).toList());
+    }
+
+    @Test
+    void sinTokenDeServicioLaConsultaNoSabeYNoLlamaAPagos() {
+        when(token.obtener()).thenThrow(new ErroresDeNegocio.SinRespuesta("Usuarios no responde."));
+
+        laConsultaNoSabe();
+
+        assertTrue(pagos.llamadas.isEmpty());
     }
 }

@@ -8,8 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 import jakarta.ejb.Stateless;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import jakarta.inject.Inject;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.Textos;
@@ -17,6 +16,8 @@ import com.palco.eventos.api.Dtos.EventoDto;
 import com.palco.eventos.api.Dtos.NuevoEventoDto;
 import com.palco.eventos.api.Dtos.NuevoSectorDto;
 import com.palco.eventos.api.Dtos.SectorDto;
+import com.palco.eventos.datos.EventoRepository;
+import com.palco.eventos.datos.SectorRepository;
 import com.palco.eventos.dominio.Categoria;
 import com.palco.eventos.dominio.Evento;
 import com.palco.eventos.dominio.Sector;
@@ -24,6 +25,11 @@ import com.palco.eventos.dominio.Sector;
 /**
  * Stateless: cada operación es autocontenida y no depende de la llamada
  * anterior, así que el contenedor reutiliza un pool de instancias.
+ *
+ * Tiene las reglas del catálogo (fecha futura, categoría válida, slug único,
+ * evento empezado) y deja el acceso a la base en los repositorios de
+ * {@code datos/}. Cada operación corre en una transacción que abre el
+ * contenedor al entrar; los repositorios se suman a ella.
  */
 @Stateless
 public class ServicioDeEventos implements IEventos {
@@ -36,8 +42,11 @@ public class ServicioDeEventos implements IEventos {
      */
     static final ZoneId ZONA_DE_LOS_EVENTOS = ZoneId.of("America/Argentina/Buenos_Aires");
 
-    @PersistenceContext(unitName = "eventos")
-    EntityManager em;
+    @Inject
+    EventoRepository eventos;
+
+    @Inject
+    SectorRepository sectores;
 
     /** No es privado para que el test fije la hora. */
     Clock reloj = Clock.system(ZONA_DE_LOS_EVENTOS);
@@ -47,12 +56,7 @@ public class ServicioDeEventos implements IEventos {
         Categoria filtroCategoria = categoria == null || categoria.isBlank() ? null : parsearCategoria(categoria);
         String texto = Textos.normalizar(busqueda);
 
-        return em.createQuery("""
-                        select distinct e from Evento e left join fetch e.sectores
-                        where :categoria is null or e.categoria = :categoria
-                        order by e.fecha""", Evento.class)
-                .setParameter("categoria", filtroCategoria)
-                .getResultList()
+        return eventos.listar(filtroCategoria)
                 .stream()
                 // Búsqueda sin acentos en Java: el catálogo es chico y así funciona igual en H2 y PostgreSQL.
                 .filter(e -> texto.isEmpty()
@@ -64,10 +68,7 @@ public class ServicioDeEventos implements IEventos {
 
     @Override
     public EventoDto obtenerDetalle(String slug) {
-        return em.createQuery("select e from Evento e left join fetch e.sectores where e.slug = :slug", Evento.class)
-                .setParameter("slug", slug)
-                .getResultStream()
-                .findFirst()
+        return eventos.buscarPorSlug(slug)
                 .map(ServicioDeEventos::aDto)
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe el evento \"" + slug + "\"."));
     }
@@ -94,13 +95,13 @@ public class ServicioDeEventos implements IEventos {
         for (NuevoSectorDto s : nuevo.sectores()) {
             evento.agregarSector(new Sector(nuevoId("sec"), evento, s.nombre().trim(), s.precio(), s.cupo(), orden++));
         }
-        em.persist(evento);
+        eventos.guardar(evento);
         return aDto(evento);
     }
 
     @Override
     public SectorDto actualizarCupo(String eventoId, String sectorId, int cantidad) {
-        Sector sector = em.find(Sector.class, sectorId);
+        Sector sector = sectores.buscarPorId(sectorId).orElse(null);
         if (sector == null || !sector.getEvento().getId().equals(eventoId)) {
             throw new ErroresDeNegocio.NoEncontrado("No existe ese sector en el evento.");
         }
@@ -114,23 +115,13 @@ public class ServicioDeEventos implements IEventos {
                     "El evento ya empezó: no se venden más entradas.");
         }
 
-        // Un solo UPDATE con la condición adentro: si dos compras llegan a la
+        // El repositorio lo resuelve en un solo UPDATE condicional: si dos compras llegan a la
         // vez por el último lugar, la base deja pasar solo a una.
-        int actualizados = em.createQuery("""
-                        update Sector s set s.vendidas = s.vendidas + :cantidad
-                        where s.id = :id
-                          and s.vendidas + :cantidad >= 0
-                          and s.vendidas + :cantidad <= s.cupo""")
-                .setParameter("cantidad", cantidad)
-                .setParameter("id", sectorId)
-                .executeUpdate();
-
-        if (actualizados == 0) {
+        if (!sectores.sumarVendidas(sector, cantidad)) {
             throw new ErroresDeNegocio.Conflicto(cantidad > 0
                     ? "No quedan suficientes entradas en " + sector.getNombre() + "."
                     : "No se pueden liberar más entradas de las vendidas.");
         }
-        em.refresh(sector);
         return aDto(sector);
     }
 
@@ -148,18 +139,10 @@ public class ServicioDeEventos implements IEventos {
     private String slugUnico(String titulo) {
         String base = Textos.slug(titulo);
         String candidato = base;
-        for (int n = 2; existeSlug(candidato); n++) {
+        for (int n = 2; eventos.existeSlug(candidato); n++) {
             candidato = base + "-" + n;
         }
         return candidato;
-    }
-
-    private boolean existeSlug(String slug) {
-        return !em.createQuery("select 1 from Evento e where e.slug = :slug")
-                .setParameter("slug", slug)
-                .setMaxResults(1)
-                .getResultList()
-                .isEmpty();
     }
 
     private static String nuevoId(String prefijo) {

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1138" viewBox="0 0 1000 1138" font-family="Arial, Helvetica, sans-serif">
+<title>Emisión por la cola, parte 2: reintentos, DLQ y recuperación</title>
+
+<defs>
+  <marker id="lleno" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10 z" fill="#1f2937"/>
+  </marker>
+  <marker id="abierto" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#4b5563" stroke-width="1.4"/>
+  </marker>
+  <marker id="async" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#2b5797" stroke-width="1.8"/>
+  </marker>
+  <marker id="triangulo" viewBox="0 0 14 12" refX="13" refY="6" markerWidth="14" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L14,6 L0,12 z" fill="#ffffff" stroke="#1f2937" stroke-width="1.2"/>
+  </marker>
+</defs>
+<rect x="0" y="0" width="1000" height="1138" fill="#ffffff"/>
+<line x1="133.48" y1="149.5" x2="133.48" y2="1049.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="352.43999999999994" y1="149.5" x2="352.43999999999994" y2="1049.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="547.5999999999999" y1="149.5" x2="547.5999999999999" y2="1049.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="718.96" y1="149.5" x2="718.96" y2="1049.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="890.3199999999999" y1="149.5" x2="890.3199999999999" y2="1049.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<rect x="95.92999999999998" y="219.5" width="614.9399999999999" height="166" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<text x="24.0" y="40.0" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#1f2937" text-anchor="start" font-weight="bold">Emisión por la cola, parte 2: reintentos, DLQ y recuperación</text>
+<rect x="818.73612" y="18" width="157.26388" height="26" rx="4" fill="#e7f2ea" stroke="#2f6b3a" stroke-width="1"/>
+<text x="897.4" y="36.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#2f6b3a" text-anchor="middle" font-weight="bold">Estado: Implementado</text>
+<text x="24.0" y="68.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Integración I4 cuando el consumidor falla. Los reintentos son del broker; la recuperación es manual, con el procedimiento de la sección 10.6 del documento.</text>
+<rect x="30.0" y="96" width="207.0" height="53.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="133.5" y="120.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">cola.emision-entradas</text>
+<text x="133.5" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">java:/jms/queue/emisionEntradas</text>
+<rect x="249.0" y="96" width="207.0" height="53.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="352.4" y="120.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">EmisionDeEntradasMDB</text>
+<text x="352.4" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">Ventas, onMessage REQUIRED</text>
+<rect x="467.9" y="96" width="159.4" height="53.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="547.6" y="120.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Base de Ventas</text>
+<text x="547.6" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">esquema ventas</text>
+<rect x="639.3" y="96" width="159.4" height="53.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="719.0" y="120.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">DLQ</text>
+<text x="719.0" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">java:/jms/queue/DLQ</text>
+<rect x="810.6" y="96" width="159.4" height="53.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="890.3" y="120.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Operador</text>
+<text x="890.3" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">jboss-cli</text>
+<rect x="24" y="175.5" width="952" height="28" fill="#eef2f7" stroke="none"/>
+<text x="34.0" y="194.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" font-weight="bold">A. Reintentos del broker</text>
+<text x="243.0" y="264.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">1. entrega o reentrega el mismo mensaje</text>
+<line x1="136.5" y1="275.5" x2="349.4" y2="275.5" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="396.4" y="304.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">2. falla (mensaje inválido u otra excepción): la</text>
+<text x="396.4" y="324.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">transacción se deshace entera</text>
+<polyline points="352.43999999999994,295.5 386.43999999999994,295.5 386.43999999999994,331.5 356.43999999999994,331.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="243.0" y="359.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">rollback</text>
+<line x1="349.4" y1="369.5" x2="136.5" y2="369.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M95.92999999999998,219.5 L139.38529999999997,219.5 L139.38529999999997,233.5 L131.38529999999997,241.5 L95.92999999999998,241.5 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="102.9" y="235.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">loop</text>
+<text x="147.4" y="236.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[hasta 5 entregas, cada 2000 ms]</text>
+<text x="426.2" y="414.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">3. después de la 5.ª entrega fallida: a la DLQ (AMQ222149 en server.log)</text>
+<line x1="136.5" y1="425.5" x2="716.0" y2="425.5" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<path d="M320.0199999999999,439.5 L570.02,439.5 L580.02,449.5 L580.02,525.5 L320.0199999999999,525.5 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
+<text x="330.0" y="460.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">La venta queda CONFIRMADA con</text>
+<text x="330.0" y="478.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">entradas PENDIENTE_EMISION; nada</text>
+<text x="330.0" y="496.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">la reintenta sola. Los demás mensajes</text>
+<text x="330.0" y="514.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">siguen pasando (escenario 12).</text>
+<rect x="24" y="539.5" width="952" height="28" fill="#eef2f7" stroke="none"/>
+<text x="34.0" y="558.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" font-weight="bold">B. Recuperación manual</text>
+<text x="804.6" y="598.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">4. list-messages y count-messages con el filtro</text>
+<text x="804.6" y="618.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">_AMQ_ORIG_QUEUE =</text>
+<text x="804.6" y="638.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">'jms.queue.cola.emision-entradas'</text>
+<line x1="887.3" y1="649.5" x2="722.0" y2="649.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="846.3" y="678.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">5. Ve la causa en server.log (la línea</text>
+<text x="846.3" y="698.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">AMQ222149 y las 5 fallas) y la corrige</text>
+<polyline points="890.3199999999999,669.5 856.3199999999999,669.5 856.3199999999999,705.5 886.3199999999999,705.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="804.6" y="734.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">6. move-messages con el mismo filtro hacia</text>
+<text x="804.6" y="754.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">cola.emision-entradas</text>
+<line x1="887.3" y1="765.5" x2="722.0" y2="765.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="426.2" y="794.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">7. el mensaje vuelve a la cola</text>
+<line x1="716.0" y1="805.5" x2="136.5" y2="805.5" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="243.0" y="834.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">8. se entrega otra vez</text>
+<line x1="136.5" y1="845.5" x2="349.4" y2="845.5" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="450.0" y="874.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">9. emite: los mismos UPDATE condicionales; es</text>
+<text x="450.0" y="894.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">seguro porque la emisión es idempotente</text>
+<line x1="355.4" y1="905.5" x2="544.6" y2="905.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="719.0" y="934.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">10. comprueba: venta EMITIDA y entradas</text>
+<text x="719.0" y="954.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">VALIDA</text>
+<line x1="887.3" y1="965.5" x2="550.6" y2="965.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<path d="M93.47999999999999,979.5 L920.3199999999999,979.5 L930.3199999999999,989.5 L930.3199999999999,1029.5 L93.47999999999999,1029.5 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
+<text x="103.5" y="1000.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">Con jboss-cli.bat el filtro va en un archivo (--file), porque --command pierde las comillas. move-messages con filtro todavía no se</text>
+<text x="103.5" y="1018.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">ejecutó; sin filtro se usa en el escenario 12.</text>
+<line x1="24" y1="1065.5" x2="64" y2="1065.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="74.0" y="1070.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Llamada síncrona</text>
+<line x1="212.704" y1="1065.5" x2="252.704" y2="1065.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="262.7" y="1070.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Respuesta</text>
+<line x1="356.194" y1="1065.5" x2="396.194" y2="1065.5" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="406.2" y="1070.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Mensaje asincrónico (JMS)</text>
+<text x="24.0" y="1093.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">Fuente: EmisionDeEntradasMDB, EntradaRepositoryJpa, VentaRepositoryJpa, PublicadorPagoConfirmadoJms, DestinosJms y configurar.cli (address-setting=#:</text>
+<text x="24.0" y="1109.8" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">max-delivery-attempts 5, redelivery-delay 2000). Evidencia: escenario 12.</text>
+</svg>

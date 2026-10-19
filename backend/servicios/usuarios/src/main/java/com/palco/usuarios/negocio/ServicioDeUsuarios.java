@@ -21,8 +21,6 @@ import java.util.logging.Logger;
 
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.ReglasDeNegocio;
@@ -35,6 +33,9 @@ import com.palco.usuarios.api.Dtos.SesionDto;
 import com.palco.usuarios.api.Dtos.TokenDeServicioDto;
 import com.palco.usuarios.api.Dtos.UsuarioDto;
 import com.palco.usuarios.api.Dtos.VerificacionDto;
+import com.palco.usuarios.datos.CodigoVerificacionRepository;
+import com.palco.usuarios.datos.IntentoLoginRepository;
+import com.palco.usuarios.datos.UsuarioRepository;
 import com.palco.usuarios.dominio.CodigoVerificacion;
 import com.palco.usuarios.dominio.Rol;
 import com.palco.usuarios.dominio.Usuario;
@@ -46,7 +47,7 @@ import com.palco.usuarios.seguridad.Tokens;
  * Stateless: cada operación recibe todo lo que necesita (los datos del pedido
  * o el id del token) y lo que tiene que durar queda en la base, así que el
  * contenedor reutiliza un pool de instancias. Los inicios de sesión fallidos
- * también quedan en la base (tabla {@code intento_login}, ver {@link IntentosDeLogin}),
+ * también quedan en la base (tabla {@code intento_login}, ver {@link IntentoLoginRepository}),
  * y no en memoria: así el límite vale igual con varias instancias del servicio y
  * no se reinicia con un redespliegue.
  *
@@ -60,6 +61,11 @@ import com.palco.usuarios.seguridad.Tokens;
  * Usuarios, como {@code MAX_INTENTOS_CODIGO}, y no reglas del negocio de venta
  * de entradas: por eso están acá y no en {@code ReglasDeNegocio}, que además
  * tiene una copia en el frontend.
+ *
+ * El acceso a la base está en los repositorios de {@code datos/}, que se suman
+ * a la transacción de cada operación: qué errores la deshacen y cuáles no
+ * ({@link CodigoIncorrecto}, {@link CredencialesIncorrectas}) lo sigue
+ * decidiendo esta clase.
  */
 @Stateless
 public class ServicioDeUsuarios implements IUsuarios {
@@ -88,14 +94,17 @@ public class ServicioDeUsuarios implements IUsuarios {
      */
     static final String HASH_FALSO = Contrasenas.hashear(UUID.randomUUID().toString());
 
-    @PersistenceContext(unitName = "usuarios")
-    EntityManager em;
+    @Inject
+    UsuarioRepository usuarios;
+
+    @Inject
+    CodigoVerificacionRepository codigos;
+
+    @Inject
+    IntentoLoginRepository intentos;
 
     @Inject
     ClavesJwt claves;
-
-    @Inject
-    IntentosDeLogin intentos;
 
     /** De dónde sale la hora; los tests ponen un reloj fijo para mover la ventana de 15 minutos. */
     Clock reloj = Clock.systemDefaultZone();
@@ -113,14 +122,14 @@ public class ServicioDeUsuarios implements IUsuarios {
         }
 
         // Si alguien se registró y nunca verificó el email, puede volver a registrarse con esos datos.
-        buscarPorEmail(email).filter(u -> !u.isEmailVerificado()).ifPresent(em::remove);
-        buscarPorDni(dni).filter(u -> !u.isEmailVerificado()).ifPresent(em::remove);
-        em.flush();
+        // borrar manda el DELETE en el momento, así el INSERT de abajo no choca con la restricción única.
+        usuarios.buscarPorEmail(email).filter(u -> !u.isEmailVerificado()).ifPresent(usuarios::borrar);
+        usuarios.buscarPorDni(dni).filter(u -> !u.isEmailVerificado()).ifPresent(usuarios::borrar);
 
-        if (buscarPorEmail(email).isPresent()) {
+        if (usuarios.buscarPorEmail(email).isPresent()) {
             throw new ErroresDeNegocio.DatosInvalidos("email", "Ya hay una cuenta con ese email.");
         }
-        if (buscarPorDni(dni).isPresent()) {
+        if (usuarios.buscarPorDni(dni).isPresent()) {
             throw new ErroresDeNegocio.DatosInvalidos("dni", "Ese DNI ya está registrado.");
         }
 
@@ -134,23 +143,23 @@ public class ServicioDeUsuarios implements IUsuarios {
                 r.fechaNacimiento(),
                 Contrasenas.hashear(r.password()),
                 Rol.USER);
-        em.persist(usuario);
+        usuarios.guardar(usuario);
 
         CodigoVerificacion codigo = new CodigoVerificacion(usuario.getId());
         enviarCodigoNuevo(usuario, codigo);
-        em.persist(codigo);
+        codigos.guardar(codigo);
 
         return new RegistroPendienteDto(email, "Te enviamos un código de 6 dígitos a " + email + ".");
     }
 
     @Override
     public SesionDto verificarEmail(VerificacionDto v) {
-        Usuario usuario = buscarPorEmail(normalizarEmail(v.email()))
+        Usuario usuario = usuarios.buscarPorEmail(normalizarEmail(v.email()))
                 .orElseThrow(() -> new ErroresDeNegocio.DatosInvalidos("codigo", "El código no es correcto."));
         if (usuario.isEmailVerificado()) {
             throw new ErroresDeNegocio.Conflicto("Ese email ya está verificado. Iniciá sesión.");
         }
-        CodigoVerificacion codigo = em.find(CodigoVerificacion.class, usuario.getId());
+        CodigoVerificacion codigo = codigos.buscarPorUsuario(usuario.getId()).orElse(null);
         if (codigo == null || LocalDateTime.now().isAfter(codigo.getExpira())) {
             throw new ErroresDeNegocio.DatosInvalidos("codigo", "El código venció. Pedí uno nuevo.");
         }
@@ -162,7 +171,7 @@ public class ServicioDeUsuarios implements IUsuarios {
                 sha256(v.codigo()).getBytes(StandardCharsets.US_ASCII))) {
             // El intento cuenta aunque la respuesta sea un error: no se deshace la transacción.
             codigo.sumarIntento();
-            em.flush();
+            codigos.guardarCambios(codigo);
             throw new CodigoIncorrecto();
         }
 
@@ -171,21 +180,21 @@ public class ServicioDeUsuarios implements IUsuarios {
         // pide en esta etapa: nombre, apellido, DNI único y email verificado. Validar el DNI contra un
         // servicio externo queda como trabajo futuro; por eso el dato existe y Ventas lo sigue controlando.
         usuario.marcarIdentidadVerificada();
-        em.remove(codigo);
+        codigos.borrar(codigo);
         return sesion(usuario);
     }
 
     @Override
     public void reenviarCodigo(String email) {
-        Optional<Usuario> usuario = buscarPorEmail(normalizarEmail(email)).filter(u -> !u.isEmailVerificado());
+        Optional<Usuario> usuario = usuarios.buscarPorEmail(normalizarEmail(email)).filter(u -> !u.isEmailVerificado());
         if (usuario.isEmpty()) {
             return; // No se revela si el email existe.
         }
-        CodigoVerificacion codigo = em.find(CodigoVerificacion.class, usuario.get().getId());
+        CodigoVerificacion codigo = codigos.buscarPorUsuario(usuario.get().getId()).orElse(null);
         if (codigo == null) {
             codigo = new CodigoVerificacion(usuario.get().getId());
             enviarCodigoNuevo(usuario.get(), codigo);
-            em.persist(codigo);
+            codigos.guardar(codigo);
             return;
         }
         if (codigo.getEnviado().plus(ESPERA_REENVIO).isAfter(LocalDateTime.now())) {
@@ -208,7 +217,7 @@ public class ServicioDeUsuarios implements IUsuarios {
                     segundosHastaLiberar(fallidos.get(MAX_INTENTOS_LOGIN - 1), ahora));
         }
 
-        Optional<Usuario> usuario = buscarPorEmail(email);
+        Optional<Usuario> usuario = usuarios.buscarPorEmail(email);
         // Se calcula el hash aunque el email no exista, para no revelar por el tiempo de respuesta qué emails existen.
         String hash = usuario.map(Usuario::getPasswordHash).orElse(HASH_FALSO);
         if (!Contrasenas.verificar(login.password(), hash) || usuario.isEmpty()) {
@@ -224,11 +233,9 @@ public class ServicioDeUsuarios implements IUsuarios {
 
     @Override
     public UsuarioDto obtener(String usuarioId) {
-        Usuario usuario = em.find(Usuario.class, usuarioId);
-        if (usuario == null) {
-            throw new ErroresDeNegocio.NoEncontrado("No existe el usuario.");
-        }
-        return aDto(usuario);
+        return usuarios.buscarPorId(usuarioId)
+                .map(ServicioDeUsuarios::aDto)
+                .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe el usuario."));
     }
 
     @Override
@@ -305,20 +312,6 @@ public class ServicioDeUsuarios implements IUsuarios {
         // TODO(ServicioDeNotificaciones): mandarlo por email. Mientras tanto queda en el log del servidor.
         // El email lo escribió quien se registra: al log va en un solo renglón (ver Textos.enUnaLinea).
         LOG.info("Código de verificación para " + Textos.enUnaLinea(usuario.getEmail()) + ": " + numero);
-    }
-
-    private Optional<Usuario> buscarPorEmail(String email) {
-        return em.createQuery("select u from Usuario u where u.email = :email", Usuario.class)
-                .setParameter("email", email)
-                .getResultStream()
-                .findFirst();
-    }
-
-    private Optional<Usuario> buscarPorDni(String dni) {
-        return em.createQuery("select u from Usuario u where u.dni = :dni", Usuario.class)
-                .setParameter("dni", dni)
-                .getResultStream()
-                .findFirst();
     }
 
     private static String normalizarEmail(String email) {

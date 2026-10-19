@@ -6,6 +6,8 @@ La colección no se edita a mano: la genera `scripts/postman/generar.js` (secci�
 
 Última comprobación: 16/10/2026, con Newman 6.2.3 contra WildFly en `http://localhost:8080`: 69 requests de la corrida y 252 tests ejecutados, con 6 tests fallados, todos en la carpeta 4 (Seguridad) y por cambios que todavía no están desplegados o no están decididos (sección 13). Las carpetas 1 a 3 dieron 54 requests y 206 tests, 0 fallados. La comprobación anterior, del 14/10/2026, está en la sección 7.
 
+Las carpetas 5 (Validación en puerta), 6 (Reventa) y 7 (Facturación) se sumaron después de esa corrida y todavía no se corrieron contra un servidor con esos servicios desplegados: el generador corre y la colección se arma, pero sus tests faltan comprobar en vivo.
+
 ## 1. Qué hace falta
 
 1. Postman (postman.com/downloads). Se puede usar sin cuenta ("Skip and go to the app").
@@ -23,13 +25,13 @@ La colección no se edita a mano: la genera `scripts/postman/generar.js` (secci�
 | **2 Eventos (implementado)** | 13 | Listar, filtrar, detalle, 404, crear evento sin token, con rol organizer e inválido, y cambio de cupo con rol servicio (reservar, pasarse del cupo, liberar) |
 | **3 Diseño v1 (Ventas implementado)** | 31 | La compra contra `/api/v1`: abrir la compra con reserva de cupo, idempotencia (también la misma clave con otro pedido, 409), pago rechazado, pago aprobado, venta y entrada, emisión asincrónica de la entrada, listado de las compras propias (con y sin token), aislamiento entre usuarios, control de rol y cancelación |
 | **4 Seguridad (clase 11)** | 15 | Los criterios de la matriz de seguridad de la clase 11 que se prueban por HTTP, cada uno con su id (`SEC-…`): recurso ajeno, rol equivocado, sin token, mensajes de login genéricos, token alterado o sin firma, vigencia del token, errores sin información interna, perfil sin contraseña y límite de intentos de login. Ver la sección 13 |
+| **5 Validación en puerta (implementado)** | 12 | `puerta@palco.test` escanea el código QR de la entrada que pagó la carpeta 3: sin token (401), con rol `user` (403), sin evento (400), un código inexistente (`INEXISTENTE`), la puerta de otro evento (`OTRO_EVENTO`), el primer escaneo (`VALIDA`: la persona entra y Ventas marca la entrada `USADA`) y el segundo (`YA_USADA`, con el uso anterior). Después, la entrada `USADA` en Ventas y el registro de la puerta (lista, sin `eventoId` y un renglón). Todo escaneo responde 201: si la persona entra lo dicen `resultado` y `puedeEntrar` |
+| **6 Reventa (implementado)** | 29 | La reventa de punta a punta: `titular@palco.test` compra 2 entradas de Platea B, espera la emisión y publica la primera a 29.000 (el rango va de 13.750 a 30.250). Errores: sin token (401), entrada inexistente (404), sobre el tope y bajo el mínimo (422 `precio-fuera-de-rango`), la misma entrada otra vez (409 `entrada-no-disponible`), compra propia (409 `compra-propia`), compra sin `Idempotency-Key` (400) y cobro rechazado (402). `otro.titular@palco.test` la compra (201), la repite con la misma clave (201, la misma) y con otra (409 `publicacion-no-activa`: ya vendida). Al final, la original `VENDIDA`, la nueva `VALIDA` del comprador, y la segunda entrada publicada y retirada (404 ajena, 204, 409 repetido, y la entrada de nuevo `VALIDA`) |
+| **7 Facturación (implementado)** | 11 | La factura de la compra de la carpeta 3: aparece con número (`00001-…`), CAE de 14 dígitos, factura B (6) y el total cobrado; consultada de nuevo es la misma. Sin token (401), de otro comprador (404), inexistente (404), con rol `staff` (403) y con rol `servicio` (200) |
 
-Además hay dos subcarpetas que **quedan fuera de la corrida**:
+Además hay una subcarpeta que **queda fuera de la corrida**: **1 Usuarios → Pasos manuales** (2 requests), verificar el email y reenviar el código. Necesitan un dato que solo sale en el log del servidor. Ver la sección 8.
 
-- **1 Usuarios → Pasos manuales** (2 requests): verificar el email y reenviar el código. Necesitan un dato que solo sale en el log del servidor. Ver la sección 8.
-- **3 Diseño v1 → Pendientes: reventa y validación** (4 requests): reventa y validación en puerta. Están diseñadas, pendientes: esas rutas todavía no existen en el backend y hoy responden 404. Ver la sección 9.
-
-Cómo quedan afuera: el último request automático de la carpeta 1 ("JWKS claves públicas (200)") le dice a la corrida que siga en la carpeta 2, y el último de la carpeta 3 ("POST /v1/ventas/{id}/pagos de una venta cancelada (409)") la hace seguir en la carpeta 4. Está en la pestaña Scripts de esos dos requests. La carpeta 4 es la última: la corrida termina con ella. Si en el Runner destildás alguno de los dos, la corrida entra en la subcarpeta que le sigue.
+Cómo queda afuera: el último request automático de la carpeta 1 ("JWKS claves públicas (200)") le dice a la corrida que siga en la carpeta 2. Está en la pestaña Scripts de ese request. Si en el Runner lo destildás, la corrida entra en la subcarpeta. La carpeta 7 es la última: la corrida termina con ella.
 
 Los nombres de los requests dicen el resultado esperado: el código entre paréntesis es el que tiene que responder el servidor.
 
@@ -40,21 +42,24 @@ Las crea el backend al arrancar (migraciones `V2__usuarios_de_prueba.sql` y `V3_
 | Rol | Cuenta | Para qué se usa | Variable donde queda el token |
 |---|---|---|---|
 | `user` (comprador) | `titular@palco.test` | Perfil y todas las compras; en Seguridad, la cuenta A | `token`; en Seguridad, `tokenA` |
-| `user` (comprador) | `otro.titular@palco.test` | Aislamiento: no ve las compras de `titular@palco.test`; en Seguridad, la cuenta B | `tokenOtroComprador`; en Seguridad, `tokenB` |
+| `user` (comprador) | `otro.titular@palco.test` | Aislamiento: no ve las compras ni la factura de `titular@palco.test`; en Reventa, quien compra; en Seguridad, la cuenta B | `tokenOtroComprador`; en Seguridad, `tokenB` |
 | `organizer` | `organizador@palco.test` | Crear eventos; en Ventas, el 403 por rol | `tokenOrganizador` |
-| `staff` | `puerta@palco.test` | Validación en puerta (pendiente); en Ventas, el 403 por rol | `tokenStaff` |
-| `servicio` | No es una cuenta: `POST /api/usuarios/servicios/token` con `{"secreto":"{{secretoServicios}}"}` (por defecto `palco-desarrollo`) | Cambiar el cupo de un sector | `tokenServicio` (dura 5 minutos) |
+| `staff` | `puerta@palco.test` | Validación en puerta (carpeta 5); en Ventas y en Facturación, el 403 por rol | `tokenStaff` |
+| `servicio` | No es una cuenta: `POST /api/usuarios/servicios/token` con `{"secreto":"{{secretoServicios}}"}` (por defecto `palco-desarrollo`) | Cambiar el cupo de un sector; consultar cualquier factura | `tokenServicio` (dura 5 minutos) |
 
 Cada request manda el token de su rol en la cabecera `Authorization: Bearer {{...}}`. No hay que copiar tokens a mano: los guardan los requests de login.
 
 ## 5. Orden
 
-La colección va de arriba hacia abajo: **1 Usuarios → 2 Eventos → 3 Diseño v1 → 4 Seguridad**. Dentro de cada carpeta el orden importa, porque cada request usa lo que guardó uno anterior:
+La colección va de arriba hacia abajo: **1 Usuarios → 2 Eventos → 3 Diseño v1 → 4 Seguridad → 5 Validación en puerta → 6 Reventa → 7 Facturación**. Dentro de cada carpeta el orden importa, porque cada request usa lo que guardó uno anterior:
 
 1. **Usuarios.** "Registro (201)" genera un email y un DNI nuevos. "Login (200) guarda token" entra con `titular@palco.test` y guarda `token`; lo usa "Mi perfil (200)".
 2. **Eventos.** "Listar eventos" guarda `slug` para el detalle. "Login organizador" guarda `tokenOrganizador` para crear el evento. "Crear evento" guarda `eventoCreadoId` y `sectorCreadoId`, y "Token de servicio" guarda `tokenServicio`: con los tres se prueba el cupo sobre el evento recién creado, sin tocar los eventos de la demo.
 3. **Ventas.** "Login comprador" guarda `token`. "POST /v1/ventas (201)" guarda `ventaId`; el pago guarda `pagoId` y `entradaId`; después se consultan la entrada y la venta, y "GET /v1/ventas mis compras (200)" comprueba que esa venta figure en el listado del comprador, con sus entradas y sus códigos, y guarda los ids de sus ventas en `ventasDelTitular`. Después vienen el aislamiento y el control de rol (abajo). Al final se abre otra compra y se cancela.
-4. **Seguridad.** Los login de A y de B guardan `tokenA` y `tokenB`. "SEC GET /v1/ventas de A" toma la compra más nueva de A con entradas (la que pagó la carpeta 3) y guarda `ventaIdA` y `entradaIdA`, que B pide en SEC-W01. SEC-W03a guarda el mensaje del email inexistente para compararlo en SEC-W03b. SEC-W04 va último.
+4. **Seguridad.** Los login de A y de B guardan `tokenA` y `tokenB`. "SEC GET /v1/ventas de A" toma la compra más nueva de A con entradas (la que pagó la carpeta 3) y guarda `ventaIdA` y `entradaIdA`, que B pide en SEC-W01. SEC-W03a guarda el mensaje del email inexistente para compararlo en SEC-W03b. SEC-W04 va último de la carpeta.
+5. **Validación en puerta.** "Login staff" guarda `tokenStaff`. Escanea el `codigoQr` de la entrada `entradaId` que dejó la carpeta 3; el escaneo `VALIDA` guarda `escaneoId`, que el repetido compara con `usoAnterior`. Va después de Seguridad porque deja esa entrada `USADA`.
+6. **Reventa.** No depende de las anteriores: hace su propia compra (`ventaReventaId`, `entradaReventaId` y `entradaRetiroId`), espera la emisión ("GET /v1/ventas/{id} emitida", que se repite hasta 10 veces, como la de la carpeta 3), publica (`publicacionId`), y la compra de `otro.titular@palco.test` guarda `entradaCompradaId` y `ventaCompradaId`. La segunda entrada se publica (`publicacionRetiroId`) y se retira.
+7. **Facturación.** Consulta la factura de `ventaId`, la compra de la carpeta 3. **La factura es asincrónica**: Facturación la emite al consumir el tópico de compras confirmadas, después de pedirle el CAE a ARCA (simulado) por SOAP. El primer request espera 1 segundo y, si responde 404, en una corrida se repite solo, hasta 10 veces. Guarda `comprobante` y `cae`, que el segundo compara: una compra tiene una sola factura.
 
 **Aislamiento entre usuarios y control de rol.** Son los requests que muestran que cada comprador ve solo lo suyo y que Ventas atiende solo al rol `user`:
 
@@ -84,7 +89,7 @@ Están en la colección → pestaña **Variables**. Solo las tres primeras filas
 
 | Variable | Valor | Quién la carga |
 |---|---|---|
-| `baseUsuarios`, `baseEventos`, `baseApi` | `http://localhost:8080/api/usuarios`, `…/api/eventos`, `…/api/v1` | A mano, si el backend está en otra dirección |
+| `baseUsuarios`, `baseEventos`, `baseApi`, `baseValidacion`, `baseReventas`, `baseFacturas` | `http://localhost:8080/api/usuarios`, `…/api/eventos`, `…/api/v1`, `…/api/v1/validacion`, `…/api/v1/reventas`, `…/api/v1/facturas` | A mano, si el backend está en otra dirección |
 | `eventoId`, `sectorId` | `ev-1`, `sec-1-4` | A mano. Son el evento y el sector que se compran. Si los cambiás, el test del total 60.500 deja de valer |
 | `codigoVerificacion` | vacío | A mano, solo para el paso manual de verificar el email |
 | `token`, `tokenOtroComprador`, `tokenOrganizador`, `tokenStaff`, `tokenServicio` | vacío | Los requests de login y "Token de servicio" |
@@ -98,14 +103,19 @@ Están en la colección → pestaña **Variables**. Solo las tres primeras filas
 | `ventasDelTitular` | vacío | "GET /v1/ventas mis compras (200)": los ids de las ventas de `titular@palco.test`, en JSON |
 | `ventaCanceladaId` | vacío | "POST /v1/ventas para cancelar (201)" |
 | `intentosEmision` | `0` | Contador interno de la espera de la emisión |
-| `publicacionId` | vacío | Pendiente: la va a cargar el request de reventa |
 | `tokenA`, `tokenB` | vacío | Los login de la carpeta 4 |
 | `ventaIdA`, `entradaIdA` | vacío | "SEC GET /v1/ventas de A (200)" |
 | `emailInexistente`, `detalleInexistente` | vacío | SEC-W03a: el email se genera antes de enviarse; el mensaje sale de la respuesta |
 | `tokenNone` | vacío | SEC-W05b, antes de enviarse |
 | `emailIntentos`, `codigosPrevios` | vacío | SEC-W04, antes de enviarse: el email propio de la prueba y los códigos de los cinco intentos previos |
+| `escaneoId` | vacío | "POST /v1/validacion/escaneos (201, VALIDA)" |
+| `claveVentaReventa`, `ventaReventaId`, `entradaReventaId`, `entradaRetiroId` | vacío | La compra y el pago de la carpeta 6 |
+| `publicacionId`, `publicacionRetiroId` | vacío | Los dos "POST /v1/reventas (201)" de la carpeta 6 |
+| `claveCompraReventa`, `entradaCompradaId`, `ventaCompradaId` | vacío | "POST /v1/reventas/{id}/compra (201)": la clave se genera antes de enviarse; el resto sale de la respuesta |
+| `comprobante`, `cae` | vacío | "GET /v1/facturas/{ventaId} (200)" |
+| `intentosFactura` | `0` | Contador interno de la espera de la factura |
 
-No hay ids fijos: los `V-…`, `T-…` y `P-…` salen de las respuestas.
+No hay ids fijos: los `V-…`, `T-…`, `P-…`, `R-…` y los de los escaneos salen de las respuestas.
 
 ## 7. Correr todo
 
@@ -115,7 +125,7 @@ No hay ids fijos: los `V-…`, `T-…` y `P-…` salen de las respuestas.
 2. Dejá todos los requests tildados y en el orden en que están. No hace falta poner demora ni iteraciones.
 3. `Run Palco API`.
 
-Tienen que ejecutarse 74 requests. Las carpetas 1 a 4, con todos sus tests en verde. Los 6 de las subcarpetas "Pasos manuales" y "Pendientes" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
+Tienen que ejecutarse al menos 121 requests (más si la emisión o la factura tardan y su request se repite), con todos los tests en verde. Los 2 de "Pasos manuales" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
 
 La corrida se comprobó con Newman, que usa el mismo motor que el Runner. Falta repetirla una vez en la ventana de Postman, con el servidor redesplegado (para que exista `otro.titular@palco.test`), para sacar la captura.
 
@@ -165,15 +175,19 @@ La base es en memoria: todo esto desaparece al reiniciar WildFly.
 - Un evento "Evento de prueba Postman" en el catálogo, con fecha 31/12/2027 para que quede último. No hay operación para borrar eventos.
 - Una venta `EMITIDA` de `titular@palco.test` con 2 entradas de Platea B: el sector `sec-1-4` queda con 2 lugares vendidos más. El pago publica un mensaje `PAGO_CONFIRMADO`, que deja una fila en la auditoría de Notificaciones.
 - Una venta `CANCELADA`, que devuelve su lugar.
+- La entrada de la carpeta 3 queda `USADA`, y el registro de la puerta de `ev-1` suma los escaneos de la carpeta 5 que llevan ese evento (tres).
+- La factura de la venta de la carpeta 3, con su número del talonario de ARCA simulado.
+- Otra venta `EMITIDA` de `titular@palco.test` con 2 entradas de Platea B (2 lugares vendidos más): una queda `VENDIDA` en la reventa y la otra `VALIDA`, con su publicación `RETIRADA`. `otro.titular@palco.test` queda con una venta nueva y una entrada `VALIDA` a nombre de Luis Pérez.
 
-La segunda cuenta compradora solo lee: no deja nada. La carpeta 4 tampoco deja datos: SEC-W02 no crea el evento (responde 403) y los login fallidos usan emails que no existen, salvo SEC-W03b, que falla una vez con `otro.titular@palco.test`. Cuando esté el límite de intentos de login, esos fallidos van a contar en él (sección 13).
+Fuera de la carpeta 6, la segunda cuenta compradora solo lee. La carpeta 4 tampoco deja datos: SEC-W02 no crea el evento (responde 403) y los login fallidos usan emails que no existen, salvo SEC-W03b, que falla una vez con `otro.titular@palco.test`. Cuando esté el límite de intentos de login, esos fallidos van a contar en él (sección 13).
 
 ### Si algo falla y no es un error de la API
 
 - **Se redesplegó Ventas en medio de la carpeta 3.** La compra abierta pierde su conversación y el pago responde 409 `reserva-vencida`. Volvé a correr la carpeta.
 - **Se redesplegó Usuarios.** Cambia la clave con la que se firman los tokens y los guardados responden 401. La corrida completa vuelve a iniciar sesión; enviando a mano, repetí el login.
 - **Pasaron más de 5 minutos desde "Token de servicio".** Enviando a mano, los requests de cupo responden 401. Volvé a enviar "Token de servicio".
-- **Se acabó el cupo de `sec-1-4`.** Cada corrida vende 2 lugares; cuando no quedan, la compra responde 409 `cupo-agotado`. Se arregla reiniciando el servidor.
+- **La factura no aparece.** Si después de 10 intentos sigue en 404, mirá el log: Facturación no pudo hablar con ARCA (simulado) o el mensaje está en reintentos.
+- **Se acabó el cupo de `sec-1-4`.** Cada corrida vende 4 lugares (2 en la carpeta 3 y 2 en la 6); cuando no quedan, la compra responde 409 `cupo-agotado`. Se arregla reiniciando el servidor.
 
 ## 8. Pasos manuales: verificar el email
 
@@ -194,18 +208,9 @@ Por eso estos dos requests no pueden correr solos. Están en **1 Usuarios → Pa
 
 Verificar una cuenta a mano no rompe la corrida siguiente: el registro usa un email y un DNI nuevos cada vez.
 
-## 9. Pendientes: reventa y validación en puerta
+## 9. Lo que no está en la colección
 
-Están en **3 Diseño v1 → Pendientes: reventa y validación (fuera de la corrida)**, con el nombre empezado en "PENDIENTE":
-
-| Request | Estado | Cuándo |
-|---|---|---|
-| `POST /v1/reventas` (201), sobre el tope (422) y `DELETE /v1/reventas/{id}` (204) | Diseñado, pendiente | Reventa, a cargo de Julian Zuchowicki: cierra el 17/11 |
-| `POST /v1/validacion/escaneos` (200) | Diseñado, pendiente | Validación en puerta, a cargo de Joaquin Molina: del 17/10 al 25/10 |
-
-Hoy los cuatro responden 404, porque esas rutas no existen (comprobado el 13/10/2026). Ya están preparados para cuando existan: usan `entradaId`, `codigoQr` y `publicacionId` en lugar de ids fijos, y el escaneo usa `tokenStaff`. Cuando se implementen hay que completar sus tests con los campos del contrato real y cambiar el salto del último request automático de la carpeta 3, que hoy los saltea.
-
-Tampoco están en la colección, aunque el backend ya los tiene, el cobro interno de Pagos (`/api/v1/pagos`) ni la auditoría de Notificaciones (`/api/notificaciones/auditoria`): son para llamadas entre servicios, con rol `servicio`.
+Reventa y validación en puerta ya no son pendientes: tienen sus carpetas (5 y 6). Siguen sin estar en la colección, aunque el backend ya las tiene, las operaciones entre servicios con rol `servicio`: el cobro y la consulta de Pagos (`/api/v1/pagos`), las operaciones internas de Ventas que usan Validación y Reventa (`/api/v1/entradas/usos` y `/api/v1/operaciones-de-reventa/*`) y la auditoría de Notificaciones (`/api/notificaciones/auditoria`). Están en `docs/api/openapi.yaml`, bajo las etiquetas `pagos` e `interno`. La falla después del cobro y su conciliación se prueban en `scripts/pruebas/escenarios.mjs` (escenario 14), porque necesitan jboss-cli.
 
 ## 10. Cómo crear un request a mano (los 4 tipos)
 
@@ -264,7 +269,7 @@ El JSON de la colección sale de `scripts/postman/generar.js`: los requests, los
 node scripts/postman/generar.js
 ```
 
-Escribe `docs/api/palco-api.postman_collection.json` y dice cuántos requests tiene en total (hoy 75: los 69 de la corrida y los 6 de "Pasos manuales" y "Pendientes"). Con una ruta como argumento la escribe en otro lado, por ejemplo para compararla con la del repo. Los tokens quedan vacíos, porque los guardan los requests de login.
+Escribe `docs/api/palco-api.postman_collection.json` y dice cuántos requests tiene en total (hoy 123: los 121 de la corrida y los 2 de "Pasos manuales"). Con una ruta como argumento la escribe en otro lado, por ejemplo para compararla con la del repo. Los tokens quedan vacíos, porque los guardan los requests de login.
 
 Si se cambia algo desde la ventana de Postman, hay que pasarlo al generador: la próxima regeneración pisa el archivo.
 

@@ -78,7 +78,9 @@ export default function App() {
             path="/puerta"
             element={
               <ProtectedRoute rolRequerido="staff">
-                <GatePage />
+                <RequireCatalog>
+                  <GatePage />
+                </RequireCatalog>
               </ProtectedRoute>
             }
           />

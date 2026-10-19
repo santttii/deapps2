@@ -61,6 +61,7 @@ import com.palco.ventas.dominio.Entrada;
 import com.palco.ventas.dominio.EstadoEntrada;
 import com.palco.ventas.dominio.EstadoFactura;
 import com.palco.ventas.dominio.EstadoVenta;
+import com.palco.ventas.dominio.TitularDeVenta;
 import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.negocio.externos.ClienteDeEventos;
 import com.palco.ventas.negocio.externos.ClienteDeEventos.Sector;
@@ -539,7 +540,10 @@ class ServicioDeVentasTest {
         when(ventas.buscarPorId(ventaId)).thenReturn(Optional.of(abierta)).thenReturn(Optional.of(confirmada));
         when(ventas.confirmar(ventaId, PAGO_ID, AHORA)).thenReturn(true);
         when(cobros.cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO)).thenAnswer(llamada -> {
-            // Hasta acá, lo único que se le pidió a la base fue guardar la venta, al abrir la compra.
+            // Hasta acá, a la base se le pidió guardar la venta, al abrir la compra, y copiar los titulares,
+            // en una transacción propia que ya terminó (REQUIRES_NEW): ninguna conexión queda tomada.
+            verify(ventas).guardar(any());
+            verify(ventas).respaldarTitulares(eq(ventaId), any());
             verifyNoMoreInteractions(ventas);
             return APROBADO;
         });
@@ -764,6 +768,143 @@ class ServicioDeVentasTest {
         assertEquals(TransactionAttributeType.REQUIRED, pagar.getAnnotation(TransactionAttribute.class).value());
         // @Remove termina la conversación al pagar; retainIfException la conserva si el cobro se rechaza.
         assertTrue(pagar.getAnnotation(Remove.class).retainIfException());
+    }
+
+    // ---- La copia de los titulares antes del cobro ----
+
+    @Test
+    void antesDeCobrarCopiaLosTitularesEnElOrdenDelPedido() {
+        String ventaId = compraAbierta();
+        when(cobros.cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO))
+                .thenThrow(new ErroresDeNegocio.SinRespuesta("El servicio de pagos no respondió."));
+
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
+
+        // La copia sale antes del cobro: si el cobro queda sin resultado, la conciliación ya la tiene.
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<TitularDeVenta>> copia = ArgumentCaptor.forClass(List.class);
+        InOrder orden = inOrder(ventas, cobros);
+        orden.verify(ventas).respaldarTitulares(eq(ventaId), copia.capture());
+        orden.verify(cobros).cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO);
+        assertEquals(List.of(ventaId + "-1|1|Ana Gómez|30123456", ventaId + "-2|2|Luis Pérez|31234567"),
+                copia.getValue().stream()
+                        .map(t -> t.getId() + "|" + t.getOrden() + "|" + t.getNombre() + "|" + t.getDni())
+                        .toList());
+        assertTrue(copia.getValue().stream().allMatch(t -> t.getVentaId().equals(ventaId)));
+    }
+
+    @Test
+    void losTitularesSeCopianUnaSolaVezAunqueHayaVariosIntentos() {
+        String ventaId = compraAbierta();
+        when(cobros.cobrar(eq(ventaId), eq(60_500L), anyString(), anyString(), anyString())).thenReturn(RECHAZADO);
+
+        assertThrows(ErroresDeNegocio.PagoRechazado.class, () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
+        assertThrows(ErroresDeNegocio.PagoRechazado.class, () -> servicio.confirmarCompra(CON_TARJETA, "otra-clave"));
+
+        // Los titulares de una compra no cambian: la segunda vez la instancia ya sabe que están copiados.
+        verify(ventas, times(1)).respaldarTitulares(eq(ventaId), any());
+        verify(cobros, times(2)).cobrar(anyString(), anyLong(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void siLaCopiaDeLosTitularesFallaNoSeCobra() {
+        String ventaId = compraAbierta();
+        doThrow(new IllegalStateException("se cayó la base")).when(ventas).respaldarTitulares(eq(ventaId), any());
+
+        assertThrows(IllegalStateException.class, () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
+
+        verifyNoInteractions(cobros, entradas);
+        assertTrue(publicados.isEmpty());
+    }
+
+    @Test
+    void conLaReservaVencidaNoSeCopianLosTitularesPorqueNoHayCobro() {
+        compraAbierta();
+        servicio.reloj = Clock.fixed(Instant.parse("2026-10-19T21:10:07Z"), ZoneOffset.UTC);
+
+        assertThrows(ErroresDeNegocio.Conflicto.class, () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
+
+        verify(ventas, never()).respaldarTitulares(anyString(), any());
+    }
+
+    // ---- La falla de prueba después del cobro ----
+
+    @Test
+    void conLaFallaDePruebaPrendidaLaFallaSaleDespuesDeConfirmarCrearLasEntradasYPublicar() {
+        String ventaId = compraAbierta();
+        Venta abierta = ventaGuardada();
+        when(ventas.buscarPorId(ventaId)).thenReturn(Optional.of(abierta));
+        when(cobros.cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO)).thenReturn(APROBADO);
+        when(ventas.confirmar(ventaId, PAGO_ID, AHORA)).thenReturn(true);
+        servicio.fallarDespuesDelCobro = () -> true;
+
+        IllegalStateException falla = assertThrows(IllegalStateException.class,
+                () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
+
+        assertTrue(falla.getMessage().contains(ventaId), falla.getMessage());
+        // Sale al final, cuando las tres escrituras de la transacción ya se pidieron: con la falla, el
+        // contenedor deshace las tres juntas. El cobro quedó hecho en Pagos (no se le pide devolverlo).
+        InOrder orden = inOrder(cobros, ventas, entradas);
+        orden.verify(cobros).cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO);
+        orden.verify(ventas).confirmar(ventaId, PAGO_ID, AHORA);
+        orden.verify(entradas).guardar(any());
+        assertEquals(1, publicados.size());
+        // No vuelve a leer la venta para responder: no hay respuesta, hay una falla.
+        verify(ventas, times(1)).buscarPorId(ventaId);
+    }
+
+    @Test
+    void laFallaDePruebaNoEsUnErrorDeNegocioParaQueElContenedorDeshagaTodoYDescarteLaInstancia() {
+        String ventaId = compraAbierta();
+        Venta abierta = ventaGuardada();
+        when(ventas.buscarPorId(ventaId)).thenReturn(Optional.of(abierta));
+        when(cobros.cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO)).thenReturn(APROBADO);
+        when(ventas.confirmar(ventaId, PAGO_ID, AHORA)).thenReturn(true);
+        servicio.fallarDespuesDelCobro = () -> true;
+
+        RuntimeException falla = assertThrows(RuntimeException.class,
+                () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
+
+        // Un error de negocio deshace la transacción pero conserva la instancia (retainIfException) y el
+        // comprador recibiría un 4xx. Esta falla tiene que ser inesperada: rollback, instancia descartada,
+        // y ComprasEnCurso deja la marca del pago para la conciliación.
+        assertFalse(falla instanceof ErroresDeNegocio.ErrorDeNegocio);
+        assertNull(falla.getClass().getAnnotation(jakarta.ejb.ApplicationException.class));
+    }
+
+    @Test
+    void conLaFallaDePruebaApagadaElPagoTerminaComoSiempre() {
+        String ventaId = compraAbierta();
+        Venta abierta = ventaGuardada();
+        Venta confirmada = ventaConfirmada(ventaId);
+        when(ventas.buscarPorId(ventaId)).thenReturn(Optional.of(abierta)).thenReturn(Optional.of(confirmada));
+        when(cobros.cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO)).thenReturn(APROBADO);
+        when(ventas.confirmar(ventaId, PAGO_ID, AHORA)).thenReturn(true);
+        servicio.fallarDespuesDelCobro = () -> false;
+
+        assertEquals("CONFIRMADA", servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO).estado());
+    }
+
+    @Test
+    void laFallaDePruebaSeLeeDeLaPropiedadDeSistemaEnCadaPago() {
+        // El valor de fábrica del campo: lee la propiedad cada vez, así se prende y se apaga sin redesplegar.
+        ServicioDeVentas otra = new ServicioDeVentas();
+        String antes = System.getProperty(ServicioDeVentas.PROPIEDAD_FALLA_DE_PRUEBA);
+        try {
+            System.clearProperty(ServicioDeVentas.PROPIEDAD_FALLA_DE_PRUEBA);
+            assertFalse(otra.fallarDespuesDelCobro.getAsBoolean());
+            System.setProperty(ServicioDeVentas.PROPIEDAD_FALLA_DE_PRUEBA, "true");
+            assertTrue(otra.fallarDespuesDelCobro.getAsBoolean());
+            System.setProperty(ServicioDeVentas.PROPIEDAD_FALLA_DE_PRUEBA, "si");
+            assertFalse(otra.fallarDespuesDelCobro.getAsBoolean());
+        } finally {
+            if (antes == null) {
+                System.clearProperty(ServicioDeVentas.PROPIEDAD_FALLA_DE_PRUEBA);
+            } else {
+                System.setProperty(ServicioDeVentas.PROPIEDAD_FALLA_DE_PRUEBA, antes);
+            }
+        }
+        assertEquals("palco.ventas.fallar-despues-del-cobro", ServicioDeVentas.PROPIEDAD_FALLA_DE_PRUEBA);
     }
 
     // ---- El ciclo de vida que maneja el contenedor ----

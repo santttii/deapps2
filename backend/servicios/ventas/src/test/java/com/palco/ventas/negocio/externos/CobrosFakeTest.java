@@ -53,4 +53,12 @@ class CobrosFakeTest {
         assertEquals(primero, repetido);
         assertNotEquals(primero, otro);
     }
+
+    @Test
+    void elSimuladorNoGuardaLosCobrosYNoPuedeDecirComoTerminoUno() {
+        cobros.cobrar("V-3f9a1c2b", 60_500, "tarjeta", "tok_test", CLAVE);
+
+        // Ante la duda, la conciliación deja la venta como está: no la vence con un cobro que pudo hacerse.
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> cobros.buscarCobro("V-3f9a1c2b", CLAVE));
+    }
 }

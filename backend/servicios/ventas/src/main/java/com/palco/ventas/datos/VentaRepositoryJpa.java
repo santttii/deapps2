@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 
 import jakarta.ejb.Stateless;
+import jakarta.ejb.TransactionAttribute;
+import jakarta.ejb.TransactionAttributeType;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.PersistenceException;
@@ -13,6 +15,7 @@ import jakarta.persistence.Query;
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.datos.BaseDeDatos;
 import com.palco.ventas.dominio.EstadoVenta;
+import com.palco.ventas.dominio.TitularDeVenta;
 import com.palco.ventas.dominio.Venta;
 
 /**
@@ -24,7 +27,8 @@ import com.palco.ventas.dominio.Venta;
  * defecto de un Session Bean: si quien llama ya tiene una (el bean de la
  * compra, al pagar o al cancelar), el método se suma a esa; si no tiene (la
  * fachada, el barrido o el bean de la compra al abrirla), el contenedor abre
- * una corta, solo para ese método.
+ * una corta, solo para ese método. La excepción es {@link #respaldarTitulares},
+ * que abre siempre una propia (lo explica su comentario).
  */
 @Stateless
 public class VentaRepositoryJpa implements VentaRepository {
@@ -101,7 +105,7 @@ public class VentaRepositoryJpa implements VentaRepository {
     @Override
     public boolean guardarClaveDePago(String ventaId, String clavePago, LocalDateTime ahora) {
         return cambioUnaFila(em.createQuery("""
-                        update Venta v set v.clavePago = :clave
+                        update Venta v set v.clavePago = :clave, v.pagoIntentado = :ahora
                         where v.id = :id
                           and v.estado = :enCheckout
                           and ((v.clavePago is null and v.venceReserva > :ahora) or v.clavePago = :clave)""")
@@ -171,6 +175,89 @@ public class VentaRepositoryJpa implements VentaRepository {
                 .setParameter("id", ventaId)
                 .setParameter("emitida", EstadoVenta.EMITIDA)
                 .setParameter("confirmada", EstadoVenta.CONFIRMADA));
+    }
+
+    /**
+     * {@code REQUIRES_NEW}: el contenedor suspende la transacción del pago (que
+     * todavía no tomó ninguna conexión), abre una nueva solo para esto y la
+     * confirma al volver. Así la copia sobrevive a una falla posterior del
+     * pago, que es justo el caso en el que hace falta, y la conexión se
+     * devuelve antes de esperar a Pagos.
+     *
+     * No hay dos llamadas a la vez para la misma venta: {@code ComprasEnCurso}
+     * deja una sola operación por compra. Si igual chocaran, la clave primaria
+     * rechaza la segunda copia.
+     */
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public void respaldarTitulares(String ventaId, List<TitularDeVenta> titulares) {
+        long existentes = em.createQuery("select count(t) from TitularDeVenta t where t.ventaId = :ventaId", Long.class)
+                .setParameter("ventaId", ventaId)
+                .getSingleResult();
+        if (existentes > 0) {
+            return;
+        }
+        for (TitularDeVenta titular : titulares) {
+            em.persist(titular);
+        }
+        // Los INSERT salen acá, dentro de este método: la copia queda escrita antes de volver.
+        em.flush();
+    }
+
+    @Override
+    public List<TitularDeVenta> buscarTitulares(String ventaId) {
+        return em.createQuery("""
+                        select t from TitularDeVenta t
+                        where t.ventaId = :ventaId
+                        order by t.orden""", TitularDeVenta.class)
+                .setParameter("ventaId", ventaId)
+                .getResultList();
+    }
+
+    @Override
+    public List<Venta> buscarPagosSinResultado(LocalDateTime intentadosHasta) {
+        return em.createQuery("""
+                        select v from Venta v
+                        where v.estado = :enCheckout
+                          and v.clavePago is not null
+                          and (v.pagoIntentado is null or v.pagoIntentado <= :hasta)
+                        order by v.venceReserva""", Venta.class)
+                .setParameter("enCheckout", EstadoVenta.EN_CHECKOUT)
+                .setParameter("hasta", intentadosHasta)
+                .getResultList()
+                .stream()
+                .map(this::cargada)
+                .toList();
+    }
+
+    @Override
+    public boolean confirmarConciliada(String ventaId, String clavePago, String pagoId, LocalDateTime ahora) {
+        return cambioUnaFila(em.createQuery("""
+                        update Venta v set v.estado = :confirmada, v.pagoId = :pagoId, v.confirmada = :ahora
+                        where v.id = :id
+                          and v.estado = :enCheckout
+                          and v.clavePago = :clave""")
+                .setParameter("id", ventaId)
+                .setParameter("clave", clavePago)
+                .setParameter("pagoId", pagoId)
+                .setParameter("ahora", ahora)
+                .setParameter("confirmada", EstadoVenta.CONFIRMADA)
+                .setParameter("enCheckout", EstadoVenta.EN_CHECKOUT));
+    }
+
+    @Override
+    public boolean vencerPagoSinCobro(String ventaId, String clavePago, LocalDateTime intentadosHasta) {
+        return cambioUnaFila(em.createQuery("""
+                        update Venta v set v.estado = :vencida, v.clavePago = null
+                        where v.id = :id
+                          and v.estado = :enCheckout
+                          and v.clavePago = :clave
+                          and (v.pagoIntentado is null or v.pagoIntentado <= :hasta)""")
+                .setParameter("id", ventaId)
+                .setParameter("clave", clavePago)
+                .setParameter("hasta", intentadosHasta)
+                .setParameter("vencida", EstadoVenta.VENCIDA)
+                .setParameter("enCheckout", EstadoVenta.EN_CHECKOUT));
     }
 
     /**

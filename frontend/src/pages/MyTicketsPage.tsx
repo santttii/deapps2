@@ -5,7 +5,8 @@ import { useToast } from '../components/ToastProvider';
 import { calcularMinimoReventa, calcularTope, fecha, fechaHora, formatearDNI, money } from '../lib/format';
 import { mensajeDeError } from '../lib/api';
 import { listarCompras } from '../servicios/ventas';
-import { HORAS_LIMITE_REVENTA, type EstadoOrden, type Orden } from '../types';
+import { listarMisPublicaciones, publicarEntrada, retirarPublicacion } from '../servicios/reventa';
+import { HORAS_LIMITE_REVENTA, type EstadoOrden, type Orden, type Publicacion } from '../types';
 import QRCode from '../components/QRCode';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -35,20 +36,27 @@ const ESTADO_DE_COMPRA: Record<Exclude<EstadoOrden, 'emitida'>, { etiqueta: stri
   vencida: { etiqueta: 'Vencida', texto: () => 'La reserva venció sin pago.' },
 };
 
-type Carga = { fase: 'cargando' } | { fase: 'error'; mensaje: string } | { fase: 'lista'; compras: Orden[] };
+type Carga =
+  | { fase: 'cargando' }
+  | { fase: 'error'; mensaje: string }
+  // errorReventa: Reventa no respondió; las entradas se muestran igual, sin poder publicarlas.
+  | { fase: 'lista'; compras: Orden[]; publicaciones: Publicacion[]; errorReventa: string };
 
 export default function MyTicketsPage() {
-  const { state, dispatch, usuarioActual } = useApp();
+  const { state, usuarioActual } = useApp();
   const { mostrarToast } = useToast();
   const [indice, setIndice] = useState(0);
   const [precioReventa, setPrecioReventa] = useState('');
   const [errorPrecio, setErrorPrecio] = useState('');
   const [carga, setCarga] = useState<Carga>({ fase: 'cargando' });
-  const [vueltas, setVueltas] = useState(0); // sube con "Reintentar"
+  const [vueltas, setVueltas] = useState(0); // sube con "Reintentar" y después de publicar o retirar
+  const [enviando, setEnviando] = useState(false);
 
   // Las compras salen de Ventas (GET /api/v1/ventas): las del usuario de la sesión, de la más
-  // nueva a la más vieja y en todos los estados. Las entradas emitidas se copian al estado local
-  // porque la reventa todavía es local. Si hay una compra paga emitiéndose, se vuelve a pedir.
+  // nueva a la más vieja y en todos los estados, con el estado actual de cada entrada (también
+  // PUBLICADA o USADA). Una entrada comprada en la reventa llega como una venta más. Las
+  // publicaciones propias salen de Reventa (GET /api/v1/reventas/mias). Si hay una compra paga
+  // emitiéndose, se vuelve a pedir.
   const compradorId = usuarioActual?.id;
   useEffect(() => {
     if (!compradorId) return;
@@ -58,11 +66,15 @@ export default function MyTicketsPage() {
     const consultar = async () => {
       consultas += 1;
       try {
-        const recibidas = await listarCompras();
+        const [recibidas, mias] = await Promise.all([
+          listarCompras(),
+          listarMisPublicaciones().then(
+            (publicaciones) => ({ publicaciones, error: '' }),
+            (error: unknown) => ({ publicaciones: [] as Publicacion[], error: mensajeDeError(error) }),
+          ),
+        ]);
         if (!vigente) return;
-        const emitidas = recibidas.flatMap((o) => o.entradas.filter((e) => e.codigoQr));
-        dispatch({ type: 'GUARDAR_ENTRADAS', payload: { entradas: emitidas, compradorId } });
-        setCarga({ fase: 'lista', compras: recibidas });
+        setCarga({ fase: 'lista', compras: recibidas, publicaciones: mias.publicaciones, errorReventa: mias.error });
         if (recibidas.some((o) => o.estado === 'confirmada') && consultas < MAX_CONSULTAS_EMISION) {
           temporizador = setTimeout(consultar, PAUSA_EMISION_MS);
         }
@@ -75,23 +87,27 @@ export default function MyTicketsPage() {
       vigente = false;
       clearTimeout(temporizador);
     };
-  }, [compradorId, vueltas, dispatch]);
+  }, [compradorId, vueltas]);
 
   const compras = useMemo(() => (carga.fase === 'lista' ? carga.compras : []), [carga]);
+  const publicaciones = useMemo(() => (carga.fase === 'lista' ? carga.publicaciones : []), [carga]);
 
-  // Las entradas emitidas son las que devolvió Ventas, en su orden (de la compra más nueva a la más
-  // vieja) y con el estado local de reventa encima; después van las compradas en la reventa local.
-  // Si el evento ya no está en el catálogo (la base de desarrollo se reinicia), no se muestra.
-  const misEntradas = useMemo(() => {
-    const propias = state.entradas.filter(
-      (e) => e.propietarioId === usuarioActual?.id && state.eventos.some((ev) => ev.id === e.eventoId),
-    );
-    const porId = new Map(propias.map((e) => [e.id, e]));
-    const deVentas = compras
-      .flatMap((o) => o.entradas.filter((e) => e.codigoQr))
-      .flatMap((e) => porId.get(e.id) ?? []);
-    return [...deVentas, ...propias.filter((e) => e.origen === 'reventa')];
-  }, [compras, state.entradas, state.eventos, usuarioActual]);
+  // Las entradas emitidas, en el orden de Ventas (de la compra más nueva a la más vieja). Una
+  // vendida en la reventa ya es de otra persona y no se muestra: queda en el historial. Si el
+  // evento ya no está en el catálogo (la base de desarrollo se reinicia), tampoco.
+  const misEntradas = useMemo(
+    () =>
+      compras
+        .flatMap((o) => o.entradas)
+        .filter(
+          (e) =>
+            e.codigoQr &&
+            e.estado !== 'vendida' &&
+            e.estado !== 'anulada' &&
+            state.eventos.some((ev) => ev.id === e.eventoId),
+        ),
+    [compras, state.eventos],
+  );
 
   if (!usuarioActual) return null;
 
@@ -163,7 +179,8 @@ export default function MyTicketsPage() {
   const entrada = misEntradas[indiceSeguro];
   const evento = state.eventos.find((e) => e.id === entrada.eventoId);
   const sector = evento?.sectores.find((s) => s.id === entrada.sectorId);
-  const publicacion = state.publicaciones.find((p) => p.entradaId === entrada.id && p.estado === 'activa');
+  const publicacion = publicaciones.find((p) => p.entradaId === entrada.id && p.estado === 'activa');
+  const errorReventa = carga.errorReventa;
 
   const tope = calcularTope(entrada.precioPagado);
   const minimo = calcularMinimoReventa(entrada.precioPagado);
@@ -198,31 +215,35 @@ export default function MyTicketsPage() {
     return true;
   }
 
-  function publicar() {
-    if (!usuarioActual || !validarPrecio()) return;
-    dispatch({
-      type: 'PUBLICAR_REVENTA',
-      payload: {
-        id: `pub-${Date.now()}`,
-        entradaId: entrada.id,
-        eventoId: entrada.eventoId,
-        sectorId: entrada.sectorId,
-        precioOriginal: entrada.precioPagado,
-        precio: precioNumerico,
-        // Quien vende es el usuario de la sesión, aunque la entrada esté a nombre de otra persona.
-        vendedorDni: usuarioActual.dni,
-        estado: 'activa',
-        creadaISO: new Date().toISOString(),
-      },
-    });
-    setPrecioReventa('');
-    mostrarToast('Publicaste tu entrada en la reventa oficial.');
+  // El backend vuelve a validar todo (entrada propia y VALIDA, rango de precio, cierre): si
+  // rechaza, se muestra su mensaje debajo del precio.
+  async function publicar() {
+    if (!validarPrecio()) return;
+    setEnviando(true);
+    try {
+      await publicarEntrada(entrada.id, precioNumerico);
+      setPrecioReventa('');
+      mostrarToast('Publicaste tu entrada en la reventa oficial.');
+      setVueltas((n) => n + 1);
+    } catch (error) {
+      setErrorPrecio(mensajeDeError(error));
+    } finally {
+      setEnviando(false);
+    }
   }
 
-  function retirar() {
+  async function retirar() {
     if (!publicacion) return;
-    dispatch({ type: 'RETIRAR_PUBLICACION', payload: { publicacionId: publicacion.id } });
-    mostrarToast('Retiraste la publicación de reventa.');
+    setEnviando(true);
+    try {
+      await retirarPublicacion(publicacion.id);
+      mostrarToast('Retiraste la publicación de reventa.');
+    } catch (error) {
+      mostrarToast(mensajeDeError(error));
+    } finally {
+      setEnviando(false);
+      setVueltas((n) => n + 1);
+    }
   }
 
   const historial = [
@@ -232,9 +253,9 @@ export default function MyTicketsPage() {
     ...misEntradas
       .filter((e) => e.estado === 'usada')
       .map((e) => ({ texto: `Entrada usada · ${e.id}`, fechaISO: e.emitidaISO })),
-    ...state.publicaciones
-      .filter((p) => p.estado === 'vendida' && p.vendedorDni === usuarioActual.dni)
-      .map((p) => ({ texto: `Reventa vendida · ${money(p.precio)}`, fechaISO: p.creadaISO })),
+    ...publicaciones
+      .filter((p) => p.estado === 'vendida')
+      .map((p) => ({ texto: `Reventa vendida · ${money(p.precio)}`, fechaISO: p.publicadaISO })),
   ].sort((a, b) => new Date(b.fechaISO).getTime() - new Date(a.fechaISO).getTime());
 
   return (
@@ -284,7 +305,7 @@ export default function MyTicketsPage() {
                 </p>
 
                 <div className="mt-5">
-                  {/* El código lo genera Ventas al emitir; las entradas de la reventa local no lo tienen. */}
+                  {/* El código lo genera Ventas al emitir; una entrada comprada en la reventa trae uno nuevo. */}
                   <QRCode id={entrada.codigoQr ?? entrada.id} />
                 </div>
 
@@ -303,8 +324,8 @@ export default function MyTicketsPage() {
                   </div>
                 </div>
 
-                {entrada.estado === 'publicada' && (
-                  <Button variant="secondary" className="mt-5 w-full" onClick={retirar}>
+                {entrada.estado === 'publicada' && publicacion && (
+                  <Button variant="secondary" className="mt-5 w-full" loading={enviando} onClick={retirar}>
                     Retirar de reventa
                   </Button>
                 )}
@@ -331,15 +352,25 @@ export default function MyTicketsPage() {
                 onChange={(e) => setPrecioReventa(e.target.value)}
                 onBlur={validarPrecio}
                 error={errorPrecio}
-                disabled={entrada.estado !== 'valida'}
+                disabled={entrada.estado !== 'valida' || !!errorReventa}
               />
             </div>
             <div className="mt-4">
               <ProgressBar porcentaje={porcentajeTope} />
             </div>
-            <Button className="mt-4" disabled={entrada.estado !== 'valida' || cierraPorHorario} onClick={publicar}>
+            <Button
+              className="mt-4"
+              loading={enviando}
+              disabled={entrada.estado !== 'valida' || cierraPorHorario || !!errorReventa}
+              onClick={publicar}
+            >
               Publicar
             </Button>
+            {errorReventa && (
+              <p role="alert" className="mt-2 text-xs text-muted">
+                La reventa no está disponible ahora: {errorReventa}
+              </p>
+            )}
             {cierraPorHorario && entrada.estado === 'valida' && (
               <p className="mt-2 text-xs text-muted">La reventa cierra 3 horas antes del evento.</p>
             )}

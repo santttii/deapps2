@@ -31,6 +31,8 @@
         <dependency><groupId>com.palco</groupId><artifactId>palco-reventa</artifactId><version>${project.version}</version><type>war</type></dependency>
         <dependency><groupId>com.palco</groupId><artifactId>palco-notificaciones</artifactId><version>${project.version}</version><type>war</type></dependency>
         <dependency><groupId>com.palco</groupId><artifactId>palco-facturacion</artifactId><version>${project.version}</version><type>war</type></dependency>
+        <!-- No es un servicio de Palco: el ARCA simulado, en /legado/arca (ver servicios/arca) -->
+        <dependency><groupId>com.palco</groupId><artifactId>palco-arca</artifactId><version>${project.version}</version><type>war</type></dependency>
     </dependencies>
 
     <build>
@@ -57,6 +59,9 @@
                         <layer>embedded-activemq</layer>
                         <!-- Seguridad: tokens JWT firmados por ServicioDeUsuarios, @RolesAllowed en todos -->
                         <layer>microprofile-jwt</layer>
+                        <!-- SOAP (Jakarta XML Web Services, JBossWS con Apache CXF): publica el WSDL del
+                             ARCA simulado y le da a Facturación el cliente con el que lo llama -->
+                        <layer>webservices</layer>
                         <!-- Drivers de base: H2 en desarrollo, PostgreSQL para Supabase -->
                         <layer>h2-driver</layer>
                         <layer>postgresql-driver</layer>
@@ -82,7 +87,7 @@
                 </executions>
             </plugin>
             <plugin>
-                <!-- 2. Copia los 8 WAR a deployments/ (WildFly los despliega al arrancar) -->
+                <!-- 2. Copia los 8 WAR y el del ARCA simulado a deployments/ (WildFly los despliega al arrancar) -->
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>

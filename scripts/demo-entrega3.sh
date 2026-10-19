@@ -277,8 +277,8 @@ ventas_ajenas_nuevas() {
 
 # Deja en COLA y TOPICO cuántos mensajes se agregaron a cada destino desde que
 # arrancó el servidor, y en SUSCRIPCIONES cuántas suscripciones tiene el tópico.
-# El tópico cuenta una copia por suscripción: con dos suscriptores, cada
-# publicación le suma 2. Los tres datos se piden en una sola llamada a
+# El tópico cuenta una copia por suscripción: con tres suscriptores (aviso,
+# auditoría y facturación), cada publicación le suma 3. Los tres datos se piden en una sola llamada a
 # jboss-cli. Devuelve 1 si no los pudo leer.
 BROKER='' # queda en "si" cuando los contadores se pudieron leer al principio
 leer_broker() {

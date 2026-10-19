@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1308" viewBox="0 0 1000 1308" font-family="Arial, Helvetica, sans-serif">
+<title>Compra, parte 1: iniciar la compra y reservar el cupo</title>
+
+<defs>
+  <marker id="lleno" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10 z" fill="#1f2937"/>
+  </marker>
+  <marker id="abierto" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#4b5563" stroke-width="1.4"/>
+  </marker>
+  <marker id="async" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#2b5797" stroke-width="1.8"/>
+  </marker>
+  <marker id="triangulo" viewBox="0 0 14 12" refX="13" refY="6" markerWidth="14" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L14,6 L0,12 z" fill="#ffffff" stroke="#1f2937" stroke-width="1.2"/>
+  </marker>
+</defs>
+<rect x="0" y="0" width="1000" height="1308" fill="#ffffff"/>
+<line x1="108.29166666666666" y1="167.5" x2="108.29166666666666" y2="1219.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="306.625" y1="167.5" x2="306.625" y2="1219.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="524.7916666666666" y1="167.5" x2="524.7916666666666" y2="1219.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="708.25" y1="167.5" x2="708.25" y2="1219.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="881.7916666666666" y1="167.5" x2="881.7916666666666" y2="1219.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<rect x="500.7116666666667" y="581.5" width="393.0799999999999" height="224" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<rect x="64.08233333333334" y="969.5" width="829.7093333333332" height="148" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<text x="24.0" y="40.0" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#1f2937" text-anchor="start" font-weight="bold">Compra, parte 1: iniciar la compra y reservar el cupo</text>
+<rect x="818.73612" y="18" width="157.26388" height="26" rx="4" fill="#e7f2ea" stroke="#2f6b3a" stroke-width="1"/>
+<text x="897.4" y="36.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#2f6b3a" text-anchor="middle" font-weight="bold">Estado: Implementado</text>
+<text x="24.0" y="68.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Integraciones I1 (API REST propia) y S1 (Ventas hacia Usuarios y Eventos). El pago sigue en la parte 2.</text>
+<rect x="30.0" y="96" width="156.6" height="71.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="108.3" y="120.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Comprador</text>
+<text x="108.3" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">frontend, JWT rol user</text>
+<rect x="198.6" y="96" width="216.1" height="71.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="306.6" y="120.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">VentasResource y</text>
+<text x="306.6" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ComprasEnCurso</text>
+<text x="306.6" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">Ventas, /api/v1/ventas</text>
+<rect x="426.7" y="96" width="196.3" height="71.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="524.8" y="120.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ServicioDeVentas</text>
+<text x="524.8" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">@Stateful, una instancia por</text>
+<text x="524.8" y="153.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">compra</text>
+<rect x="634.9" y="96" width="146.7" height="71.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="708.3" y="120.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Usuarios</text>
+<text x="708.3" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">/api/usuarios</text>
+<rect x="793.6" y="96" width="176.4" height="71.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="881.8" y="120.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Eventos</text>
+<text x="881.8" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">ServicioDeEventos</text>
+<text x="207.5" y="208.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">1. POST /api/v1/ventas, Idempotency-Key</text>
+<text x="207.5" y="228.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">(UUID); eventoId, items y titulares (nombre, DNI)</text>
+<line x1="111.3" y1="239.5" x2="303.6" y2="239.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="350.6" y="268.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">2. Busca una venta con esa clave y ese</text>
+<text x="350.6" y="288.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">comprador: si existe y es el mismo pedido, la</text>
+<text x="350.6" y="308.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">devuelve sin reservar (si no, 409</text>
+<text x="350.6" y="328.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">clave-reutilizada)</text>
+<polyline points="306.625,259.5 340.625,259.5 340.625,335.5 310.625,335.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="507.4" y="364.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">3. GET /api/usuarios/yo, con el token del comprador</text>
+<line x1="309.6" y1="375.5" x2="705.3" y2="375.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="507.4" y="403.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 con identidadVerificada; si es false, Ventas responde 403</text>
+<text x="507.4" y="421.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">identidad-no-verificada</text>
+<line x1="705.3" y1="431.5" x2="309.6" y2="431.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="415.7" y="460.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">4. Instancia nueva por JNDI: iniciarCompra</text>
+<text x="415.7" y="480.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">(NOT_SUPPORTED)</text>
+<line x1="309.6" y1="491.5" x2="521.8" y2="491.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="568.8" y="520.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">5. Valida: hasta 6 entradas, un titular por entrada, DNI</text>
+<text x="568.8" y="540.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">de 7 u 8 dígitos sin repetir (422 maximo-de-entradas,</text>
+<text x="568.8" y="560.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">titulares-no-coinciden, dni-repetido)</text>
+<polyline points="524.7916666666666,511.5 558.7916666666666,511.5 558.7916666666666,567.5 528.7916666666666,567.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="703.3" y="626.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">6. POST</text>
+<text x="703.3" y="646.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">/api/eventos/{eventoId}/sectores/{sectorId}/cupo,</text>
+<text x="703.3" y="666.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">token de rol servicio, cantidad &gt; 0</text>
+<line x1="527.8" y1="677.5" x2="878.8" y2="677.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="837.8" y="706.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">7. UPDATE sector: vendidas + cantidad &lt;= cupo,</text>
+<text x="837.8" y="726.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">en su propia transacción</text>
+<polyline points="881.7916666666666,697.5 847.7916666666666,697.5 847.7916666666666,733.5 877.7916666666666,733.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="703.3" y="761.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 con el sector (409 si no alcanza el cupo o el</text>
+<text x="703.3" y="779.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">evento ya empezó)</text>
+<line x1="878.8" y1="789.5" x2="527.8" y2="789.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M500.7116666666667,581.5 L544.1669666666667,581.5 L544.1669666666667,595.5 L536.1669666666667,603.5 L500.7116666666667,603.5 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="507.7" y="597.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">loop</text>
+<text x="552.2" y="598.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[por cada sector pedido]</text>
+<text x="568.8" y="834.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">8. ventas.guardar: venta EN_CHECKOUT con</text>
+<text x="568.8" y="854.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">sus renglones; la reserva vence en 10 minutos</text>
+<polyline points="524.7916666666666,825.5 558.7916666666666,825.5 558.7916666666666,861.5 528.7916666666666,861.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="415.7" y="889.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">la venta</text>
+<line x1="521.8" y1="899.5" x2="309.6" y2="899.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="207.5" y="927.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">201 Created, Location /api/v1/ventas/{ventaId},</text>
+<text x="207.5" y="945.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">estado EN_CHECKOUT</text>
+<line x1="303.6" y1="955.5" x2="111.3" y2="955.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="703.3" y="1014.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">9. devolverCupo: POST .../cupo con cantidad</text>
+<text x="703.3" y="1034.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">negativa, solo por los sectores ya reservados</text>
+<line x1="527.8" y1="1045.5" x2="878.8" y2="1045.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="207.5" y="1073.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">409 cupo-agotado o evento-finalizado; 504</text>
+<text x="207.5" y="1091.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">sin-respuesta</text>
+<line x1="303.6" y1="1101.5" x2="111.3" y2="1101.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M64.08233333333334,969.5 L97.52243333333334,969.5 L97.52243333333334,983.5 L89.52243333333334,991.5 L64.08233333333334,991.5 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="71.1" y="985.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">alt</text>
+<text x="105.5" y="986.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[un sector sin cupo o Eventos sin respuesta]</text>
+<path d="M68.29166666666666,1131.5 L554.7916666666666,1131.5 L564.7916666666666,1141.5 L564.7916666666666,1199.5 L68.29166666666666,1199.5 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
+<text x="78.3" y="1152.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">Cancelar: DELETE /api/v1/ventas/{ventaId} responde 204 y devuelve el cupo.</text>
+<text x="78.3" y="1170.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">Sin pagar en 10 minutos, VencimientoDeReservas (@Singleton, @Schedule</text>
+<text x="78.3" y="1188.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">cada minuto) la pasa a VENCIDA y devuelve el cupo.</text>
+<line x1="24" y1="1235.5" x2="64" y2="1235.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="74.0" y="1240.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Llamada síncrona (REST)</text>
+<line x1="260.51800000000003" y1="1235.5" x2="300.51800000000003" y2="1235.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="310.5" y="1240.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Respuesta</text>
+<line x1="404.00800000000004" y1="1235.5" x2="444.00800000000004" y2="1235.5" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="454.0" y="1240.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Mensaje asincrónico (JMS)</text>
+<text x="24.0" y="1263.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">Fuente: VentasResource, ComprasEnCurso, ServicioDeVentas, ClienteDeUsuarios, ClienteDeEventos, ServicioDeEventos y VencimientoDeReservas. Los errores salen</text>
+<text x="24.0" y="1279.8" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">como Problem Details con &quot;type&quot;: &quot;/problemas/&lt;tipo&gt;&quot;.</text>
+</svg>

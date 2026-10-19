@@ -1,7 +1,8 @@
-// Prueba de integración del backend de Palco: 13 escenarios de compra y mensajería, de punta a punta,
-// por la API y por jboss-cli. Es la que produjo docs/entrega3/evidencia/integracion-13-escenarios.txt.
+// Prueba de integración del backend de Palco: 17 escenarios de compra, mensajería, conciliación de pagos,
+// facturación, validación en puerta y reventa, de punta a punta, por la API y por jboss-cli. Los 13 primeros
+// son los que produjeron docs/entrega3/evidencia/integracion-13-escenarios.txt.
 //
-//   node scripts/pruebas/escenarios.mjs              corre los 13 escenarios
+//   node scripts/pruebas/escenarios.mjs              corre los 17 escenarios
 //   node scripts/pruebas/escenarios.mjs 1 2 7        corre solo esos
 //
 // Se corre desde cualquier carpeta: las rutas salen de la ubicación de este archivo. Necesita Node 18 o
@@ -11,14 +12,18 @@
 // Sale con código 0 si todas las comprobaciones pasan y con 1 si alguna falla.
 //
 // Los escenarios 8, 10, 11 y 12 detienen un consumidor (stop-delivery) o pasan mensajes de una cola a
-// otra (move-messages). Si otra persona está usando el servidor, se corren solo los demás:
-//   node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13
+// otra (move-messages), y el 14 prende por unos segundos una propiedad de sistema que hace fallar todo
+// pago después del cobro. Si otra persona está usando el servidor, se corren solo los demás:
+//   node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17
+// El 14 espera a la conciliación de pagos, que corre una vez por minuto con 2 minutos de margen: tarda
+// entre 2 y 4 minutos.
 //
 // Los valores se comparan antes y después (el cupo, los contadores del broker, el log); los ids salen de
 // las respuestas. Los contadores del broker son de todo el servidor: si otra persona compra mientras
 // corre la prueba, las diferencias suben por esas ventas. La prueba las busca en el log y las descuenta;
 // si aun así no cierra, hay que repetirla.
-// Deja en la base ventas emitidas y canceladas de titular@palco.test, una cuenta nueva y un evento de prueba.
+// Deja en la base ventas emitidas y canceladas de titular@palco.test, una cuenta nueva y un evento de prueba,
+// con sus facturas, escaneos de puerta y una publicación de reventa vendida a otro.titular@palco.test.
 // El escenario 11 (suscriptor durable) tiene además su propio guion en docs/entrega3/evidencia.
 //
 // Variables de entorno (todas opcionales):
@@ -27,8 +32,8 @@
 //   JBOSS_CLI   ruta de jboss-cli, si no está en la del proyecto
 //   PALCO_LOG   ruta del server.log, si no está en la del proyecto
 import {
-  COLA, COLA_DE_AUDITORIA, DLQ, Informe, MDB_AUDITORIA, MDB_EMISION, SUSCRIPCION_DE_AUDITORIA, TOPICO, cli,
-  contadores, diferencia, esProblema, esperar, hasta, http, logDesde, login, marcaDelLog, numeros,
+  COLA, COLA_DE_AUDITORIA, COLA_DE_FACTURACION, DLQ, Informe, MDB_AUDITORIA, MDB_EMISION, SUSCRIPCION_DE_AUDITORIA, TOPICO, cli,
+  contadores, diferencia, esProblema, esperar, hasta, hora, http, logDesde, login, marcaDelLog, numeros,
   sector, tokenDeServicio, uuid, vendidas, verContadores,
 } from './lib.mjs';
 
@@ -37,6 +42,8 @@ import {
 // el cupo se puede comparar exacto aunque otra persona esté usando el servidor.
 let EVENTO; let SECTOR; let MINI; let GRANDE;
 const PRECIO = 27500;
+/** El tópico tiene tres suscripciones (aviso, auditoría y facturación): cada mensaje agrega una copia por cada una. */
+const COPIAS_DEL_TOPICO = 3;
 
 const informe = new Informe();
 const pedidos = process.argv.slice(2).map(Number);
@@ -185,7 +192,7 @@ async function escenario3() {
   const deOtrosEnElRechazo = ajenas(marca, [v.id]);
   informe.dato(`broker tras el rechazo: ${diferencia(brokerAntes, brokerTrasRechazo)}`);
   mensajes('el rechazo no publicó nada en la cola', brokerTrasRechazo.colaAgregados - brokerAntes.colaAgregados, 0, deOtrosEnElRechazo);
-  mensajes('ni en el tópico', brokerTrasRechazo.topicoAgregados - brokerAntes.topicoAgregados, 0, deOtrosEnElRechazo, 2);
+  mensajes('ni en el tópico', brokerTrasRechazo.topicoAgregados - brokerAntes.topicoAgregados, 0, deOtrosEnElRechazo, COPIAS_DEL_TOPICO);
   informe.igual('ninguna fila de auditoría de esa venta', (await auditoriaDe(v.id)).length, 0);
   informe.igual('ninguna línea de los consumidores por esa venta',
     lineasCon(marca, v.id).filter((l) => /EmisionDeEntradas|AvisoDeCompra|AuditoriaDeCompras/.test(l)).length, 0);
@@ -224,8 +231,8 @@ async function eventoDePrueba() {
  */
 const ajenas = (marca, propias) => logDesde(marca)
   .filter((l) => l.includes('PAGO_CONFIRMADO publicado en la misma transacción'))
-  .map((l) => l.match(/Compra (V-[0-9a-f]{8}) confirmada/)[1])
-  .filter((id) => !propias.includes(id));
+  .map((l) => l.match(/(?:Compra|la venta) (V-[0-9a-f]{8})/)?.[1])
+  .filter((id) => id && !propias.includes(id));
 
 /** Compara un contador con lo que publicó esta prueba más lo que publicaron las ventas ajenas del mismo rato. */
 function mensajes(descripcion, visto, propios, deOtros, porCadaUno = 1) {
@@ -453,11 +460,13 @@ async function escenario7() {
   ]);
   const suscripciones = [...config.matchAll(/"queueName" => "([^"]+)"/g)].map((m) => m[1]);
   const selectores = [...config.matchAll(/"selector" => "([^"]+)"/g)].map((m) => m[1]);
-  informe.ok('el tópico tiene dos suscripciones, y una es la durable de auditoría',
-    suscripciones.length === 2 && suscripciones.includes(COLA_DE_AUDITORIA), suscripciones.join(' , '));
-  informe.ok("las dos filtran por la propiedad tipoEvento = 'PAGO_CONFIRMADO'",
-    selectores.length === 2 && selectores.every((s) => s === "tipoEvento = 'PAGO_CONFIRMADO'"), selectores.join(' | '));
-  const noDurable = suscripciones.find((q) => q !== COLA_DE_AUDITORIA);
+  informe.ok('el tópico tiene tres suscripciones: las durables de auditoría y de facturación, y la del aviso',
+    suscripciones.length === COPIAS_DEL_TOPICO && suscripciones.includes(COLA_DE_AUDITORIA)
+      && suscripciones.includes(COLA_DE_FACTURACION), suscripciones.join(' , '));
+  informe.ok("las tres filtran por la propiedad tipoEvento = 'PAGO_CONFIRMADO'",
+    selectores.length === COPIAS_DEL_TOPICO && selectores.every((s) => s === "tipoEvento = 'PAGO_CONFIRMADO'"),
+    selectores.join(' | '));
+  const noDurable = suscripciones.find((q) => q !== COLA_DE_AUDITORIA && q !== COLA_DE_FACTURACION);
   const avisoAgregados = () => numeros([`${'/subsystem=messaging-activemq/server=default'}/runtime-queue=${noDurable}:read-attribute(name=messages-added)`])[0];
 
   const v = (await abrir(pedidoDe(2))).json;
@@ -475,8 +484,8 @@ async function escenario7() {
   const avisoDespues = avisoAgregados();
   informe.dato(`después de pagar:  ${verContadores(despues)}`);
   mensajes('cola: mensajes agregados', despues.colaAgregados - antes.colaAgregados, 1, deOtros);
-  mensajes('tópico: copias agregadas, una por cada una de sus 2 suscripciones',
-    despues.topicoAgregados - antes.topicoAgregados, 2, deOtros, 2);
+  mensajes(`tópico: copias agregadas, una por cada una de sus ${COPIAS_DEL_TOPICO} suscripciones`,
+    despues.topicoAgregados - antes.topicoAgregados, COPIAS_DEL_TOPICO, deOtros, COPIAS_DEL_TOPICO);
   mensajes('suscripción durable (auditoría): recibió', despues.auditoriaAgregados - antes.auditoriaAgregados, 1, deOtros);
   informe.ok('suscripción no durable (aviso): recibió al menos 1', avisoDespues - avisoAntes >= 1, avisoDespues - avisoAntes);
   informe.ok('no quedó nada pendiente ni fue nada a la DLQ',
@@ -680,7 +689,8 @@ async function escenario12() {
   for (const l of avisos) informe.dato(l.slice(0, 190));
   await esperar(1000);
   const despues = contadores();
-  informe.igual('DLQ', despues.dlq - antes.dlq, 1);
+  // Una copia por cada suscriptor durable que lo reintenta: auditoría y facturación.
+  informe.igual('DLQ, una copia por suscriptor durable (auditoría y facturación)', despues.dlq - antes.dlq, 2);
   informe.ok('nada pendiente en la suscripción de auditoría ni en la cola',
     despues.auditoriaPendientes === 0 && despues.colaPendientes === 0, `${despues.auditoriaPendientes} ${despues.colaPendientes}`);
 
@@ -715,7 +725,7 @@ async function escenario13() {
   const deOtros = ajenas(marca, []);
   informe.dato(`broker: ${diferencia(antes, despues)}`);
   mensajes('cola', despues.colaAgregados - antes.colaAgregados, 0, deOtros);
-  mensajes('tópico', despues.topicoAgregados - antes.topicoAgregados, 0, deOtros, 2);
+  mensajes('tópico', despues.topicoAgregados - antes.topicoAgregados, 0, deOtros, COPIAS_DEL_TOPICO);
   mensajes('suscripción durable', despues.auditoriaAgregados - antes.auditoriaAgregados, 0, deOtros);
   informe.igual('DLQ', despues.dlq - antes.dlq, 0);
   informe.igual('ninguna línea nueva de los tres consumidores (salvo las de ventas ajenas)',
@@ -735,15 +745,228 @@ async function escenario13() {
   const deOtrosEnElControl = ajenas(marca2, []);
   informe.dato(`broker con el control: ${diferencia(despues, conControl)}`);
   mensajes('ese sí sale a la cola', conControl.colaAgregados - despues.colaAgregados, 1, deOtrosEnElControl);
-  mensajes('y al tópico, una copia por suscripción', conControl.topicoAgregados - despues.topicoAgregados, 2, deOtrosEnElControl, 2);
+  mensajes('y al tópico, una copia por suscripción', conControl.topicoAgregados - despues.topicoAgregados, COPIAS_DEL_TOPICO,
+    deOtrosEnElControl, COPIAS_DEL_TOPICO);
   const descarte = lineasCon(marca2, 'EmisionDeEntradas: se descarta el mensaje de la venta', control.json.ventaId);
   informe.igual('y la emisión descarta ese mensaje de prueba, porque su venta no existe', descarte.length, 1);
 }
 
+// ===================================================================================== conciliación, factura, puerta y reventa
+
+/** La herramienta de prueba de Ventas: con la propiedad en true, el pago falla después del cobro aprobado. */
+const PROPIEDAD_FALLA = 'palco.ventas.fallar-despues-del-cobro';
+const verPago = (clave) => http('GET', `/api/v1/pagos?claveIdempotencia=${encodeURIComponent(clave)}`, { token: S });
+const facturaDe = (ventaId, token = T) => http('GET', `/api/v1/facturas/${ventaId}`, { token });
+const escanear = (codigoQr, eventoId = EVENTO) => http('POST', '/api/v1/validacion/escaneos',
+  { token: ST, cuerpo: { codigoQr, eventoId } });
+const entrada = (entradaId, token = T) => http('GET', `/api/v1/entradas/${entradaId}`, { token });
+
+async function escenario14() {
+  informe.escenario(14, 'Falla después del cobro: se deshace la confirmación, el pago queda en Pagos y la conciliación'
+    + ' termina la compra');
+  const v = (await abrir(pedidoDe(1))).json;
+  const cupo = await vendidas(SECTOR);
+  const antes = contadores();
+  const marca = marcaDelLog();
+  const clave = uuid();
+
+  informe.ok(`jboss-cli: ${PROPIEDAD_FALLA}=true`,
+    cli(`/system-property=${PROPIEDAD_FALLA}:add(value=true)`).includes('success'));
+  let pago;
+  try {
+    pago = await pagar(v.id, 'tok_test', clave);
+  } finally {
+    informe.ok('jboss-cli: se quita la propiedad', cli(`/system-property=${PROPIEDAD_FALLA}:remove`).includes('success'));
+  }
+  esProblema(informe, pago, 500, 'error-inesperado', `/api/v1/ventas/${v.id}/pagos`);
+  informe.ok('el 500 trae idError y nada interno', typeof pago.json?.idError === 'string'
+    && !/Exception|\bat com\.|IllegalState/.test(pago.texto), pago.texto.slice(0, 260));
+  informe.igual('la falla de prueba quedó en el log', lineasCon(marca, PROPIEDAD_FALLA, v.id).length, 1);
+
+  await esperar(1500);
+  const sigue = (await ver(v.id)).json;
+  informe.ok('la venta NO quedó CONFIRMADA: sigue EN_CHECKOUT, sin pago ni entradas',
+    sigue?.estado === 'EN_CHECKOUT' && sigue.pagoId === null && sigue.entradas.length === 0,
+    `${sigue?.estado} pagoId=${sigue?.pagoId} entradas=${sigue?.entradas.length}`);
+  const enPagos = await hasta(async () => {
+    for (const c of [`${v.id}:${clave}`, clave]) {
+      const r = await verPago(c);
+      if (r.estado === 200) return r.json;
+    }
+    return null;
+  }, { maximoMs: 3000 });
+  informe.ok('en Pagos el cobro sí quedó guardado, APROBADO (GET /api/v1/pagos?claveIdempotencia=)',
+    enPagos?.estado === 'APROBADO' && enPagos.ventaId === v.id, JSON.stringify(enPagos));
+  const tras = contadores();
+  const deOtros = ajenas(marca, [v.id]);
+  informe.dato(`broker tras la falla: ${diferencia(antes, tras)}`);
+  mensajes('ningún mensaje a la cola', tras.colaAgregados - antes.colaAgregados, 0, deOtros);
+  mensajes('ninguno al tópico', tras.topicoAgregados - antes.topicoAgregados, 0, deOtros, COPIAS_DEL_TOPICO);
+  informe.igual('ninguna fila de auditoría de esa venta', (await auditoriaDe(v.id)).length, 0);
+  informe.igual('el cupo sigue reservado: no se libera algo que pudo cobrarse', await vendidas(SECTOR), cupo);
+
+  // La conciliación corre una vez por minuto (en el segundo 30) y toma las ventas cuyo intento de pago
+  // empezó hace más de 2 minutos: puede tardar hasta unos 3 minutos y medio.
+  informe.dato(`${hora()} se espera a la conciliación (hasta 4 minutos y medio)`);
+  const conciliada = await hasta(async () => {
+    const r = await ver(v.id);
+    return r.json?.estado === 'EMITIDA' ? r.json : null;
+  }, { maximoMs: 270000, cadaMs: 5000 });
+  informe.dato(`${hora()} fin de la espera`);
+  informe.ok('la conciliación la confirmó con ESE pago y la entrada se emitió',
+    conciliada?.pagoId === enPagos?.pagoId && conciliada.entradas.length === 1
+      && conciliada.entradas.every((e) => e.estado === 'VALIDA' && e.codigoQr),
+    `${conciliada?.estado} ${conciliada?.pagoId} ${conciliada?.entradas.map((e) => e.estado).join(' ')}`);
+  informe.igual('la conciliación lo dejó en el log',
+    lineasCon(marca, 'Conciliación: la venta', v.id, 'quedó confirmada').length, 1);
+  await esperar(1500);
+  const fin = contadores();
+  const deOtrosAlFinal = ajenas(marca, [v.id]);
+  informe.dato(`broker con la conciliación: ${diferencia(antes, fin)}`);
+  mensajes('ahora sí, un mensaje a la cola', fin.colaAgregados - antes.colaAgregados, 1, deOtrosAlFinal);
+  mensajes('y una copia por suscripción del tópico', fin.topicoAgregados - antes.topicoAgregados,
+    COPIAS_DEL_TOPICO, deOtrosAlFinal, COPIAS_DEL_TOPICO);
+  informe.igual('una fila de auditoría de esa venta', (await auditoriaDe(v.id)).length, 1);
+  informe.igual('el cupo no cambió', await vendidas(SECTOR), cupo);
+  informe.igual('un solo pago en Pagos para esa venta (líneas de ServicioDePagos en el log)',
+    lineasCon(marca, 'ServicioDePagos', `de la venta ${v.id}`).length, 1);
+}
+
+async function escenario15(compraHecha) {
+  informe.escenario(15, 'Facturación: la compra confirmada se factura una sola vez, con número y CAE de ARCA (simulado)');
+  const { ventaId } = compraHecha;
+  const monto = (await ver(ventaId)).json.montoTotal;
+  const f = (await hasta(async () => {
+    const r = await facturaDe(ventaId);
+    return r.estado === 200 ? r : null;
+  }, { maximoMs: 30000, cadaMs: 1000 }))?.json;
+  informe.ok('GET /api/v1/facturas/{ventaId} la trae (la factura es asincrónica: se reintenta hasta 30 s)',
+    Boolean(f), JSON.stringify(f));
+  informe.ok('factura B (6) de esa venta, por el total cobrado',
+    f?.ventaId === ventaId && f.tipoComprobante === 6 && f.importe === monto, `${f?.tipoComprobante} ${f?.importe} ${monto}`);
+  informe.ok('con número impreso y CAE de 14 dígitos',
+    /^\d{5}-\d{8}$/.test(f?.comprobante) && /^\d{14}$/.test(f?.cae) && /^\d{4}-\d{2}-\d{2}$/.test(f?.vencimientoCae),
+    `${f?.comprobante} CAE ${f?.cae} vence ${f?.vencimientoCae}`);
+  const otra = (await facturaDe(ventaId, S)).json;
+  informe.ok('consultada de nuevo (rol servicio) es la misma: mismo número y mismo CAE',
+    otra?.comprobante === f?.comprobante && otra?.cae === f?.cae, `${otra?.comprobante} ${otra?.cae}`);
+  esProblema(informe, await facturaDe(ventaId, ST), 403, 'sin-permiso', `/api/v1/facturas/${ventaId}`);
+  esProblema(informe, await facturaDe('V-00000000'), 404, 'no-encontrado', '/api/v1/facturas/V-00000000');
+
+  // Una compra nueva: su factura sale con el número siguiente del talonario y una sola vez.
+  const marca2 = marcaDelLog();
+  const v = (await abrir(pedidoDe(1))).json;
+  informe.igual('pago de otra compra', (await pagar(v.id)).estado, 201);
+  const f2 = (await hasta(async () => {
+    const r = await facturaDe(v.id);
+    return r.estado === 200 ? r : null;
+  }, { maximoMs: 30000, cadaMs: 1000 }))?.json;
+  informe.ok('la factura de la compra nueva tiene un número mayor y otro CAE',
+    f2 && f2.numero > f.numero && f2.cae !== f.cae, `${f?.comprobante} -> ${f2?.comprobante}`);
+  await esperar(2000);
+  const emitidas = lineasCon(marca2, 'ServicioDeFacturacion', `de la venta ${v.id}`, 'CAE');
+  informe.igual('una sola factura emitida para esa venta (líneas de ServicioDeFacturacion en el log)', emitidas.length, 1);
+  informe.igual('y ningún aviso de mensaje repetido', lineasCon(marca2, v.id, 'ya tenía factura').length, 0);
+  informe.dato(`log: ${(emitidas[0] ?? '').slice(0, 200)}`);
+}
+
+async function escenario16() {
+  informe.escenario(16, 'Validación en puerta: el primer escaneo deja entrar y marca la entrada USADA; el segundo, no');
+  const { entradaId } = await compraDeApoyo();
+  const e = (await entrada(entradaId)).json;
+  informe.ok('la entrada está VALIDA y con código', e?.estado === 'VALIDA' && e.codigoQr, `${e?.estado} ${e?.codigoQr}`);
+
+  const otroEvento = await escanear(e.codigoQr, 'ev-1');
+  informe.ok('en la puerta de otro evento: 201 OTRO_EVENTO, no entra',
+    otroEvento.estado === 201 && otroEvento.json.resultado === 'OTRO_EVENTO' && otroEvento.json.puedeEntrar === false,
+    `${otroEvento.estado} ${otroEvento.texto.slice(0, 200)}`);
+  informe.igual('y la entrada sigue VALIDA', (await entrada(entradaId)).json.estado, 'VALIDA');
+
+  const primero = await escanear(e.codigoQr);
+  const p = primero.json;
+  informe.ok('primer escaneo: 201 VALIDA, puede entrar, con la entrada y su titular',
+    primero.estado === 201 && p.resultado === 'VALIDA' && p.puedeEntrar === true && p.entrada?.id === entradaId
+      && p.entrada.titular?.dni === e.titular.dni, `${primero.estado} ${primero.texto.slice(0, 300)}`);
+  informe.ok('Location del escaneo', primero.location?.endsWith(`/api/v1/validacion/escaneos/${p.id}`), primero.location);
+  informe.igual('en Ventas la entrada quedó USADA', (await entrada(entradaId)).json.estado, 'USADA');
+
+  const segundo = await escanear(e.codigoQr);
+  const s = segundo.json;
+  informe.ok('segundo escaneo: 201 YA_USADA, no entra, y dice cuál fue el uso anterior',
+    segundo.estado === 201 && s.resultado === 'YA_USADA' && s.puedeEntrar === false
+      && s.usoAnterior?.escaneoId === p.id && s.usoAnterior.resultado === 'VALIDA',
+    `${segundo.estado} ${segundo.texto.slice(0, 300)}`);
+  const inexistente = await escanear('no-es-un-codigo-de-palco');
+  informe.ok('un código que no existe: 201 INEXISTENTE', inexistente.json?.resultado === 'INEXISTENTE', inexistente.texto.slice(0, 160));
+  esProblema(informe, await http('POST', '/api/v1/validacion/escaneos',
+    { token: T, cuerpo: { codigoQr: e.codigoQr, eventoId: EVENTO } }), 403, 'sin-permiso', '/api/v1/validacion/escaneos');
+
+  const registro = await http('GET', `/api/v1/validacion/escaneos?eventoId=${EVENTO}`, { token: O });
+  // El escaneo repetido no lleva la entrada: la referencia al uso anterior va en usoAnterior. Se buscan los dos por id.
+  const deEstaEntrada = (registro.json ?? []).filter((x) => x.id === p.id || x.id === s.id).map((x) => x.resultado);
+  informe.ok('el registro de la puerta (rol organizer) tiene VALIDA y YA_USADA, del más nuevo al más viejo',
+    registro.estado === 200 && deEstaEntrada.join(' ') === 'YA_USADA VALIDA', deEstaEntrada.join(' '));
+  informe.ok('y no muestra el código completo', !registro.texto.includes(e.codigoQr), '');
+}
+
+async function escenario17() {
+  informe.escenario(17, 'Reventa de punta a punta: publicar dentro del rango, la compra de otra cuenta y la entrada nueva');
+  const OT = await login('otro.titular@palco.test');
+  const { entradaId } = await compraDeApoyo();
+  const original = (await entrada(entradaId)).json;
+  const tope = Math.floor(PRECIO * 1.1);
+  const publicar = (precio, id = entradaId) => http('POST', '/api/v1/reventas', { token: T, cuerpo: { entradaId: id, precio } });
+  const R = '/api/v1/reventas';
+
+  esProblema(informe, await publicar(tope + 1), 422, 'precio-fuera-de-rango', R);
+  esProblema(informe, await publicar(PRECIO / 2 - 1), 422, 'precio-fuera-de-rango', R);
+  esProblema(informe, await publicar(tope, 'T-00000000'), 404, 'no-encontrado', R);
+  const hecha = await publicar(tope);
+  const pub = hecha.json;
+  informe.ok(`publicar al tope exacto (${tope}): 201 ACTIVA, con su precioMaximo`,
+    hecha.estado === 201 && pub.estado === 'ACTIVA' && pub.precio === tope && pub.precioMaximo === tope
+      && pub.entradaId === entradaId && hecha.location?.endsWith(`${R}/${pub.id}`),
+    `${hecha.estado} ${hecha.texto.slice(0, 300)}`);
+  esProblema(informe, await publicar(tope), 409, 'entrada-no-disponible', R);
+  informe.igual('en Ventas la entrada quedó PUBLICADA', (await entrada(entradaId)).json.estado, 'PUBLICADA');
+  const lista = await http('GET', `${R}?eventoId=${EVENTO}`);
+  informe.ok('GET /api/v1/reventas?eventoId= (sin token) la lista', lista.json?.some((x) => x.id === pub.id), lista.estado);
+  const puerta = await escanear(original.codigoQr);
+  informe.ok('publicada no sirve para entrar: NO_HABILITADA', puerta.json?.resultado === 'NO_HABILITADA', puerta.texto.slice(0, 160));
+
+  const comprar = (token, clave, tokenDePago = 'tok_test') => http('POST', `${R}/${pub.id}/compra`, {
+    token, clave, cuerpo: { titular: { nombre: 'Luis Pérez', dni: String(dniSiguiente++) }, medioDePago: 'tarjeta', token: tokenDePago },
+  });
+  esProblema(informe, await comprar(T, uuid()), 409, 'compra-propia', `${R}/${pub.id}/compra`);
+  esProblema(informe, await comprar(OT, uuid(), 'tok_rechazado'), 402, 'pago-rechazado', `${R}/${pub.id}/compra`);
+  const clave = uuid();
+  const compraR = await comprar(OT, clave);
+  const c = compraR.json;
+  informe.ok('otra cuenta la compra: 201 con la publicación VENDIDA, la entrada nueva y su venta',
+    compraR.estado === 201 && c.publicacion.estado === 'VENDIDA' && c.entrada.id !== entradaId
+      && c.entrada.precioPagado === tope && c.entrada.codigoQr && /^V-[0-9a-f]{8}$/.test(c.ventaId),
+    `${compraR.estado} ${compraR.texto.slice(0, 300)}`);
+  const repetida = await comprar(OT, clave);
+  informe.ok('repetida con la misma clave: la misma entrada, sin cobrar de nuevo',
+    repetida.estado === 201 && repetida.json.entrada.id === c.entrada.id, `${repetida.estado} ${repetida.json?.entrada?.id}`);
+  esProblema(informe, await comprar(OT, uuid()), 409, 'publicacion-no-activa', `${R}/${pub.id}/compra`);
+
+  informe.igual('la entrada original quedó VENDIDA', (await entrada(entradaId)).json.estado, 'VENDIDA');
+  const nueva = (await entrada(c.entrada.id, OT)).json;
+  informe.ok('la nueva es del comprador: VALIDA, a nombre del titular indicado',
+    nueva?.estado === 'VALIDA' && nueva.titular.nombre === 'Luis Pérez' && nueva.ventaId === c.ventaId, JSON.stringify(nueva));
+  esProblema(informe, await entrada(c.entrada.id, T), 404, 'no-encontrado', `/api/v1/entradas/${c.entrada.id}`);
+  informe.ok('ya no figura entre las activas', !(await http('GET', `${R}?eventoId=${EVENTO}`)).json.some((x) => x.id === pub.id), '');
+  const mias = (await http('GET', `${R}/mias`, { token: T })).json;
+  informe.igual('en "mis publicaciones" del vendedor figura VENDIDA', mias.find((x) => x.id === pub.id)?.estado, 'VENDIDA');
+  informe.igual('el código viejo no entra: NO_HABILITADA', (await escanear(original.codigoQr)).json?.resultado, 'NO_HABILITADA');
+  informe.igual('el nuevo sí: VALIDA', (await escanear(c.entrada.codigoQr)).json?.resultado, 'VALIDA');
+}
+
 // ===================================================================================== corrida
 
-const servicios = ['api/usuarios', 'api/eventos', 'api/v1', 'api/v1/pagos', 'api/validacion', 'api/reventa',
-  'api/notificaciones', 'api/facturacion'];
+const servicios = ['api/usuarios', 'api/eventos', 'api/v1', 'api/v1/pagos', 'api/v1/validacion', 'api/v1/reventas',
+  'api/notificaciones', 'api/v1/facturas'];
 const health = [];
 for (const s of servicios) health.push(`${s}/health ${(await http('GET', `/${s}/health`)).estado}`);
 console.log(`Prueba de integración del backend de Palco. ${new Date().toLocaleString('es-AR', { hour12: false })}`);
@@ -766,10 +989,12 @@ const pasos = [
   [2, escenario2], [3, escenario3], [4, escenario4],
   [5, async () => { compra ??= await compraDeApoyo(); await escenario5(compra); }],
   [6, escenario6], [7, escenario7], [8, escenario8], [9, escenario9], [10, escenario10], [11, escenario11],
-  [12, escenario12], [13, escenario13],
+  [12, escenario12], [13, escenario13], [14, escenario14],
+  [15, async () => { compra ??= await compraDeApoyo(); await escenario15(compra); }],
+  [16, escenario16], [17, escenario17],
 ];
 
-/** Si el escenario 5 corre solo, necesita una venta emitida del titular. */
+/** Si el escenario 5 o el 15 corren solos, necesitan una venta emitida del titular. También la usan el 16 y el 17. */
 async function compraDeApoyo() {
   const v = (await abrir(pedidoDe(1))).json;
   const p = (await pagar(v.id)).json;
@@ -780,6 +1005,9 @@ async function compraDeApoyo() {
 for (const [numero, paso] of pasos) {
   if (!corre(numero)) continue;
   try {
+    // El token de servicio dura 5 minutos y la corrida completa tarda más (el escenario 14 espera a la
+    // conciliación): se pide uno nuevo antes de cada escenario.
+    S = await tokenDeServicio();
     await paso();
   } catch (e) {
     informe.ok('el escenario terminó sin errores del guion', false, e.stack ?? String(e));

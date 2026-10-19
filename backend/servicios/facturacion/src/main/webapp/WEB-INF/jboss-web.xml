@@ -3,6 +3,6 @@
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xsi:schemaLocation="urn:jboss:jakartaee:1.0 https://www.jboss.org/schema/jbossas/jboss-web_15_0.xsd"
            version="15.0">
-    <!-- Toda la API de este servicio cuelga de /api/facturacion -->
-    <context-root>/api/facturacion</context-root>
+    <!-- Toda la API de este servicio cuelga de /api/v1/facturas (los servicios nuevos nacen versionados, como Ventas y Pagos) -->
+    <context-root>/api/v1/facturas</context-root>
 </jboss-web>

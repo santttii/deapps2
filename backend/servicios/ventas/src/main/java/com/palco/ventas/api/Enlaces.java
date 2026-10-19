@@ -30,6 +30,8 @@ final class Enlaces {
     static final String VENTAS = "ventas";
     static final String ENTRADAS = "entradas";
     static final String PAGOS = "pagos";
+    /** {@code POST /api/v1/entradas/usos}: Validación usa una entrada en la puerta. */
+    static final String USOS = "usos";
 
     /** La raíz de la API como llegó en el pedido: "http://localhost:8080/api/v1/". */
     private final URI raiz;

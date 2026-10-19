@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Logger;
 
 import jakarta.annotation.PostConstruct;
@@ -40,6 +41,7 @@ import com.palco.ventas.datos.EntradaRepository;
 import com.palco.ventas.datos.VentaRepository;
 import com.palco.ventas.dominio.Entrada;
 import com.palco.ventas.dominio.EstadoVenta;
+import com.palco.ventas.dominio.TitularDeVenta;
 import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.dominio.VentaItem;
 import com.palco.ventas.negocio.externos.ClienteDeEventos;
@@ -52,7 +54,10 @@ import com.palco.ventas.negocio.externos.ResultadoDeCobro;
  * entre el pedido que abre la compra y el que la paga o la cancela. Guarda lo
  * que todavía no está en la base: cuál es su venta y a nombre de quién va cada
  * entrada (los titulares). Las entradas recién se crean cuando se aprueba el
- * pago; hasta entonces esos datos viven solo acá. Guarda además lo que hace
+ * pago; hasta que la compra se manda a cobrar, esos datos viven solo acá. Justo
+ * antes del cobro se deja una copia en la base, para que una compra con un
+ * cobro hecho pueda terminarse aunque esta instancia se pierda (lo hace
+ * {@link ConciliacionDePagos}). Guarda además lo que hace
  * falta para cobrar sin leer la base: el total y hasta cuándo vale la reserva.
  * Un stateless no serviría: el pago podría caer en otra instancia del pool,
  * que no conoce a los titulares.
@@ -135,6 +140,25 @@ public class ServicioDeVentas implements IVentas {
     /** De dónde sale el "ahora". No es estado de la compra: es fijo, y los tests lo reemplazan por un reloj detenido. */
     Clock reloj = Clock.systemUTC();
 
+    /**
+     * HERRAMIENTA DE PRUEBA, solo para desarrollo. Con la propiedad de sistema
+     * {@code palco.ventas.fallar-despues-del-cobro=true}, {@link #confirmarCompra}
+     * lanza una falla inesperada después de que el cobro se aprobó y de
+     * confirmar la venta, crear las entradas y publicar el mensaje. Sirve para
+     * ver, de forma repetible, qué pasa con una falla a mitad de la compra: el
+     * contenedor deshace las tres cosas, el pago queda guardado en Pagos y la
+     * venta la termina {@link ConciliacionDePagos}.
+     *
+     * Se lee en cada pago, así que se prende y se apaga con el servidor en
+     * marcha, sin redesplegar ({@code /system-property=...:add} y
+     * {@code :remove} en jboss-cli). Sin la propiedad, o con cualquier valor
+     * que no sea {@code true}, no hace nada.
+     */
+    static final String PROPIEDAD_FALLA_DE_PRUEBA = "palco.ventas.fallar-despues-del-cobro";
+
+    /** Si la herramienta de prueba está prendida. Es un campo para que el test la prenda sin tocar las propiedades de la JVM. */
+    BooleanSupplier fallarDespuesDelCobro = () -> Boolean.getBoolean(PROPIEDAD_FALLA_DE_PRUEBA);
+
     // ---- El estado de la conversación: lo que esta instancia recuerda entre una llamada y la siguiente ----
 
     /** La venta de esta compra; null hasta que {@link #iniciarCompra} termina bien. */
@@ -155,6 +179,9 @@ public class ServicioDeVentas implements IVentas {
      * leer la base: ver {@link #exigirReservaVigente}.
      */
     private String claveDelUltimoCobro;
+
+    /** Si los titulares ya quedaron copiados en la base, para no pedirlo de nuevo en cada intento de pago. */
+    private boolean titularesRespaldados;
 
     @PostConstruct
     void alCrear() {
@@ -261,7 +288,10 @@ public class ServicioDeVentas implements IVentas {
      * todavía no tomó ninguna conexión de la base: la toma con la primera
      * consulta, que está en el tercer paso. Por eso el total y el vencimiento
      * salen del estado de la instancia y no de una lectura: así el cobro no
-     * espera a Pagos con una conexión retenida.
+     * espera a Pagos con una conexión retenida. La copia de los titulares que
+     * se escribe antes de cobrar no cambia esto: corre en una transacción
+     * aparte ({@code REQUIRES_NEW}), que devuelve su conexión al terminar, y
+     * por eso tampoco se deshace si después falla esta.
      *
      * No es un commit en dos fases: la base confirma primero y el broker de
      * mensajes después. Si el servidor se cayera justo entre los dos, quedaría
@@ -280,7 +310,10 @@ public class ServicioDeVentas implements IVentas {
         exigirReservaVigente(claveIdempotencia);
 
         // 2. Cobrar. El monto es el total que se calculó al abrir la compra, no viene en el pedido de pago.
-        //    Antes se recuerda la clave: si el cobro queda sin resultado, repetirla vale aunque venza la reserva.
+        //    Antes se copian los titulares a la base, en una transacción propia que termina acá: desde el
+        //    cobro la compra tiene que poder terminarse sin esta instancia (ver ConciliacionDePagos).
+        //    Y se recuerda la clave: si el cobro queda sin resultado, repetirla vale aunque venza la reserva.
+        respaldarTitulares();
         claveDelUltimoCobro = claveIdempotencia;
         ResultadoDeCobro cobro = cobros.cobrar(ventaId, montoTotal, pago.medioDePago(), pago.token(),
                 claveIdempotencia);
@@ -304,10 +337,20 @@ public class ServicioDeVentas implements IVentas {
                     + " ya no estaba EN_CHECKOUT: hay que devolver ese cobro.");
             throw new IllegalStateException("La venta " + ventaId + " se cobró pero ya no estaba abierta.");
         }
-        List<Entrada> nuevas = entradasPara(venta);
+        List<Entrada> nuevas = entradasPara(venta, titulares);
         entradas.guardar(nuevas);
         // Una sola vez por venta: solo llega hasta acá quien pasó la venta a CONFIRMADA con su UPDATE.
         publicador.publicar(mensaje(venta, nuevas, ahora));
+
+        if (fallarDespuesDelCobro.getAsBoolean()) {
+            // Herramienta de prueba (ver PROPIEDAD_FALLA_DE_PRUEBA). No es un error de negocio: el contenedor
+            // deshace la transacción entera (la venta vuelve a EN_CHECKOUT, las entradas no quedan y el
+            // mensaje no sale) y descarta esta instancia. El pago ya quedó guardado en Pagos.
+            LOG.warning("Compra " + ventaId + ": " + PROPIEDAD_FALLA_DE_PRUEBA + "=true. Se lanza una falla de prueba"
+                    + " después del cobro aprobado " + Textos.enUnaLinea(cobro.pagoId())
+                    + ": se deshace la confirmación y la venta la termina la conciliación.");
+            throw new IllegalStateException("Falla de prueba después del cobro de la venta " + ventaId + ".");
+        }
 
         LOG.info("Compra " + ventaId + " confirmada con el pago " + Textos.enUnaLinea(cobro.pagoId())
                 + ". Entradas creadas: "
@@ -476,13 +519,38 @@ public class ServicioDeVentas implements IVentas {
     }
 
     /**
+     * Copia los titulares a la base antes del primer cobro de esta instancia
+     * ({@code VentaRepository.respaldarTitulares}, en una transacción propia
+     * que ya terminó al volver). Hasta acá vivían solo en la instancia; desde
+     * el cobro puede haber plata cobrada, y si la instancia se pierde la
+     * conciliación necesita saber a nombre de quién van las entradas.
+     *
+     * Un error al copiar sale antes del cobro: no se cobró nada.
+     */
+    private void respaldarTitulares() {
+        if (titularesRespaldados) {
+            return;
+        }
+        List<TitularDeVenta> copia = new ArrayList<>();
+        for (TitularDto titular : titulares) {
+            copia.add(new TitularDeVenta(ventaId, copia.size() + 1, titular.nombre(), titular.dni()));
+        }
+        ventas.respaldarTitulares(ventaId, copia);
+        titularesRespaldados = true;
+    }
+
+    /**
      * Las entradas de la compra, una por titular. Los titulares se reparten
      * entre los sectores en el orden del pedido: si se pidieron 2 de Platea y
      * 1 de Popular, los dos primeros titulares van a Platea y el tercero a
      * Popular. Nacen {@code PENDIENTE_EMISION}: el código QR se lo pone
      * después la emisión, que es asincrónica.
+     *
+     * Es estático porque la usan las dos formas de confirmar: esta instancia,
+     * con los titulares que guarda, y {@link ConfirmacionConciliada}, con la
+     * copia que quedó en la base. Así el reparto está escrito una sola vez.
      */
-    private List<Entrada> entradasPara(Venta venta) {
+    static List<Entrada> entradasPara(Venta venta, List<TitularDto> titulares) {
         List<Entrada> nuevas = new ArrayList<>();
         for (VentaItem item : venta.getItems()) {
             for (int i = 0; i < item.getCantidad(); i++) {
@@ -498,9 +566,9 @@ public class ServicioDeVentas implements IVentas {
      * El mensaje {@code PAGO_CONFIRMADO} de una venta. Lleva el id de cada
      * entrada, por eso las entradas se crean acá y no al emitirlas.
      * {@code timestamp} es el instante de la confirmación, el mismo que se
-     * guarda en la venta.
+     * guarda en la venta. Lo usa también {@link ConfirmacionConciliada}.
      */
-    private static PagoConfirmadoMensaje mensaje(Venta venta, List<Entrada> entradas, LocalDateTime confirmada) {
+    static PagoConfirmadoMensaje mensaje(Venta venta, List<Entrada> entradas, LocalDateTime confirmada) {
         List<PagoConfirmadoMensaje.Entrada> delMensaje = entradas.stream()
                 .map(e -> new PagoConfirmadoMensaje.Entrada(e.getId(), e.getSector(),
                         new PagoConfirmadoMensaje.Titular(e.getTitularNombre(), e.getTitularDni())))

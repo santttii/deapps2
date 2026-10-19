@@ -27,6 +27,10 @@
         <module>reventa</module>
         <module>notificaciones</module>
         <module>facturacion</module>
+        <!-- No es un servicio de Palco: simula ARCA, el sistema externo al que Facturación le pide el
+             CAE por SOAP. Está acá para armarlo con el resto, pero su padre es palco-backend y no este
+             pom, así no recibe palco-common ni ninguna clase de Palco (ver su pom). -->
+        <module>arca</module>
     </modules>
 
     <dependencies>

@@ -20,7 +20,7 @@ import com.palco.usuarios.seguridad.Contrasenas;
 /**
  * Corre las migraciones de db/migracion sobre H2 en modo PostgreSQL, con las mismas opciones que
  * el datasource de WildFly en desarrollo. Usa la tabla intento_login (V4) como la usan las
- * consultas de {@code IntentosDeLogin} y revisa los hashes de las cuentas de prueba (V5).
+ * consultas de {@code IntentoLoginRepositoryJpa} y revisa los hashes de las cuentas de prueba (V5).
  */
 class MigracionesEnH2Test {
 

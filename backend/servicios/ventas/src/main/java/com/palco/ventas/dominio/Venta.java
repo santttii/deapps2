@@ -72,6 +72,14 @@ public class Venta {
     @Column(name = "clave_pago")
     private String clavePago;
 
+    /**
+     * Cuándo empezó el último intento de pago, en UTC; null si nadie intentó
+     * pagar. Lo anota el mismo UPDATE que anota {@code clavePago}. La
+     * conciliación lo mira para no tocar un cobro que puede seguir en camino.
+     */
+    @Column(name = "pago_intentado")
+    private LocalDateTime pagoIntentado;
+
     /** El pago aprobado; null hasta que la venta se confirma. */
     @Column(name = "pago_id")
     private String pagoId;
@@ -154,6 +162,7 @@ public class Venta {
     public LocalDateTime getVenceReserva() { return venceReserva; }
     public String getClaveIdempotencia() { return claveIdempotencia; }
     public String getClavePago() { return clavePago; }
+    public LocalDateTime getPagoIntentado() { return pagoIntentado; }
     public String getPagoId() { return pagoId; }
     public LocalDateTime getCreada() { return creada; }
     public LocalDateTime getConfirmada() { return confirmada; }

@@ -19,6 +19,10 @@ public enum EstadoVenta {
     EMITIDA,
     /** El comprador la canceló antes de pagar y el cupo se devolvió. */
     CANCELADA,
-    /** Se cumplió el tiempo de reserva sin pago y el cupo se devolvió. */
+    /**
+     * Se cumplió el tiempo de reserva sin pago y el cupo se devolvió. También
+     * la deja así la conciliación cuando comprueba que un intento de pago sin
+     * resultado no cobró.
+     */
     VENCIDA
 }

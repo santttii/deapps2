@@ -70,7 +70,8 @@ import com.palco.ventas.negocio.externos.CobroNoRealizado;
  * vivían en la instancia. Si el comprador intenta pagarla, se cancela en ese
  * momento y devuelve su cupo; si nadie la toca, la vence el barrido. La
  * excepción es la compra que había quedado con un intento de pago sin
- * resultado: no se cancela ni vence, y hay que resolverla a mano.
+ * resultado: no se cancela ni vence, y la cierra {@link ConciliacionDePagos}
+ * cuando sabe por Pagos cómo terminó ese cobro.
  */
 @ApplicationScoped
 public class ComprasEnCurso {
@@ -310,10 +311,34 @@ public class ComprasEnCurso {
 
     /**
      * Quita del índice la referencia de una compra que ya terminó. La llaman
-     * el {@code @PreDestroy} de la instancia y el barrido, cuando vence la venta.
+     * el {@code @PreDestroy} de la instancia, el barrido cuando vence la venta
+     * y la conciliación cuando la cierra.
      */
     public void olvidar(String ventaId) {
         enCurso.remove(ventaId);
+    }
+
+    // ---- Lo que usa ConciliacionDePagos ----
+
+    /** Si la compra todavía tiene su instancia en el índice: mientras la tenga, el comprador puede reintentar el pago. */
+    boolean tieneInstancia(String ventaId) {
+        return enCurso.containsKey(ventaId);
+    }
+
+    /**
+     * La conciliación toma la compra como una llamada más: con la misma marca
+     * de "ocupada" que usan pagar y cancelar. Así un reintento del comprador y
+     * la conciliación nunca trabajan a la vez sobre la misma venta. Devuelve
+     * {@code false} si había otra llamada en curso; la conciliación la deja
+     * para la corrida siguiente. Quien la tomó la suelta con
+     * {@link #soltarDeLaConciliacion}, en un {@code finally}.
+     */
+    boolean tomarParaConciliar(String ventaId) {
+        return ocupadas.add(ventaId);
+    }
+
+    void soltarDeLaConciliacion(String ventaId) {
+        desocupar(ventaId);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -469,13 +494,13 @@ public class ComprasEnCurso {
      * que ya no se puede pagar: venció la reserva o no está la instancia que
      * guardaba los titulares. No es {@code reserva-vencida}: ese mensaje
      * invita a empezar otra compra, y puede que esta ya se haya cobrado. Por
-     * la API no tiene salida, así que deja un WARNING con la venta y la clave
-     * anotada, que es el dato para buscar ese pago en Pagos.
+     * la API del comprador no tiene salida: la cierra la conciliación, que le
+     * pregunta a Pagos por esa clave. Deja un WARNING con la venta y la clave.
      */
     private static ErroresDeNegocio.Conflicto pagoSinResultado(String ventaId, String claveAnotada) {
         LOG.warning("La venta " + ventaId + " quedó con un intento de pago sin resultado (clave " + claveAnotada
-                + ") y ya no se puede pagar: venció la reserva o no está la instancia de la compra. Hay que"
-                + " resolverla a mano: el pago, si existe, está en la tabla pagos.pago con esa clave.");
+                + ") y ya no se puede pagar: venció la reserva o no está la instancia de la compra. La cierra"
+                + " ConciliacionDePagos cuando Pagos diga cómo terminó el cobro con esa clave.");
         return new ErroresDeNegocio.Conflicto(TiposDeProblema.OPERACION_EN_CURSO, HAY_UN_PAGO_SIN_RESULTADO);
     }
 
