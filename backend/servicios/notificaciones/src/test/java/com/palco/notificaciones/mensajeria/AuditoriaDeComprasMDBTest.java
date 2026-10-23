@@ -1,5 +1,6 @@
 package com.palco.notificaciones.mensajeria;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -41,6 +42,7 @@ class AuditoriaDeComprasMDBTest {
     private static TextMessage mensajeDeTexto(String texto) throws JMSException {
         TextMessage recibido = mock(TextMessage.class);
         when(recibido.getText()).thenReturn(texto);
+        when(recibido.getStringProperty("tipoEvento")).thenReturn("PAGO_CONFIRMADO");
         when(recibido.getJMSMessageID()).thenReturn(ID_DEL_MENSAJE);
         return recibido;
     }
@@ -52,7 +54,7 @@ class AuditoriaDeComprasMDBTest {
 
         mdb.onMessage(mensajeDeTexto(json));
 
-        verify(auditoria).registrar(ID_DEL_MENSAJE, mensaje, json);
+        verify(auditoria).registrar(ID_DEL_MENSAJE, "PAGO_CONFIRMADO", mensaje, json);
         verify(contexto, never()).setRollbackOnly();
     }
 
@@ -61,7 +63,7 @@ class AuditoriaDeComprasMDBTest {
         PagoConfirmadoMensaje mensaje = Ejemplos.pagoConfirmado();
         String json = mensaje.aJson();
         // Así le llega al MDB una falla de la base dentro del Session Bean.
-        doThrow(new EJBException("la base no responde")).when(auditoria).registrar(ID_DEL_MENSAJE, mensaje, json);
+        doThrow(new EJBException("la base no responde")).when(auditoria).registrar(ID_DEL_MENSAJE, "PAGO_CONFIRMADO", mensaje, json);
         TextMessage recibido = mensajeDeTexto(json);
 
         // No la atrapa ni escribe que lo procesó: con una excepción que sale de onMessage,
@@ -74,7 +76,7 @@ class AuditoriaDeComprasMDBTest {
         mdb.onMessage(mensajeDeTexto("esto no es un PAGO_CONFIRMADO"));
 
         verify(contexto).setRollbackOnly();
-        verify(auditoria, never()).registrar(any(), any(), any());
+        verify(auditoria, never()).registrar(any(), any(), any(), any());
     }
 
     @Test
@@ -82,7 +84,38 @@ class AuditoriaDeComprasMDBTest {
         mdb.onMessage(mensajeDeTexto("{\"ventaId\":\"V-3f9a1c2b\"}"));
 
         verify(contexto).setRollbackOnly();
-        verify(auditoria, never()).registrar(any(), any(), any());
+        verify(auditoria, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void unaReventaSeRegistraConSuTipoDeEvento() throws JMSException {
+        PagoConfirmadoMensaje mensaje = Ejemplos.pagoConfirmado();
+        String json = mensaje.aJson();
+        TextMessage recibido = mensajeDeTexto(json);
+        when(recibido.getStringProperty("tipoEvento")).thenReturn("REVENTA_CONFIRMADA");
+
+        mdb.onMessage(recibido);
+
+        verify(auditoria).registrar(ID_DEL_MENSAJE, "REVENTA_CONFIRMADA", mensaje, json);
+    }
+
+    @Test
+    void unMensajeSinTipoDeEventoConocidoVuelveAlBroker() throws JMSException {
+        TextMessage recibido = mensajeDeTexto(Ejemplos.pagoConfirmado().aJson());
+        when(recibido.getStringProperty("tipoEvento")).thenReturn(null);
+
+        mdb.onMessage(recibido);
+
+        verify(contexto).setRollbackOnly();
+        verify(auditoria, never()).registrar(any(), any(), any(), any());
+    }
+
+    @Test
+    void escuchaLosDosTiposDeEventoDelTopico() {
+        String selector = java.util.Arrays.stream(AuditoriaDeComprasMDB.class
+                        .getAnnotation(jakarta.ejb.MessageDriven.class).activationConfig())
+                .filter(p -> p.propertyName().equals("messageSelector")).findFirst().orElseThrow().propertyValue();
+        assertEquals("tipoEvento IN ('PAGO_CONFIRMADO', 'REVENTA_CONFIRMADA')", selector);
     }
 
     @Test
@@ -90,6 +123,6 @@ class AuditoriaDeComprasMDBTest {
         mdb.onMessage(mock(Message.class));
 
         verify(contexto).setRollbackOnly();
-        verify(auditoria, never()).registrar(any(), any(), any());
+        verify(auditoria, never()).registrar(any(), any(), any(), any());
     }
 }

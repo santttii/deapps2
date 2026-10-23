@@ -47,6 +47,7 @@ import org.mockito.InOrder;
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.ReglasDeNegocio;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
+import com.palco.common.mensajeria.PublicadorPagoConfirmado;
 import com.palco.ventas.api.Dtos.EntradaDeVentaDto;
 import com.palco.ventas.api.Dtos.EntradaDto;
 import com.palco.ventas.api.Dtos.ItemDto;
@@ -113,8 +114,18 @@ class ServicioDeVentasTest {
         servicio.eventos = eventos;
         servicio.cobros = cobros;
         servicio.compras = compras;
-        // El publicador es una interfaz de un solo método: en lugar del que manda por JMS va una lambda.
-        servicio.publicador = publicados::add;
+        // En lugar del publicador que manda por JMS, uno que junta lo publicado.
+        servicio.publicador = new PublicadorPagoConfirmado() {
+            @Override
+            public void publicar(PagoConfirmadoMensaje mensaje) {
+                publicados.add(mensaje);
+            }
+
+            @Override
+            public void publicarReventa(PagoConfirmadoMensaje mensaje) {
+                throw new AssertionError("Una compra del catálogo no publica REVENTA_CONFIRMADA.");
+            }
+        };
         // El servidor corre en hora argentina: el reloj fijo comprueba que igual se calcula en UTC.
         servicio.reloj = Clock.fixed(Instant.parse("2026-10-19T21:00:07.900Z"), ZoneOffset.ofHours(-3));
 

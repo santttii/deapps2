@@ -148,7 +148,8 @@ class FacturacionDeComprasMDBTest {
 
         assertEquals(DestinosJms.TOPICO_COMPRA, configuracion.get("destinationLookup"));
         assertEquals("jakarta.jms.Topic", configuracion.get("destinationType"));
-        assertEquals("tipoEvento = 'PAGO_CONFIRMADO'", configuracion.get("messageSelector"));
+        // Las compras del catálogo y las de la reventa: las dos se facturan.
+        assertEquals("tipoEvento IN ('PAGO_CONFIRMADO', 'REVENTA_CONFIRMADA')", configuracion.get("messageSelector"));
         assertEquals("Durable", configuracion.get("subscriptionDurability"));
         // Distinto del de auditoría (palco-auditoria / compras-confirmadas): cada suscriptor durable tiene su par.
         assertEquals("palco-facturacion", configuracion.get("clientId"));

@@ -30,7 +30,7 @@ import com.palco.notificaciones.negocio.INotificaciones;
 @MessageDriven(name = "AvisoDeCompra", activationConfig = {
         @ActivationConfigProperty(propertyName = "destinationLookup", propertyValue = DestinosJms.TOPICO_COMPRA),
         @ActivationConfigProperty(propertyName = "destinationType", propertyValue = "jakarta.jms.Topic"),
-        @ActivationConfigProperty(propertyName = "messageSelector", propertyValue = DestinosJms.SELECTOR_PAGO_CONFIRMADO) })
+        @ActivationConfigProperty(propertyName = "messageSelector", propertyValue = DestinosJms.SELECTOR_COMPRA_CONFIRMADA) })
 public class AvisoDeCompraMDB implements MessageListener {
 
     private static final Logger LOG = Logger.getLogger(AvisoDeCompraMDB.class.getName());
@@ -41,14 +41,20 @@ public class AvisoDeCompraMDB implements MessageListener {
     @Override
     public void onMessage(Message recibido) {
         PagoConfirmadoMensaje mensaje;
+        String tipoEvento;
         try {
+            tipoEvento = DestinosJms.tipoEventoDe(recibido);
             mensaje = PagoConfirmadoMensaje.desdeJson(LectorDeMensajes.texto(recibido));
         } catch (MensajeInvalido e) {
             // Sin excepción ni rollback: el mensaje queda consumido y no vuelve.
             LOG.warning("AvisoDeCompra: se descarta un mensaje inválido. " + Textos.enUnaLinea(e.getMessage()));
             return;
         }
-        notificaciones.enviarConfirmacion(mensaje);
+        if (DestinosJms.REVENTA_CONFIRMADA.equals(tipoEvento)) {
+            notificaciones.enviarConfirmacionDeReventa(mensaje);
+        } else {
+            notificaciones.enviarConfirmacion(mensaje);
+        }
         // El id viene en el mensaje: va al log en un solo renglón (ver Textos.enUnaLinea).
         // No dice "enviado": todavía no hay proveedor de correo y el aviso solo
         // queda en el log (ver ServicioDeNotificaciones).

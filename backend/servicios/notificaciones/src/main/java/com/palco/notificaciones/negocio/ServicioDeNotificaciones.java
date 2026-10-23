@@ -21,7 +21,13 @@ public class ServicioDeNotificaciones implements INotificaciones {
     public void enviarConfirmacion(PagoConfirmadoMensaje mensaje) {
         // TODO: mandarlo por email. El mensaje trae compradorId y no el email:
         // hay que pedírselo a Usuarios. Mientras tanto el aviso queda en el log del servidor.
-        LOG.info(textoDelAviso(mensaje));
+        LOG.info(textoDelAviso(mensaje, false));
+    }
+
+    @Override
+    public void enviarConfirmacionDeReventa(PagoConfirmadoMensaje mensaje) {
+        // Igual que la compra del catálogo: hasta que haya proveedor de correo, queda en el log.
+        LOG.info(textoDelAviso(mensaje, true));
     }
 
     /**
@@ -34,14 +40,14 @@ public class ServicioDeNotificaciones implements INotificaciones {
      * revisión). Ventas rechaza esos nombres al comprar, pero este servicio no
      * depende de eso: el mensaje podría publicarlo otro.
      */
-    static String textoDelAviso(PagoConfirmadoMensaje mensaje) {
+    static String textoDelAviso(PagoConfirmadoMensaje mensaje, boolean enLaReventa) {
         String entradas = mensaje.entradas().stream()
                 .map(e -> e.sector() + " (" + e.titular().nombre() + ")")
                 .collect(Collectors.joining(", "));
         int cantidad = mensaje.entradas().size();
 
         return Textos.enUnaLinea("Aviso al comprador " + mensaje.compradorId()
-                + ": tu compra " + mensaje.ventaId() + " quedó confirmada. Evento " + mensaje.eventoId()
+                + ": tu compra " + (enLaReventa ? "en la reventa oficial " : "") + mensaje.ventaId() + " quedó confirmada. Evento " + mensaje.eventoId()
                 + ", " + cantidad + (cantidad == 1 ? " entrada: " : " entradas: ") + entradas
                 + ". Total: $" + mensaje.montoTotal() + ".");
     }

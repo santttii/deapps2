@@ -15,4 +15,12 @@ public interface PublicadorPagoConfirmado {
      * transacción termina bien. Un mensaje incompleto lanza {@link MensajeInvalido}.
      */
     void publicar(PagoConfirmadoMensaje mensaje);
+
+    /**
+     * Manda {@code REVENTA_CONFIRMADA} solo al tópico de compras (aviso,
+     * auditoría y facturación), con el mismo cuerpo. No va a la cola: la
+     * entrada de una reventa ya se emite en la transferencia. Igual que
+     * {@link #publicar}, hay que llamarlo dentro de una transacción.
+     */
+    void publicarReventa(PagoConfirmadoMensaje mensaje);
 }

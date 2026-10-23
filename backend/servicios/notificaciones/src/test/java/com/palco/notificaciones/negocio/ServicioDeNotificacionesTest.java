@@ -19,7 +19,7 @@ class ServicioDeNotificacionesTest {
 
     @Test
     void elAvisoNombraLaVentaAlCompradorYACadaTitular() {
-        String aviso = ServicioDeNotificaciones.textoDelAviso(Ejemplos.pagoConfirmado());
+        String aviso = ServicioDeNotificaciones.textoDelAviso(Ejemplos.pagoConfirmado(), false);
 
         assertTrue(aviso.contains("V-3f9a1c2b"), aviso);
         assertTrue(aviso.contains("user-titular"), aviso);
@@ -30,7 +30,7 @@ class ServicioDeNotificacionesTest {
 
     @Test
     void elAvisoNoLlevaElDniDeNingunTitular() {
-        String aviso = ServicioDeNotificaciones.textoDelAviso(Ejemplos.pagoConfirmado());
+        String aviso = ServicioDeNotificaciones.textoDelAviso(Ejemplos.pagoConfirmado(), false);
 
         assertFalse(aviso.contains(Ejemplos.DNI_DE_ANA), aviso);
         assertFalse(aviso.contains(Ejemplos.DNI_DE_LUIS), aviso);
@@ -47,7 +47,7 @@ class ServicioDeNotificacionesTest {
                         new Titular("Rev Linea\n" + renglonFalso, Ejemplos.DNI_DE_ANA))),
                 30250, Instant.parse("2026-10-16T21:30:00Z"));
 
-        String aviso = ServicioDeNotificaciones.textoDelAviso(conSaltos);
+        String aviso = ServicioDeNotificaciones.textoDelAviso(conSaltos, false);
 
         assertTrue(aviso.chars().noneMatch(Textos::esDeControl), aviso);
         // No se pierde lo que llegó: queda dentro del renglón del aviso, que empieza como siempre.
@@ -61,8 +61,15 @@ class ServicioDeNotificacionesTest {
                 List.of(new Entrada("T-9c41d07e", "Campo", new Titular("Ana Gómez", Ejemplos.DNI_DE_ANA))),
                 30250, Instant.parse("2026-10-16T21:30:00Z"));
 
-        String aviso = ServicioDeNotificaciones.textoDelAviso(deUna);
+        String aviso = ServicioDeNotificaciones.textoDelAviso(deUna, false);
 
         assertTrue(aviso.contains("1 entrada: Campo (Ana Gómez)"), aviso);
+    }
+
+    @Test
+    void elAvisoDeUnaReventaDiceQueFueEnLaReventaOficial() {
+        String aviso = ServicioDeNotificaciones.textoDelAviso(Ejemplos.pagoConfirmado(), true);
+
+        assertTrue(aviso.contains("tu compra en la reventa oficial V-3f9a1c2b quedó confirmada"), aviso);
     }
 }

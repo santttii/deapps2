@@ -15,6 +15,7 @@ import jakarta.inject.Inject;
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.ReglasDeNegocio;
 import com.palco.common.Textos;
+import com.palco.common.mensajeria.PublicadorPagoConfirmado;
 import com.palco.ventas.api.DtosDeReventa.EntradaEnReventaDto;
 import com.palco.ventas.api.DtosDeReventa.TransferenciaDto;
 import com.palco.ventas.api.DtosDeReventa.TransferenciaHechaDto;
@@ -69,6 +70,10 @@ public class ReventaDeEntradas {
 
     @Inject
     ReventaDeEntradasRepository reventa;
+
+    /** {@code MANDATORY}: se suma a la transacción de la transferencia. */
+    @Inject
+    PublicadorPagoConfirmado publicador;
 
     /** De dónde sale el "ahora" (UTC); los tests lo reemplazan por un reloj fijo. */
     Clock reloj = Clock.systemUTC();
@@ -145,13 +150,18 @@ public class ReventaDeEntradas {
         venta.agregarItem(original.getSectorId(), original.getSector(), pedido.precio(), 1);
         ventas.guardar(venta);
         String ventaId = venta.getId();
-        entradas.guardar(List.of(new Entrada(nuevoId("T-"), venta.getItems().get(0),
-                pedido.titular().nombre().strip(), pedido.titular().dni(), 1)));
+        List<Entrada> nuevas = List.of(new Entrada(nuevoId("T-"), venta.getItems().get(0),
+                pedido.titular().nombre().strip(), pedido.titular().dni(), 1));
+        entradas.guardar(nuevas);
         if (!ventas.confirmar(ventaId, pedido.pagoId(), ahora)) {
             throw new IllegalStateException("La venta " + ventaId + " de la reventa no se pudo confirmar.");
         }
         entradas.emitirPendientes(ventaId, ahora);
         ventas.marcarEmitida(ventaId);
+        // REVENTA_CONFIRMADA al tópico, en esta misma transacción: el aviso, la auditoría y la factura
+        // de la compra en la reventa salen solo si la transferencia queda confirmada (limitación L13).
+        // No va a la cola de emisión: la entrada nueva ya quedó emitida acá arriba.
+        publicador.publicarReventa(ServicioDeVentas.mensaje(venta, nuevas, ahora));
 
         LOG.info("Reventa " + Textos.enUnaLinea(pedido.publicacionId()) + ": la entrada " + original.getId()
                 + " pasó a VENDIDA y nació la venta " + ventaId + " con el pago "

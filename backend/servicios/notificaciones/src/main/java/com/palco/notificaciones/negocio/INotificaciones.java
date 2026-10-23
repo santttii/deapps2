@@ -17,4 +17,7 @@ public interface INotificaciones {
 
     /** Le avisa al comprador que su compra quedó confirmada. */
     void enviarConfirmacion(PagoConfirmadoMensaje mensaje);
+
+    /** Le avisa al comprador que su compra en la reventa quedó confirmada ({@code REVENTA_CONFIRMADA}). */
+    void enviarConfirmacionDeReventa(PagoConfirmadoMensaje mensaje);
 }

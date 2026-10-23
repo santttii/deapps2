@@ -47,4 +47,12 @@ public class PublicadorPagoConfirmadoJms implements PublicadorPagoConfirmado {
         productor.send(cola, cuerpo);
         productor.send(topico, cuerpo);
     }
+
+    @Override
+    public void publicarReventa(PagoConfirmadoMensaje mensaje) {
+        mensaje.validar();
+        contexto.createProducer()
+                .setProperty(DestinosJms.PROPIEDAD_TIPO_EVENTO, DestinosJms.REVENTA_CONFIRMADA)
+                .send(topico, mensaje.aJson());
+    }
 }

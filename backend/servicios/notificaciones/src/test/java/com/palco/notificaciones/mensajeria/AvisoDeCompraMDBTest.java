@@ -17,6 +17,7 @@ import jakarta.jms.TextMessage;
 import org.junit.jupiter.api.Test;
 
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
+import com.palco.notificaciones.AvisosAnotados;
 import com.palco.notificaciones.Ejemplos;
 import com.palco.notificaciones.LogCapturado;
 
@@ -27,16 +28,17 @@ import com.palco.notificaciones.LogCapturado;
  */
 class AvisoDeCompraMDBTest {
 
-    private final List<PagoConfirmadoMensaje> avisados = new ArrayList<>();
+    private final AvisosAnotados avisados = new AvisosAnotados();
     private final AvisoDeCompraMDB mdb = new AvisoDeCompraMDB();
 
     AvisoDeCompraMDBTest() {
-        mdb.notificaciones = avisados::add;
+        mdb.notificaciones = avisados;
     }
 
     private static TextMessage mensajeDeTexto(String texto) throws JMSException {
         TextMessage recibido = mock(TextMessage.class);
         when(recibido.getText()).thenReturn(texto);
+        when(recibido.getStringProperty("tipoEvento")).thenReturn("PAGO_CONFIRMADO");
         return recibido;
     }
 
@@ -46,7 +48,31 @@ class AvisoDeCompraMDBTest {
 
         mdb.onMessage(mensajeDeTexto(mensaje.aJson()));
 
-        assertEquals(List.of(mensaje), avisados);
+        assertEquals(List.of(mensaje), avisados.compras);
+        assertEquals(List.of(), avisados.reventas);
+    }
+
+    @Test
+    void unaReventaDisparaElAvisoDeReventa() throws JMSException {
+        PagoConfirmadoMensaje mensaje = Ejemplos.pagoConfirmado();
+        TextMessage recibido = mensajeDeTexto(mensaje.aJson());
+        when(recibido.getStringProperty("tipoEvento")).thenReturn("REVENTA_CONFIRMADA");
+
+        mdb.onMessage(recibido);
+
+        assertEquals(List.of(mensaje), avisados.reventas);
+        assertEquals(List.of(), avisados.compras);
+    }
+
+    @Test
+    void unMensajeSinTipoDeEventoConocidoSeDescartaSinAvisar() throws JMSException {
+        TextMessage recibido = mensajeDeTexto(Ejemplos.pagoConfirmado().aJson());
+        when(recibido.getStringProperty("tipoEvento")).thenReturn("OTRO_EVENTO");
+
+        mdb.onMessage(recibido);
+
+        assertEquals(List.of(), avisados.compras);
+        assertEquals(List.of(), avisados.reventas);
     }
 
     @Test
@@ -69,13 +95,13 @@ class AvisoDeCompraMDBTest {
         // Que no lance nada es lo que hace que el broker lo dé por consumido y no lo reentregue.
         assertDoesNotThrow(() -> mdb.onMessage(invalido));
 
-        assertTrue(avisados.isEmpty());
+        assertTrue(avisados.compras.isEmpty());
     }
 
     @Test
     void unMensajeQueNoEsDeTextoSeDescarta() {
         assertDoesNotThrow(() -> mdb.onMessage(mock(Message.class)));
 
-        assertTrue(avisados.isEmpty());
+        assertTrue(avisados.compras.isEmpty());
     }
 }

@@ -43,7 +43,7 @@ import com.palco.notificaciones.negocio.IAuditoria;
 @MessageDriven(name = "AuditoriaDeCompras", activationConfig = {
         @ActivationConfigProperty(propertyName = "destinationLookup", propertyValue = DestinosJms.TOPICO_COMPRA),
         @ActivationConfigProperty(propertyName = "destinationType", propertyValue = "jakarta.jms.Topic"),
-        @ActivationConfigProperty(propertyName = "messageSelector", propertyValue = DestinosJms.SELECTOR_PAGO_CONFIRMADO),
+        @ActivationConfigProperty(propertyName = "messageSelector", propertyValue = DestinosJms.SELECTOR_COMPRA_CONFIRMADA),
         @ActivationConfigProperty(propertyName = "subscriptionDurability", propertyValue = "Durable"),
         @ActivationConfigProperty(propertyName = "clientId", propertyValue = "palco-auditoria"),
         @ActivationConfigProperty(propertyName = "subscriptionName", propertyValue = "compras-confirmadas"),
@@ -61,9 +61,10 @@ public class AuditoriaDeComprasMDB implements MessageListener {
     @Override
     public void onMessage(Message recibido) {
         try {
+            String tipoEvento = DestinosJms.tipoEventoDe(recibido);
             String cuerpo = LectorDeMensajes.texto(recibido);
             PagoConfirmadoMensaje mensaje = PagoConfirmadoMensaje.desdeJson(cuerpo);
-            auditoria.registrar(recibido.getJMSMessageID(), mensaje, cuerpo);
+            auditoria.registrar(recibido.getJMSMessageID(), tipoEvento, mensaje, cuerpo);
             // Dice "procesado" y no "registrada": si es una reentrega, registrar encontró la
             // fila que ya estaba y no insertó nada. En los dos casos la fila existe: si el
             // INSERT hubiera fallado, registrar habría lanzado y esta línea no se escribiría.

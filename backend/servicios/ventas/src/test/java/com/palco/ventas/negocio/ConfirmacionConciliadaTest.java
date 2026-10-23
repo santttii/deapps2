@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
+import com.palco.common.mensajeria.PublicadorPagoConfirmado;
 import com.palco.ventas.api.Dtos.TitularDto;
 import com.palco.ventas.datos.EntradaRepository;
 import com.palco.ventas.datos.VentaRepository;
@@ -68,7 +69,17 @@ class ConfirmacionConciliadaTest {
     ConfirmacionConciliadaTest() {
         confirmacion.ventas = ventas;
         confirmacion.entradas = entradas;
-        confirmacion.publicador = publicados::add;
+        confirmacion.publicador = new PublicadorPagoConfirmado() {
+            @Override
+            public void publicar(PagoConfirmadoMensaje mensaje) {
+                publicados.add(mensaje);
+            }
+
+            @Override
+            public void publicarReventa(PagoConfirmadoMensaje mensaje) {
+                throw new AssertionError("Una compra del catálogo no publica REVENTA_CONFIRMADA.");
+            }
+        };
         confirmacion.reloj = Clock.fixed(Instant.parse("2026-10-19T21:20:30.600Z"), ZoneOffset.ofHours(-3));
         doAnswer(llamada -> {
             guardadas.addAll(llamada.getArgument(0));

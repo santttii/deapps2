@@ -15,6 +15,7 @@ import jakarta.jms.TextMessage;
 import org.junit.jupiter.api.Test;
 
 import com.palco.common.Textos;
+import com.palco.notificaciones.AvisosAnotados;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje.Entrada;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje.Titular;
@@ -57,6 +58,7 @@ class LogEnUnSoloRenglonTest {
     private static TextMessage mensajeDeTexto(String texto) throws JMSException {
         TextMessage recibido = mock(TextMessage.class);
         when(recibido.getText()).thenReturn(texto);
+        when(recibido.getStringProperty("tipoEvento")).thenReturn("PAGO_CONFIRMADO");
         when(recibido.getJMSMessageID()).thenReturn("ID:8f1c2d3e-0000-1111-2222-333344445555");
         return recibido;
     }
@@ -70,7 +72,7 @@ class LogEnUnSoloRenglonTest {
     @Test
     void elAvisoEscribeUnSoloRenglonPorUnMensajeValidoConUnSaltoEnElId() throws JMSException {
         AvisoDeCompraMDB aviso = new AvisoDeCompraMDB();
-        aviso.notificaciones = mensaje -> { };
+        aviso.notificaciones = new AvisosAnotados();
 
         try (LogCapturado log = new LogCapturado(AvisoDeCompraMDB.class)) {
             aviso.onMessage(mensajeDeTexto(validoConSaltoEnElId()));
@@ -85,7 +87,7 @@ class LogEnUnSoloRenglonTest {
     @Test
     void elAvisoEscribeUnSoloRenglonAlDescartarUnMensajeInvalido() throws JMSException {
         AvisoDeCompraMDB aviso = new AvisoDeCompraMDB();
-        aviso.notificaciones = mensaje -> { };
+        aviso.notificaciones = new AvisosAnotados();
 
         try (LogCapturado log = new LogCapturado(AvisoDeCompraMDB.class)) {
             aviso.onMessage(mensajeDeTexto(invalidoConSaltoEnElIdDeLaEntrada()));

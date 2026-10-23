@@ -11,6 +11,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +31,8 @@ import org.junit.jupiter.api.Test;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.ReglasDeNegocio;
+import com.palco.common.mensajeria.PublicadorPagoConfirmado;
+import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.common.datos.BaseDeDatos;
 import com.palco.ventas.api.Dtos.TitularDto;
 import com.palco.ventas.api.DtosDeReventa.TransferenciaDto;
@@ -93,8 +97,11 @@ class ReventaDeEntradasEnH2Test {
         fabrica.close();
     }
 
+    /** Lo que publicó la transferencia como REVENTA_CONFIRMADA (puede llamarse desde dos hilos). */
+    private final List<PagoConfirmadoMensaje> reventasPublicadas = Collections.synchronizedList(new ArrayList<>());
+
     /** El bean con los tres repositorios de verdad, todos sobre el mismo EntityManager. */
-    private static ReventaDeEntradas beanCon(EntityManager em) {
+    private ReventaDeEntradas beanCon(EntityManager em) {
         ReventaDeEntradas bean = new ReventaDeEntradas();
         EntradaRepositoryJpa entradas = new EntradaRepositoryJpa();
         VentaRepositoryJpa ventas = new VentaRepositoryJpa();
@@ -105,6 +112,17 @@ class ReventaDeEntradasEnH2Test {
         bean.entradas = entradas;
         bean.ventas = ventas;
         bean.reventa = reventa;
+        bean.publicador = new PublicadorPagoConfirmado() {
+            @Override
+            public void publicar(PagoConfirmadoMensaje mensaje) {
+                throw new AssertionError("La transferencia de una reventa no publica PAGO_CONFIRMADO.");
+            }
+
+            @Override
+            public void publicarReventa(PagoConfirmadoMensaje mensaje) {
+                reventasPublicadas.add(mensaje);
+            }
+        };
         bean.reloj = Clock.fixed(AHORA.toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
         return bean;
     }
@@ -199,12 +217,25 @@ class ReventaDeEntradasEnH2Test {
         assertEquals("P-reventa1", venta.getPagoId());
         assertEquals(52_000 + ReglasDeNegocio.cargoServicio(52_000), venta.getMontoTotal());
 
+        // Sale REVENTA_CONFIRMADA con la venta nueva, para el aviso, la auditoría y la factura (L13).
+        assertEquals(1, reventasPublicadas.size());
+        PagoConfirmadoMensaje publicado = reventasPublicadas.get(0);
+        assertEquals(hecha.ventaId(), publicado.ventaId());
+        assertEquals(COMPRADOR, publicado.compradorId());
+        assertEquals("ev-1", publicado.eventoId());
+        assertEquals(venta.getMontoTotal(), publicado.montoTotal());
+        assertEquals(1, publicado.entradas().size());
+        assertEquals(hecha.entrada().id(), publicado.entradas().get(0).entradaId());
+        assertEquals("Bruno Díaz", publicado.entradas().get(0).titular().nombre());
+
         // Repetir el pedido devuelve la misma venta y no crea otra.
         TransferenciaHechaDto repetida = enTransaccion(em,
                 () -> reventa.transferir(transferencia("R-0000000a", COMPRADOR)));
         assertEquals(hecha.ventaId(), repetida.ventaId());
         assertEquals(hecha.entrada().id(), repetida.entrada().id());
         assertEquals(1, ventas.buscarPorComprador(COMPRADOR).size());
+        // Ni publica otra vez: el aviso, la auditoría y la factura salen una sola vez.
+        assertEquals(1, reventasPublicadas.size());
     }
 
     @Test

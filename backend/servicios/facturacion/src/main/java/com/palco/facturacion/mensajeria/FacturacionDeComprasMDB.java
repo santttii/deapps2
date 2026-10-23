@@ -49,7 +49,7 @@ import com.palco.facturacion.negocio.IFacturacion;
 @MessageDriven(name = "FacturacionDeCompras", activationConfig = {
         @ActivationConfigProperty(propertyName = "destinationLookup", propertyValue = DestinosJms.TOPICO_COMPRA),
         @ActivationConfigProperty(propertyName = "destinationType", propertyValue = "jakarta.jms.Topic"),
-        @ActivationConfigProperty(propertyName = "messageSelector", propertyValue = DestinosJms.SELECTOR_PAGO_CONFIRMADO),
+        @ActivationConfigProperty(propertyName = "messageSelector", propertyValue = DestinosJms.SELECTOR_COMPRA_CONFIRMADA),
         @ActivationConfigProperty(propertyName = "subscriptionDurability", propertyValue = "Durable"),
         @ActivationConfigProperty(propertyName = "clientId", propertyValue = FacturacionDeComprasMDB.CLIENT_ID),
         @ActivationConfigProperty(propertyName = "subscriptionName", propertyValue = FacturacionDeComprasMDB.SUSCRIPCION),

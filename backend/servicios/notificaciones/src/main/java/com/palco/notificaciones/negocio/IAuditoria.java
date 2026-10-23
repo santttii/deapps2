@@ -19,11 +19,12 @@ public interface IAuditoria {
      * Registra un mensaje recibido. Es idempotente: si el broker reentrega el
      * mismo mensaje (mismo {@code mensajeId}), no vuelve a registrarlo.
      *
-     * @param mensajeId el {@code JMSMessageID}
-     * @param mensaje   el mensaje ya leído y validado
-     * @param cuerpo    el JSON tal como llegó
+     * @param mensajeId  el {@code JMSMessageID}
+     * @param tipoEvento {@code PAGO_CONFIRMADO} o {@code REVENTA_CONFIRMADA}
+     * @param mensaje    el mensaje ya leído y validado
+     * @param cuerpo     el JSON tal como llegó
      */
-    void registrar(String mensajeId, PagoConfirmadoMensaje mensaje, String cuerpo);
+    void registrar(String mensajeId, String tipoEvento, PagoConfirmadoMensaje mensaje, String cuerpo);
 
     /**
      * Los últimos 50 registros, del más nuevo al más viejo según la hora en que

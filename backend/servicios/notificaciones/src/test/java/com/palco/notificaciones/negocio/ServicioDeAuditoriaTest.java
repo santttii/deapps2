@@ -44,7 +44,7 @@ class ServicioDeAuditoriaTest {
     void registraUnaFilaConLosDatosDelMensaje() {
         PagoConfirmadoMensaje mensaje = Ejemplos.pagoConfirmado();
 
-        servicio.registrar(ID_DEL_MENSAJE, mensaje, mensaje.aJson());
+        servicio.registrar(ID_DEL_MENSAJE, "PAGO_CONFIRMADO", mensaje, mensaje.aJson());
 
         RegistroDeAuditoria fila = filaGuardada();
         assertEquals(ID_DEL_MENSAJE, fila.getMensajeId());
@@ -57,12 +57,19 @@ class ServicioDeAuditoriaTest {
     }
 
     @Test
+    void unaReventaQuedaRegistradaComoReventaConfirmada() {
+        servicio.registrar(ID_DEL_MENSAJE, "REVENTA_CONFIRMADA", Ejemplos.pagoConfirmado(), "{}");
+
+        assertEquals("REVENTA_CONFIRMADA", filaGuardada().getTipoEvento());
+    }
+
+    @Test
     void laHoraSeGuardaEnUtcYTruncadaASegundosAunqueElServidorEsteEnHoraArgentina() {
         // 18:30:05 en Buenos Aires es 21:30:05 en UTC.
         servicio.reloj = Clock.fixed(Instant.parse("2026-10-16T21:30:05.789Z"),
                 ZoneId.of("America/Argentina/Buenos_Aires"));
 
-        servicio.registrar(ID_DEL_MENSAJE, Ejemplos.pagoConfirmado(), "{}");
+        servicio.registrar(ID_DEL_MENSAJE, "PAGO_CONFIRMADO", Ejemplos.pagoConfirmado(), "{}");
 
         assertEquals(LocalDateTime.parse("2026-10-16T21:30:05"), filaGuardada().getRecibidoEn());
     }
@@ -75,14 +82,14 @@ class ServicioDeAuditoriaTest {
         // Sale de registrar, y no recién al confirmar la transacción: el MDB no llega a
         // escribir en el log que procesó el mensaje.
         assertThrows(PersistenceException.class,
-                () -> servicio.registrar(ID_DEL_MENSAJE, Ejemplos.pagoConfirmado(), "{}"));
+                () -> servicio.registrar(ID_DEL_MENSAJE, "PAGO_CONFIRMADO", Ejemplos.pagoConfirmado(), "{}"));
     }
 
     @Test
     void siElBrokerReentregaElMismoMensajeNoLoRegistraDosVeces() {
         when(registros.existe(ID_DEL_MENSAJE)).thenReturn(true);
 
-        servicio.registrar(ID_DEL_MENSAJE, Ejemplos.pagoConfirmado(), "{}");
+        servicio.registrar(ID_DEL_MENSAJE, "PAGO_CONFIRMADO", Ejemplos.pagoConfirmado(), "{}");
 
         verify(registros, never()).guardar(any());
     }

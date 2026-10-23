@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
+import com.palco.common.mensajeria.PublicadorPagoConfirmado;
 
 /**
  * Qué publican los endpoints de prueba. El publicador se reemplaza con una
@@ -28,7 +29,17 @@ class PruebasDeMensajeriaTest {
     private final PruebasDeMensajeria pruebas = new PruebasDeMensajeria();
 
     PruebasDeMensajeriaTest() {
-        pruebas.publicador = publicados::add;
+        pruebas.publicador = new PublicadorPagoConfirmado() {
+            @Override
+            public void publicar(PagoConfirmadoMensaje mensaje) {
+                publicados.add(mensaje);
+            }
+
+            @Override
+            public void publicarReventa(PagoConfirmadoMensaje mensaje) {
+                throw new AssertionError("Las pruebas de mensajería publican PAGO_CONFIRMADO.");
+            }
+        };
     }
 
     @Test

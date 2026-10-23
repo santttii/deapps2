@@ -41,7 +41,7 @@ public class ServicioDeAuditoria implements IAuditoria {
     Clock reloj = Clock.systemUTC();
 
     @Override
-    public void registrar(String mensajeId, PagoConfirmadoMensaje mensaje, String cuerpo) {
+    public void registrar(String mensajeId, String tipoEvento, PagoConfirmadoMensaje mensaje, String cuerpo) {
         // El id del mensaje es la clave primaria y no cambia cuando el broker reentrega:
         // si la fila ya está, este mensaje ya se registró y no hay nada que hacer.
         if (registros.existe(mensajeId)) {
@@ -53,8 +53,8 @@ public class ServicioDeAuditoria implements IAuditoria {
         // quien llama no llega a escribir en el log que procesó un mensaje cuya fila no existe.
         registros.guardar(new RegistroDeAuditoria(
                 mensajeId,
-                // El MDB filtra por tipoEvento: lo único que llega hasta acá es PAGO_CONFIRMADO.
-                DestinosJms.PAGO_CONFIRMADO,
+                // Lo que dice el mensaje: PAGO_CONFIRMADO o REVENTA_CONFIRMADA (el MDB filtra los demás).
+                tipoEvento,
                 mensaje.ventaId(),
                 mensaje.compradorId(),
                 mensaje.eventoId(),
