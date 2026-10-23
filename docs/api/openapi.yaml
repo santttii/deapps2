@@ -270,6 +270,25 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
 
+  /eventos/mios:
+    get:
+      tags: [eventos]
+      summary: Eventos del organizador autenticado
+      description: >
+        Requiere rol `organizer`. Los eventos que creó el dueño del token, ordenados por fecha. Los seis eventos de
+        prueba son de `organizador@palco.test`. Es una ruta fija y le gana a `/eventos/{slug}`: ningún evento recibe
+        el slug `mios`. Desde el 23/10 (limitación L18).
+      responses:
+        '200':
+          description: Eventos del organizador (lista vacía si no creó ninguno)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Evento' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
   /eventos/{slug}:
     get:
       tags: [eventos]
@@ -849,7 +868,9 @@ paths:
       summary: Registro de la puerta de un evento
       description: >
         Requiere rol `staff` u `organizer`. Del escaneo más nuevo al más viejo. El código no viaja completo: solo
-        sus últimos caracteres (`codigoParcial`).
+        sus últimos caracteres (`codigoParcial`). Desde el 23/10 (limitación L17), el organizador ve solo el registro
+        de sus eventos: Validación le pregunta a Eventos (`GET /api/eventos/mios`, con el token del organizador). El
+        personal de puerta todavía ve el de cualquier evento, porque no hay asignación de staff a eventos.
       parameters:
         - name: eventoId
           in: query
@@ -865,13 +886,22 @@ paths:
                 items: { $ref: '#/components/schemas/Escaneo' }
         '400': { $ref: '#/components/responses/DatosInvalidos' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
-        '403': { $ref: '#/components/responses/SinPermiso' }
+        '403':
+          description: >
+            Sin el rol (`/problemas/sin-permiso`), o un organizador que pide el registro de un evento que no es suyo
+            (`/problemas/evento-ajeno`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '504': { $ref: '#/components/responses/SinRespuesta' }
 
   /v1/validacion/escaneos/{escaneoId}:
     get:
       tags: [validacion]
       summary: Un renglón del registro de la puerta
-      description: Requiere rol `staff` u `organizer`.
+      description: >
+        Requiere rol `staff` u `organizer`. Para un organizador, un escaneo de un evento que no es suyo responde 404,
+        igual que uno que no existe.
       parameters:
         - name: escaneoId
           in: path
@@ -886,6 +916,7 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
+        '504': { $ref: '#/components/responses/SinRespuesta' }
 
   /v1/facturas/{ventaId}:
     parameters:

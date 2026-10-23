@@ -123,6 +123,7 @@ Rutas comprobadas contra el código y contra el servidor en marcha el 14/10/2026
 | Usuarios | `POST /api/usuarios/servicios/token` | pública, con secreto | `{"secreto"}` → token de rol `servicio` para llamar a otros servicios |
 | Usuarios | `GET /api/usuarios/jwks` | pública | Clave pública para validar tokens (la usan los otros servicios) |
 | Eventos | `GET /api/eventos?categoria=Música&q=texto` | pública | Catálogo (filtros opcionales, búsqueda sin acentos) |
+| Eventos | `GET /api/eventos/mios` | `organizer` | Los eventos que creó quien pregunta, por fecha (los usa el panel) |
 | Eventos | `GET /api/eventos/{slug}` | pública | Detalle con sectores |
 | Eventos | `POST /api/eventos` | `organizer` | Crear evento con sectores |
 | Eventos | `POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo` | `servicio` | Sumar (`{"cantidad": 2}`) o liberar (`-2`) entradas vendidas, sin pasarse del cupo |
@@ -487,8 +488,9 @@ La mayoría se resuelven con el backend. El plan de trabajo está en
   últimos escaneos son locales a la pantalla y no leen ni modifican las entradas
   reales del store. La acción `MARCAR_ENTRADA_USADA` existe pero todavía no se usa.
 - **Métricas del organizador**: las ventas por día, el monitor de reventa y la
-  liquidación usan datos mock fijos. "Mis eventos" sale del backend, pero lista
-  todos los eventos: la API todavía no dice de qué organizador es cada uno.
+  liquidación usan datos mock fijos. "Mis eventos" sale del backend y lista solo
+  los del organizador (`GET /api/eventos/mios`); los seis de prueba son de
+  `organizador@palco.test`.
 - **Registro**: la verificación de identidad (fotos del DNI) no tiene backend y
   se quitó del alta; las cuentas nuevas quedan con `identidadVerificada` en
   falso. Como `ServicioDeVentas` exige identidad verificada, hoy no pueden
