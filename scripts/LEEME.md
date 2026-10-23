@@ -51,10 +51,10 @@ El cobro es el simulado: `tok_test` aprueba y `tok_rechazado` rechaza. La factur
 
 ## pruebas/escenarios.mjs
 
-La prueba de integración del backend: 17 escenarios de compra, mensajería, conciliación de pagos, facturación, validación en puerta y reventa, de punta a punta, por la API y por `jboss-cli`. Los 13 primeros son los que produjeron `docs/entrega3/evidencia/integracion-13-escenarios.txt`. Cada comprobación imprime qué se esperaba y qué se vio; al final hay un resumen por escenario.
+La prueba de integración del backend: 18 escenarios de compra, mensajería, conciliación de pagos, facturación, validación en puerta, reventa y devolución de cupo con Eventos caído, de punta a punta, por la API y por `jboss-cli`. Los 13 primeros son los que produjeron `docs/entrega3/evidencia/integracion-13-escenarios.txt`. Cada comprobación imprime qué se esperaba y qué se vio; al final hay un resumen por escenario.
 
 ```bash
-node scripts/pruebas/escenarios.mjs                                # los 17 escenarios
+node scripts/pruebas/escenarios.mjs                                # los 18 escenarios
 node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17    # solo los que no tocan los consumidores ni las propiedades
 node scripts/pruebas/escenarios.mjs 14                             # la falla después del cobro y su conciliación
 ```

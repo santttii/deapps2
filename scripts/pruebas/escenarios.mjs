@@ -1,8 +1,8 @@
-// Prueba de integración del backend de Palco: 17 escenarios de compra, mensajería, conciliación de pagos,
-// facturación, validación en puerta y reventa, de punta a punta, por la API y por jboss-cli. Los 13 primeros
-// son los que produjeron docs/entrega3/evidencia/integracion-13-escenarios.txt.
+// Prueba de integración del backend de Palco: 18 escenarios de compra, mensajería, conciliación de pagos,
+// facturación, validación en puerta, reventa y devolución de cupo con Eventos caído, de punta a punta, por la
+// API y por jboss-cli. Los 13 primeros son los que produjeron docs/entrega3/evidencia/integracion-13-escenarios.txt.
 //
-//   node scripts/pruebas/escenarios.mjs              corre los 17 escenarios
+//   node scripts/pruebas/escenarios.mjs              corre los 18 escenarios
 //   node scripts/pruebas/escenarios.mjs 1 2 7        corre solo esos
 //
 // Se corre desde cualquier carpeta: las rutas salen de la ubicación de este archivo. Necesita Node 18 o
@@ -13,10 +13,11 @@
 //
 // Los escenarios 8, 10, 11 y 12 detienen un consumidor (stop-delivery) o pasan mensajes de una cola a
 // otra (move-messages), y el 14 prende por unos segundos una propiedad de sistema que hace fallar todo
-// pago después del cobro. Si otra persona está usando el servidor, se corren solo los demás:
+// pago después del cobro. El 18 saca de servicio por un rato el WAR de Eventos: mientras tanto nadie puede
+// ver el catálogo ni comprar. Si otra persona está usando el servidor, se corren solo los demás:
 //   node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17
 // El 14 espera a la conciliación de pagos, que corre una vez por minuto con 2 minutos de margen: tarda
-// entre 2 y 4 minutos.
+// entre 2 y 4 minutos. El 18 espera al barrido de devoluciones, que corre una vez por minuto: tarda hasta 1.
 //
 // Los valores se comparan antes y después (el cupo, los contadores del broker, el log); los ids salen de
 // las respuestas. Los contadores del broker son de todo el servidor: si otra persona compra mientras
@@ -448,6 +449,43 @@ async function escenario6() {
   informe.ok('el log de Ventas dice que canceló y devolvió el cupo', lineas.some((l) => l.includes('cancelada por su comprador')),
     lineas.map((l) => l.slice(0, 160)).join(' // '));
   informe.dato('el vencimiento real a los 10 minutos no se repite acá: está en docs/entrega3/evidencia/vencimiento-de-reserva.txt');
+}
+
+async function escenario18() {
+  informe.escenario(18, 'Con Eventos caído, la devolución del cupo de una compra cancelada se reintenta sola y se aplica una vez');
+  const antes = await vendidas(SECTOR);
+  const v = (await abrir(pedidoDe(2))).json;
+  informe.igual('vendidas con la compra abierta', await vendidas(SECTOR), antes + 2);
+
+  const marca = marcaDelLog();
+  informe.ok('se saca de servicio el WAR de Eventos', cli('/deployment=palco-eventos.war:undeploy').includes('success'));
+  try {
+    informe.igual('Eventos no responde (404 del servidor, no de Eventos)', (await http('GET', '/api/eventos/health')).estado, 404);
+    informe.igual(`DELETE /api/v1/ventas/${v.id} con Eventos caído`, (await cancelar(v.id)).estado, 204);
+    const aviso = lineasCon(marca, v.id, 'No se pudo devolver el cupo', 'Se reintenta en el próximo barrido');
+    informe.ok('Ventas avisa que no pudo devolver el cupo y que lo reintenta (no lo da por rechazado)',
+      aviso.length >= 1 && lineasCon(marca, v.id, 'rechazó la devolución').length === 0,
+      aviso.map((l) => l.slice(0, 200)).join(' // '));
+  } finally {
+    informe.ok('se vuelve a desplegar Eventos', cli('/deployment=palco-eventos.war:deploy').includes('success'));
+  }
+  informe.ok('Eventos responde otra vez',
+    await hasta(async () => (await http('GET', '/api/eventos/health')).estado === 200, { maximoMs: 30000, cadaMs: 500 }));
+
+  // El barrido DevolucionDeCupos corre en el segundo 30 de cada minuto.
+  const devuelto = await hasta(async () => (await vendidas(SECTOR)) === antes, { maximoMs: 75000, cadaMs: 2000 });
+  informe.ok('el barrido devuelve el cupo apenas Eventos vuelve', devuelto, `vendidas ${await vendidas(SECTOR)}, antes ${antes}`);
+  const reintentos = lineasCon(marca, 'DevolucionDeCupos', v.id);
+  informe.ok('el reintento lo hizo el barrido (DevolucionDeCupos)', reintentos.length >= 1,
+    reintentos.map((l) => l.slice(0, 160)).join(' // '));
+
+  // Repetir la misma devolución (misma clave) no resta otra vez: si restara, ese lugar se vendería dos veces.
+  const repetida = await http('POST', `/api/eventos/${EVENTO}/sectores/${SECTOR}/cupo`,
+    { token: S, cuerpo: { cantidad: -2, clave: `devolucion:${v.id}:${SECTOR}` } });
+  informe.igual('repetir la devolución con la misma clave responde 200', repetida.estado, 200);
+  informe.igual('y no resta otra vez', await vendidas(SECTOR), antes);
+  informe.igual('repetir el DELETE', (await cancelar(v.id)).estado, 204);
+  informe.igual('el cupo sigue devuelto una sola vez', await vendidas(SECTOR), antes);
 }
 
 // ===================================================================================== mensajería
@@ -991,7 +1029,7 @@ const pasos = [
   [6, escenario6], [7, escenario7], [8, escenario8], [9, escenario9], [10, escenario10], [11, escenario11],
   [12, escenario12], [13, escenario13], [14, escenario14],
   [15, async () => { compra ??= await compraDeApoyo(); await escenario15(compra); }],
-  [16, escenario16], [17, escenario17],
+  [16, escenario16], [17, escenario17], [18, escenario18],
 ];
 
 /** Si el escenario 5 o el 15 corren solos, necesitan una venta emitida del titular. También la usan el 16 y el 17. */

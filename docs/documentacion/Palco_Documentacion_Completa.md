@@ -2194,7 +2194,7 @@ el 401 por token inválido como Problem Details (`ErrorDeAutenticacionServletTes
 (`ErrorInesperadoTest`) y las 600.000 iteraciones de PBKDF2 (`ContrasenasTest`). `MigracionesEnH2Test` de Usuarios
 corre sus migraciones, V4 y V5 incluidas, contra H2.
 
-## 16.2 Los 17 escenarios de integración
+## 16.2 Los escenarios de integración (17 al 16/10, 18 desde el 23/10)
 
 `scripts/pruebas/escenarios.mjs` (con sus ayudas en `lib.mjs`) prueba la compra, la mensajería, la conciliación de
 pagos, la facturación, la validación en puerta y la reventa de punta a punta, por la API REST y por `jboss-cli`,
@@ -2202,7 +2202,7 @@ contra el WildFly real. Usa el `fetch` de Node 18 o más nuevo y ningún paquete
 esperaba y qué vio; al final hay un resumen por escenario. Sale con código 0 si todo pasa y con 1 si algo falla.
 
 ```bash
-node scripts/pruebas/escenarios.mjs                                   # los 17 escenarios
+node scripts/pruebas/escenarios.mjs                                   # los 18 escenarios
 node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17       # solo los que no tocan el servidor compartido
 node scripts/pruebas/escenarios.mjs 14                                # uno solo
 ```
@@ -2226,6 +2226,7 @@ node scripts/pruebas/escenarios.mjs 14                                # uno solo
 | 15 | Facturación | La compra confirmada se factura una sola vez: factura B por el total cobrado, número `00001-00000001` y CAE de 14 dígitos de ARCA (simulado); consultada de nuevo es la misma, y la compra siguiente lleva el número siguiente y otro CAE |
 | 16 | Validación en puerta | En la puerta de otro evento, `OTRO_EVENTO` y la entrada sigue `VALIDA`; el primer escaneo, `VALIDA` y la entrada queda `USADA`; el segundo, `YA_USADA` con el uso anterior; un código que no existe, `INEXISTENTE`; un comprador, 403; el registro no muestra el código completo |
 | 17 | Reventa | Publicar al tope exacto (201 `ACTIVA`), la entrada `PUBLICADA` en Ventas y en el listado público, `NO_HABILITADA` en la puerta, la compra con otra cuenta (publicación `VENDIDA`, entrada nueva y su venta), la misma clave sin cobrar de nuevo y la entrada original `VENDIDA` |
+| 18 | Devolución de cupo con Eventos caído (desde el 23/10) | Con el WAR de Eventos sacado de servicio por `jboss-cli`, cancelar una compra de 2 entradas responde 204 y Ventas avisa que reintenta (un 404 del servidor no se toma como rechazo); al volver a desplegar Eventos, el barrido `DevolucionDeCupos` devuelve las 2 entradas, y repetir la misma devolución con su clave no resta otra vez. Pasó el 23/10 (13 de 13 comprobaciones). Mientras corre nadie puede usar el catálogo: no va en la lista de los que no tocan el servidor compartido |
 
 **Última corrida: 16/10/2026, desde las 11:04, con el servidor armado desde cero con Facturación, Validación,
 Reventa y la conciliación de pagos: 17 de 17 escenarios.** Del 1 al 13 pasaron en la primera corrida. El 12, el 14,
@@ -2800,7 +2801,7 @@ Lo que antes figuraba acá y ya está hecho y probado en el servidor el 16/10: e
 | 2 | Llevar a git lo construido el 16/10 (Facturación, el ARCA simulado, Validación, Reventa, la conciliación, las capas de datos, los cambios del frontend, los guiones y la colección), cada parte con la identidad de su dueño o dueña, en commits chicos, y sumar el `.mailmap` | Hoy esos cambios no están en el historial. La consigna pide un historial incremental con la participación visible de todos, y no hay commits a nombre de Joaquin Molina | Cada dueño su parte; el `.mailmap`, Santiago | Antes del congelamiento del 09/11 |
 | 3 | Probar en el navegador, contra el backend, las pantallas de puerta, reventa y panel del organizador, con el recorrido de la sección 15.5 | El backend que usan pasó en el servidor, pero las pantallas no se recorrieron. La defensa del 13/11 pide una demo que cruce componentes, mensajería y servicios web | Valentina; la puerta, con Joaquin | Antes del 06/11 |
 | 4 | Diagrama de secuencia de autenticación: login, JWT, JWKS y token de rol `servicio` entre servicios (S2) | La consigna pide un diagrama de secuencia por integración y es uno de los dos que faltan (13.10) | A definir: Usuarios no tiene dueño para la defensa | Con el borrador del 31/10 |
-| 5 | Diagrama de secuencia de la reventa: publicar, tomar, cobrar en Pagos y transferir en Ventas (S3) | Es el otro diagrama que falta, y Reventa ya está implementada | Julian | Con el borrador del 31/10 |
+| 5 | Diagrama de secuencia de la reventa: publicar, tomar, cobrar en Pagos y transferir en Ventas (S3) | Es el otro diagrama que falta, y Reventa ya está implementada | A reasignar (Julian lo liberó el 23/10 para hacer el escenario 18 y la conciliación de Reventa) | Con el borrador del 31/10 |
 | 6 | Actualizar el diagrama de integración SOA con Facturación y el ARCA simulado por SOAP, el tercer suscriptor del tópico, Validación y Reventa, como versión nueva para el documento técnico (el de `docs/entrega3/` queda como se entregó) | El diagrama de la sección 8.1 es del 14/10 y le faltan esos tramos | Joaquin, con Santiago | Con el borrador del 31/10 |
 | 7 | Documento técnico de 8 a 12 páginas de contenido (los anexos no cuentan, lo confirmó la cátedra el 16/10), recortado de este documento, con un diagrama de secuencia por integración y los casos de uso | La consigna lo exige para el 13/11. Este documento es la base, pero es mucho más largo | Joaquin integra; cada dueño revisa su parte | Borrador el 31/10; PDF el 11/11 |
 | 8 | Declaración del uso de IA | La consigna la pide en el documento de cada entrega obligatoria | La escribe el grupo | Con el PDF del 11/11 |
