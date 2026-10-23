@@ -249,6 +249,12 @@ implementa Santiago Loto para el 13/11.
 
 ## Fase 6 — Mensajería JMS: pago confirmado
 
+- [x] Mensaje de la compra en la reventa (23/10, limitación L13, decidido por
+      el grupo): Ventas publica `REVENTA_CONFIRMADA` solo en el tópico, con el
+      mismo cuerpo; aviso, auditoría y facturación lo reciben (selector
+      `tipoEvento IN ('PAGO_CONFIRMADO', 'REVENTA_CONFIRMADA')`). La emisión no
+      cambia. Probado en el servidor (escenario 17).
+
 Según el taller: el mismo evento se publica en una **cola** y en un **tópico**.
 
 ```

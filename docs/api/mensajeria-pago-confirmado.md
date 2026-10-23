@@ -4,6 +4,8 @@ Documenta el mensaje que publica `ServicioDeVentas` cuando se aprueba un pago,
 según el taller de escenario de mensajería. Cubre el pendiente de la Fase 6 del
 [`TODO.md`](../../TODO.md): *Documentar el contrato en `docs/`*.
 
+**Actualización del 23/10/2026:** se sumó el evento `REVENTA_CONFIRMADA` (ver más abajo).
+
 **Estado al 14/10/2026.** El mensaje, su validación, las constantes con los
 nombres y el publicador están en `backend/common`, con tests. Ventas publica el
 mensaje en cada pago aprobado y los tres consumidores funcionan:
@@ -30,6 +32,22 @@ ServicioDeVentas ──► cola.emision-entradas ──► EmisionDeEntradasMDB 
 | `topico.compra-confirmada` | Tópico | `java:/jms/topic/compraConfirmada` | Aviso al comprador (no durable), Auditoría (durable) | Que todos los interesados se enteren del hecho |
 
 Los dos destinos ya están creados en `backend/servidor/src/main/wildfly/configurar.cli`.
+
+### Segundo tipo de evento: `REVENTA_CONFIRMADA` (desde el 23/10/2026)
+
+Cuando se compra una entrada en la reventa oficial, Ventas (`ReventaDeEntradas.transferir`)
+publica `REVENTA_CONFIRMADA` **solo en el tópico**, en la misma transacción en la que crea la
+venta nueva del comprador y emite su entrada. No va a la cola: la entrada ya quedó emitida en
+la transferencia. El cuerpo es el mismo que el de `PAGO_CONFIRMADO`, con la venta nueva.
+
+```
+ReventaDeEntradas (Ventas) ──► topico.compra-confirmada ─┬► AvisoDeCompraMDB (aviso "en la reventa oficial")
+                                                         ├► AuditoriaDeComprasMDB (fila con tipo_evento REVENTA_CONFIRMADA)
+                                                         └► FacturacionDeComprasMDB (factura de la venta nueva)
+```
+
+Es el uso de `tipoEvento` que previó el taller de mensajería: que un mismo tópico agrupe más de
+un tipo de evento y cada consumidor elija cuáles recibe con su selector.
 Se publica siempre con la fábrica de conexiones transaccional, `java:/JmsXA`.
 
 ## Clases (módulo `common`, paquete `com.palco.common.mensajeria`)
@@ -39,7 +57,7 @@ Se publica siempre con la fábrica de conexiones transaccional, `java:/JmsXA`.
 | `PagoConfirmadoMensaje` | El mensaje, como `record`. `aJson()` lo convierte a texto, `desdeJson(String)` lo lee y lo valida, `validar()` comprueba que esté completo |
 | `MensajeInvalido` | La excepción que lanzan `desdeJson` y `validar` |
 | `DestinosJms` | Las constantes con los nombres JNDI, la propiedad `tipoEvento` y el selector |
-| `PublicadorPagoConfirmado` | La interfaz para publicar: `void publicar(PagoConfirmadoMensaje mensaje)` |
+| `PublicadorPagoConfirmado` | La interfaz para publicar: `publicar(mensaje)` manda `PAGO_CONFIRMADO` a la cola y al tópico; `publicarReventa(mensaje)` manda `REVENTA_CONFIRMADA` solo al tópico |
 | `PublicadorPagoConfirmadoJms` | Su implementación: un Session Bean `@Stateless` con transacción `MANDATORY` |
 
 ## Formato
@@ -50,9 +68,19 @@ Se publica siempre con la fábrica de conexiones transaccional, `java:/JmsXA`.
 
 ### Propiedades del mensaje
 
-| Propiedad    | Valor             | Uso                                                               |
-| ------------ | ----------------- | ----------------------------------------------------------------- |
-| `tipoEvento` | `PAGO_CONFIRMADO` | Los MDB filtran con `messageSelector = "tipoEvento = 'PAGO_CONFIRMADO'"` |
+| Propiedad    | Valor                | Dónde se publica | Quién lo recibe |
+| ------------ | -------------------- | ---------------- | --------------- |
+| `tipoEvento` | `PAGO_CONFIRMADO`    | Cola y tópico    | La emisión (`tipoEvento = 'PAGO_CONFIRMADO'`) y los tres suscriptores del tópico |
+| `tipoEvento` | `REVENTA_CONFIRMADA` | Solo el tópico   | Los tres suscriptores del tópico |
+
+Los suscriptores del tópico filtran con
+`messageSelector = "tipoEvento IN ('PAGO_CONFIRMADO', 'REVENTA_CONFIRMADA')"`
+(`DestinosJms.SELECTOR_COMPRA_CONFIRMADA`) y leen la propiedad con `DestinosJms.tipoEventoDe`.
+Un mensaje sin un `tipoEvento` conocido es inválido.
+
+Cambiar el selector de una suscripción durable hace que el broker la borre y la vuelva a crear
+(así lo define JMS): los mensajes que estuvieran pendientes en ella se pierden. Por eso un cambio
+de selector se despliega con las suscripciones al día (sin pendientes), como el del 23/10.
 
 ### Cuerpo
 

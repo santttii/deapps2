@@ -569,8 +569,10 @@ async function escenario7() {
   informe.ok('el tópico tiene tres suscripciones: las durables de auditoría y de facturación, y la del aviso',
     suscripciones.length === COPIAS_DEL_TOPICO && suscripciones.includes(COLA_DE_AUDITORIA)
       && suscripciones.includes(COLA_DE_FACTURACION), suscripciones.join(' , '));
-  informe.ok("las tres filtran por la propiedad tipoEvento = 'PAGO_CONFIRMADO'",
-    selectores.length === COPIAS_DEL_TOPICO && selectores.every((s) => s === "tipoEvento = 'PAGO_CONFIRMADO'"),
+  // Desde el 23/10 el tópico también lleva REVENTA_CONFIRMADA (la compra en la reventa): los tres la reciben.
+  informe.ok("las tres filtran por la propiedad tipoEvento: PAGO_CONFIRMADO o REVENTA_CONFIRMADA",
+    selectores.length === COPIAS_DEL_TOPICO
+      && selectores.every((s) => s === "tipoEvento IN ('PAGO_CONFIRMADO', 'REVENTA_CONFIRMADA')"),
     selectores.join(' | '));
   const noDurable = suscripciones.find((q) => q !== COLA_DE_AUDITORIA && q !== COLA_DE_FACTURACION);
   const avisoAgregados = () => numeros([`${'/subsystem=messaging-activemq/server=default'}/runtime-queue=${noDurable}:read-attribute(name=messages-added)`])[0];
@@ -1016,7 +1018,7 @@ async function escenario16() {
 }
 
 async function escenario17() {
-  informe.escenario(17, 'Reventa de punta a punta: publicar dentro del rango, la compra de otra cuenta y la entrada nueva');
+  informe.escenario(17, 'Reventa de punta a punta: publicar dentro del rango, la compra de otra cuenta, la entrada nueva y su REVENTA_CONFIRMADA');
   const OT = await login('otro.titular@palco.test');
   const { entradaId } = await compraDeApoyo();
   const original = (await entrada(entradaId)).json;
@@ -1046,6 +1048,7 @@ async function escenario17() {
   esProblema(informe, await comprar(T, uuid()), 409, 'compra-propia', `${R}/${pub.id}/compra`);
   esProblema(informe, await comprar(OT, uuid(), 'tok_rechazado'), 402, 'pago-rechazado', `${R}/${pub.id}/compra`);
   const clave = uuid();
+  const marcaCompra = marcaDelLog();
   const compraR = await comprar(OT, clave);
   const c = compraR.json;
   informe.ok('otra cuenta la compra: 201 con la publicación VENDIDA, la entrada nueva y su venta',
@@ -1067,6 +1070,25 @@ async function escenario17() {
   informe.igual('en "mis publicaciones" del vendedor figura VENDIDA', mias.find((x) => x.id === pub.id)?.estado, 'VENDIDA');
   informe.igual('el código viejo no entra: NO_HABILITADA', (await escanear(original.codigoQr)).json?.resultado, 'NO_HABILITADA');
   informe.igual('el nuevo sí: VALIDA', (await escanear(c.entrada.codigoQr)).json?.resultado, 'VALIDA');
+
+  // La compra en la reventa publica REVENTA_CONFIRMADA en el tópico (L13): aviso, auditoría y factura.
+  const filas = await hasta(async () => {
+    const f = await auditoriaDe(c.ventaId);
+    return f.length > 0 ? f : null;
+  });
+  informe.ok('la auditoría registró la venta nueva una vez, como REVENTA_CONFIRMADA',
+    filas?.length === 1 && filas[0].tipoEvento === 'REVENTA_CONFIRMADA', JSON.stringify(filas));
+  const aviso = await hasta(() => lineasCon(marcaCompra, 'en la reventa oficial', c.ventaId)[0]);
+  informe.ok('el aviso al comprador dice que fue en la reventa oficial', Boolean(aviso), (aviso ?? '').slice(0, 200));
+  const factura = (await hasta(async () => {
+    const r = await facturaDe(c.ventaId, S);
+    return r.estado === 200 ? r : null;
+  }, { maximoMs: 30000, cadaMs: 1000 }))?.json;
+  informe.ok('la venta nueva tiene su factura, por el precio de reventa más el cargo de servicio',
+    factura?.ventaId === c.ventaId && factura.importe === tope + Math.round(tope * 0.1) && /^\d{14}$/.test(factura.cae),
+    JSON.stringify(factura));
+  informe.igual('no fue a la cola de emisión (la entrada ya estaba emitida)',
+    lineasCon(marcaCompra, 'EmisionDeEntradas', c.ventaId).length, 0);
 }
 
 // ===================================================================================== corrida
