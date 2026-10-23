@@ -2833,7 +2833,7 @@ Lo que antes figuraba acá y ya está hecho y probado en el servidor el 16/10: e
 | 8 | Declaración del uso de IA | La consigna la pide en el documento de cada entrega obligatoria | La escribe el grupo | Con el PDF del 11/11 |
 | 9 | Provocar en el servidor los casos de falla que solo tienen tests: ARCA sin respuesta (reintentos y DLQ), ARCA sin desplegar con la compra confirmándose igual, un sobre con DTD contra CXF (L15), y Validación con Ventas caída (504 y renglón `SIN_RESPUESTA`) | La defensa pregunta qué pasa si algo falla a mitad del flujo, y SEC-I01 tiene prueba parcial | Santiago (Facturación); Joaquin (Validación) | Antes del congelamiento del 09/11 |
 | 10 | ~~Reintento de la devolución de cupo (L4)~~ Hecho el 23/10 (sección 7.5) | Era el último hueco conocido del flujo de compra que deja lugares sin vender | Julian | Hecho |
-| 11 | Poner al día `TODO.md`: las fases 5, 7, 8 y 9 y la tabla de entregas siguen describiendo como pendiente lo que ya está hecho | Es la fuente de verdad del estado por fases | Cada dueño su fase | Antes del 06/11 |
+| 11 | ~~Poner al día `TODO.md`~~ Hecho el 23/10: cada fase revisada contra el código | Es la fuente de verdad del estado por fases | Julian | Hecho |
 | 12 | Armado desde cero, demo y tag `entrega-obligatoria-2` | Cada entrega sale de un tag y su evidencia se toma desde ese tag | Santiago | Congelamiento el 09/11; subida el jue 12/11 |
 
 Lo que quedaba de la seguridad de la clase 11 se decidió el 16/10 y no lleva implementación: la sesión sigue en 8 horas (L10), los permisos por destino en el broker son un riesgo aceptado (L11) y el secreto de servicios es un requisito de despliegue (L8).
