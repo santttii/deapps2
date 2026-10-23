@@ -19,7 +19,7 @@ interface PublicacionDelServidor {
   precio: number;
   precioMaximo: number;
   publicada: string;
-  estado?: string; // ACTIVA, VENDIDA o RETIRADA
+  estado?: string; // ACTIVA, VENDIDA, RETIRADA o ANULADA
 }
 
 // Así llega la entrada que recibe quien compra en la reventa: nueva, con su QR y su titular.

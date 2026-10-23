@@ -566,8 +566,8 @@ paths:
       tags: [pagos]
       summary: Buscar un pago por su clave de idempotencia
       description: >
-        Requiere rol `servicio`. La usa la conciliación de Ventas para saber cómo terminó un cobro que quedó sin
-        resultado. Devuelve un pago y no una lista porque la clave es única.
+        Requiere rol `servicio`. La usan las conciliaciones de Ventas y de Reventa para saber cómo terminó un cobro
+        que quedó sin resultado. Devuelve un pago y no una lista porque la clave es única.
       parameters:
         - name: claveIdempotencia
           in: query
@@ -607,6 +607,42 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /v1/pagos/{pagoId}/reembolso:
+    post:
+      tags: [pagos]
+      summary: Devolver un pago aprobado
+      description: >
+        Requiere rol `servicio`. Devuelve el pago entero y lo deja `REEMBOLSADO`. Lo pide Reventa cuando cobró una
+        compra y Ventas rechazó la transferencia de la entrada. Es idempotente: repetirlo responde el mismo pago sin
+        volver a devolver. Si la pasarela no responde (504), el pago sigue `APROBADO` y se puede repetir.
+      parameters:
+        - name: pagoId
+          in: path
+          required: true
+          schema: { type: string, example: P-8c21d0e4 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Reembolso' }
+      responses:
+        '200':
+          description: Pago devuelto (ahora o en un pedido anterior)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pago' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: >
+            El pago no está aprobado o es de otra venta (`/problemas/pago-no-reembolsable`). No se devuelve nada.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '504': { $ref: '#/components/responses/SinRespuesta' }
 
   /v1/reventas:
     get:
@@ -730,7 +766,9 @@ paths:
         propia. Es idempotente por `Idempotency-Key`: repetirla devuelve lo mismo sin cobrar de nuevo. Si Pagos no
         responde (504), la publicación queda tomada: nadie más la compra ni el vendedor la retira hasta que el mismo
         comprador reintente con la misma clave o la conciliación de reventas sepa si se cobró (transfiere la entrada
-        al titular indicado o libera la publicación).
+        al titular indicado o libera la publicación). Si el cobro sale aprobado y Ventas rechaza la transferencia
+        (la entrada ya no está publicada), la publicación queda `ANULADA` y Reventa le pide a Pagos que devuelva el
+        pago: responde 409 `publicacion-no-activa`.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -759,14 +797,16 @@ paths:
         '409':
           description: >
             La publicación ya no está activa (`/problemas/publicacion-no-activa`), es del mismo usuario
-            (`/problemas/compra-propia`) o faltan menos de 3 horas para el evento (`/problemas/reventa-cerrada`)
+            (`/problemas/compra-propia`) o faltan menos de 3 horas para el evento (`/problemas/reventa-cerrada`).
+            También `publicacion-no-activa` cuando se cobró y Ventas rechazó la transferencia: el `detail` dice
+            "Te devolvimos el pago" o, si Pagos no respondió al devolverlo, "El pago se va a devolver"
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
         '504':
           description: >
-            Pagos o Ventas no respondieron a tiempo (`/problemas/sin-respuesta`). Se reintenta con la misma
-            `Idempotency-Key`: no se cobra de nuevo.
+            Pagos o Ventas no respondieron a tiempo (`/problemas/sin-respuesta`). La publicación queda tomada y se
+            reintenta con la misma `Idempotency-Key`: no se cobra de nuevo.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
@@ -1353,9 +1393,16 @@ components:
         pagoId: { type: string, example: P-8c21d0e4 }
         ventaId: { type: string }
         monto: { type: integer, format: int64 }
-        estado: { type: string, enum: [APROBADO, RECHAZADO] }
+        estado: { type: string, enum: [APROBADO, RECHAZADO, REEMBOLSADO] }
         motivo: { type: [string, 'null'], example: fondos_insuficientes }
         idExterno: { type: [string, 'null'] }
+
+    Reembolso:
+      type: object
+      required: [ventaId, motivo]
+      properties:
+        ventaId: { type: string, maxLength: 40, description: 'La venta del pago; si no coincide, no se devuelve nada', example: R-3f9a1c2b }
+        motivo: { type: string, maxLength: 200, example: 'Reventa: Ventas no transfirió la entrada T-1 al comprador (ya no estaba publicada).' }
 
     NuevaPublicacion:
       type: object
@@ -1378,7 +1425,7 @@ components:
         sector: { type: string, example: Platea B }
         precio: { type: integer, format: int64, description: Sin el cargo de servicio, example: 29000 }
         precioMaximo: { type: integer, format: int64, description: Tope de esa entrada (lo pagado más el 10%), example: 30250 }
-        estado: { type: string, enum: [ACTIVA, VENDIDA, RETIRADA] }
+        estado: { type: string, enum: [ACTIVA, VENDIDA, RETIRADA, ANULADA] }
         publicada: { type: string, format: date-time }
 
     CompraDeReventa:

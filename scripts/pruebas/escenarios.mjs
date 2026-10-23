@@ -1,8 +1,8 @@
-// Prueba de integración del backend de Palco: 19 escenarios de compra, mensajería, conciliación de pagos,
-// facturación, validación en puerta, reventa (con su conciliación) y devolución de cupo con Eventos caído, de
+// Prueba de integración del backend de Palco: 20 escenarios de compra, mensajería, conciliación de pagos,
+// facturación, validación en puerta, reventa (con su conciliación y sus reembolsos) y devolución de cupo con Eventos caído, de
 // punta a punta, por la API y por jboss-cli. Los 13 primeros son los que produjeron docs/entrega3/evidencia/integracion-13-escenarios.txt.
 //
-//   node scripts/pruebas/escenarios.mjs              corre los 19 escenarios
+//   node scripts/pruebas/escenarios.mjs              corre los 20 escenarios
 //   node scripts/pruebas/escenarios.mjs 1 2 7        corre solo esos
 //
 // Se corre desde cualquier carpeta: las rutas salen de la ubicación de este archivo. Necesita Node 18 o
@@ -18,7 +18,8 @@
 //   node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17
 // El 14 espera a la conciliación de pagos, que corre una vez por minuto con 2 minutos de margen: tarda
 // entre 2 y 4 minutos. El 18 espera al barrido de devoluciones, que corre una vez por minuto: tarda hasta 1.
-// El 19 espera a la conciliación de reventas, que corre una vez por minuto con 2 minutos de margen: entre 2 y 4.
+// El 19 y el 20 esperan a la conciliación de reventas, que corre una vez por minuto con 2 minutos de margen:
+// entre 2 y 4 cada uno.
 //
 // Los valores se comparan antes y después (el cupo, los contadores del broker, el log); los ids salen de
 // las respuestas. Los contadores del broker son de todo el servidor: si otra persona compra mientras
@@ -554,6 +555,77 @@ async function escenario19() {
   informe.igual('B: la entrada nueva es VALIDA', (await entrada(nueva?.id, OT)).json?.estado, 'VALIDA');
   const cobrosB = lineasCon(marca, B.pub.id, 'vendida a');
   informe.igual('B: no se cobró de nuevo (ninguna compra normal cerró B)', cobrosB.length, 0);
+}
+
+async function escenario20() {
+  informe.escenario(20, 'Reventa cobrada y sin entrada: Ventas rechaza la transferencia, la publicación se anula y el pago se devuelve (L2)');
+  const OT = await login('otro.titular@palco.test');
+  const otra = await cuentaNueva();
+  const R = '/api/v1/reventas';
+  const tope = Math.floor(PRECIO * 1.1);
+  const monto = tope + Math.round(tope * 0.1);
+  const vendedorId = JSON.parse(Buffer.from(T.split('.')[1], 'base64url').toString()).sub;
+  const publicar = async () => {
+    const { entradaId } = await compraDeApoyo();
+    return { entradaId, pub: (await http('POST', R, { token: T, cuerpo: { entradaId, precio: tope } })).json };
+  };
+  // Por detrás de Reventa, Ventas devuelve la entrada a VALIDA: la publicación sigue ACTIVA, pero Ventas ya no la transfiere.
+  const sacarDeVentas = (entradaId) => http('POST', '/api/v1/operaciones-de-reventa/retiros',
+    { token: S, cuerpo: { entradaId, vendedorId } });
+  const comprar = (pubId, token, clave, tokenDePago) => http('POST', `${R}/${pubId}/compra`, {
+    token, clave, cuerpo: { titular: titular('Luis Pérez'), medioDePago: 'tarjeta', token: tokenDePago },
+  });
+  const estadoDe = async (pubId) => (await http('GET', `${R}/mias`, { token: T })).json.find((x) => x.id === pubId)?.estado;
+  const activa = async (pubId) => (await http('GET', `${R}?eventoId=${EVENTO}`)).json.some((x) => x.id === pubId);
+
+  const A = await publicar();
+  const B = await publicar();
+  informe.ok('dos publicaciones ACTIVA del titular', A.pub?.estado === 'ACTIVA' && B.pub?.estado === 'ACTIVA',
+    `${A.pub?.id} ${B.pub?.id}`);
+  informe.igual('Ventas devuelve la entrada de A a VALIDA por detrás de Reventa', (await sacarDeVentas(A.entradaId)).estado, 200);
+  informe.ok('A sigue ACTIVA en la reventa', await activa(A.pub.id));
+  const marca = marcaDelLog();
+
+  // A: la compra misma cobra, Ventas rechaza la transferencia y la compra devuelve el pago en el momento.
+  const claveA = uuid();
+  const compraA = await comprar(A.pub.id, OT, claveA, 'tok_test');
+  esProblema(informe, compraA, 409, 'publicacion-no-activa', `${R}/${A.pub.id}/compra`);
+  informe.ok('el comprador sabe que le devolvieron el pago', compraA.json?.detail?.includes('Te devolvimos el pago'),
+    compraA.json?.detail);
+  const pagoA = (await verPago(`${A.pub.id}:${claveA}`)).json;
+  informe.ok('en Pagos el cobro de A quedó REEMBOLSADO, por el total cobrado',
+    pagoA?.estado === 'REEMBOLSADO' && pagoA?.monto === monto, JSON.stringify(pagoA));
+  informe.igual('A quedó ANULADA', await estadoDe(A.pub.id), 'ANULADA');
+  informe.ok('A ya no aparece en la reventa del evento', !(await activa(A.pub.id)));
+  informe.igual('la entrada del vendedor sigue VALIDA y suya', (await entrada(A.entradaId)).json?.estado, 'VALIDA');
+  const devueltos = lineasCon(marca, `Pago ${pagoA?.pagoId}`, 'REEMBOLSADO');
+  informe.igual('Pagos devolvió el pago una sola vez', devueltos.length, 1);
+
+  // Ni el reintento del comprador ni otra persona vuelven a cobrar; el vendedor tampoco la retira.
+  esProblema(informe, await comprar(A.pub.id, OT, claveA, 'tok_test'), 409, 'publicacion-no-activa', `${R}/${A.pub.id}/compra`);
+  esProblema(informe, await comprar(A.pub.id, otra.token, uuid(), 'tok_test'), 409, 'publicacion-no-activa',
+    `${R}/${A.pub.id}/compra`);
+  esProblema(informe, await http('DELETE', `${R}/${A.pub.id}`, { token: T }), 409, 'publicacion-no-activa', `${R}/${A.pub.id}`);
+  informe.igual('el reintento no volvió a devolver ni a cobrar', lineasCon(marca, `Pago ${pagoA?.pagoId}`, 'REEMBOLSADO').length, 1);
+
+  // B: Pagos no respondió pero cobró (se registra a mano con la misma clave, como en el 19), y la entrada ya
+  // no está en Ventas. Nadie reintenta: lo resuelve la conciliación de reventas.
+  const claveB = uuid();
+  esProblema(informe, await comprar(B.pub.id, OT, claveB, 'tok_sin_respuesta'), 504, 'sin-respuesta', `${R}/${B.pub.id}/compra`);
+  const cobroB = await http('POST', '/api/v1/pagos', { token: S, clave: `${B.pub.id}:${claveB}`,
+    cuerpo: { ventaId: B.pub.id, monto, medioDePago: 'tarjeta', token: 'tok_test' } });
+  informe.igual('en Pagos queda aprobado el cobro de B', cobroB.json?.estado, 'APROBADO');
+  informe.igual('Ventas devuelve la entrada de B a VALIDA', (await sacarDeVentas(B.entradaId)).estado, 200);
+
+  informe.dato('se espera a la conciliación de reventas (entre 2 y 4 minutos)');
+  const anulada = await hasta(async () => (await estadoDe(B.pub.id)) === 'ANULADA', { maximoMs: 260000, cadaMs: 3000 });
+  informe.ok('la conciliación anuló B', anulada, `B: ${await estadoDe(B.pub.id)}`);
+  const lineasB = lineasCon(marca, 'ConciliacionDeReventas', B.pub.id, 'quedó ANULADA');
+  informe.ok('la conciliación vio el pago aprobado, Ventas rechazó la transferencia y avisó que el pago se devuelve',
+    lineasB.length === 1, lineasB.map((l) => l.slice(0, 220)).join(' // '));
+  const pagoB = (await verPago(`${B.pub.id}:${claveB}`)).json;
+  informe.ok('en Pagos el cobro de B quedó REEMBOLSADO', pagoB?.estado === 'REEMBOLSADO' && pagoB?.monto === monto,
+    JSON.stringify(pagoB));
 }
 
 // ===================================================================================== mensajería
@@ -1119,7 +1191,7 @@ const pasos = [
   [6, escenario6], [7, escenario7], [8, escenario8], [9, escenario9], [10, escenario10], [11, escenario11],
   [12, escenario12], [13, escenario13], [14, escenario14],
   [15, async () => { compra ??= await compraDeApoyo(); await escenario15(compra); }],
-  [16, escenario16], [17, escenario17], [18, escenario18], [19, escenario19],
+  [16, escenario16], [17, escenario17], [18, escenario18], [19, escenario19], [20, escenario20],
 ];
 
 /** Si el escenario 5 o el 15 corren solos, necesitan una venta emitida del titular. También la usan el 16 y el 17. */

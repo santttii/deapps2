@@ -313,6 +313,11 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
       L1): la toma ya no vence a los 2 minutos y guarda el titular; el barrido
       `ConciliacionDeReventas` le pregunta a Pagos por la clave y transfiere la
       entrada o libera la publicación. Probado en el servidor (escenario 19).
+- [x] Reembolso de la compra de reventa sin entrada (23/10, limitación L2): si
+      Pagos cobra y Ventas rechaza la transferencia, se anota el reembolso, la
+      publicación queda `ANULADA` y Pagos devuelve el pago
+      (`POST /api/v1/pagos/{pagoId}/reembolso`); si Pagos no responde, el
+      barrido lo reintenta. Probado en el servidor (escenario 20).
 
 - [ ] `GET /api/entradas/mias`.
 - [ ] `POST /api/publicaciones`: valida (con `IUsuarios`) que quien publica sea
