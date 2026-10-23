@@ -90,6 +90,15 @@ public class Venta {
 
     private LocalDateTime confirmada;
 
+    /**
+     * true desde que la venta se cerró sin pagarse hasta que Eventos aceptó la
+     * devolución de su cupo. La ponen los UPDATE que cancelan o vencen la venta
+     * y la saca quien devolvió el cupo. Mientras sea true, el barrido
+     * {@code DevolucionDeCupos} la reintenta.
+     */
+    @Column(name = "devolucion_pendiente", nullable = false)
+    private boolean devolucionPendiente;
+
     /** Los renglones se guardan junto con la venta (cascade): no tienen repositorio propio. */
     @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("orden")
@@ -166,6 +175,7 @@ public class Venta {
     public String getPagoId() { return pagoId; }
     public LocalDateTime getCreada() { return creada; }
     public LocalDateTime getConfirmada() { return confirmada; }
+    public boolean isDevolucionPendiente() { return devolucionPendiente; }
     public List<VentaItem> getItems() { return items; }
     public List<Entrada> getEntradas() { return entradas; }
 }

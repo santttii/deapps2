@@ -143,7 +143,7 @@ public class VentaRepositoryJpa implements VentaRepository {
     @Override
     public boolean cancelar(String ventaId) {
         return cambioUnaFila(em.createQuery("""
-                        update Venta v set v.estado = :cancelada
+                        update Venta v set v.estado = :cancelada, v.devolucionPendiente = true
                         where v.id = :id
                           and v.estado = :enCheckout
                           and v.clavePago is null""")
@@ -155,7 +155,7 @@ public class VentaRepositoryJpa implements VentaRepository {
     @Override
     public boolean vencer(String ventaId, LocalDateTime ahora) {
         return cambioUnaFila(em.createQuery("""
-                        update Venta v set v.estado = :vencida
+                        update Venta v set v.estado = :vencida, v.devolucionPendiente = true
                         where v.id = :id
                           and v.estado = :enCheckout
                           and v.venceReserva <= :ahora
@@ -248,7 +248,7 @@ public class VentaRepositoryJpa implements VentaRepository {
     @Override
     public boolean vencerPagoSinCobro(String ventaId, String clavePago, LocalDateTime intentadosHasta) {
         return cambioUnaFila(em.createQuery("""
-                        update Venta v set v.estado = :vencida, v.clavePago = null
+                        update Venta v set v.estado = :vencida, v.clavePago = null, v.devolucionPendiente = true
                         where v.id = :id
                           and v.estado = :enCheckout
                           and v.clavePago = :clave
@@ -265,6 +265,27 @@ public class VentaRepositoryJpa implements VentaRepository {
      * pide. Tiene que ser acá adentro, mientras dura la transacción: quien recibe
      * la venta puede no tener una, y ahí ya no se pueden pedir.
      */
+    @Override
+    public List<Venta> buscarDevolucionesPendientes() {
+        return em.createQuery("""
+                        select v from Venta v
+                        where v.devolucionPendiente = true
+                        order by v.creada""", Venta.class)
+                .getResultList()
+                .stream()
+                .map(this::cargada)
+                .toList();
+    }
+
+    @Override
+    public boolean marcarCupoDevuelto(String ventaId) {
+        return cambioUnaFila(em.createQuery("""
+                        update Venta v set v.devolucionPendiente = false
+                        where v.id = :id
+                          and v.devolucionPendiente = true""")
+                .setParameter("id", ventaId));
+    }
+
     private Venta cargada(Venta venta) {
         venta.getItems().size();
         venta.getEntradas().size();

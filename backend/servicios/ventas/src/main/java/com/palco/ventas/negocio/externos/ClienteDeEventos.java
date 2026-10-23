@@ -1,5 +1,6 @@
 package com.palco.ventas.negocio.externos;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -56,8 +57,27 @@ public class ClienteDeEventos {
     /** El {@code type} del 409 con el que Eventos dice que el evento ya empezó y no reserva más. */
     static final String TIPO_EVENTO_FINALIZADO = "/problemas/evento-finalizado";
 
+    /**
+     * El {@code type} del 409 con el que Eventos dice que esa devolución ya la
+     * aplicó otro pedido con la misma clave. Para quien devuelve es un éxito.
+     */
+    static final String TIPO_DEVOLUCION_YA_APLICADA = "/problemas/devolucion-ya-aplicada";
+
     /** De un error de Eventos (Problem Details) solo se lee el {@code type}. */
     public record Problema(String type) {
+    }
+
+    /** Cómo terminó una devolución de cupo. */
+    public enum Devolucion {
+        /** Eventos la aplicó (ahora o en un intento anterior con la misma clave). */
+        HECHA,
+        /**
+         * Eventos la rechazó: el sector no existe o no tiene tantas vendidas.
+         * Reintentar no cambia nada; queda un SEVERE para revisarlo a mano.
+         */
+        RECHAZADA,
+        /** Eventos no respondió o respondió otra cosa: no se sabe si la aplicó. Se puede reintentar. */
+        SIN_RESPUESTA
     }
 
     /** Lo que se mira de una respuesta HTTP: el código de estado y el cuerpo como texto. */
@@ -78,38 +98,69 @@ public class ClienteDeEventos {
      * ese último caso no se sabe si la reserva se aplicó.
      */
     public Sector reservarCupo(String eventoId, String sectorId, int cantidad) {
-        return leerSector(cambiarCupo(eventoId, sectorId, cantidad));
+        return leerSector(cambiarCupo(eventoId, sectorId, cantidad, null));
     }
 
     /**
      * Devuelve {@code cantidad} lugares del sector. No lanza: quien devuelve
      * cupo ya cerró su parte (canceló o venció la venta, o está deshaciendo
-     * una compra que falló) y no puede hacer nada más si Eventos no responde.
-     * En ese caso deja un WARNING con los datos para devolverlo a mano y
-     * devuelve {@code false}. El lugar queda sin vender: es el lado seguro.
+     * una compra que falló) y no puede hacer nada más en ese momento. Si
+     * Eventos no responde, deja un WARNING y devuelve {@link Devolucion#SIN_RESPUESTA};
+     * mientras tanto el lugar queda sin vender, que es el lado seguro.
      *
-     * @param ventaId solo para que el aviso diga de qué venta era el cupo
+     * La devolución es segura de repetir: lleva una clave armada con la venta y
+     * el sector ({@link #claveDeDevolucion}), y Eventos no resta dos veces con
+     * la misma clave. Por eso, ante la duda, se puede volver a llamar: es lo
+     * que hace el barrido de {@code DevolucionDeCupos} con las devoluciones que
+     * fallaron.
+     *
+     * @param ventaId la venta dueña del cupo: con ella se arma la clave
      */
-    public boolean liberarCupo(String ventaId, String eventoId, String sectorId, int cantidad) {
+    public Devolucion liberarCupo(String ventaId, String eventoId, String sectorId, int cantidad) {
         try {
-            cambiarCupo(eventoId, sectorId, -cantidad);
-            return true;
+            cambiarCupo(eventoId, sectorId, -cantidad, claveDeDevolucion(ventaId, sectorId));
+            return Devolucion.HECHA;
+        } catch (ErroresDeNegocio.Conflicto | ErroresDeNegocio.ReglaIncumplida e) {
+            // Eventos contestó y dijo que no: el sector no existe o no tiene tantas vendidas. Volver a
+            // intentarlo daría lo mismo, así que no se reintenta. Que pase quiere decir que algo no cierra.
+            LOG.severe("Eventos rechazó la devolución del cupo de la venta " + ventaId + ": evento "
+                    + Textos.enUnaLinea(eventoId) + ", sector " + Textos.enUnaLinea(sectorId) + ", cantidad "
+                    + cantidad + ". No se reintenta: hay que revisarlo a mano. Motivo: "
+                    + Textos.enUnaLinea(e.getMessage()));
+            return Devolucion.RECHAZADA;
         } catch (RuntimeException e) {
             // El evento y el sector vinieron en el pedido del comprador: al log van en un solo renglón.
             LOG.warning("No se pudo devolver el cupo de la venta " + ventaId + ": evento "
                     + Textos.enUnaLinea(eventoId) + ", sector " + Textos.enUnaLinea(sectorId) + ", cantidad "
-                    + cantidad + ". Motivo: " + Textos.enUnaLinea(e.getMessage()));
-            return false;
+                    + cantidad + ". Se reintenta en el próximo barrido. Motivo: " + Textos.enUnaLinea(e.getMessage()));
+            return Devolucion.SIN_RESPUESTA;
         }
+    }
+
+    /**
+     * La clave de la devolución del cupo de una venta en un sector. Es siempre
+     * la misma para esa venta y ese sector: así una devolución repetida Eventos
+     * la reconoce y no la aplica otra vez. Una venta tiene un solo renglón por
+     * sector.
+     */
+    static String claveDeDevolucion(String ventaId, String sectorId) {
+        return "devolucion:" + ventaId + ":" + sectorId;
     }
 
     /**
      * Le pide a Eventos que sume (o reste, si es negativa) {@code cantidad} a
      * las vendidas del sector y devuelve el cuerpo de la respuesta. Se decide
-     * por el código de estado, nunca por el texto del error.
+     * por el código de estado, nunca por el texto del error. Con
+     * {@code claveDevolucion} (solo al devolver) Eventos no aplica dos veces la
+     * misma devolución; en ese caso puede devolver null.
      */
-    private String cambiarCupo(String eventoId, String sectorId, int cantidad) {
-        String cuerpo = JSONB.toJson(Map.of("cantidad", cantidad));
+    private String cambiarCupo(String eventoId, String sectorId, int cantidad, String claveDevolucion) {
+        Map<String, Object> pedido = new LinkedHashMap<>();
+        pedido.put("cantidad", cantidad);
+        if (claveDevolucion != null) {
+            pedido.put("clave", claveDevolucion);
+        }
+        String cuerpo = JSONB.toJson(pedido);
 
         Respuesta respuesta = enviar(eventoId, sectorId, cuerpo, tokenDeServicio.obtener());
         if (respuesta.estado() == 401) {
@@ -119,10 +170,19 @@ public class ClienteDeEventos {
             respuesta = enviar(eventoId, sectorId, cuerpo, tokenDeServicio.obtener());
         }
 
+        // Otro pedido con la misma clave aplicó esta devolución justo antes: el cupo ya está devuelto.
+        if (respuesta.estado() == 409 && claveDevolucion != null
+                && TIPO_DEVOLUCION_YA_APLICADA.equals(tipoDeProblema(respuesta.cuerpo()))) {
+            return null;
+        }
+
         return switch (respuesta.estado()) {
             case 200 -> respuesta.cuerpo();
-            case 404 -> throw new ErroresDeNegocio.ReglaIncumplida(TiposDeProblema.SECTOR_INEXISTENTE,
-                    "El evento no tiene ese sector.");
+            // Un 404 de Eventos trae su error (Problem Details). Uno sin ese cuerpo lo dio el servidor
+            // porque Eventos no está desplegado: eso no dice nada del sector, es que no responde.
+            case 404 -> throw tipoDeProblema(respuesta.cuerpo()) != null
+                    ? new ErroresDeNegocio.ReglaIncumplida(TiposDeProblema.SECTOR_INEXISTENTE, "El evento no tiene ese sector.")
+                    : new ErroresDeNegocio.SinRespuesta("El servicio de eventos no responde. Probá de nuevo.");
             case 409 -> throw TIPO_EVENTO_FINALIZADO.equals(tipoDeProblema(respuesta.cuerpo()))
                     ? new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_FINALIZADO, "Ese evento ya empezó o terminó")
                     : new ErroresDeNegocio.Conflicto(TiposDeProblema.CUPO_AGOTADO, cantidad > 0
@@ -172,10 +232,12 @@ public class ClienteDeEventos {
                 .request(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .post(Entity.entity(cuerpo, MediaType.APPLICATION_JSON))) {
-            // El cuerpo interesa en un 200 (el sector) y en un 409 (el type dice si es cupo o evento
-            // finalizado). De los demás errores se mira el código y nada más.
+            // El cuerpo interesa en un 200 (el sector), en un 404 (si trae el error de Eventos, el sector no
+            // existe; si no, Eventos no está desplegado) y en un 409 (el type dice si es cupo, evento
+            // finalizado o una devolución ya aplicada). De los demás errores se mira el código y nada más.
             int estado = respuesta.getStatus();
-            return new Respuesta(estado, estado == 200 || estado == 409 ? respuesta.readEntity(String.class) : null);
+            boolean conCuerpo = estado == 200 || estado == 404 || estado == 409;
+            return new Respuesta(estado, conCuerpo ? respuesta.readEntity(String.class) : null);
         } catch (ProcessingException e) {
             // Sin conexión o se cumplió el tiempo de espera: no se sabe si Eventos llegó a aplicar el cambio.
             // El aviso lleva el evento, el sector y el cuerpo enviado (la cantidad: positiva es una reserva,

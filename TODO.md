@@ -190,6 +190,12 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 
 ## Fase 4 — `ServicioDeVentas` (stateful) y `ServicioDePagos`
 
+- [x] Devolución de cupo segura de repetir (23/10, limitación L4): las ventas
+      canceladas o vencidas quedan con la marca `devolucion_pendiente` hasta que
+      Eventos acepta el cupo, el barrido `DevolucionDeCupos` las reintenta cada
+      minuto y Eventos no resta dos veces la misma clave (`devolucion_de_cupo`).
+      Probado en el servidor con el WAR de Eventos detenido.
+
 - [ ] Interfaz `IVentas` como `@Stateful`: mantiene selección, titulares y
       pago a lo largo de varias llamadas del mismo usuario. Se libera
       (`@Remove`) al confirmar o cancelar.

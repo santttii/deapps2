@@ -30,6 +30,7 @@ import com.palco.ventas.dominio.EstadoVenta;
 import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.dominio.VentaItem;
 import com.palco.ventas.negocio.externos.ClienteDeEventos;
+import com.palco.ventas.negocio.externos.ClienteDeEventos.Devolucion;
 import com.palco.ventas.negocio.externos.ClienteDeUsuarios;
 import com.palco.ventas.negocio.externos.CobroNoRealizado;
 
@@ -299,13 +300,34 @@ public class ComprasEnCurso {
 
     /**
      * Devuelve a Eventos el cupo de todos los renglones de una venta que ya se
-     * cerró sin pagarse. Solo lo llama quien cambió el estado de la venta con
-     * su propio UPDATE, y después de que ese cambio quedó confirmado. Si
-     * Eventos no responde no falla: queda un WARNING por cada sector.
+     * cerró sin pagarse. Lo llama quien cambió el estado de la venta con su
+     * propio UPDATE, después de que ese cambio quedó confirmado, y el barrido
+     * {@link DevolucionDeCupos} con las que quedaron pendientes.
+     *
+     * El UPDATE que cerró la venta dejó la marca de devolución pendiente. Si
+     * Eventos aceptó todos los renglones (o rechazó alguno para siempre), acá
+     * se saca. Si algún renglón quedó sin respuesta, la marca sigue y el
+     * barrido lo vuelve a intentar. Repetirlo es seguro: cada devolución lleva
+     * su clave y Eventos no resta dos veces. No falla: si Eventos no responde
+     * queda un WARNING por sector.
      */
     public void devolverCupo(Venta venta) {
+        boolean faltaAlguno = false;
         for (VentaItem item : venta.getItems()) {
-            eventos.liberarCupo(venta.getId(), venta.getEventoId(), item.getSectorId(), item.getCantidad());
+            Devolucion resultado = eventos.liberarCupo(venta.getId(), venta.getEventoId(), item.getSectorId(),
+                    item.getCantidad());
+            faltaAlguno |= resultado != Devolucion.HECHA && resultado != Devolucion.RECHAZADA;
+        }
+        if (faltaAlguno) {
+            return;
+        }
+        try {
+            ventas.marcarCupoDevuelto(venta.getId());
+        } catch (RuntimeException e) {
+            // El cupo ya está devuelto. Si la marca no se pudo sacar, el barrido lo intenta de nuevo y
+            // Eventos reconoce las claves: no resta otra vez.
+            LOG.warning("El cupo de la venta " + venta.getId() + " ya se devolvió, pero no se pudo anotar en la"
+                    + " base; el barrido lo vuelve a intentar sin restar dos veces. Motivo: " + e);
         }
     }
 

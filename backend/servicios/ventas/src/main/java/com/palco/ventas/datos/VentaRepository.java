@@ -88,14 +88,28 @@ public interface VentaRepository {
     /** {@code EN_CHECKOUT} → {@code CONFIRMADA}: anota el pago aprobado y el instante de la confirmación. */
     boolean confirmar(String ventaId, String pagoId, LocalDateTime ahora);
 
-    /** {@code EN_CHECKOUT} → {@code CANCELADA}. No cambia nada si hay un pago en curso (clave de pago anotada). */
+    /**
+     * {@code EN_CHECKOUT} → {@code CANCELADA}, con la marca de devolución de
+     * cupo pendiente. No cambia nada si hay un pago en curso (clave de pago anotada).
+     */
     boolean cancelar(String ventaId);
 
     /**
      * {@code EN_CHECKOUT} → {@code VENCIDA}, solo si la reserva ya venció en el
-     * instante {@code ahora}. No cambia nada si hay un pago en curso.
+     * instante {@code ahora}, con la marca de devolución de cupo pendiente. No
+     * cambia nada si hay un pago en curso.
      */
     boolean vencer(String ventaId, LocalDateTime ahora);
+
+    /**
+     * Las ventas cerradas sin pagarse cuyo cupo todavía no aceptó Eventos
+     * (marca {@code devolucion_pendiente}), con sus renglones. Las usa el
+     * barrido {@code DevolucionDeCupos}.
+     */
+    List<Venta> buscarDevolucionesPendientes();
+
+    /** Saca la marca de devolución pendiente: Eventos ya aceptó (o rechazó para siempre) el cupo. */
+    boolean marcarCupoDevuelto(String ventaId);
 
     /** {@code CONFIRMADA} → {@code EMITIDA}, cuando sus entradas ya tienen código. */
     boolean marcarEmitida(String ventaId);

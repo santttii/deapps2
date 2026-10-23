@@ -35,6 +35,7 @@ import org.mockito.InOrder;
 import com.palco.ventas.datos.VentaRepository;
 import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.negocio.externos.ClienteDeEventos;
+import com.palco.ventas.negocio.externos.ClienteDeEventos.Devolucion;
 
 /**
  * Qué hace una corrida del barrido, sin servidor ni temporizador: el
@@ -142,9 +143,9 @@ class VencimientoDeReservasTest {
         when(ventas.buscarReservasVencidas(AHORA))
                 .thenReturn(List.of(reservaVencida("V-11111111"), reservaVencida("V-22222222")));
         when(ventas.vencer(anyString(), any())).thenReturn(true);
-        // false: Eventos no respondió. El cliente no lanza; deja un aviso con los datos para devolverlo a mano.
-        when(eventos.liberarCupo("V-11111111", "ev-1", "sec-1-4", 2)).thenReturn(false);
-        when(eventos.liberarCupo("V-22222222", "ev-1", "sec-1-4", 2)).thenReturn(true);
+        // Eventos no respondió por la primera. El cliente no lanza: la marca queda y la reintenta DevolucionDeCupos.
+        when(eventos.liberarCupo("V-11111111", "ev-1", "sec-1-4", 2)).thenReturn(Devolucion.SIN_RESPUESTA);
+        when(eventos.liberarCupo("V-22222222", "ev-1", "sec-1-4", 2)).thenReturn(Devolucion.HECHA);
 
         assertDoesNotThrow(barrido::vencerReservas);
 

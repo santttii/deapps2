@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.seguridad.TokenDeServicio;
+import com.palco.ventas.negocio.externos.ClienteDeEventos.Devolucion;
 import com.palco.ventas.negocio.externos.ClienteDeEventos.Sector;
 
 /**
@@ -75,17 +76,52 @@ class ClienteDeEventosTest {
     }
 
     @Test
-    void liberarMandaLaCantidadEnNegativo() {
+    void liberarMandaLaCantidadEnNegativoConLaClaveDeLaVentaYElSector() {
         eventos.responde(200, SECTOR_JSON);
 
-        assertTrue(eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
+        assertEquals(Devolucion.HECHA, eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
 
-        assertEquals(List.of("ev-1 sec-1-4 {\"cantidad\":-2} token-1"), eventos.llamadas);
+        // La clave es la misma cada vez que se devuelve el cupo de esa venta en ese sector: así un
+        // reintento Eventos lo reconoce y no resta dos veces.
+        assertEquals(List.of("ev-1 sec-1-4 {\"cantidad\":-2,\"clave\":\"devolucion:V-3f9a1c2b:sec-1-4\"} token-1"),
+                eventos.llamadas);
+    }
+
+    @Test
+    void reintentarUnaDevolucionMandaLaMismaClave() {
+        eventos.responde(200, SECTOR_JSON);
+        eventos.responde(200, SECTOR_JSON);
+
+        eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2);
+        eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2);
+
+        assertEquals(eventos.llamadas.get(0).replace("token-1", ""), eventos.llamadas.get(1).replace("token-2", ""));
+    }
+
+    @Test
+    void unaDevolucionQueOtroPedidoYaAplicoCuentaComoHecha() {
+        eventos.responde(409, "{\"type\":\"/problemas/devolucion-ya-aplicada\",\"status\":409}");
+
+        assertEquals(Devolucion.HECHA, eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
+    }
+
+    /** El 404 de Eventos cuando no conoce el sector: con su error en Problem Details. */
+    private static final String NO_ENCONTRADO_JSON = "{\"type\":\"/problemas/no-encontrado\",\"status\":404}";
+
+    @Test
+    void un404SinElErrorDeEventosEsQueEventosNoEstaDesplegado() {
+        // Lo responde el servidor, no Eventos: no dice nada del sector.
+        eventos.responde(404, "<html><body>Not Found</body></html>");
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> eventos.reservarCupo("ev-1", "sec-1-4", 2));
+
+        // Y al devolver, se reintenta en vez de darlo por rechazado (si no, ese cupo se perdía).
+        eventos.responde(404, null);
+        assertEquals(Devolucion.SIN_RESPUESTA, eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
     }
 
     @Test
     void unSectorQueEventosNoConoceEsUnaReglaIncumplida() {
-        eventos.responde(404, null);
+        eventos.responde(404, NO_ENCONTRADO_JSON);
 
         ErroresDeNegocio.ReglaIncumplida error = assertThrows(ErroresDeNegocio.ReglaIncumplida.class,
                 () -> eventos.reservarCupo("ev-1", "sec-no-existe", 2));
@@ -217,19 +253,29 @@ class ClienteDeEventosTest {
     }
 
     @Test
-    void liberarNoLanzaAunqueEventosNoRespondaNiAcepteLaDevolucion() {
+    void liberarNoLanzaAunqueEventosNoResponda() {
         eventos.caido = true;
-        assertFalse(eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
+        assertEquals(Devolucion.SIN_RESPUESTA, eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
 
         eventos.caido = false;
-        eventos.responde(409, null); // Eventos dice que no tiene tantas vendidas
-        assertFalse(eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
+        eventos.responde(500, null);
+        assertEquals(Devolucion.SIN_RESPUESTA, eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
+    }
+
+    @Test
+    void siEventosRechazaLaDevolucionNoSeReintenta() {
+        // Eventos contestó que no: reintentar daría lo mismo.
+        eventos.responde(409, null); // no tiene tantas vendidas
+        assertEquals(Devolucion.RECHAZADA, eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
+
+        eventos.responde(404, NO_ENCONTRADO_JSON); // el sector ya no existe
+        assertEquals(Devolucion.RECHAZADA, eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
     }
 
     @Test
     void alLiberarAlcanzaConElCodigoYNoSeMiraElCuerpo() {
         eventos.responde(200, null);
 
-        assertTrue(eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
+        assertEquals(Devolucion.HECHA, eventos.liberarCupo("V-3f9a1c2b", "ev-1", "sec-1-4", 2));
     }
 }
