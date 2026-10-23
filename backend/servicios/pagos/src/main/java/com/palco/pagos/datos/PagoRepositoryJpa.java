@@ -1,5 +1,6 @@
 package com.palco.pagos.datos;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import jakarta.ejb.Stateless;
@@ -9,6 +10,7 @@ import jakarta.persistence.PersistenceException;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.datos.BaseDeDatos;
+import com.palco.pagos.dominio.EstadoPago;
 import com.palco.pagos.dominio.Pago;
 
 /**
@@ -53,5 +55,23 @@ public class PagoRepositoryJpa implements PagoRepository {
             }
             throw e;
         }
+    }
+
+    @Override
+    public boolean marcarReembolsado(String pagoId, String motivo, LocalDateTime ahora) {
+        int cambiadas = em.createQuery("""
+                        update Pago p
+                        set p.estado = :reembolsado, p.motivoReembolso = :motivo, p.reembolsado = :ahora,
+                            p.actualizado = :ahora
+                        where p.id = :id and p.estado = :aprobado""")
+                .setParameter("id", pagoId)
+                .setParameter("motivo", motivo)
+                .setParameter("ahora", ahora)
+                .setParameter("reembolsado", EstadoPago.REEMBOLSADO)
+                .setParameter("aprobado", EstadoPago.APROBADO)
+                .executeUpdate();
+        // Lo cargado en este EntityManager quedó viejo: el próximo find lee la fila de nuevo.
+        em.clear();
+        return cambiadas == 1;
     }
 }

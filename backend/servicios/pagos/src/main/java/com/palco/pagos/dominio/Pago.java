@@ -10,8 +10,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 /**
- * Un cobro que la pasarela ya resolvió, aprobado o rechazado. No guarda el
- * token de la tarjeta: sirve para un solo cobro y es un dato sensible.
+ * Un cobro que la pasarela ya resolvió, aprobado o rechazado. Un aprobado
+ * puede terminar reembolsado. No guarda el token de la tarjeta: sirve para un
+ * solo cobro y es un dato sensible.
  */
 @Entity
 @Table(name = "pago")
@@ -58,6 +59,13 @@ public class Pago {
     @Column(nullable = false)
     private LocalDateTime actualizado;
 
+    /** Por qué se devolvió; null si no se devolvió. */
+    @Column(name = "motivo_reembolso")
+    private String motivoReembolso;
+
+    /** Cuándo se devolvió, en UTC; null si no se devolvió. */
+    private LocalDateTime reembolsado;
+
     protected Pago() {
         // JPA
     }
@@ -89,4 +97,22 @@ public class Pago {
     public String getIdExterno() { return idExterno; }
     public LocalDateTime getCreado() { return creado; }
     public LocalDateTime getActualizado() { return actualizado; }
+    public String getMotivoReembolso() { return motivoReembolso; }
+    public LocalDateTime getReembolsado() { return reembolsado; }
+
+    /**
+     * {@code APROBADO} → {@code REEMBOLSADO}, sobre la entidad. Lo usa el
+     * repositorio en memoria de los tests; el de la base lo hace con un
+     * UPDATE condicional ({@code PagoRepository.marcarReembolsado}).
+     */
+    public boolean reembolsar(String motivo, LocalDateTime ahora) {
+        if (estado != EstadoPago.APROBADO) {
+            return false;
+        }
+        this.estado = EstadoPago.REEMBOLSADO;
+        this.motivoReembolso = motivo;
+        this.reembolsado = ahora;
+        this.actualizado = ahora;
+        return true;
+    }
 }

@@ -69,6 +69,13 @@ public interface PublicacionRepository {
     boolean marcarVendida(String id, String compradorId, String clave, String ventaId, String pagoId,
             LocalDateTime ahora);
 
+    /**
+     * {@code ACTIVA} → {@code ANULADA}, si la toma es de esa clave. Queda la
+     * toma anotada (comprador, clave, titular): dice de quién es el cobro que
+     * se devuelve.
+     */
+    boolean anular(String id, String clave, LocalDateTime ahora);
+
     /** {@code ACTIVA} → {@code RETIRADA}, si es de ese vendedor y no tiene una toma. */
     boolean retirar(String id, String vendedorId, LocalDateTime ahora);
 }

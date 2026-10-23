@@ -139,6 +139,56 @@ class ClientesTest {
     }
 
     @Test
+    void unPagoReembolsadoSeLeeComoNoAprobado() {
+        consultaResponde(new Respuesta(200, "{\"pagoId\":\"P-1\",\"ventaId\":\"R-1\",\"estado\":\"REEMBOLSADO\"}"));
+
+        ClienteDePagos.Cobro cobro = pagos().buscarCobro("R-1", "clave").orElseThrow();
+
+        assertFalse(cobro.aprobado());
+        assertEquals(ClienteDePagos.MOTIVO_REEMBOLSADO, cobro.motivo());
+    }
+
+    // ---- Reembolso (L2) ----
+
+    private void reembolsoResponde(Respuesta respuesta) {
+        when(rest.llamar(eq("POST"), eq(ClienteDePagos.RUTA + "/P-1/reembolso"), anyMap(), anyMap(), any()))
+                .thenReturn(respuesta);
+    }
+
+    @Test
+    void elReembolsoViajaConLaPublicacionYElMotivoYSeLeeHecho() {
+        reembolsoResponde(new Respuesta(200, "{\"pagoId\":\"P-1\",\"ventaId\":\"R-1\",\"estado\":\"REEMBOLSADO\"}"));
+
+        assertEquals(ClienteDePagos.Devolucion.HECHA, pagos().reembolsar("P-1", "R-1", "sin entrada"));
+        verify(rest).llamar(eq("POST"), eq(ClienteDePagos.RUTA + "/P-1/reembolso"), eq(Map.of()), eq(Map.of()),
+                eq("{\"motivo\":\"sin entrada\",\"ventaId\":\"R-1\"}"));
+    }
+
+    @Test
+    void elReembolsoRechazadoPorPagosNoSeRepiteYLoDemasEsSinRespuesta() {
+        reembolsoResponde(new Respuesta(409, "{\"type\":\"/problemas/pago-no-reembolsable\"}"));
+        assertEquals(ClienteDePagos.Devolucion.RECHAZADA, pagos().reembolsar("P-1", "R-1", "x"));
+
+        armar();
+        reembolsoResponde(new Respuesta(404, "{\"type\":\"/problemas/no-encontrado\"}"));
+        assertEquals(ClienteDePagos.Devolucion.RECHAZADA, pagos().reembolsar("P-1", "R-1", "x"));
+
+        // Un 404 sin el error de Pagos (el WAR no está), un 500, un 200 que no es el reembolso o sin conexión: no se sabe.
+        for (Respuesta respuesta : new Respuesta[] { new Respuesta(404, "<html>Not Found</html>"), new Respuesta(500, null),
+                new Respuesta(200, "{\"pagoId\":\"P-1\",\"ventaId\":\"R-1\",\"estado\":\"APROBADO\"}"),
+                new Respuesta(200, "{\"pagoId\":\"P-1\",\"ventaId\":\"R-otra\",\"estado\":\"REEMBOLSADO\"}") }) {
+            armar();
+            reembolsoResponde(respuesta);
+            assertEquals(ClienteDePagos.Devolucion.SIN_RESPUESTA, pagos().reembolsar("P-1", "R-1", "x"),
+                    respuesta.toString());
+        }
+        armar();
+        when(rest.llamar(eq("POST"), eq(ClienteDePagos.RUTA + "/P-1/reembolso"), anyMap(), anyMap(), any()))
+                .thenThrow(new ErroresDeNegocio.SinRespuesta("sin conexión"));
+        assertEquals(ClienteDePagos.Devolucion.SIN_RESPUESTA, pagos().reembolsar("P-1", "R-1", "x"));
+    }
+
+    @Test
     void ventasTraduceNoEncontradoYConflicto() {
         ClienteDeVentas ventas = new ClienteDeVentas();
         ventas.rest = rest;

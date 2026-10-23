@@ -18,7 +18,7 @@ public final class Dtos {
      * Una publicación. {@code precio} es lo que paga el comprador por la
      * entrada, sin el cargo de servicio; {@code precioMaximo} es el tope de
      * esa entrada (lo pagado más el 10%). {@code estado} es {@code ACTIVA},
-     * {@code VENDIDA} o {@code RETIRADA}.
+     * {@code VENDIDA}, {@code RETIRADA} o {@code ANULADA}.
      */
     public record PublicacionDto(
             String id,

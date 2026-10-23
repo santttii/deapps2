@@ -14,6 +14,6 @@ public enum EstadoPago {
     PENDIENTE,
     /** Quedó pendiente y la pasarela lo dio de baja. Llega con el webhook. */
     VENCIDO,
-    /** Estaba aprobado y se devolvió la plata. Llega con el reembolso. */
+    /** Estaba aprobado y se devolvió la plata ({@code IPagos.reembolsar}). */
     REEMBOLSADO
 }

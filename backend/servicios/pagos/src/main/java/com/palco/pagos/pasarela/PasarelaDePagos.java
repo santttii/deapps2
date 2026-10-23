@@ -23,4 +23,14 @@ public interface PasarelaDePagos {
      * @param claveIdempotencia identifica el pedido: repetirla no tiene que repetir el cobro
      */
     ResultadoPasarela cobrar(String ventaId, long monto, String medioDePago, String token, String claveIdempotencia);
+
+    /**
+     * Devuelve el cobro entero. Tiene que ser idempotente por
+     * {@code claveIdempotencia}: repetir el pedido no devuelve dos veces (Mercado
+     * Pago lo es con la cabecera {@code X-Idempotency-Key}). Si la pasarela no
+     * contesta lanza {@code ErroresDeNegocio.SinRespuesta}, y se puede repetir.
+     *
+     * @param idExterno el id del pago en la pasarela, el que devolvió {@link #cobrar}
+     */
+    void reembolsar(String idExterno, long monto, String claveIdempotencia);
 }

@@ -140,6 +140,19 @@ public class PublicacionRepositoryJpa implements PublicacionRepository {
     }
 
     @Override
+    public boolean anular(String id, String clave, LocalDateTime ahora) {
+        return cambioUnaFila(em.createQuery("""
+                        update Publicacion p
+                        set p.estado = :anulada, p.cerrada = :ahora
+                        where p.id = :id and p.estado = :activa and p.claveCompra = :clave""")
+                .setParameter("id", id)
+                .setParameter("clave", clave)
+                .setParameter("ahora", ahora)
+                .setParameter("anulada", EstadoPublicacion.ANULADA)
+                .setParameter("activa", EstadoPublicacion.ACTIVA));
+    }
+
+    @Override
     public boolean retirar(String id, String vendedorId, LocalDateTime ahora) {
         return cambioUnaFila(em.createQuery("""
                         update Publicacion p

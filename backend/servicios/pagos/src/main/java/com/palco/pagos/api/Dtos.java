@@ -40,7 +40,23 @@ public final class Dtos {
     }
 
     /**
-     * El pago ya resuelto. {@code estado} es {@code APROBADO} o {@code RECHAZADO};
+     * El pedido de reembolso. {@code ventaId} es la venta del pago: si no
+     * coincide, el pedido apunta a otro pago y no se devuelve nada.
+     * {@code motivo} queda guardado con el pago.
+     */
+    public record ReembolsoDto(
+            @NotBlank(message = "Falta la venta del pago que se devuelve.")
+            @Size(max = 40, message = "El id de la venta tiene hasta 40 caracteres.")
+            String ventaId,
+
+            @NotBlank(message = "Falta el motivo del reembolso.")
+            @Size(max = 200, message = "El motivo tiene hasta 200 caracteres.")
+            String motivo) {
+    }
+
+    /**
+     * El pago ya resuelto. {@code estado} es {@code APROBADO}, {@code RECHAZADO}
+     * o, si se devolvió, {@code REEMBOLSADO};
      * {@code motivo} dice por qué se rechazó y es null si se aprobó;
      * {@code idExterno} es el id del pago en la pasarela.
      */

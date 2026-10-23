@@ -35,6 +35,9 @@ import com.palco.reventa.negocio.externos.ClienteRest.Respuesta;
  * <li>cualquier otra cosa: {@code SinRespuesta}. No se sabe si se cobró.</li>
  * </ul>
  *
+ * También pide el reembolso de un cobro cuya entrada no se pudo transferir
+ * ({@link #reembolsar}, limitación L2).
+ *
  * {@code @ApplicationScoped}: una instancia sin estado para todo el servicio.
  */
 @ApplicationScoped
@@ -48,7 +51,21 @@ public class ClienteDePagos {
     static final String TIPO_NO_ENCONTRADO = "/problemas/no-encontrado";
     /** El parámetro de la consulta por clave: {@code GET /api/v1/pagos?claveIdempotencia=...}. */
     static final String PARAMETRO_CLAVE = "claveIdempotencia";
+    /** El {@code type} del 409 con el que Pagos dice que ese pago no se puede devolver. */
+    static final String TIPO_PAGO_NO_REEMBOLSABLE = "/problemas/pago-no-reembolsable";
+    /** El motivo de un {@link Cobro} cuyo pago ya se devolvió: no cuenta como aprobado. */
+    public static final String MOTIVO_REEMBOLSADO = "reembolsado";
     private static final String PAGOS_NO_RESPONDE = "El servicio de pagos no responde. Probá de nuevo.";
+
+    /** Cómo terminó un pedido de reembolso. */
+    public enum Devolucion {
+        /** Pagos devolvió el pago (ahora o en un pedido anterior). */
+        HECHA,
+        /** Pagos contestó que ese pago no se puede devolver: no existe, no está aprobado o es de otra publicación. */
+        RECHAZADA,
+        /** No se sabe: hay que repetir el pedido. */
+        SIN_RESPUESTA
+    }
 
     /** El resultado del cobro. {@code pagoId} es null si Pagos no llegó a cobrar. */
     public record Cobro(String pagoId, boolean aprobado, String motivo) {
@@ -58,6 +75,9 @@ public class ClienteDePagos {
     }
 
     public record Pago(String pagoId, String ventaId, long monto, String estado, String motivo) {
+    }
+
+    public record PedidoDeReembolso(String ventaId, String motivo) {
     }
 
     @Inject
@@ -127,6 +147,43 @@ public class ClienteDePagos {
         throw new ErroresDeNegocio.SinRespuesta(PAGOS_NO_RESPONDE);
     }
 
+    /**
+     * Pide que se devuelva un pago aprobado:
+     * {@code POST /api/v1/pagos/{pagoId}/reembolso}. Pagos lo hace una sola
+     * vez, así que repetirlo es seguro.
+     *
+     * <ul>
+     * <li>200 con el pago {@code REEMBOLSADO} y de esta publicación: {@code HECHA}.</li>
+     * <li>409 {@code pago-no-reembolsable}, o 404 de Pagos ({@code no-encontrado}): {@code RECHAZADA}.
+     * Repetirlo daría lo mismo.</li>
+     * <li>Cualquier otra cosa, incluido un 404 sin el error de Pagos (el WAR no está desplegado) o
+     * que el pedido no salga: {@code SIN_RESPUESTA}.</li>
+     * </ul>
+     */
+    public Devolucion reembolsar(String pagoId, String publicacionId, String motivo) {
+        String cuerpo = ClienteRest.JSONB.toJson(new PedidoDeReembolso(publicacionId, motivo));
+        Respuesta respuesta;
+        try {
+            respuesta = rest.llamar("POST", RUTA + "/" + pagoId + "/reembolso", Map.of(), Map.of(), cuerpo);
+        } catch (ErroresDeNegocio.SinRespuesta e) {
+            return Devolucion.SIN_RESPUESTA;
+        }
+        if (respuesta.estado() == 200) {
+            Pago pago = pagoDe(respuesta.cuerpo());
+            if (pago != null && "REEMBOLSADO".equals(pago.estado()) && publicacionId.equals(pago.ventaId())) {
+                return Devolucion.HECHA;
+            }
+        } else if ((respuesta.estado() == 409 && TIPO_PAGO_NO_REEMBOLSABLE.equals(respuesta.tipo()))
+                || (respuesta.estado() == 404 && TIPO_NO_ENCONTRADO.equals(respuesta.tipo()))) {
+            LOG.warning("Pagos no acepta devolver el pago " + Textos.enUnaLinea(pagoId) + " de la publicación "
+                    + publicacionId + " (" + respuesta.estado() + " " + Textos.enUnaLinea(respuesta.tipo()) + ").");
+            return Devolucion.RECHAZADA;
+        }
+        LOG.warning("Pagos respondió " + respuesta.estado() + " al devolver el pago " + Textos.enUnaLinea(pagoId)
+                + " de la publicación " + publicacionId + ": no se sabe si lo devolvió.");
+        return Devolucion.SIN_RESPUESTA;
+    }
+
     private static Pago pagoDe(String json) {
         try {
             return ClienteRest.JSONB.fromJson(json, Pago.class);
@@ -144,7 +201,10 @@ public class ClienteDePagos {
         return respuesta.estado() == 409 && !TIPO_CLAVE_REUTILIZADA.equals(respuesta.tipo());
     }
 
-    /** Un 201 que no trae un pago con id, aprobado o rechazado, no dice cómo terminó el cobro. */
+    /**
+     * Un 201 que no trae un pago con id, aprobado, rechazado o reembolsado, no
+     * dice cómo terminó el cobro. Un reembolsado vuelve como no aprobado.
+     */
     static Cobro leer(String json) {
         Pago pago;
         try {
@@ -160,6 +220,10 @@ public class ClienteDePagos {
         }
         if ("RECHAZADO".equals(pago.estado())) {
             return new Cobro(pago.pagoId(), false, pago.motivo());
+        }
+        if ("REEMBOLSADO".equals(pago.estado())) {
+            // Se cobró y se devolvió: para esta compra ya no hay plata cobrada.
+            return new Cobro(pago.pagoId(), false, MOTIVO_REEMBOLSADO);
         }
         throw new ErroresDeNegocio.SinRespuesta("El pago " + Textos.enUnaLinea(pago.pagoId())
                 + " todavía no tiene resultado.");

@@ -183,6 +183,26 @@ class PublicacionesEnH2Test {
     }
 
     @Test
+    void anularlaLaSacaDeLaVentaYGuardaDeQuienEraLaCompra() {
+        enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", "Ana Gómez", "30111222", AHORA));
+        // Solo la anula la toma de esa clave.
+        assertFalse(enTransaccion(em, () -> repositorio.anular("R-1", "k2", AHORA)));
+        assertTrue(enTransaccion(em, () -> repositorio.anular("R-1", "k1", AHORA)));
+        assertFalse(enTransaccion(em, () -> repositorio.anular("R-1", "k1", AHORA)));
+
+        Publicacion anulada = leer("R-1");
+        assertEquals(EstadoPublicacion.ANULADA, anulada.getEstado());
+        assertEquals("U-a", anulada.getCompradorId());
+        assertEquals("k1", anulada.getClaveCompra());
+        assertEquals(AHORA, anulada.getCerrada());
+        // No se lista, nadie la toma, el vendedor no la retira y la conciliación no la mira.
+        assertEquals(1, repositorio.buscarActivasPorEvento("ev-1").size());
+        assertFalse(enTransaccion(em, () -> repositorio.tomar("R-1", "U-b", "k3", "Luis Pérez", "25231472", AHORA)));
+        assertFalse(enTransaccion(em, () -> repositorio.retirar("R-1", "U-vendedor", AHORA)));
+        assertTrue(enTransaccion(em, () -> repositorio.buscarTomasSinCerrar(AHORA.plusMinutes(5))).isEmpty());
+    }
+
+    @Test
     void dosComprasALaVezTomanLaPublicacionUnaSolaVez() throws Exception {
         EntityManager otro = fabrica.createEntityManager();
         try {

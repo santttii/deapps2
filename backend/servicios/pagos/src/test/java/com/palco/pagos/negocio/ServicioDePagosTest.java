@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import com.palco.common.ErroresDeNegocio;
 import com.palco.pagos.api.Dtos.NuevoPagoDto;
 import com.palco.pagos.api.Dtos.PagoDto;
+import com.palco.pagos.api.Dtos.ReembolsoDto;
 import com.palco.pagos.datos.PagoRepositoryEnMemoria;
 import com.palco.pagos.dominio.EstadoPago;
 import com.palco.pagos.dominio.Pago;
@@ -268,9 +269,101 @@ class ServicioDePagosTest {
      * cobros y deja ejecutar algo mientras "contesta", que es el momento en
      * que otro pedido puede adelantarse.
      */
+    // ---- Reembolsos (L2) ----
+
+    @Test
+    void unPagoAprobadoSeDevuelveYQuedaReembolsadoConElMotivoYLaHora() {
+        PagoDto cobrado = servicio.procesarPago(pedido("R-3f9a1c2b", 60500, "tok_test"), CLAVE);
+
+        PagoDto devuelto = servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "  sin entrada  "));
+
+        assertEquals("REEMBOLSADO", devuelto.estado());
+        assertEquals(cobrado.pagoId(), devuelto.pagoId());
+        assertEquals(60500, devuelto.monto());
+        assertEquals(1, pasarela.reembolsos);
+        assertEquals("reembolso:" + cobrado.pagoId(), pasarela.ultimaClaveDeReembolso);
+        Pago guardado = repositorio.buscarPorId(cobrado.pagoId()).orElseThrow();
+        assertEquals("sin entrada", guardado.getMotivoReembolso());
+        assertEquals(LocalDateTime.of(2026, 10, 16, 21, 30, 7), guardado.getReembolsado());
+    }
+
+    @Test
+    void devolverDosVecesElMismoPagoLePideUnaSolaVezALaPasarela() {
+        PagoDto cobrado = servicio.procesarPago(pedido("R-3f9a1c2b", 60500, "tok_test"), CLAVE);
+        ReembolsoDto pedido = new ReembolsoDto("R-3f9a1c2b", "sin entrada");
+
+        PagoDto primero = servicio.reembolsar(cobrado.pagoId(), pedido);
+        PagoDto segundo = servicio.reembolsar(cobrado.pagoId(), pedido);
+
+        assertEquals(primero, segundo);
+        assertEquals(1, pasarela.reembolsos);
+        // Y cobrar de nuevo con la misma clave devuelve el pago ya reembolsado, sin cobrar.
+        assertEquals("REEMBOLSADO", servicio.procesarPago(pedido("R-3f9a1c2b", 60500, "tok_test"), CLAVE).estado());
+        assertEquals(1, pasarela.cobros);
+    }
+
+    @Test
+    void siOtroPedidoLoDevolvioMientrasTantoValeEseReembolso() {
+        PagoDto cobrado = servicio.procesarPago(pedido("R-3f9a1c2b", 60500, "tok_test"), CLAVE);
+        // El otro pedido termina mientras este espera a la pasarela: cuando este quiere marcarlo, ya está.
+        pasarela.mientrasReembolsa = () -> repositorio.marcarReembolsado(cobrado.pagoId(), "el otro",
+                LocalDateTime.of(2026, 10, 16, 21, 30, 0));
+
+        PagoDto devuelto = servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "este"));
+
+        assertEquals("REEMBOLSADO", devuelto.estado());
+        assertEquals("el otro", repositorio.buscarPorId(cobrado.pagoId()).orElseThrow().getMotivoReembolso());
+    }
+
+    @Test
+    void unRechazadoODeOtraVentaNoSeDevuelveYNoLlegaALaPasarela() {
+        PagoDto rechazado = servicio.procesarPago(pedido("R-3f9a1c2b", 60500, "tok_rechazado"), CLAVE);
+        PagoDto aprobado = servicio.procesarPago(pedido("R-0b9a8c7d", 60500, "tok_test"), OTRA_CLAVE);
+
+        ErroresDeNegocio.Conflicto noAprobado = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.reembolsar(rechazado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "x")));
+        ErroresDeNegocio.Conflicto ajeno = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.reembolsar(aprobado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "x")));
+
+        assertEquals(ServicioDePagos.PAGO_NO_REEMBOLSABLE, noAprobado.tipo());
+        assertEquals(ServicioDePagos.PAGO_NO_REEMBOLSABLE, ajeno.tipo());
+        assertEquals(0, pasarela.reembolsos);
+        assertEquals("APROBADO", servicio.obtener(aprobado.pagoId()).estado());
+        assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> servicio.reembolsar("P-noexiste", new ReembolsoDto("R-3f9a1c2b", "x")));
+    }
+
+    @Test
+    void siLaPasarelaNoContestaAlDevolverElPagoSigueAprobadoYSePuedeRepetir() {
+        PagoDto cobrado = servicio.procesarPago(pedido("R-3f9a1c2b", 60500, "tok_test"), CLAVE);
+        pasarela.reembolsoSinRespuesta = true;
+
+        assertThrows(ErroresDeNegocio.SinRespuesta.class,
+                () -> servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "sin entrada")));
+        assertEquals("APROBADO", servicio.obtener(cobrado.pagoId()).estado());
+
+        pasarela.reembolsoSinRespuesta = false;
+        assertEquals("REEMBOLSADO",
+                servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "sin entrada")).estado());
+    }
+
     private static class PasarelaContada extends PagosFake {
         int cobros;
+        int reembolsos;
+        String ultimaClaveDeReembolso;
+        boolean reembolsoSinRespuesta;
         Runnable mientrasCobra = () -> { };
+        Runnable mientrasReembolsa = () -> { };
+
+        @Override
+        public void reembolsar(String idExterno, long monto, String claveIdempotencia) {
+            if (reembolsoSinRespuesta) {
+                throw new ErroresDeNegocio.SinRespuesta("La pasarela no respondió.");
+            }
+            reembolsos++;
+            ultimaClaveDeReembolso = claveIdempotencia;
+            mientrasReembolsa.run();
+        }
 
         @Override
         public ResultadoPasarela cobrar(String ventaId, long monto, String medioDePago, String token,

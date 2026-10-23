@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,8 +32,10 @@ import jakarta.ejb.TransactionAttributeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.ReglasDeNegocio;
 import com.palco.reventa.datos.PublicacionRepository;
 import com.palco.reventa.dominio.Publicacion;
 import com.palco.reventa.negocio.ConciliacionDeReventas.Desenlace;
@@ -55,6 +58,7 @@ class ConciliacionDeReventasTest {
     private PublicacionRepository publicaciones;
     private ClienteDePagos pagos;
     private ClienteDeVentas ventas;
+    private DevolucionDeCobros devoluciones;
 
     @BeforeEach
     void armar() {
@@ -65,6 +69,8 @@ class ConciliacionDeReventasTest {
         conciliacion.publicaciones = publicaciones;
         conciliacion.pagos = pagos;
         conciliacion.ventas = ventas;
+        devoluciones = mock(DevolucionDeCobros.class);
+        conciliacion.devoluciones = devoluciones;
         conciliacion.reloj = Clock.fixed(AHORA.toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
     }
 
@@ -156,14 +162,44 @@ class ConciliacionDeReventasTest {
     }
 
     @Test
-    void siVentasRechazaLaTransferenciaLaLiberaYAvisaQueHayQueDevolverElPago() {
+    void siVentasRechazaLaTransferenciaAnotaElReembolsoLaAnulaYDevuelveElPago() {
         Publicacion publicacion = tomada("R-1", true);
         when(pagos.buscarCobro("R-1", CLAVE)).thenReturn(Optional.of(new ClienteDePagos.Cobro("P-1", true, null)));
         when(ventas.transferir(any(), any(), any(), any(), any(), anyLong(), any()))
                 .thenThrow(new ErroresDeNegocio.Conflicto("publicacion-no-activa", "La entrada ya no está publicada."));
 
-        assertEquals(Desenlace.COBRO_SIN_ENTRADA, conciliacion.conciliar(publicacion, AHORA, HASTA));
-        verify(publicaciones).liberarConciliada("R-1", CLAVE, HASTA);
+        assertEquals(Desenlace.ANULADA, conciliacion.conciliar(publicacion, AHORA, HASTA));
+
+        long monto = 55_000 + ReglasDeNegocio.cargoServicio(55_000);
+        InOrder orden = inOrder(devoluciones, publicaciones);
+        orden.verify(devoluciones).anotar(eq("R-1"), eq("U-comprador"), eq("P-1"), eq(monto), anyString());
+        orden.verify(publicaciones).anular("R-1", CLAVE, AHORA);
+        orden.verify(devoluciones).intentar(eq("P-1"), eq("R-1"), anyString());
+        verify(publicaciones, never()).liberarConciliada(anyString(), anyString(), any());
+    }
+
+    @Test
+    void conElReembolsoYaAnotadoLaAnulaSinTransferirNiPedirloDeNuevo() {
+        // La base falló justo después de anotarlo: la toma quedó, pero el pago ya se está devolviendo.
+        Publicacion publicacion = tomada("R-1", true);
+        when(pagos.buscarCobro("R-1", CLAVE)).thenReturn(Optional.of(new ClienteDePagos.Cobro("P-1", true, null)));
+        when(devoluciones.estaAnotado("P-1")).thenReturn(true);
+
+        assertEquals(Desenlace.ANULADA, conciliacion.conciliar(publicacion, AHORA, HASTA));
+
+        verify(publicaciones).anular("R-1", CLAVE, AHORA);
+        verify(ventas, never()).transferir(any(), any(), any(), any(), any(), anyLong(), any());
+        verify(devoluciones, never()).intentar(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void unCobroYaReembolsadoLaLiberaComoUnRechazo() {
+        Publicacion publicacion = tomada("R-1", true);
+        when(pagos.buscarCobro("R-1", CLAVE)).thenReturn(
+                Optional.of(new ClienteDePagos.Cobro("P-1", false, ClienteDePagos.MOTIVO_REEMBOLSADO)));
+        when(publicaciones.liberarConciliada("R-1", CLAVE, HASTA)).thenReturn(true);
+
+        assertEquals(Desenlace.LIBERADA, conciliacion.conciliar(publicacion, AHORA, HASTA));
     }
 
     @Test
@@ -218,5 +254,17 @@ class ConciliacionDeReventasTest {
                 .getAnnotation(Schedule.class);
         assertEquals("45", agenda.second());
         assertFalse(agenda.persistent());
+    }
+
+    @Test
+    void losReembolsosPendientesSeReintentanCadaMinutoEnElSegundo15() throws Exception {
+        Schedule agenda = ConciliacionDeReventas.class.getDeclaredMethod("reintentarReembolsos")
+                .getAnnotation(Schedule.class);
+        assertEquals("15", agenda.second());
+        assertEquals("*", agenda.minute());
+        assertFalse(agenda.persistent());
+
+        conciliacion.reintentarReembolsos();
+        verify(devoluciones).reintentarPendientes();
     }
 }

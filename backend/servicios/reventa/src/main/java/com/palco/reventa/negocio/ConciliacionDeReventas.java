@@ -16,6 +16,7 @@ import jakarta.ejb.TransactionAttributeType;
 import jakarta.inject.Inject;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.ReglasDeNegocio;
 import com.palco.common.Textos;
 import com.palco.reventa.datos.PublicacionRepository;
 import com.palco.reventa.dominio.Publicacion;
@@ -36,7 +37,8 @@ import com.palco.reventa.negocio.externos.ClienteDeVentas;
  * <li>Pago aprobado: Ventas transfiere la entrada al titular que quedó anotado
  * en la toma y la publicación queda {@code VENDIDA}. Ventas transfiere una
  * sola vez por publicación, así que un reintento del comprador al mismo tiempo
- * no la duplica.</li>
+ * no la duplica. Si Ventas rechaza la transferencia, la publicación queda
+ * {@code ANULADA} y el pago se devuelve con {@link DevolucionDeCobros}.</li>
  * <li>Pago rechazado, o ningún pago con esa clave: la publicación se libera y
  * otro la puede comprar.</li>
  * <li>Pagos o Ventas no responden: no cambia nada y se pregunta de nuevo en un
@@ -53,6 +55,9 @@ import com.palco.reventa.negocio.externos.ClienteDeVentas;
  * un solo barrido, {@code @Schedule} no persistente, {@code @DependsOn} de las
  * migraciones y sin transacción propia, para no retener una conexión de la base
  * mientras espera a Pagos o a Ventas. Corre en el segundo 45.
+ *
+ * El mismo singleton reintenta, en el segundo 15, los reembolsos que quedaron
+ * pendientes ({@link #reintentarReembolsos}).
  */
 @Singleton
 @DependsOn("MigracionesReventa")
@@ -70,8 +75,8 @@ public class ConciliacionDeReventas {
         VENDIDA,
         /** No había pago, o fue rechazado: la publicación quedó libre. */
         LIBERADA,
-        /** El cobro se aprobó pero Ventas no aceptó la transferencia: hay que devolver el pago a mano (L2). */
-        COBRO_SIN_ENTRADA,
+        /** El cobro se aprobó pero Ventas no aceptó la transferencia: la publicación se anuló y el pago se devuelve (L2). */
+        ANULADA,
         /** El cobro se aprobó pero la toma no tiene titular (anterior a la migración V2): a mano. */
         SIN_TITULAR,
         /** Otro pedido la cerró o el comprador reintentó mientras tanto. */
@@ -88,6 +93,9 @@ public class ConciliacionDeReventas {
 
     @Inject
     ClienteDeVentas ventas;
+
+    @Inject
+    DevolucionDeCobros devoluciones;
 
     /** De dónde sale el "ahora"; los tests lo reemplazan por un reloj fijo. */
     Clock reloj = Clock.systemUTC();
@@ -117,6 +125,16 @@ public class ConciliacionDeReventas {
         }
     }
 
+    /**
+     * Los reembolsos que quedaron {@code PENDIENTE} porque Pagos no respondió
+     * (limitación L2). Corre en el segundo 15, lejos de la conciliación de las
+     * tomas, y el trabajo lo hace {@link DevolucionDeCobros}.
+     */
+    @Schedule(hour = "*", minute = "*", second = "15", persistent = false)
+    void reintentarReembolsos() {
+        devoluciones.reintentarPendientes();
+    }
+
     /** Concilia una publicación de la lista. Es un paso aparte para probarlo sin temporizador. */
     Desenlace conciliar(Publicacion publicacion, LocalDateTime ahora, LocalDateTime intentadasHasta) {
         String id = publicacion.getId();
@@ -142,6 +160,12 @@ public class ConciliacionDeReventas {
         }
 
         String pagoId = cobro.get().pagoId();
+        if (devoluciones.estaAnotado(pagoId)) {
+            // La compra ya se anuló antes (la base falló justo después de anotar el reembolso):
+            // la entrada no se transfiere, y el reembolso lo reintenta el barrido de reembolsos.
+            publicaciones.anular(id, clave, ahora);
+            return Desenlace.ANULADA;
+        }
         if (publicacion.getTitularNombre() == null || publicacion.getTitularDni() == null) {
             LOG.severe("ConciliacionDeReventas: la publicación " + id + " tiene el pago aprobado "
                     + Textos.enUnaLinea(pagoId) + " pero la toma no tiene titular. Queda tomada para resolverla a mano.");
@@ -155,13 +179,17 @@ public class ConciliacionDeReventas {
                     new ClienteDeVentas.Titular(publicacion.getTitularNombre(), publicacion.getTitularDni()),
                     publicacion.getPrecio(), pagoId);
         } catch (ErroresDeNegocio.Conflicto | ErroresDeNegocio.NoEncontrado | ErroresDeNegocio.ReglaIncumplida e) {
-            // Ventas contestó que no: la entrada ya no se puede transferir. Es la L2 (no hay reembolsos).
-            publicaciones.liberarConciliada(id, clave, intentadasHasta);
-            LOG.severe("ConciliacionDeReventas: la publicación " + id + " tiene el pago aprobado "
+            // Ventas contestó que no: la entrada ya no se puede transferir. Se anula y se devuelve el pago (L2).
+            String motivo = DevolucionDeCobros.motivo(publicacion.getEntradaId());
+            long monto = publicacion.getPrecio() + ReglasDeNegocio.cargoServicio(publicacion.getPrecio());
+            devoluciones.anotar(id, publicacion.getCompradorId(), pagoId, monto, motivo);
+            publicaciones.anular(id, clave, ahora);
+            LOG.warning("ConciliacionDeReventas: la publicación " + id + " tiene el pago aprobado "
                     + Textos.enUnaLinea(pagoId) + " del comprador " + Textos.enUnaLinea(publicacion.getCompradorId())
                     + " pero Ventas no transfirió la entrada " + publicacion.getEntradaId()
-                    + ". La publicación quedó libre; hay que devolver ese pago. Motivo: " + Textos.enUnaLinea(e.getMessage()));
-            return Desenlace.COBRO_SIN_ENTRADA;
+                    + ". La publicación quedó ANULADA y el pago se devuelve. Motivo: " + Textos.enUnaLinea(e.getMessage()));
+            devoluciones.intentar(pagoId, id, motivo);
+            return Desenlace.ANULADA;
         } catch (RuntimeException e) {
             LOG.warning("ConciliacionDeReventas: la publicación " + id + " tiene el pago aprobado "
                     + Textos.enUnaLinea(pagoId) + " pero Ventas no respondió al transferir. Se reintenta en un minuto.");

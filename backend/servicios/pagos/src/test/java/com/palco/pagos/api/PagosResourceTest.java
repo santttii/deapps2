@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import com.palco.common.ErroresDeNegocio;
 import com.palco.pagos.api.Dtos.NuevoPagoDto;
 import com.palco.pagos.api.Dtos.PagoDto;
+import com.palco.pagos.api.Dtos.ReembolsoDto;
 import com.palco.pagos.negocio.IPagos;
 
 /**
@@ -36,7 +37,8 @@ class PagosResourceTest {
         Method[] operaciones = {
                 PagosResource.class.getMethod("procesar", String.class, NuevoPagoDto.class),
                 PagosResource.class.getMethod("buscarPorClave", String.class),
-                PagosResource.class.getMethod("obtener", String.class) };
+                PagosResource.class.getMethod("obtener", String.class),
+                PagosResource.class.getMethod("reembolsar", String.class, ReembolsoDto.class) };
 
         for (Method operacion : operaciones) {
             RolesAllowed roles = operacion.getAnnotation(RolesAllowed.class);
@@ -94,6 +96,11 @@ class PagosResourceTest {
                     throw new ErroresDeNegocio.NoEncontrado("No hay ningún pago con esa clave de idempotencia.");
                 }
                 return pago;
+            }
+
+            @Override
+            public PagoDto reembolsar(String pagoId, ReembolsoDto pedido) {
+                throw new AssertionError("La consulta no tiene que devolver nada");
             }
         };
         return recurso;

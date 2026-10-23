@@ -1,5 +1,6 @@
 package com.palco.pagos.datos;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +37,11 @@ public class PagoRepositoryEnMemoria implements PagoRepository {
             throw new ErroresDeNegocio.Conflicto("pago-duplicado", "Ya existe un pago con esos datos.");
         }
         pagos.add(nuevo);
+    }
+
+    @Override
+    public boolean marcarReembolsado(String pagoId, String motivo, LocalDateTime ahora) {
+        return buscarPorId(pagoId).map(p -> p.reembolsar(motivo, ahora)).orElse(false);
     }
 
     public int cantidad() {

@@ -71,6 +71,9 @@ public class ServicioDeReventa implements IReventa {
     @Inject
     ClienteDeEventos eventos;
 
+    @Inject
+    DevolucionDeCobros devoluciones;
+
     /** De dónde sale el "ahora"; los tests lo reemplazan por un reloj fijo. */
     Clock reloj = Clock.systemUTC();
 
@@ -166,12 +169,16 @@ public class ServicioDeReventa implements IReventa {
      * {@link ConciliacionDeReventas} le pregunta a Pagos cómo terminó y
      * transfiere la entrada o libera la publicación.
      *
-     * Límite: si el cobro sale aprobado y la transferencia falla, la
-     * publicación vuelve a ACTIVA y el cobro queda hecho. Queda un registro
-     * SEVERE con el pago para devolverlo a mano: el sistema todavía no tiene
-     * reembolsos. Si el mismo comprador reintenta con la misma clave, Pagos
-     * devuelve ese mismo pago aprobado y la transferencia se vuelve a
-     * intentar sin cobrar de nuevo.
+     * Si el cobro sale aprobado y la transferencia falla:
+     * <ul>
+     * <li>Ventas la rechaza (la entrada ya no está publicada): la compra no
+     * puede terminar. Se anota el reembolso, la publicación queda
+     * {@code ANULADA} y se le pide a Pagos que devuelva el cobro; si Pagos no
+     * responde, lo reintenta {@link DevolucionDeCobros} (limitación L2).</li>
+     * <li>Ventas no responde: pudo haber transferido. La toma queda, igual que
+     * cuando Pagos no responde, y la resuelve un reintento con la misma clave
+     * (Pagos devuelve el mismo pago, sin cobrar de nuevo) o la conciliación.</li>
+     * </ul>
      */
     @Override
     @TransactionAttribute(TransactionAttributeType.NOT_SUPPORTED)
@@ -208,26 +215,33 @@ public class ServicioDeReventa implements IReventa {
         ClienteDePagos.Cobro cobro = cobrar(publicacion, monto, compra, clave);
         if (!cobro.aprobado()) {
             publicaciones.liberar(publicacion.getId(), clave);
+            if (ClienteDePagos.MOTIVO_REEMBOLSADO.equals(cobro.motivo())) {
+                throw new ErroresDeNegocio.Conflicto(TiposDeProblema.PUBLICACION_NO_ACTIVA, "Esta compra ya se"
+                        + " anuló y el pago se devolvió. Para comprar de nuevo usá otra Idempotency-Key.");
+            }
             throw new ErroresDeNegocio.PagoRechazado("El pago fue rechazado ("
                     + Textos.enUnaLinea(cobro.motivo()) + "). Probá con otro medio de pago.");
+        }
+        // Un pago con el reembolso anotado es de una compra que ya se anuló: su entrada no se transfiere.
+        if (devoluciones.estaAnotado(cobro.pagoId())) {
+            publicaciones.anular(publicacion.getId(), clave, ahoraUtc());
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.PUBLICACION_NO_ACTIVA,
+                    "La entrada ya no está disponible. El pago se devuelve.");
         }
 
         ClienteDeVentas.Transferencia transferencia;
         try {
             transferencia = transferir(publicacion, compradorId, compra.titular(), cobro.pagoId());
+        } catch (ErroresDeNegocio.Conflicto | ErroresDeNegocio.NoEncontrado | ErroresDeNegocio.ReglaIncumplida e) {
+            // Ventas contestó que no: la entrada ya no se puede transferir, y esta compra no va a terminar.
+            throw anularYDevolver(publicacion, compradorId, clave, cobro.pagoId(), monto, e);
         } catch (RuntimeException e) {
-            publicaciones.liberar(publicacion.getId(), clave);
-            LOG.severe("Reventa " + publicacion.getId() + ": el cobro " + Textos.enUnaLinea(cobro.pagoId())
-                    + " de $" + monto + " al comprador " + Textos.enUnaLinea(compradorId)
-                    + " se aprobó pero la transferencia de la entrada " + publicacion.getEntradaId()
-                    + " falló. La publicación volvió a ACTIVA; hay que devolver ese pago. Motivo: "
-                    + Textos.enUnaLinea(e.getMessage()));
-            if (e instanceof ErroresDeNegocio.Conflicto) {
-                throw new ErroresDeNegocio.Conflicto(TiposDeProblema.PUBLICACION_NO_ACTIVA,
-                        "La entrada ya no está disponible. El cobro se va a devolver.");
-            }
-            throw new ErroresDeNegocio.SinRespuesta("No se pudo transferir la entrada. Reintentá con la misma"
-                    + " Idempotency-Key: no se cobra de nuevo.");
+            // Ventas no respondió: pudo haber transferido. Con plata cobrada, la toma queda.
+            LOG.warning("Reventa " + publicacion.getId() + ": el cobro " + Textos.enUnaLinea(cobro.pagoId())
+                    + " se aprobó pero Ventas no respondió al transferir la entrada " + publicacion.getEntradaId()
+                    + ". La publicación queda tomada: la resuelve un reintento con la misma clave o la conciliación.");
+            throw new ErroresDeNegocio.SinRespuesta("No se pudo confirmar la transferencia de la entrada. Reintentá"
+                    + " con la misma Idempotency-Key: no se cobra de nuevo.");
         }
 
         if (!publicaciones.marcarVendida(publicacion.getId(), compradorId, clave, transferencia.ventaId(),
@@ -239,6 +253,28 @@ public class ServicioDeReventa implements IReventa {
         LOG.info("Reventa " + publicacion.getId() + " vendida a " + Textos.enUnaLinea(compradorId)
                 + " con el pago " + Textos.enUnaLinea(cobro.pagoId()) + ".");
         return resultado(buscar(publicacion.getId()), transferencia);
+    }
+
+    /**
+     * Ventas rechazó la transferencia de una compra cobrada: se anota el
+     * reembolso, se anula la publicación y se le pide a Pagos que devuelva el
+     * cobro. Si la base falla al anotar, la excepción sale y la publicación
+     * sigue tomada: la conciliación lo vuelve a intentar. Devuelve el 409 para
+     * el comprador.
+     */
+    private ErroresDeNegocio.Conflicto anularYDevolver(Publicacion publicacion, String compradorId, String clave,
+            String pagoId, long monto, RuntimeException rechazo) {
+        String motivo = DevolucionDeCobros.motivo(publicacion.getEntradaId());
+        devoluciones.anotar(publicacion.getId(), compradorId, pagoId, monto, motivo);
+        publicaciones.anular(publicacion.getId(), clave, ahoraUtc());
+        LOG.warning("Reventa " + publicacion.getId() + ": el cobro " + Textos.enUnaLinea(pagoId) + " de $" + monto
+                + " al comprador " + Textos.enUnaLinea(compradorId) + " se aprobó pero Ventas no transfirió la entrada "
+                + publicacion.getEntradaId() + ". La publicación quedó ANULADA y el pago se devuelve. Motivo: "
+                + Textos.enUnaLinea(rechazo.getMessage()));
+        boolean devuelto = devoluciones.intentar(pagoId, publicacion.getId(), motivo) == ClienteDePagos.Devolucion.HECHA;
+        return new ErroresDeNegocio.Conflicto(TiposDeProblema.PUBLICACION_NO_ACTIVA, devuelto
+                ? "La entrada ya no está disponible. Te devolvimos el pago."
+                : "La entrada ya no está disponible. El pago se va a devolver.");
     }
 
     /** El cobro, liberando la publicación cuando se sabe que no se cobró. */

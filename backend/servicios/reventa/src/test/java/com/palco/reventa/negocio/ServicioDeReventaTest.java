@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -18,6 +19,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.ReglasDeNegocio;
@@ -52,6 +54,7 @@ class ServicioDeReventaTest {
     private ClienteDeVentas ventas;
     private ClienteDePagos pagos;
     private ClienteDeEventos eventos;
+    private DevolucionDeCobros devoluciones;
 
     @BeforeEach
     void armar() {
@@ -64,6 +67,8 @@ class ServicioDeReventaTest {
         servicio.ventas = ventas;
         servicio.pagos = pagos;
         servicio.eventos = eventos;
+        devoluciones = mock(DevolucionDeCobros.class);
+        servicio.devoluciones = devoluciones;
         relojALas(LocalDateTime.of(2026, 11, 20, 12, 0));
         when(eventos.fechaDelEvento("ev-1")).thenReturn(EVENTO);
         when(ventas.consultar("T-1", VENDEDOR)).thenReturn(entrada("VALIDA"));
@@ -265,19 +270,108 @@ class ServicioDeReventaTest {
         verify(publicaciones).liberar("R-1", CLAVE);
     }
 
-    @Test
-    void siLaTransferenciaFallaConElCobroHechoLaPublicacionVuelveAActiva() {
+    private void cobroAprobado() {
         publicacionActivaTomable();
         when(pagos.cobrar(anyString(), anyLong(), anyString(), anyString(), anyString()))
                 .thenReturn(new ClienteDePagos.Cobro("P-1", true, null));
+    }
+
+    private void ventasRechazaLaTransferencia() {
+        when(ventas.transferir(anyString(), anyString(), anyString(), anyString(), any(), anyLong(), anyString()))
+                .thenThrow(new ErroresDeNegocio.Conflicto(TiposDeProblema.PUBLICACION_NO_ACTIVA,
+                        "La entrada ya no está publicada en la reventa."));
+    }
+
+    @Test
+    void siVentasNoRespondeAlTransferirLaTomaQuedaYNoSeDevuelveNada() {
+        // Ventas pudo haber transferido: con plata cobrada, la toma queda para el reintento o la conciliación.
+        cobroAprobado();
         when(ventas.transferir(anyString(), anyString(), anyString(), anyString(), any(), anyLong(), anyString()))
                 .thenThrow(new ErroresDeNegocio.SinRespuesta("Ventas no responde"));
 
         assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
 
-        verify(publicaciones).liberar("R-1", CLAVE);
+        verify(publicaciones, never()).liberar(anyString(), anyString());
+        verify(publicaciones, never()).anular(anyString(), anyString(), any());
+        verify(devoluciones, never()).anotar(any(), any(), any(), anyLong(), any());
         verify(publicaciones, never()).marcarVendida(anyString(), anyString(), anyString(), anyString(), anyString(),
                 any());
+    }
+
+    @Test
+    void siVentasRechazaLaTransferenciaSeAnotaElReembolsoSeAnulaYSeDevuelveElPago() {
+        cobroAprobado();
+        ventasRechazaLaTransferencia();
+        when(devoluciones.intentar(eq("P-1"), eq("R-1"), anyString())).thenReturn(ClienteDePagos.Devolucion.HECHA);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        assertEquals(TiposDeProblema.PUBLICACION_NO_ACTIVA, error.tipo());
+        assertEquals("La entrada ya no está disponible. Te devolvimos el pago.", error.getMessage());
+        // El orden importa: el reembolso queda anotado antes de anular, y recién después se le pide a Pagos.
+        long monto = 55_000 + ReglasDeNegocio.cargoServicio(55_000);
+        InOrder orden = inOrder(devoluciones, publicaciones);
+        orden.verify(devoluciones).anotar(eq("R-1"), eq(COMPRADOR), eq("P-1"), eq(monto), anyString());
+        orden.verify(publicaciones).anular(eq("R-1"), eq(CLAVE), any());
+        orden.verify(devoluciones).intentar(eq("P-1"), eq("R-1"), anyString());
+        verify(publicaciones, never()).liberar(anyString(), anyString());
+    }
+
+    @Test
+    void siPagosNoRespondeAlDevolverLaCompraIgualSeAnulaYElPagoSeVaADevolver() {
+        cobroAprobado();
+        ventasRechazaLaTransferencia();
+        when(devoluciones.intentar(anyString(), anyString(), anyString()))
+                .thenReturn(ClienteDePagos.Devolucion.SIN_RESPUESTA);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        assertEquals("La entrada ya no está disponible. El pago se va a devolver.", error.getMessage());
+        verify(publicaciones).anular(eq("R-1"), eq(CLAVE), any());
+    }
+
+    @Test
+    void siLaBaseFallaAlAnotarElReembolsoLaPublicacionNoSeAnulaYQuedaTomada() {
+        // Así la conciliación lo vuelve a intentar: no queda anulada con un cobro que nadie devuelve.
+        cobroAprobado();
+        ventasRechazaLaTransferencia();
+        org.mockito.Mockito.doThrow(new IllegalStateException("la base no responde")).when(devoluciones)
+                .anotar(any(), any(), any(), anyLong(), any());
+
+        assertThrows(IllegalStateException.class, () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        verify(publicaciones, never()).anular(anyString(), anyString(), any());
+        verify(publicaciones, never()).liberar(anyString(), anyString());
+        verify(devoluciones, never()).intentar(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void unPagoConElReembolsoAnotadoNoTransfiereLaEntrada() {
+        cobroAprobado();
+        when(devoluciones.estaAnotado("P-1")).thenReturn(true);
+
+        assertThrows(ErroresDeNegocio.Conflicto.class, () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        verify(ventas, never()).transferir(anyString(), anyString(), anyString(), anyString(), any(), anyLong(),
+                anyString());
+        verify(publicaciones).anular(eq("R-1"), eq(CLAVE), any());
+    }
+
+    @Test
+    void unCobroYaReembolsadoPideOtraClaveSinTransferir() {
+        publicacionActivaTomable();
+        when(pagos.cobrar(anyString(), anyLong(), anyString(), anyString(), anyString()))
+                .thenReturn(new ClienteDePagos.Cobro("P-1", false, ClienteDePagos.MOTIVO_REEMBOLSADO));
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        assertEquals(TiposDeProblema.PUBLICACION_NO_ACTIVA, error.tipo());
+        verify(publicaciones).liberar("R-1", CLAVE);
+        verify(ventas, never()).transferir(anyString(), anyString(), anyString(), anyString(), any(), anyLong(),
+                anyString());
     }
 
     @Test

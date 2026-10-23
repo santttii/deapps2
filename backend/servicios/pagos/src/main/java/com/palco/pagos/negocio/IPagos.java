@@ -4,14 +4,15 @@ import jakarta.ejb.Local;
 
 import com.palco.pagos.api.Dtos.NuevoPagoDto;
 import com.palco.pagos.api.Dtos.PagoDto;
+import com.palco.pagos.api.Dtos.ReembolsoDto;
 
 /**
  * Interfaz de ServicioDePagos (Entrega 1): todo lo que el resto del sistema
  * puede pedirle. ServicioDeVentas la consume por REST, nunca contra la
  * implementación.
  *
- * {@code confirmarPago} (el aviso de la pasarela) y {@code reembolsar} se
- * declaran cuando se implementen.
+ * {@code confirmarPago} (el aviso de la pasarela) se declara cuando se
+ * implemente.
  */
 @Local
 public interface IPagos {
@@ -46,4 +47,20 @@ public interface IPagos {
      * intento.
      */
     PagoDto buscarPorClave(String claveIdempotencia);
+
+    /**
+     * Devuelve un pago {@code APROBADO} entero y lo deja {@code REEMBOLSADO}.
+     * Lo pide el servicio que cobró cuando no pudo entregar lo que vendía: hoy,
+     * Reventa, cuando Ventas rechaza la transferencia de una entrada ya cobrada
+     * (limitación L2).
+     *
+     * Es idempotente: si el pago ya está {@code REEMBOLSADO}, lo devuelve sin
+     * volver a pedirle nada a la pasarela. A la pasarela va con la clave
+     * {@code reembolso:<pagoId>}, así dos pedidos a la vez no devuelven dos
+     * veces. Lanza {@code NoEncontrado} si el pago no existe,
+     * {@code Conflicto} ({@code pago-no-reembolsable}) si no está aprobado o es
+     * de otra venta, y {@code SinRespuesta} si la pasarela no contesta: el pago
+     * sigue {@code APROBADO} y se puede repetir.
+     */
+    PagoDto reembolsar(String pagoId, ReembolsoDto pedido);
 }

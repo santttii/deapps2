@@ -17,7 +17,9 @@ import com.palco.common.ErroresDeNegocio;
 import com.palco.common.Textos;
 import com.palco.pagos.api.Dtos.NuevoPagoDto;
 import com.palco.pagos.api.Dtos.PagoDto;
+import com.palco.pagos.api.Dtos.ReembolsoDto;
 import com.palco.pagos.datos.PagoRepository;
+import com.palco.pagos.dominio.EstadoPago;
 import com.palco.pagos.dominio.Pago;
 import com.palco.pagos.pasarela.PasarelaDePagos;
 import com.palco.pagos.pasarela.ResultadoPasarela;
@@ -46,6 +48,12 @@ public class ServicioDePagos implements IPagos {
 
     /** El {@code type} del 409 cuando una clave ya usada llega con otra venta u otro monto. */
     static final String CLAVE_REUTILIZADA = "clave-reutilizada";
+
+    /** El {@code type} del 409 cuando se pide devolver un pago que no está aprobado o es de otra venta. */
+    static final String PAGO_NO_REEMBOLSABLE = "pago-no-reembolsable";
+
+    /** Lo que va adelante del id del pago en la clave del reembolso ante la pasarela. */
+    static final String PREFIJO_CLAVE_REEMBOLSO = "reembolso:";
 
     @Inject
     PagoRepository pagos;
@@ -101,6 +109,40 @@ public class ServicioDePagos implements IPagos {
         return pagos.buscarPorClave(claveIdempotencia)
                 .map(ServicioDePagos::aDto)
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No hay ningún pago con esa clave de idempotencia."));
+    }
+
+    @Override
+    public PagoDto reembolsar(String pagoId, ReembolsoDto pedido) {
+        Pago pago = pagos.buscarPorId(pagoId)
+                .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe el pago " + pagoId + "."));
+        if (!pago.getVentaId().equals(pedido.ventaId())) {
+            throw new ErroresDeNegocio.Conflicto(PAGO_NO_REEMBOLSABLE, "El pago " + pagoId + " es de otra venta.");
+        }
+        // Un reintento de un reembolso que ya se hizo: vale el que quedó guardado.
+        if (pago.getEstado() == EstadoPago.REEMBOLSADO) {
+            return aDto(pago);
+        }
+        if (pago.getEstado() != EstadoPago.APROBADO) {
+            throw new ErroresDeNegocio.Conflicto(PAGO_NO_REEMBOLSABLE,
+                    "Solo se devuelve un pago aprobado; el " + pagoId + " está " + pago.getEstado() + ".");
+        }
+
+        // Sin transacción abierta, como el cobro. Si la pasarela no contesta, SinRespuesta sale por acá
+        // y el pago sigue APROBADO: repetir el pedido manda la misma clave y la pasarela no devuelve dos veces.
+        pasarela.reembolsar(pago.getIdExterno(), pago.getMonto(), PREFIJO_CLAVE_REEMBOLSO + pago.getId());
+
+        if (!pagos.marcarReembolsado(pagoId, pedido.motivo().strip(), ahora())) {
+            // Otro pedido lo marcó entre la lectura y acá. Si quedó REEMBOLSADO, es el mismo resultado.
+            Pago releido = pagos.buscarPorId(pagoId).orElseThrow();
+            if (releido.getEstado() != EstadoPago.REEMBOLSADO) {
+                throw new IllegalStateException("El pago " + pagoId + " se devolvió en la pasarela pero quedó "
+                        + releido.getEstado() + ".");
+            }
+            return aDto(releido);
+        }
+        LOG.info("Pago " + pagoId + " de la venta " + Textos.enUnaLinea(pago.getVentaId()) + ": REEMBOLSADO ($"
+                + pago.getMonto() + "). Motivo: " + Textos.enUnaLinea(pedido.motivo()));
+        return aDto(pagos.buscarPorId(pagoId).orElseThrow());
     }
 
     /**

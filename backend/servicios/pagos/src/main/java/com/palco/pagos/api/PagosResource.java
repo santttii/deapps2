@@ -22,6 +22,7 @@ import jakarta.ws.rs.core.Response;
 
 import com.palco.pagos.api.Dtos.NuevoPagoDto;
 import com.palco.pagos.api.Dtos.PagoDto;
+import com.palco.pagos.api.Dtos.ReembolsoDto;
 import com.palco.pagos.negocio.IPagos;
 
 /**
@@ -86,6 +87,25 @@ public class PagosResource {
                     message = "El parámetro claveIdempotencia tiene hasta " + LARGO_MAXIMO_DE_LA_CLAVE + " caracteres.")
             String claveIdempotencia) {
         return pagos.buscarPorClave(claveIdempotencia);
+    }
+
+    /**
+     * {@code POST /api/v1/pagos/P-3f9a1c2b/reembolso} con
+     * {@code {"ventaId": "R-3f9a1c2b", "motivo": "Ventas no transfirió la entrada"}}:
+     * devuelve el pago entero y responde 200 con el pago {@code REEMBOLSADO}.
+     * Repetirlo responde lo mismo sin devolver dos veces. 404 si el pago no
+     * existe y 409 {@code pago-no-reembolsable} si no está aprobado o es de otra
+     * venta.
+     *
+     * Es una acción sobre un pago y no un recurso nuevo: un pago se devuelve
+     * una sola vez y entero, así que no hay una colección de reembolsos.
+     */
+    @POST
+    @RolesAllowed("servicio")
+    @Path("{pagoId}/reembolso")
+    public PagoDto reembolsar(@PathParam("pagoId") String pagoId,
+            @NotNull(message = "Falta el cuerpo de la solicitud.") @Valid ReembolsoDto pedido) {
+        return pagos.reembolsar(pagoId, pedido);
     }
 
     /** {@code GET /api/v1/pagos/P-3f9a1c2b} */

@@ -13,6 +13,10 @@ import com.palco.pagos.dominio.EstadoPago;
  * <li>cualquier otro, por ejemplo {@code tok_test}: aprobado.</li>
  * </ul>
  *
+ * Un reembolso siempre sale bien: el token no se guarda, así que no hay con
+ * qué elegir otro resultado. El camino de una pasarela que no contesta al
+ * devolver se prueba con un doble en los tests.
+ *
  * Son los mismos tokens que usa el simulador de cobros de Ventas.
  *
  * No tiene estado: no guarda ningún dato entre una llamada y la siguiente, y
@@ -46,5 +50,10 @@ public class PagosFake implements PasarelaDePagos {
             return new ResultadoPasarela(EstadoPago.RECHAZADO, MOTIVO_DE_RECHAZO, idExterno);
         }
         return new ResultadoPasarela(EstadoPago.APROBADO, null, idExterno);
+    }
+
+    @Override
+    public void reembolsar(String idExterno, long monto, String claveIdempotencia) {
+        // No mueve plata: no hay nada que hacer, y repetirlo da lo mismo.
     }
 }
