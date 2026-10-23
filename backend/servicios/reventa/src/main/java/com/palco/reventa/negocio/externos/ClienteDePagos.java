@@ -1,6 +1,7 @@
 package com.palco.reventa.negocio.externos;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -43,6 +44,10 @@ public class ClienteDePagos {
 
     static final String RUTA = "/api/v1/pagos";
     static final String TIPO_CLAVE_REUTILIZADA = "/problemas/clave-reutilizada";
+    /** El {@code type} del 404 con el que Pagos dice que con esa clave no hay ningún pago. */
+    static final String TIPO_NO_ENCONTRADO = "/problemas/no-encontrado";
+    /** El parámetro de la consulta por clave: {@code GET /api/v1/pagos?claveIdempotencia=...}. */
+    static final String PARAMETRO_CLAVE = "claveIdempotencia";
     private static final String PAGOS_NO_RESPONDE = "El servicio de pagos no responde. Probá de nuevo.";
 
     /** El resultado del cobro. {@code pagoId} es null si Pagos no llegó a cobrar. */
@@ -89,6 +94,45 @@ public class ClienteDePagos {
                 throw new ErroresDeNegocio.SinRespuesta(PAGOS_NO_RESPONDE);
             }
         };
+    }
+
+    /**
+     * Cómo terminó el cobro de una compra, preguntándole a Pagos por su clave
+     * (la misma que mandó {@link #cobrar}). La usa la conciliación.
+     *
+     * <ul>
+     * <li>200: el pago, aprobado o rechazado. Tiene que ser de esta publicación.</li>
+     * <li>404 de Pagos ({@code no-encontrado}): con esa clave no se cobró nada.</li>
+     * <li>Cualquier otra cosa, incluido un 404 sin el error de Pagos (el WAR no
+     * está desplegado): {@code SinRespuesta}. No se sabe.</li>
+     * </ul>
+     */
+    public Optional<Cobro> buscarCobro(String publicacionId, String clave) {
+        Respuesta respuesta = rest.llamar("GET", RUTA,
+                Map.of(PARAMETRO_CLAVE, claveParaPagos(publicacionId, clave)), Map.of(), null);
+        if (respuesta.estado() == 200) {
+            Pago pago = pagoDe(respuesta.cuerpo());
+            if (pago == null || !publicacionId.equals(pago.ventaId())) {
+                LOG.warning("Pagos respondió a la consulta del cobro de la publicación " + publicacionId
+                        + " con un pago que no es de ella: no se sabe cómo terminó.");
+                throw new ErroresDeNegocio.SinRespuesta(PAGOS_NO_RESPONDE);
+            }
+            return Optional.of(leer(respuesta.cuerpo()));
+        }
+        if (respuesta.estado() == 404 && TIPO_NO_ENCONTRADO.equals(respuesta.tipo())) {
+            return Optional.empty();
+        }
+        LOG.warning("Pagos respondió " + respuesta.estado() + " a la consulta del cobro de la publicación "
+                + publicacionId + ": no se sabe cómo terminó.");
+        throw new ErroresDeNegocio.SinRespuesta(PAGOS_NO_RESPONDE);
+    }
+
+    private static Pago pagoDe(String json) {
+        try {
+            return ClienteRest.JSONB.fromJson(json, Pago.class);
+        } catch (JsonbException e) {
+            return null;
+        }
     }
 
     /** El id de la publicación, dos puntos y la clave del comprador: determinística, entra en las 80 posiciones de Pagos. */

@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,6 +80,62 @@ class ClientesTest {
         ErroresDeNegocio.SinRespuesta error = assertThrows(ErroresDeNegocio.SinRespuesta.class,
                 () -> pagos().cobrar("R-1", 1, "tarjeta", "tok", "clave"));
         assertFalse(error instanceof PedidoNoEnviado);
+    }
+
+    // ---- Consulta del cobro por clave (la conciliación) ----
+
+    private void consultaResponde(Respuesta respuesta) {
+        when(rest.llamar(eq("GET"), eq(ClienteDePagos.RUTA), anyMap(), anyMap(), any())).thenReturn(respuesta);
+    }
+
+    @Test
+    void laConsultaPreguntaPorLaMismaClaveDelCobroYLeeElPago() {
+        consultaResponde(new Respuesta(200,
+                "{\"pagoId\":\"P-1\",\"ventaId\":\"R-1\",\"monto\":60500,\"estado\":\"APROBADO\"}"));
+
+        Optional<ClienteDePagos.Cobro> cobro = pagos().buscarCobro("R-1", "clave");
+
+        assertTrue(cobro.orElseThrow().aprobado());
+        assertEquals("P-1", cobro.get().pagoId());
+        // La misma clave que mandó cobrar(): así Pagos encuentra ese cobro y no otro.
+        verify(rest).llamar(eq("GET"), eq(ClienteDePagos.RUTA), eq(Map.of("claveIdempotencia", "R-1:clave")),
+                eq(Map.of()), eq(null));
+    }
+
+    @Test
+    void unPagoRechazadoSeLeeComoRechazado() {
+        consultaResponde(new Respuesta(200, "{\"pagoId\":\"P-1\",\"ventaId\":\"R-1\",\"estado\":\"RECHAZADO\","
+                + "\"motivo\":\"fondos_insuficientes\"}"));
+
+        ClienteDePagos.Cobro cobro = pagos().buscarCobro("R-1", "clave").orElseThrow();
+
+        assertFalse(cobro.aprobado());
+        assertEquals("fondos_insuficientes", cobro.motivo());
+    }
+
+    @Test
+    void elNoEncontradoDePagosEsQueNoSeCobroYUnoSinSuErrorEsQueNoSeSabe() {
+        consultaResponde(new Respuesta(404, "{\"type\":\"/problemas/no-encontrado\",\"status\":404}"));
+        assertTrue(pagos().buscarCobro("R-1", "clave").isEmpty());
+
+        // Un 404 del servidor (Pagos no está desplegado) no dice nada del cobro.
+        armar();
+        consultaResponde(new Respuesta(404, "<html>Not Found</html>"));
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> pagos().buscarCobro("R-1", "clave"));
+
+        armar();
+        consultaResponde(new Respuesta(500, null));
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> pagos().buscarCobro("R-1", "clave"));
+    }
+
+    @Test
+    void unPagoDeOtraPublicacionOSinResultadoNoSirve() {
+        consultaResponde(new Respuesta(200, "{\"pagoId\":\"P-1\",\"ventaId\":\"R-otra\",\"estado\":\"APROBADO\"}"));
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> pagos().buscarCobro("R-1", "clave"));
+
+        armar();
+        consultaResponde(new Respuesta(200, "{\"pagoId\":\"P-1\",\"ventaId\":\"R-1\",\"estado\":\"PENDIENTE\"}"));
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> pagos().buscarCobro("R-1", "clave"));
     }
 
     @Test

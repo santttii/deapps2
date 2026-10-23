@@ -727,7 +727,10 @@ paths:
         Requiere rol `user`. Reventa cobra el precio más el cargo de servicio contra Pagos y le pide a Ventas la
         transferencia (operación interna `POST /v1/operaciones-de-reventa/transferencias`): la entrada original queda
         `VENDIDA` y el comprador recibe una entrada nueva, `VALIDA`, a nombre del titular indicado, dentro de una venta
-        propia. Es idempotente por `Idempotency-Key`: repetirla devuelve lo mismo sin cobrar de nuevo.
+        propia. Es idempotente por `Idempotency-Key`: repetirla devuelve lo mismo sin cobrar de nuevo. Si Pagos no
+        responde (504), la publicación queda tomada: nadie más la compra ni el vendedor la retira hasta que el mismo
+        comprador reintente con la misma clave o la conciliación de reventas sepa si se cobró (transfiere la entrada
+        al titular indicado o libera la publicación).
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:

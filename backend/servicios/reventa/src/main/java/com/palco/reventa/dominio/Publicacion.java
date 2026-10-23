@@ -77,6 +77,13 @@ public class Publicacion {
     @Column(name = "compra_intentada")
     private LocalDateTime compraIntentada;
 
+    /** El titular de la entrada que se está comprando; lo anota la toma, antes de cobrar. */
+    @Column(name = "titular_nombre")
+    private String titularNombre;
+
+    @Column(name = "titular_dni")
+    private String titularDni;
+
     @Column(name = "venta_id")
     private String ventaId;
 
@@ -120,6 +127,8 @@ public class Publicacion {
     public String getCompradorId() { return compradorId; }
     public String getClaveCompra() { return claveCompra; }
     public LocalDateTime getCompraIntentada() { return compraIntentada; }
+    public String getTitularNombre() { return titularNombre; }
+    public String getTitularDni() { return titularDni; }
     public String getVentaId() { return ventaId; }
     public String getPagoId() { return pagoId; }
     public LocalDateTime getCerrada() { return cerrada; }

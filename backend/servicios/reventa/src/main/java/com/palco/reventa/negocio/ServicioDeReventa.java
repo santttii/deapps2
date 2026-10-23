@@ -1,7 +1,6 @@
 package com.palco.reventa.negocio;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -56,14 +55,6 @@ public class ServicioDeReventa implements IReventa {
 
     /** Las fechas de los eventos son hora local de Argentina, sin zona: la regla de las 3 horas se mide ahí. */
     static final ZoneId ZONA_DE_LOS_EVENTOS = ZoneId.of("America/Argentina/Buenos_Aires");
-
-    /**
-     * Cuánto vale la toma de una compra en curso. Es más que lo que puede
-     * tardar una compra entera (Pagos espera hasta 10 segundos, Ventas hasta
-     * 10 más): una toma más vieja quedó trabada por una falla y otra compra la
-     * puede retomar. No es una regla de negocio sino un tiempo técnico.
-     */
-    static final Duration TOMA_VIGENTE = Duration.ofMinutes(2);
 
     /** Hasta dónde puede llegar la Idempotency-Key: con "R-xxxxxxxx:" adelante entra en las 80 de Pagos. */
     static final int LARGO_MAXIMO_CLAVE = 64;
@@ -139,13 +130,13 @@ public class ServicioDeReventa implements IReventa {
      * esta transacción y después se le pide a Ventas que devuelva la entrada a
      * VALIDA. Si Ventas falla, la excepción deshace la transacción y la
      * publicación sigue ACTIVA: el vendedor ve el error y puede reintentar.
-     * No se retira mientras alguien la está comprando.
+     * No se retira mientras alguien la está comprando, ni mientras no se sepa
+     * si una compra anterior se cobró (eso lo resuelve la conciliación).
      */
     @Override
     public void retirar(String vendedorId, String publicacionId) {
         Publicacion publicacion = propia(vendedorId, publicacionId);
-        LocalDateTime ahora = ahoraUtc();
-        if (!publicaciones.retirar(publicacion.getId(), vendedorId, ahora, ahora.minus(TOMA_VIGENTE))) {
+        if (!publicaciones.retirar(publicacion.getId(), vendedorId, ahoraUtc())) {
             throw new ErroresDeNegocio.Conflicto(TiposDeProblema.PUBLICACION_NO_ACTIVA,
                     "La publicación ya no está activa, o alguien la está comprando en este momento.");
         }
@@ -170,8 +161,10 @@ public class ServicioDeReventa implements IReventa {
      *
      * Si el cobro se rechaza o se sabe que no se hizo, la publicación se
      * libera. Si Pagos no responde, la toma queda: no se sabe si cobró, y
-     * mientras la toma vale nadie más paga por esa entrada; el mismo comprador
-     * puede reintentar con la misma clave.
+     * mientras tanto nadie más paga por esa entrada. La toma no vence sola: o
+     * el mismo comprador reintenta con la misma clave, o
+     * {@link ConciliacionDeReventas} le pregunta a Pagos cómo terminó y
+     * transfiere la entrada o libera la publicación.
      *
      * Límite: si el cobro sale aprobado y la transferencia falla, la
      * publicación vuelve a ACTIVA y el cobro queda hecho. Queda un registro
@@ -203,8 +196,10 @@ public class ServicioDeReventa implements IReventa {
         }
         exigirReventaAbierta(publicacion.getEventoId());
 
-        LocalDateTime ahora = ahoraUtc();
-        if (!publicaciones.tomar(publicacion.getId(), compradorId, clave, ahora, ahora.minus(TOMA_VIGENTE))) {
+        // La toma anota también el titular: si el cobro se hace y la compra no termina, la conciliación
+        // transfiere la entrada a su nombre sin esperar al comprador.
+        if (!publicaciones.tomar(publicacion.getId(), compradorId, clave, compra.titular().nombre().strip(),
+                compra.titular().dni(), ahoraUtc())) {
             throw new ErroresDeNegocio.Conflicto(TiposDeProblema.PUBLICACION_NO_ACTIVA,
                     "La publicación ya no está disponible: otra persona la está comprando o ya la compró.");
         }
@@ -256,8 +251,8 @@ public class ServicioDeReventa implements IReventa {
         } catch (ErroresDeNegocio.SinRespuesta e) {
             // No se sabe si cobró: la toma queda hasta que venza, para que nadie más pague por esta entrada.
             LOG.warning("Reventa " + publicacion.getId() + ": Pagos no respondió al cobrar con la clave "
-                    + Textos.enUnaLinea(clave) + ". La publicación queda tomada " + TOMA_VIGENTE.toMinutes()
-                    + " minutos; si se cobró, el reintento con la misma clave lo recupera.");
+                    + Textos.enUnaLinea(clave) + ". La publicación queda tomada hasta que se sepa si se cobró:"
+                    + " la resuelve un reintento con la misma clave o la conciliación.");
             throw e;
         } catch (RuntimeException e) {
             publicaciones.liberar(publicacion.getId(), clave);

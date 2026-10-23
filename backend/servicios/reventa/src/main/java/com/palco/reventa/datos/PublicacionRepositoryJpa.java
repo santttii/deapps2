@@ -58,22 +58,23 @@ public class PublicacionRepositoryJpa implements PublicacionRepository {
     }
 
     @Override
-    public boolean tomar(String id, String compradorId, String clave, LocalDateTime ahora,
-            LocalDateTime tomasVencidasHasta) {
+    public boolean tomar(String id, String compradorId, String clave, String titularNombre, String titularDni,
+            LocalDateTime ahora) {
         return cambioUnaFila(em.createQuery("""
                         update Publicacion p
-                        set p.compradorId = :comprador, p.claveCompra = :clave, p.compraIntentada = :ahora
+                        set p.compradorId = :comprador, p.claveCompra = :clave, p.compraIntentada = :ahora,
+                            p.titularNombre = :nombre, p.titularDni = :dni
                         where p.id = :id
                           and p.estado = :activa
                           and p.vendedorId <> :comprador
                           and (p.claveCompra is null
-                               or p.compraIntentada <= :vencidasHasta
                                or (p.claveCompra = :clave and p.compradorId = :comprador))""")
                 .setParameter("id", id)
                 .setParameter("comprador", compradorId)
                 .setParameter("clave", clave)
+                .setParameter("nombre", titularNombre)
+                .setParameter("dni", titularDni)
                 .setParameter("ahora", ahora)
-                .setParameter("vencidasHasta", tomasVencidasHasta)
                 .setParameter("activa", EstadoPublicacion.ACTIVA));
     }
 
@@ -81,10 +82,40 @@ public class PublicacionRepositoryJpa implements PublicacionRepository {
     public boolean liberar(String id, String clave) {
         return cambioUnaFila(em.createQuery("""
                         update Publicacion p
-                        set p.compradorId = null, p.claveCompra = null, p.compraIntentada = null
+                        set p.compradorId = null, p.claveCompra = null, p.compraIntentada = null,
+                            p.titularNombre = null, p.titularDni = null
                         where p.id = :id and p.estado = :activa and p.claveCompra = :clave""")
                 .setParameter("id", id)
                 .setParameter("clave", clave)
+                .setParameter("activa", EstadoPublicacion.ACTIVA));
+    }
+
+    @Override
+    public List<Publicacion> buscarTomasSinCerrar(LocalDateTime intentadasHasta) {
+        return em.createQuery("""
+                        select p from Publicacion p
+                        where p.estado = :activa
+                          and p.claveCompra is not null
+                          and p.compraIntentada <= :hasta
+                        order by p.compraIntentada""", Publicacion.class)
+                .setParameter("activa", EstadoPublicacion.ACTIVA)
+                .setParameter("hasta", intentadasHasta)
+                .getResultList();
+    }
+
+    @Override
+    public boolean liberarConciliada(String id, String clave, LocalDateTime intentadasHasta) {
+        return cambioUnaFila(em.createQuery("""
+                        update Publicacion p
+                        set p.compradorId = null, p.claveCompra = null, p.compraIntentada = null,
+                            p.titularNombre = null, p.titularDni = null
+                        where p.id = :id
+                          and p.estado = :activa
+                          and p.claveCompra = :clave
+                          and p.compraIntentada <= :hasta""")
+                .setParameter("id", id)
+                .setParameter("clave", clave)
+                .setParameter("hasta", intentadasHasta)
                 .setParameter("activa", EstadoPublicacion.ACTIVA));
     }
 
@@ -109,18 +140,17 @@ public class PublicacionRepositoryJpa implements PublicacionRepository {
     }
 
     @Override
-    public boolean retirar(String id, String vendedorId, LocalDateTime ahora, LocalDateTime tomasVencidasHasta) {
+    public boolean retirar(String id, String vendedorId, LocalDateTime ahora) {
         return cambioUnaFila(em.createQuery("""
                         update Publicacion p
                         set p.estado = :retirada, p.cerrada = :ahora
                         where p.id = :id
                           and p.vendedorId = :vendedor
                           and p.estado = :activa
-                          and (p.claveCompra is null or p.compraIntentada <= :vencidasHasta)""")
+                          and p.claveCompra is null""")
                 .setParameter("id", id)
                 .setParameter("vendedor", vendedorId)
                 .setParameter("ahora", ahora)
-                .setParameter("vencidasHasta", tomasVencidasHasta)
                 .setParameter("retirada", EstadoPublicacion.RETIRADA)
                 .setParameter("activa", EstadoPublicacion.ACTIVA));
     }

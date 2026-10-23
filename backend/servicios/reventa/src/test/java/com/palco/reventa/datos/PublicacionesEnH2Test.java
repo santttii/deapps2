@@ -103,41 +103,74 @@ class PublicacionesEnH2Test {
 
     @Test
     void elVendedorNoTomaSuPropiaPublicacionYUnReintentoConLaMismaClavePasa() {
-        assertFalse(enTransaccion(em, () -> repositorio.tomar("R-1", "U-vendedor", "k1", AHORA, VENCIDAS_HASTA)));
-        assertTrue(enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", AHORA, VENCIDAS_HASTA)));
+        assertFalse(enTransaccion(em, () -> repositorio.tomar("R-1", "U-vendedor", "k1", "Ana Gómez", "30111222", AHORA)));
+        assertTrue(enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", "Ana Gómez", "30111222", AHORA)));
         // El mismo comprador con la misma clave: es el reintento y pasa.
-        assertTrue(enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", AHORA, VENCIDAS_HASTA)));
+        assertTrue(enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", "Ana Gómez", "30111222", AHORA)));
         // Otro comprador, u otra clave, mientras la toma vale: no pasa.
-        assertFalse(enTransaccion(em, () -> repositorio.tomar("R-1", "U-b", "k2", AHORA, VENCIDAS_HASTA)));
-        assertFalse(enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k2", AHORA, VENCIDAS_HASTA)));
+        assertFalse(enTransaccion(em, () -> repositorio.tomar("R-1", "U-b", "k2", "Ana Gómez", "30111222", AHORA)));
+        assertFalse(enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k2", "Ana Gómez", "30111222", AHORA)));
     }
 
     @Test
-    void unaTomaVencidaLaPuedeRetomarOtroYLiberarLaDejaLibre() {
-        assertTrue(enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", AHORA.minusMinutes(5),
-                VENCIDAS_HASTA.minusMinutes(5))));
-        assertTrue(enTransaccion(em, () -> repositorio.tomar("R-1", "U-b", "k2", AHORA, VENCIDAS_HASTA)));
+    void unaTomaViejaNoLaRetomaOtroYLiberarLaDejaLibre() {
+        // Antes la toma vencía a los 2 minutos y otro la podía comprar aunque el primer cobro se hubiera hecho (L1).
+        assertTrue(enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", "Ana Gómez", "30111222",
+                AHORA.minusMinutes(5))));
+        assertFalse(enTransaccion(em, () -> repositorio.tomar("R-1", "U-b", "k2", "Luis Pérez", "25231472", AHORA)));
+        assertFalse(enTransaccion(em, () -> repositorio.retirar("R-1", "U-vendedor", AHORA)));
         // Liberar con una clave que no es la de la toma no cambia nada.
-        assertFalse(enTransaccion(em, () -> repositorio.liberar("R-1", "k1")));
-        assertTrue(enTransaccion(em, () -> repositorio.liberar("R-1", "k2")));
+        assertFalse(enTransaccion(em, () -> repositorio.liberar("R-1", "k2")));
+        assertTrue(enTransaccion(em, () -> repositorio.liberar("R-1", "k1")));
         assertEquals(null, leer("R-1").getClaveCompra());
+        assertEquals(null, leer("R-1").getTitularDni());
         assertEquals(EstadoPublicacion.ACTIVA, leer("R-1").getEstado());
+        // Recién ahora otro la puede tomar.
+        assertTrue(enTransaccion(em, () -> repositorio.tomar("R-1", "U-b", "k2", "Luis Pérez", "25231472", AHORA)));
+    }
+
+    @Test
+    void laTomaGuardaElTitularYLaConciliacionEncuentraSoloLasViejas() {
+        enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", "Ana Gómez", "30111222", AHORA.minusMinutes(5)));
+        enTransaccion(em, () -> repositorio.tomar("R-2", "U-b", "k2", "Luis Pérez", "25231472", AHORA));
+
+        var viejas = enTransaccion(em, () -> repositorio.buscarTomasSinCerrar(VENCIDAS_HASTA));
+
+        assertEquals(1, viejas.size());
+        assertEquals("R-1", viejas.get(0).getId());
+        assertEquals("Ana Gómez", viejas.get(0).getTitularNombre());
+        assertEquals("30111222", viejas.get(0).getTitularDni());
+        assertEquals("k1", viejas.get(0).getClaveCompra());
+    }
+
+    @Test
+    void laConciliacionNoLiberaUnaTomaQueElCompradorReintentoMientrasTanto() {
+        enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", "Ana Gómez", "30111222", AHORA.minusMinutes(5)));
+        // El comprador reintenta con la misma clave: la toma queda con la hora nueva.
+        assertTrue(enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", "Ana Gómez", "30111222", AHORA)));
+
+        assertFalse(enTransaccion(em, () -> repositorio.liberarConciliada("R-1", "k1", VENCIDAS_HASTA)));
+        assertEquals("k1", leer("R-1").getClaveCompra());
+
+        // Con la hora de corte después del reintento, sí.
+        assertTrue(enTransaccion(em, () -> repositorio.liberarConciliada("R-1", "k1", AHORA)));
+        assertEquals(null, leer("R-1").getClaveCompra());
     }
 
     @Test
     void conUnaTomaVigenteElVendedorNoLaRetiraYSinTomaSi() {
-        enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", AHORA, VENCIDAS_HASTA));
-        assertFalse(enTransaccion(em, () -> repositorio.retirar("R-1", "U-vendedor", AHORA, VENCIDAS_HASTA)));
-        assertFalse(enTransaccion(em, () -> repositorio.retirar("R-2", "U-otro", AHORA, VENCIDAS_HASTA)));
-        assertTrue(enTransaccion(em, () -> repositorio.retirar("R-2", "U-vendedor", AHORA, VENCIDAS_HASTA)));
+        enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", "Ana Gómez", "30111222", AHORA));
+        assertFalse(enTransaccion(em, () -> repositorio.retirar("R-1", "U-vendedor", AHORA)));
+        assertFalse(enTransaccion(em, () -> repositorio.retirar("R-2", "U-otro", AHORA)));
+        assertTrue(enTransaccion(em, () -> repositorio.retirar("R-2", "U-vendedor", AHORA)));
         assertEquals(EstadoPublicacion.RETIRADA, leer("R-2").getEstado());
         // Una retirada no se compra.
-        assertFalse(enTransaccion(em, () -> repositorio.tomar("R-2", "U-a", "k1", AHORA, VENCIDAS_HASTA)));
+        assertFalse(enTransaccion(em, () -> repositorio.tomar("R-2", "U-a", "k1", "Ana Gómez", "30111222", AHORA)));
     }
 
     @Test
     void venderlaLaCierraConLaVentaYElPago() {
-        enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", AHORA, VENCIDAS_HASTA));
+        enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", "Ana Gómez", "30111222", AHORA));
         assertTrue(enTransaccion(em, () -> repositorio.marcarVendida("R-1", "U-a", "k1", "V-1", "P-1", AHORA)));
         assertFalse(enTransaccion(em, () -> repositorio.marcarVendida("R-1", "U-a", "k1", "V-1", "P-1", AHORA)));
 
@@ -155,11 +188,11 @@ class PublicacionesEnH2Test {
         try {
             // La primera compra hace su UPDATE y todavía no confirma: la fila queda bloqueada.
             em.getTransaction().begin();
-            boolean primera = repositorio.tomar("R-1", "U-a", "k1", AHORA, VENCIDAS_HASTA);
+            boolean primera = repositorio.tomar("R-1", "U-a", "k1", "Ana Gómez", "30111222", AHORA);
 
             // La segunda espera el bloqueo; cuando la primera confirma, ya la ve tomada y no cambia nada.
             CompletableFuture<Boolean> segunda = CompletableFuture.supplyAsync(
-                    () -> enTransaccion(otro, () -> con(otro).tomar("R-1", "U-b", "k2", AHORA, VENCIDAS_HASTA)));
+                    () -> enTransaccion(otro, () -> con(otro).tomar("R-1", "U-b", "k2", "Ana Gómez", "30111222", AHORA)));
             assertFalse(terminoEn(segunda, 300), "el segundo UPDATE no esperó al primero");
             em.getTransaction().commit();
 

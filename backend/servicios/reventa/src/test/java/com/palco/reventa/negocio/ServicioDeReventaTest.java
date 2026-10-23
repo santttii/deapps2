@@ -158,7 +158,7 @@ class ServicioDeReventaTest {
     @Test
     void retirarUnaAjenaEsNoEncontradaYUnaPropiaLaDevuelveAValida() {
         when(publicaciones.buscarPorId("R-1")).thenReturn(Optional.of(publicacion(50_000)));
-        when(publicaciones.retirar(eq("R-1"), eq(VENDEDOR), any(), any())).thenReturn(true);
+        when(publicaciones.retirar(eq("R-1"), eq(VENDEDOR), any())).thenReturn(true);
 
         assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.retirar("U-otro", "R-1"));
         servicio.retirar(VENDEDOR, "R-1");
@@ -181,7 +181,7 @@ class ServicioDeReventaTest {
 
     private void publicacionActivaTomable() {
         when(publicaciones.buscarPorId("R-1")).thenReturn(Optional.of(publicacion(55_000)));
-        when(publicaciones.tomar(eq("R-1"), eq(COMPRADOR), eq(CLAVE), any(), any())).thenReturn(true);
+        when(publicaciones.tomar(eq("R-1"), eq(COMPRADOR), eq(CLAVE), any(), any(), any())).thenReturn(true);
     }
 
     @Test
@@ -198,6 +198,8 @@ class ServicioDeReventaTest {
         CompraHechaDto hecha = servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE);
 
         assertEquals("V-nueva", hecha.ventaId());
+        // La toma anota el titular antes de cobrar: si la compra no termina, la conciliación lo usa.
+        verify(publicaciones).tomar(eq("R-1"), eq(COMPRADOR), eq(CLAVE), eq("Bruno Díaz"), eq("40111222"), any());
         assertEquals("T-nueva", hecha.entrada().id());
         assertEquals("qr-nuevo", hecha.entrada().codigoQr());
         verify(publicaciones).marcarVendida(eq("R-1"), eq(COMPRADOR), eq(CLAVE), eq("V-nueva"), eq("P-1"), any());
