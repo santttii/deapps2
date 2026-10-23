@@ -22,4 +22,16 @@ public final class Sesion {
         }
         throw new ErroresDeNegocio.NoAutenticado("Tenés que iniciar sesión.");
     }
+
+    /**
+     * El token tal como llegó, para pedirle algo a otro servicio en nombre de
+     * este usuario (por ejemplo, Validación le pregunta a Eventos cuáles son
+     * los eventos del organizador). Sin token es {@code NoAutenticado}.
+     */
+    public static String tokenDelUsuario(SecurityContext seguridad) {
+        if (seguridad.getUserPrincipal() instanceof JsonWebToken token && token.getRawToken() != null) {
+            return token.getRawToken();
+        }
+        throw new ErroresDeNegocio.NoAutenticado("Tenés que iniciar sesión.");
+    }
 }

@@ -16,8 +16,17 @@ import com.palco.eventos.api.Dtos.SectorDto;
 @Local
 public interface IEventos {
 
+    /** El tramo de {@code GET /api/eventos/mios}. Es una palabra reservada: ningún slug puede ser igual. */
+    String RUTA_MIOS = "mios";
+
     /** Catálogo ordenado por fecha. Ambos filtros son opcionales (null = sin filtro). */
     List<EventoDto> listarEventos(String categoria, String busqueda);
+
+    /**
+     * Los eventos que creó ese organizador, ordenados por fecha. Si no creó
+     * ninguno, la lista está vacía.
+     */
+    List<EventoDto> listarDelOrganizador(String organizadorId);
 
     /** Detalle por slug (el identificador que usa la URL del frontend). */
     EventoDto obtenerDetalle(String slug);

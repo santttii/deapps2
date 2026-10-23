@@ -69,22 +69,36 @@ public class EscaneosResource {
                 .build();
     }
 
-    /** {@code GET /api/v1/validacion/escaneos?eventoId=ev-1}: el registro de la puerta, del más nuevo al más viejo. */
+    /**
+     * {@code GET /api/v1/validacion/escaneos?eventoId=ev-1}: el registro de la
+     * puerta, del más nuevo al más viejo. El organizador ve solo el de sus
+     * eventos (403 {@code evento-ajeno} si no es suyo).
+     */
     @GET
     @RolesAllowed({ "staff", "organizer" })
     public List<EscaneoDto> listar(
             @QueryParam("eventoId")
             @NotBlank(message = "Indicá el evento con ?eventoId=.")
             @Size(max = 40, message = "El id del evento tiene hasta 40 caracteres.")
-            String eventoId) {
-        return validacion.listar(eventoId);
+            String eventoId,
+            @Context SecurityContext seguridad) {
+        return validacion.listar(eventoId, tokenDelOrganizador(seguridad));
     }
 
     /** {@code GET /api/v1/validacion/escaneos/ESC-1a2b3c4d}: un renglón del registro. */
     @GET
     @Path("{escaneoId}")
     @RolesAllowed({ "staff", "organizer" })
-    public EscaneoDto obtener(@PathParam("escaneoId") String escaneoId) {
-        return validacion.obtener(escaneoId);
+    public EscaneoDto obtener(@PathParam("escaneoId") String escaneoId, @Context SecurityContext seguridad) {
+        return validacion.obtener(escaneoId, tokenDelOrganizador(seguridad));
+    }
+
+    /**
+     * El token de quien consulta si es organizador, para que el negocio le
+     * pregunte a Eventos cuáles son sus eventos; {@code null} si es el
+     * personal de puerta, que por ahora ve el registro de cualquier evento.
+     */
+    static String tokenDelOrganizador(SecurityContext seguridad) {
+        return seguridad.isUserInRole("staff") ? null : Sesion.tokenDelUsuario(seguridad);
     }
 }

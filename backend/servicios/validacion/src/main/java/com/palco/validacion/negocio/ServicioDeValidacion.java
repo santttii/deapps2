@@ -22,6 +22,7 @@ import com.palco.validacion.api.Dtos.UsoAnteriorDto;
 import com.palco.validacion.datos.EscaneoRepository;
 import com.palco.validacion.dominio.Escaneo;
 import com.palco.validacion.dominio.ResultadoEscaneo;
+import com.palco.validacion.negocio.externos.ClienteDeEventos;
 import com.palco.validacion.negocio.externos.ClienteDeVentas;
 
 /**
@@ -57,11 +58,17 @@ public class ServicioDeValidacion implements IValidacion {
     /** Cuántos caracteres del final del código muestra el registro. */
     static final int CARACTERES_VISIBLES_DEL_CODIGO = 6;
 
+    /** El {@code type} del 403 cuando un organizador pide el registro de un evento que no es suyo. */
+    static final String EVENTO_AJENO = "evento-ajeno";
+
     @Inject
     EscaneoRepository escaneos;
 
     @Inject
     ClienteDeVentas ventas;
+
+    @Inject
+    ClienteDeEventos eventos;
 
     /** De dónde sale el "ahora". No es estado: es fijo, y los tests lo reemplazan por un reloj detenido. */
     Clock reloj = Clock.systemUTC();
@@ -100,17 +107,33 @@ public class ServicioDeValidacion implements IValidacion {
     }
 
     @Override
-    public List<EscaneoDto> listar(String eventoId) {
-        return escaneos.listarPorEvento(eventoId.strip(), MAXIMO_POR_CONSULTA).stream()
+    public List<EscaneoDto> listar(String eventoId, String tokenDelOrganizador) {
+        String evento = eventoId.strip();
+        if (tokenDelOrganizador != null && !esDelOrganizador(evento, tokenDelOrganizador)) {
+            throw new ErroresDeNegocio.SinPermiso(EVENTO_AJENO,
+                    "Ese evento no es tuyo: solo ves el registro de la puerta de tus eventos.");
+        }
+        return escaneos.listarPorEvento(evento, MAXIMO_POR_CONSULTA).stream()
                 .map(ServicioDeValidacion::aDto)
                 .toList();
     }
 
     @Override
-    public EscaneoDto obtener(String escaneoId) {
+    public EscaneoDto obtener(String escaneoId, String tokenDelOrganizador) {
         return escaneos.buscarPorId(escaneoId)
+                .filter(e -> tokenDelOrganizador == null || esDelOrganizador(e.getEventoId(), tokenDelOrganizador))
                 .map(ServicioDeValidacion::aDto)
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe ese escaneo."));
+    }
+
+    /**
+     * Si el evento es del organizador del token. Lo decide Eventos, que es
+     * quien sabe quién creó cada evento; Validación no guarda dueños. Al
+     * personal de puerta no se le pregunta: todavía no hay asignación de staff
+     * a eventos (la otra mitad de la limitación L17).
+     */
+    private boolean esDelOrganizador(String eventoId, String tokenDelOrganizador) {
+        return eventos.eventosDelOrganizador(tokenDelOrganizador).contains(eventoId);
     }
 
     /**

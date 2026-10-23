@@ -7,9 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -18,6 +20,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +32,7 @@ import com.palco.validacion.api.Dtos.ResultadoDeEscaneoDto;
 import com.palco.validacion.datos.EscaneoRepository;
 import com.palco.validacion.dominio.Escaneo;
 import com.palco.validacion.dominio.ResultadoEscaneo;
+import com.palco.validacion.negocio.externos.ClienteDeEventos;
 import com.palco.validacion.negocio.externos.ClienteDeVentas;
 import com.palco.validacion.negocio.externos.ClienteDeVentas.Entrada;
 import com.palco.validacion.negocio.externos.ClienteDeVentas.Titular;
@@ -48,12 +52,14 @@ class ServicioDeValidacionTest {
 
     private final EscaneoRepository escaneos = mock(EscaneoRepository.class);
     private final ClienteDeVentas ventas = mock(ClienteDeVentas.class);
+    private final ClienteDeEventos eventos = mock(ClienteDeEventos.class);
     private final ServicioDeValidacion validacion = new ServicioDeValidacion();
 
     @BeforeEach
     void conectar() {
         validacion.escaneos = escaneos;
         validacion.ventas = ventas;
+        validacion.eventos = eventos;
         validacion.reloj = Clock.fixed(AHORA, ZoneOffset.UTC);
     }
 
@@ -205,7 +211,7 @@ class ServicioDeValidacionTest {
                 LocalDateTime.of(2026, 11, 20, 20, 41, 5));
         when(escaneos.listarPorEvento(EVENTO, ServicioDeValidacion.MAXIMO_POR_CONSULTA)).thenReturn(List.of(escaneo));
 
-        List<EscaneoDto> registro = validacion.listar(EVENTO);
+        List<EscaneoDto> registro = validacion.listar(EVENTO, null);
 
         assertEquals(List.of(new EscaneoDto("ESC-00000001", EVENTO, "…0b7a11", "VALIDA", "T-9c41d07e", PUERTA,
                 "2026-11-20T20:41:05Z")), registro);
@@ -220,6 +226,72 @@ class ServicioDeValidacionTest {
     void unEscaneoQueNoExisteEsUn404() {
         when(escaneos.buscarPorId("ESC-nada")).thenReturn(Optional.empty());
 
-        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> validacion.obtener("ESC-nada"));
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> validacion.obtener("ESC-nada", null));
+    }
+
+    // --- El dueño del evento (limitación L17) ---
+
+    private static final String ORGANIZADOR = "token-del-organizador";
+
+    private Escaneo escaneoDe(String eventoId) {
+        return new Escaneo("ESC-00000001", CODIGO, eventoId, ResultadoEscaneo.VALIDA, "T-9c41d07e", PUERTA,
+                LocalDateTime.of(2026, 11, 20, 20, 41, 5));
+    }
+
+    @Test
+    void elPersonalDePuertaVeElRegistroSinPreguntarleAEventos() {
+        when(escaneos.listarPorEvento(EVENTO, ServicioDeValidacion.MAXIMO_POR_CONSULTA))
+                .thenReturn(List.of(escaneoDe(EVENTO)));
+
+        assertEquals(1, validacion.listar(EVENTO, null).size());
+        verifyNoInteractions(eventos);
+    }
+
+    @Test
+    void elOrganizadorVeElRegistroDeSuEvento() {
+        when(eventos.eventosDelOrganizador(ORGANIZADOR)).thenReturn(Set.of(EVENTO, "ev-2"));
+        when(escaneos.listarPorEvento(EVENTO, ServicioDeValidacion.MAXIMO_POR_CONSULTA))
+                .thenReturn(List.of(escaneoDe(EVENTO)));
+
+        assertEquals(1, validacion.listar(" " + EVENTO + " ", ORGANIZADOR).size());
+    }
+
+    @Test
+    void elRegistroDeUnEventoAjenoEsUn403SinLeerLaBase() {
+        when(eventos.eventosDelOrganizador(ORGANIZADOR)).thenReturn(Set.of("ev-2"));
+
+        ErroresDeNegocio.SinPermiso error = assertThrows(ErroresDeNegocio.SinPermiso.class,
+                () -> validacion.listar(EVENTO, ORGANIZADOR));
+
+        assertEquals("evento-ajeno", error.tipo());
+        verify(escaneos, never()).listarPorEvento(any(), anyInt());
+    }
+
+    @Test
+    void siEventosNoRespondeElOrganizadorNoVeElRegistro() {
+        ErroresDeNegocio.SinRespuesta caida = new ErroresDeNegocio.SinRespuesta("El servicio de eventos no responde.");
+        when(eventos.eventosDelOrganizador(ORGANIZADOR)).thenThrow(caida);
+
+        assertSame(caida, assertThrows(ErroresDeNegocio.SinRespuesta.class,
+                () -> validacion.listar(EVENTO, ORGANIZADOR)));
+        verify(escaneos, never()).listarPorEvento(any(), anyInt());
+    }
+
+    @Test
+    void unEscaneoDeUnEventoAjenoNoExisteParaElOrganizador() {
+        when(escaneos.buscarPorId("ESC-00000001")).thenReturn(Optional.of(escaneoDe(EVENTO)));
+        when(eventos.eventosDelOrganizador(ORGANIZADOR)).thenReturn(Set.of("ev-2"));
+
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> validacion.obtener("ESC-00000001", ORGANIZADOR));
+    }
+
+    @Test
+    void unEscaneoDeSuEventoLoVeElOrganizadorYElPersonalSinPreguntar() {
+        when(escaneos.buscarPorId("ESC-00000001")).thenReturn(Optional.of(escaneoDe(EVENTO)));
+        when(eventos.eventosDelOrganizador(ORGANIZADOR)).thenReturn(Set.of(EVENTO));
+
+        assertEquals("ESC-00000001", validacion.obtener("ESC-00000001", ORGANIZADOR).id());
+        assertEquals("ESC-00000001", validacion.obtener("ESC-00000001", null).id());
+        verify(eventos).eventosDelOrganizador(ORGANIZADOR);
     }
 }

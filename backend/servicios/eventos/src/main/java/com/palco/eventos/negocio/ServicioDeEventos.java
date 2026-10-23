@@ -72,6 +72,13 @@ public class ServicioDeEventos implements IEventos {
     }
 
     @Override
+    public List<EventoDto> listarDelOrganizador(String organizadorId) {
+        return eventos.listarDelOrganizador(organizadorId).stream()
+                .map(ServicioDeEventos::aDto)
+                .toList();
+    }
+
+    @Override
     public EventoDto obtenerDetalle(String slug) {
         return eventos.buscarPorSlug(slug)
                 .map(ServicioDeEventos::aDto)
@@ -179,7 +186,8 @@ public class ServicioDeEventos implements IEventos {
     private String slugUnico(String titulo) {
         String base = Textos.slug(titulo);
         String candidato = base;
-        for (int n = 2; eventos.existeSlug(candidato); n++) {
+        // "mios" no se puede usar: GET /api/eventos/mios es la lista del organizador, no un detalle.
+        for (int n = 2; candidato.equals(RUTA_MIOS) || eventos.existeSlug(candidato); n++) {
             candidato = base + "-" + n;
         }
         return candidato;

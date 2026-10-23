@@ -26,6 +26,9 @@ public interface EventoRepository {
      */
     List<Evento> listar(Categoria categoria);
 
+    /** Los eventos que creó ese organizador, ordenados por fecha. */
+    List<Evento> listarDelOrganizador(String organizadorId);
+
     /** El evento con ese slug, si existe. */
     Optional<Evento> buscarPorSlug(String slug);
 

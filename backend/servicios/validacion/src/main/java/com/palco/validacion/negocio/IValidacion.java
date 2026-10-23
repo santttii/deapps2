@@ -33,9 +33,21 @@ public interface IValidacion {
      */
     ResultadoDeEscaneoDto escanear(String codigoQr, String eventoId, String escaneadoPor);
 
-    /** Los escaneos del evento, del más nuevo al más viejo, hasta {@code MAXIMO_POR_CONSULTA}. */
-    List<EscaneoDto> listar(String eventoId);
+    /**
+     * Los escaneos del evento, del más nuevo al más viejo, hasta
+     * {@code MAXIMO_POR_CONSULTA}.
+     *
+     * @param tokenDelOrganizador el token de quien consulta si es un
+     *        organizador, o {@code null} si es el personal de puerta. Con
+     *        token, el evento tiene que ser suyo (se le pregunta a Eventos): si
+     *        no, es 403 {@code evento-ajeno}.
+     */
+    List<EscaneoDto> listar(String eventoId, String tokenDelOrganizador);
 
-    /** El escaneo con ese id, o {@code NoEncontrado}. */
-    EscaneoDto obtener(String escaneoId);
+    /**
+     * El escaneo con ese id, o {@code NoEncontrado}. Para un organizador
+     * ({@code tokenDelOrganizador} no nulo), un escaneo de un evento ajeno
+     * también es {@code NoEncontrado}: no se le confirma que exista.
+     */
+    EscaneoDto obtener(String escaneoId, String tokenDelOrganizador);
 }
