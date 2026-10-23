@@ -72,7 +72,11 @@ public class EventosResource {
     @Path("{eventoId}/sectores/{sectorId}/cupo")
     public SectorDto actualizarCupo(@PathParam("eventoId") String eventoId,
             @PathParam("sectorId") String sectorId,
-            @NotNull(message = "Falta el cuerpo de la solicitud.") CambioCupoDto cambio) {
+            @NotNull(message = "Falta el cuerpo de la solicitud.") @Valid CambioCupoDto cambio) {
+        // Con clave es una devolución segura de repetir (la manda Ventas al cancelar o vencer una compra).
+        if (cambio.clave() != null) {
+            return eventos.devolverCupo(eventoId, sectorId, -cambio.cantidad(), cambio.clave());
+        }
         return eventos.actualizarCupo(eventoId, sectorId, cambio.cantidad());
     }
 }

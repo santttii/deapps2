@@ -55,7 +55,13 @@ public final class Dtos {
     /**
      * Cambio de entradas vendidas de un sector: positivo para vender o
      * reservar, negativo para liberar.
+     *
+     * {@code clave} es opcional y solo vale para liberar: si viene, la
+     * devolución es segura de repetir (la segunda vez con la misma clave no
+     * resta nada). Quien devuelve arma una por venta y sector.
      */
-    public record CambioCupoDto(int cantidad) {
+    public record CambioCupoDto(
+            int cantidad,
+            @Size(max = 120, message = "La clave de devolución tiene como máximo 120 caracteres.") String clave) {
     }
 }

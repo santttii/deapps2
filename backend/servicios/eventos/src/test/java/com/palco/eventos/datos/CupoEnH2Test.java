@@ -2,6 +2,7 @@ package com.palco.eventos.datos;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
@@ -22,10 +23,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.palco.common.ErroresDeNegocio;
 import com.palco.common.datos.BaseDeDatos;
 import com.palco.eventos.dominio.Categoria;
+import com.palco.eventos.dominio.DevolucionDeCupo;
 import com.palco.eventos.dominio.Evento;
 import com.palco.eventos.dominio.Sector;
+import com.palco.eventos.negocio.TiposDeProblema;
 
 /**
  * El cupo de un sector nunca pasa del máximo ni baja de cero porque el UPDATE
@@ -42,12 +46,14 @@ class CupoEnH2Test {
     private static final String EVENTO = "ev-prueba";
     private static final String SECTOR = "sec-prueba";
     private static final int CUPO = 3;
+    private static final LocalDateTime AHORA = LocalDateTime.of(2026, 10, 23, 12, 0);
 
     private JdbcDataSource base;
     private EntityManagerFactory fabrica;
     private EntityManager em;
     private EventoRepositoryJpa eventos;
     private SectorRepositoryJpa sectores;
+    private DevolucionDeCupoRepositoryJpa devoluciones;
 
     @BeforeEach
     void crearBase() {
@@ -61,6 +67,7 @@ class CupoEnH2Test {
                 .transactionType(PersistenceUnitTransactionType.RESOURCE_LOCAL)
                 .managedClass(Evento.class)
                 .managedClass(Sector.class)
+                .managedClass(DevolucionDeCupo.class)
                 // El conversor guarda la etiqueta ("Música") y no el nombre del enumerado, como en el servidor.
                 .managedClass(Categoria.ConversorJpa.class)
                 .property(PersistenceConfiguration.JDBC_URL, url)
@@ -74,6 +81,8 @@ class CupoEnH2Test {
         eventos.em = em;
         sectores = new SectorRepositoryJpa();
         sectores.em = em;
+        devoluciones = new DevolucionDeCupoRepositoryJpa();
+        devoluciones.em = em;
 
         enTransaccion(() -> {
             Evento evento = new Evento(EVENTO, "show-de-prueba", "Show de prueba", Categoria.MUSICA, "Estadio",
@@ -158,6 +167,45 @@ class CupoEnH2Test {
 
         assertEquals(2, sector.getVendidas());
         assertEquals(1, sector.disponibles());
+    }
+
+    @Test
+    void unaDevolucionRegistradaSeEncuentraPorSuClave() {
+        assertTrue(sumar(2));
+        enTransaccion(() -> {
+            assertTrue(sectores.sumarVendidas(sectores.buscarPorId(SECTOR).orElseThrow(), -2));
+            devoluciones.registrar(new DevolucionDeCupo("devolucion:V-1:" + SECTOR, SECTOR, 2, AHORA));
+            return null;
+        });
+        em.clear();
+
+        DevolucionDeCupo guardada = enTransaccion(() -> devoluciones.buscar("devolucion:V-1:" + SECTOR)).orElseThrow();
+        assertEquals(SECTOR, guardada.getSectorId());
+        assertEquals(2, guardada.getCantidad());
+        assertTrue(enTransaccion(() -> devoluciones.buscar("devolucion:V-2:" + SECTOR)).isEmpty());
+    }
+
+    @Test
+    void registrarDosVecesLaMismaClaveEsDevolucionYaAplicadaYNoRestaDosVeces() throws Exception {
+        // Dos pedidos iguales a la vez: los dos pasaron la búsqueda y llegan al INSERT. La base deja uno.
+        assertTrue(sumar(2));
+        enTransaccion(() -> {
+            assertTrue(sectores.sumarVendidas(sectores.buscarPorId(SECTOR).orElseThrow(), -1));
+            devoluciones.registrar(new DevolucionDeCupo("devolucion:V-1:" + SECTOR, SECTOR, 1, AHORA));
+            return null;
+        });
+        em.clear();
+
+        em.getTransaction().begin();
+        assertTrue(sectores.sumarVendidas(sectores.buscarPorId(SECTOR).orElseThrow(), -1));
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> devoluciones.registrar(new DevolucionDeCupo("devolucion:V-1:" + SECTOR, SECTOR, 1, AHORA)));
+        // En el servidor, el Conflicto deshace la transacción entera (@ApplicationException(rollback = true)).
+        em.getTransaction().rollback();
+        em.clear();
+
+        assertEquals(TiposDeProblema.DEVOLUCION_YA_APLICADA, error.tipo());
+        assertEquals(1, vendidasEnLaBase());
     }
 
     @Test

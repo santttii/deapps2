@@ -35,4 +35,14 @@ public interface IEventos {
      * (409); restar se acepta siempre.
      */
     SectorDto actualizarCupo(String eventoId, String sectorId, int cantidad);
+
+    /**
+     * Devuelve {@code cantidad} lugares (positiva) del sector, de forma segura
+     * de repetir: la primera vez con una clave resta y la guarda, y las
+     * siguientes con la misma clave no restan y devuelven el sector como está.
+     * Si dos pedidos con la misma clave llegan a la vez, uno resta y el otro
+     * recibe 409 {@code devolucion-ya-aplicada}. Una clave ya usada para otro
+     * sector o con otra cantidad es 409 {@code clave-reutilizada}.
+     */
+    SectorDto devolverCupo(String eventoId, String sectorId, int cantidad, String clave);
 }

@@ -16,9 +16,11 @@ import com.palco.eventos.api.Dtos.EventoDto;
 import com.palco.eventos.api.Dtos.NuevoEventoDto;
 import com.palco.eventos.api.Dtos.NuevoSectorDto;
 import com.palco.eventos.api.Dtos.SectorDto;
+import com.palco.eventos.datos.DevolucionDeCupoRepository;
 import com.palco.eventos.datos.EventoRepository;
 import com.palco.eventos.datos.SectorRepository;
 import com.palco.eventos.dominio.Categoria;
+import com.palco.eventos.dominio.DevolucionDeCupo;
 import com.palco.eventos.dominio.Evento;
 import com.palco.eventos.dominio.Sector;
 
@@ -47,6 +49,9 @@ public class ServicioDeEventos implements IEventos {
 
     @Inject
     SectorRepository sectores;
+
+    @Inject
+    DevolucionDeCupoRepository devoluciones;
 
     /** No es privado para que el test fije la hora. */
     Clock reloj = Clock.system(ZONA_DE_LOS_EVENTOS);
@@ -101,10 +106,7 @@ public class ServicioDeEventos implements IEventos {
 
     @Override
     public SectorDto actualizarCupo(String eventoId, String sectorId, int cantidad) {
-        Sector sector = sectores.buscarPorId(sectorId).orElse(null);
-        if (sector == null || !sector.getEvento().getId().equals(eventoId)) {
-            throw new ErroresDeNegocio.NoEncontrado("No existe ese sector en el evento.");
-        }
+        Sector sector = delEvento(eventoId, sectorId);
         if (cantidad == 0) {
             return aDto(sector);
         }
@@ -123,6 +125,44 @@ public class ServicioDeEventos implements IEventos {
                     : "No se pueden liberar más entradas de las vendidas.");
         }
         return aDto(sector);
+    }
+
+    @Override
+    public SectorDto devolverCupo(String eventoId, String sectorId, int cantidad, String clave) {
+        if (cantidad <= 0) {
+            throw new ErroresDeNegocio.DatosInvalidos("cantidad", "Para devolver cupo la cantidad tiene que ser negativa.");
+        }
+        if (clave == null || clave.isBlank()) {
+            throw new ErroresDeNegocio.DatosInvalidos("clave", "Falta la clave de la devolución.");
+        }
+        Sector sector = delEvento(eventoId, sectorId);
+
+        // Ya se aplicó: no se resta otra vez. Es el caso de quien devolvió, no supo la respuesta y repite.
+        DevolucionDeCupo anterior = devoluciones.buscar(clave).orElse(null);
+        if (anterior != null) {
+            if (!anterior.getSectorId().equals(sectorId) || anterior.getCantidad() != cantidad) {
+                throw new ErroresDeNegocio.Conflicto(TiposDeProblema.CLAVE_REUTILIZADA,
+                        "Esa clave de devolución ya se usó para otro sector o con otra cantidad.");
+            }
+            return aDto(sector);
+        }
+
+        // Devolver no se frena aunque el evento ya haya empezado: cancelar o vencer una compra no puede fallar.
+        if (!sectores.sumarVendidas(sector, -cantidad)) {
+            throw new ErroresDeNegocio.Conflicto("No se pueden liberar más entradas de las vendidas.");
+        }
+        // En la misma transacción que la resta: si el registro falla, la resta también se deshace.
+        devoluciones.registrar(new DevolucionDeCupo(clave, sectorId, cantidad, LocalDateTime.now(reloj)));
+        return aDto(sector);
+    }
+
+    /** El sector, si es de ese evento. Si no existe o es de otro evento, 404. */
+    private Sector delEvento(String eventoId, String sectorId) {
+        Sector sector = sectores.buscarPorId(sectorId).orElse(null);
+        if (sector == null || !sector.getEvento().getId().equals(eventoId)) {
+            throw new ErroresDeNegocio.NoEncontrado("No existe ese sector en el evento.");
+        }
+        return sector;
     }
 
     /** Un evento empezó cuando llega la hora de su fecha, medida en la zona de los eventos. */

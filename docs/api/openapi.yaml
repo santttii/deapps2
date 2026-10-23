@@ -302,6 +302,8 @@ paths:
       description: >
         Requiere rol `servicio`: lo llama Ventas. `cantidad` positiva suma vendidas (reserva) y negativa las resta
         (libera). La actualización es atómica en la base: dos pedidos por el último lugar no pueden pasar los dos.
+        Una devolución con `clave` es segura de repetir: si esa clave ya se aplicó, no resta otra vez y responde 200
+        con el sector como está.
       parameters:
         - name: eventoId
           in: path
@@ -328,8 +330,10 @@ paths:
         '404': { $ref: '#/components/responses/NoEncontrado' }
         '409':
           description: >
-            No quedan lugares o se quiere liberar más de lo vendido (`/problemas/conflicto`), o se quiere reservar
-            cupo de un evento que ya empezó (`/problemas/evento-finalizado`)
+            No quedan lugares o se quiere liberar más de lo vendido (`/problemas/conflicto`), se quiere reservar
+            cupo de un evento que ya empezó (`/problemas/evento-finalizado`), otro pedido con la misma clave aplicó
+            esa devolución al mismo tiempo (`/problemas/devolucion-ya-aplicada`, para quien devuelve es un éxito) o la
+            clave ya se usó para otro sector o con otra cantidad (`/problemas/clave-reutilizada`)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
@@ -1223,6 +1227,13 @@ components:
       required: [cantidad]
       properties:
         cantidad: { type: integer, description: 'Positiva reserva, negativa libera', example: 2 }
+        clave:
+          type: string
+          maxLength: 120
+          description: >
+            Solo para liberar (cantidad negativa). Hace la devolución segura de repetir: Eventos no aplica dos veces la
+            misma clave. Ventas manda una por venta y sector.
+          example: 'devolucion:V-3f9a1c2b:sec-1-1'
 
     Titular:
       type: object

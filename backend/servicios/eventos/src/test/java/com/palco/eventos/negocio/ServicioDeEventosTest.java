@@ -28,9 +28,11 @@ import com.palco.eventos.api.Dtos.EventoDto;
 import com.palco.eventos.api.Dtos.NuevoEventoDto;
 import com.palco.eventos.api.Dtos.NuevoSectorDto;
 import com.palco.eventos.api.Dtos.SectorDto;
+import com.palco.eventos.datos.DevolucionDeCupoRepository;
 import com.palco.eventos.datos.EventoRepository;
 import com.palco.eventos.datos.SectorRepository;
 import com.palco.eventos.dominio.Categoria;
+import com.palco.eventos.dominio.DevolucionDeCupo;
 import com.palco.eventos.dominio.Evento;
 import com.palco.eventos.dominio.Sector;
 
@@ -52,11 +54,14 @@ class ServicioDeEventosTest {
 
     private final EventoRepository eventos = mock(EventoRepository.class);
     private final SectorRepository sectores = mock(SectorRepository.class);
+    private final DevolucionDeCupoRepository devoluciones = mock(DevolucionDeCupoRepository.class);
     private final ServicioDeEventos servicio = new ServicioDeEventos();
 
     ServicioDeEventosTest() {
         servicio.eventos = eventos;
         servicio.sectores = sectores;
+        servicio.devoluciones = devoluciones;
+        when(devoluciones.buscar(any())).thenReturn(Optional.empty());
         servicio.reloj = Clock.fixed(AHORA, ServicioDeEventos.ZONA_DE_LOS_EVENTOS);
         when(sectores.sumarVendidas(any(), anyInt())).thenReturn(true);
     }
@@ -374,6 +379,90 @@ class ServicioDeEventosTest {
                 () -> servicio.actualizarCupo(EVENTO, "sec-x", 2));
 
         assertEquals("No existe ese sector en el evento.", error.getMessage());
+    }
+
+    // --- Devolver el cupo con clave (seguro de repetir) ---
+
+    private static final String CLAVE = "devolucion:V-1:" + SECTOR;
+
+    @Test
+    void laPrimeraDevolucionConUnaClaveRestaYLaGuarda() {
+        Sector sector = sectorDeUnEventoEl(MAS_TARDE);
+
+        servicio.devolverCupo(EVENTO, SECTOR, 2, CLAVE);
+
+        verify(sectores).sumarVendidas(sector, -2);
+        ArgumentCaptor<DevolucionDeCupo> guardada = ArgumentCaptor.forClass(DevolucionDeCupo.class);
+        verify(devoluciones).registrar(guardada.capture());
+        assertEquals(CLAVE, guardada.getValue().getClave());
+        assertEquals(SECTOR, guardada.getValue().getSectorId());
+        assertEquals(2, guardada.getValue().getCantidad());
+        assertEquals(AHORA_LOCAL, guardada.getValue().getAplicada());
+    }
+
+    @Test
+    void repetirUnaDevolucionYaAplicadaNoRestaOtraVez() {
+        // Ventas devolvió, no supo la respuesta y repite: si se restara de nuevo, ese lugar se vendería dos veces.
+        Sector sector = sectorDeUnEventoEl(MAS_TARDE);
+        when(devoluciones.buscar(CLAVE)).thenReturn(Optional.of(new DevolucionDeCupo(CLAVE, SECTOR, 2, AHORA_LOCAL)));
+
+        SectorDto resultado = servicio.devolverCupo(EVENTO, SECTOR, 2, CLAVE);
+
+        assertEquals(new SectorDto(SECTOR, "Campo", 50_000, 100, 0), resultado);
+        verify(sectores, never()).sumarVendidas(any(), anyInt());
+        verify(devoluciones, never()).registrar(any());
+    }
+
+    @Test
+    void unaClaveUsadaParaOtraCantidadEsClaveReutilizada() {
+        sectorDeUnEventoEl(MAS_TARDE);
+        when(devoluciones.buscar(CLAVE)).thenReturn(Optional.of(new DevolucionDeCupo(CLAVE, SECTOR, 3, AHORA_LOCAL)));
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.devolverCupo(EVENTO, SECTOR, 2, CLAVE));
+
+        assertEquals(TiposDeProblema.CLAVE_REUTILIZADA, error.tipo());
+        verify(sectores, never()).sumarVendidas(any(), anyInt());
+    }
+
+    @Test
+    void unaDevolucionConClaveDeUnEventoQueYaEmpezoTambienSeAplica() {
+        Sector sector = sectorDeUnEventoEl(LocalDateTime.of(2020, 1, 1, 21, 0));
+
+        servicio.devolverCupo(EVENTO, SECTOR, 1, CLAVE);
+
+        verify(sectores).sumarVendidas(sector, -1);
+        verify(devoluciones).registrar(any());
+    }
+
+    @Test
+    void siNoSePuedeRestarNoSeGuardaLaClave() {
+        // Si se guardara, el reintento creería que ya se devolvió.
+        Sector sector = sectorDeUnEventoEl(MAS_TARDE);
+        when(sectores.sumarVendidas(sector, -5)).thenReturn(false);
+
+        assertThrows(ErroresDeNegocio.Conflicto.class, () -> servicio.devolverCupo(EVENTO, SECTOR, 5, CLAVE));
+
+        verify(devoluciones, never()).registrar(any());
+    }
+
+    @Test
+    void unaClaveConCantidadParaReservarEsUnDatoInvalido() {
+        sectorDeUnEventoEl(MAS_TARDE);
+
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.devolverCupo(EVENTO, SECTOR, 0, CLAVE));
+
+        assertEquals(Map.of("cantidad", error.getMessage()), error.campos());
+        verify(sectores, never()).sumarVendidas(any(), anyInt());
+    }
+
+    @Test
+    void devolverConClaveUnSectorDeOtroEventoEsNoEncontrado() {
+        sectorDeUnEventoEl(MAS_TARDE);
+
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.devolverCupo("ev-2", SECTOR, 1, CLAVE));
+        verify(devoluciones, never()).registrar(any());
     }
 
     private Sector sectorDeUnEventoEl(LocalDateTime fecha) {
