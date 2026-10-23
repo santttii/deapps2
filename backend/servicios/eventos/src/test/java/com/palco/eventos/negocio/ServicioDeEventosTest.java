@@ -186,6 +186,14 @@ class ServicioDeEventosTest {
         assertEquals("evento", servicio.crearEvento(nuevo, "org-1").slug());
     }
 
+    @Test
+    void ningunEventoRecibeElSlugMiosQueEsLaRutaDeLosEventosPropios() {
+        NuevoEventoDto nuevo = new NuevoEventoDto("Míos", "Música", "Arena", MAS_TARDE, "Descripción", null,
+                List.of(new NuevoSectorDto("Campo", 50_000, 100)));
+
+        assertEquals("mios-2", servicio.crearEvento(nuevo, "org-1").slug());
+    }
+
     private Evento eventoGuardado() {
         ArgumentCaptor<Evento> guardado = ArgumentCaptor.forClass(Evento.class);
         verify(eventos).guardar(guardado.capture());
@@ -278,6 +286,14 @@ class ServicioDeEventosTest {
 
         assertEquals(List.of(), slugs(servicio.listarEventos("Música", "teatro")));
         assertEquals(List.of("kiroshi"), slugs(servicio.listarEventos("Música", "tour")));
+    }
+
+    @Test
+    void losEventosDelOrganizadorSalenDelRepositorioPorSuId() {
+        when(eventos.listarDelOrganizador("org-1")).thenReturn(List.of(kiroshi, gronholm));
+
+        assertEquals(List.of("kiroshi", "gronholm"), slugs(servicio.listarDelOrganizador("org-1")));
+        assertEquals(List.of(), servicio.listarDelOrganizador("org-2"));
     }
 
     private static List<String> slugs(List<EventoDto> lista) {

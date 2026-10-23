@@ -37,6 +37,16 @@ public class EventoRepositoryJpa implements EventoRepository {
     }
 
     @Override
+    public List<Evento> listarDelOrganizador(String organizadorId) {
+        return em.createQuery("""
+                        select distinct e from Evento e left join fetch e.sectores
+                        where e.organizadorId = :organizadorId
+                        order by e.fecha""", Evento.class)
+                .setParameter("organizadorId", organizadorId)
+                .getResultList();
+    }
+
+    @Override
     public Optional<Evento> buscarPorSlug(String slug) {
         return em.createQuery("select e from Evento e left join fetch e.sectores where e.slug = :slug", Evento.class)
                 .setParameter("slug", slug)

@@ -378,6 +378,23 @@ const eventos = carpeta('2 Eventos (implementado)',
         "pm.collectionVariables.set('sectorCreadoId', creado.sectores[0].id);",
       ],
     }),
+    pedido('Mis eventos, rol organizer (200)', 'GET', url('baseEventos', ['mios']), {
+      descripcion: 'Los eventos que creó la cuenta del token, ordenados por fecha: el recién creado y los seis de '
+        + 'prueba, que son de organizador@palco.test. Es lo que muestra el panel del organizador.',
+      cabeceras: [bearer('tokenOrganizador')],
+      tests: [
+        estado(200),
+        'const lista = pm.response.json();',
+        "pm.test('incluye el evento creado y los de prueba', () => {",
+        "  const ids = lista.map((e) => e.id);",
+        "  pm.expect(ids).to.include(pm.collectionVariables.get('eventoCreadoId'));",
+        "  pm.expect(ids).to.include('ev-1');",
+        '});',
+      ],
+    }),
+    pedido('Mis eventos sin token (401)', 'GET', url('baseEventos', ['mios']), {
+      tests: problema(401, 'no-autenticado'),
+    }),
     pedido('Crear evento inválido (400)', 'POST', url('baseEventos'), {
       descripcion: 'Sin título y sin sectores. Va con el token de organizador: el rol se controla antes que el '
         + 'cuerpo, y con el token de un comprador respondería 403.',
@@ -1193,6 +1210,13 @@ const validacion = carpeta('5 Validación en puerta (implementado)',
           "  pm.expect(pm.response.text()).to.not.include(pm.collectionVariables.get('codigoQr'));",
           '});',
         ],
+      }),
+    pedido('GET /v1/validacion/escaneos de un evento ajeno, rol organizer (403)', 'GET',
+      url('baseValidacion', ['escaneos'], [{ key: 'eventoId', value: 'ev-de-otro' }]), {
+        descripcion: 'El organizador ve solo el registro de sus eventos: Validación le pregunta a Eventos cuáles son '
+          + '(GET /api/eventos/mios, con el token del organizador).',
+        cabeceras: [bearer('tokenOrganizador')],
+        tests: problema(403, 'evento-ajeno'),
       }),
     pedido('GET /v1/validacion/escaneos sin eventoId (400)', 'GET', url('baseValidacion', ['escaneos']), {
       cabeceras: [bearer('tokenStaff')],

@@ -22,10 +22,10 @@ Las carpetas 5 (Validación en puerta), 6 (Reventa) y 7 (Facturación) se sumaro
 | Carpeta | Requests de la corrida | Qué prueba |
 |---|---|---|
 | **1 Usuarios (implementado)** | 10 | Registro, registro inválido, login (comprador y staff), login incorrecto, login sin verificar el email, perfil con y sin token, token de servicio con secreto incorrecto, JWKS |
-| **2 Eventos (implementado)** | 13 | Listar, filtrar, detalle, 404, crear evento sin token, con rol organizer e inválido, y cambio de cupo con rol servicio (reservar, pasarse del cupo, liberar) |
+| **2 Eventos (implementado)** | 15 | Listar, filtrar, detalle, 404, crear evento sin token, con rol organizer e inválido, los eventos propios del organizador (`/mios`, con y sin token), y cambio de cupo con rol servicio (reservar, pasarse del cupo, liberar) |
 | **3 Diseño v1 (Ventas implementado)** | 31 | La compra contra `/api/v1`: abrir la compra con reserva de cupo, idempotencia (también la misma clave con otro pedido, 409), pago rechazado, pago aprobado, venta y entrada, emisión asincrónica de la entrada, listado de las compras propias (con y sin token), aislamiento entre usuarios, control de rol y cancelación |
 | **4 Seguridad (clase 11)** | 15 | Los criterios de la matriz de seguridad de la clase 11 que se prueban por HTTP, cada uno con su id (`SEC-…`): recurso ajeno, rol equivocado, sin token, mensajes de login genéricos, token alterado o sin firma, vigencia del token, errores sin información interna, perfil sin contraseña y límite de intentos de login. Ver la sección 13 |
-| **5 Validación en puerta (implementado)** | 12 | `puerta@palco.test` escanea el código QR de la entrada que pagó la carpeta 3: sin token (401), con rol `user` (403), sin evento (400), un código inexistente (`INEXISTENTE`), la puerta de otro evento (`OTRO_EVENTO`), el primer escaneo (`VALIDA`: la persona entra y Ventas marca la entrada `USADA`) y el segundo (`YA_USADA`, con el uso anterior). Después, la entrada `USADA` en Ventas y el registro de la puerta (lista, sin `eventoId` y un renglón). Todo escaneo responde 201: si la persona entra lo dicen `resultado` y `puedeEntrar` |
+| **5 Validación en puerta (implementado)** | 13 | `puerta@palco.test` escanea el código QR de la entrada que pagó la carpeta 3: sin token (401), con rol `user` (403), sin evento (400), un código inexistente (`INEXISTENTE`), la puerta de otro evento (`OTRO_EVENTO`), el primer escaneo (`VALIDA`: la persona entra y Ventas marca la entrada `USADA`) y el segundo (`YA_USADA`, con el uso anterior). Después, la entrada `USADA` en Ventas y el registro de la puerta (lista, el de un evento ajeno pedido por el organizador, 403 `evento-ajeno`, sin `eventoId` y un renglón). Todo escaneo responde 201: si la persona entra lo dicen `resultado` y `puedeEntrar` |
 | **6 Reventa (implementado)** | 29 | La reventa de punta a punta: `titular@palco.test` compra 2 entradas de Platea B, espera la emisión y publica la primera a 29.000 (el rango va de 13.750 a 30.250). Errores: sin token (401), entrada inexistente (404), sobre el tope y bajo el mínimo (422 `precio-fuera-de-rango`), la misma entrada otra vez (409 `entrada-no-disponible`), compra propia (409 `compra-propia`), compra sin `Idempotency-Key` (400) y cobro rechazado (402). `otro.titular@palco.test` la compra (201), la repite con la misma clave (201, la misma) y con otra (409 `publicacion-no-activa`: ya vendida). Al final, la original `VENDIDA`, la nueva `VALIDA` del comprador, y la segunda entrada publicada y retirada (404 ajena, 204, 409 repetido, y la entrada de nuevo `VALIDA`) |
 | **7 Facturación (implementado)** | 11 | La factura de la compra de la carpeta 3: aparece con número (`00001-…`), CAE de 14 dígitos, factura B (6) y el total cobrado; consultada de nuevo es la misma. Sin token (401), de otro comprador (404), inexistente (404), con rol `staff` (403) y con rol `servicio` (200) |
 
@@ -125,7 +125,7 @@ No hay ids fijos: los `V-…`, `T-…`, `P-…`, `R-…` y los de los escaneos s
 2. Dejá todos los requests tildados y en el orden en que están. No hace falta poner demora ni iteraciones.
 3. `Run Palco API`.
 
-Tienen que ejecutarse al menos 121 requests (más si la emisión o la factura tardan y su request se repite), con todos los tests en verde. Los 2 de "Pasos manuales" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
+Tienen que ejecutarse al menos 124 requests (más si la emisión o la factura tardan y su request se repite), con todos los tests en verde. Los 2 de "Pasos manuales" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
 
 La corrida se comprobó con Newman, que usa el mismo motor que el Runner. Falta repetirla una vez en la ventana de Postman, con el servidor redesplegado (para que exista `otro.titular@palco.test`), para sacar la captura.
 
@@ -269,7 +269,7 @@ El JSON de la colección sale de `scripts/postman/generar.js`: los requests, los
 node scripts/postman/generar.js
 ```
 
-Escribe `docs/api/palco-api.postman_collection.json` y dice cuántos requests tiene en total (hoy 123: los 121 de la corrida y los 2 de "Pasos manuales"). Con una ruta como argumento la escribe en otro lado, por ejemplo para compararla con la del repo. Los tokens quedan vacíos, porque los guardan los requests de login.
+Escribe `docs/api/palco-api.postman_collection.json` y dice cuántos requests tiene en total (hoy 126: los 124 de la corrida y los 2 de "Pasos manuales"). Con una ruta como argumento la escribe en otro lado, por ejemplo para compararla con la del repo. Los tokens quedan vacíos, porque los guardan los requests de login.
 
 Si se cambia algo desde la ventana de Postman, hay que pasarlo al generador: la próxima regeneración pisa el archivo.
 

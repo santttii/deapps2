@@ -10,8 +10,9 @@ Convención: `[ ]` pendiente · `[x]` hecho · `[~]` en curso.
 **Puesta al día del 23/10/2026.** Se revisó cada fase contra el código y contra
 `docs/documentacion/Palco_Documentacion_Completa.md`, que es la fuente del
 detalle; acá queda el estado de cada tarea. Los 8 componentes están
-implementados y probados en el servidor: 658 tests del backend y 20 escenarios
-de integración (`scripts/pruebas/escenarios.mjs`). Lo que falta para las
+implementados y probados en el servidor: 673 tests del backend y 21 escenarios
+de integración (`scripts/pruebas/escenarios.mjs`; el 21, del dueño de cada
+evento, todavía no se corrió en el servidor). Lo que falta para las
 entregas está en la sección 22 del documento maestro y, resumido, en
 [Entregas de la materia](#entregas-de-la-materia).
 
@@ -211,9 +212,11 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 - [ ] `PUT /api/eventos/{id}` (solo el organizador dueño).
 - [ ] Cancelar evento (dispara alertas de cancelación por Notificaciones y,
       si se decide, reembolsos).
-- [~] Relación evento ↔ organizador: el evento guarda quién lo creó, pero
-      `GET /api/eventos` no filtra por dueño y el panel muestra todos
-      (limitación L17).
+- [x] Relación evento ↔ organizador (23/10, limitación L18): el evento guarda
+      quién lo creó y `GET /api/eventos/mios` (rol `organizer`) devuelve los
+      del token. La migración V6 pone los seis eventos de prueba a nombre de
+      `organizador@palco.test`. Ningún evento recibe el slug `mios`.
+      Escenario 21, sin correr en el servidor.
 - [ ] Subida de imágenes **(a confirmar dónde)**: disco del servidor en
       desarrollo o storage externo. Hoy el alta usa la foto de la categoría.
 
@@ -401,8 +404,12 @@ carpeta 5 de Postman).
 - [x] Pantalla `/puerta` conectada a Validación: el código se tipea o lo
       escribe un lector; muestra contadores de ingresos y rechazos y los
       últimos escaneos. No se probó todavía en el navegador.
-- [ ] Asignar staff a eventos y controlar que el organizador sea dueño del
-      evento cuyo registro consulta (limitaciones L17 y L18).
+- [x] Controlar que el organizador sea dueño del evento cuyo registro
+      consulta (23/10, parte de L17): Validación le pide a Eventos
+      `GET /api/eventos/mios` con el token del organizador; un evento ajeno da
+      403 `evento-ajeno` y un escaneo suelto de un evento ajeno, 404.
+- [ ] Asignar staff a eventos y controlarlo al escanear y al consultar el
+      registro (lo que queda de L17).
 - [ ] Provocar en el servidor Ventas sin respuesta (504 y renglón
       `SIN_RESPUESTA`; hoy solo con tests).
 - [ ] Modo offline: fuera del alcance de esta etapa.
@@ -416,7 +423,9 @@ carpeta 5 de Postman).
 - [x] Borrar `src/data/organizer.ts`: ya no existe. Lo que no tiene servicio
       se sacó del panel en lugar de mostrarse con datos fijos.
 - [ ] Ventas por día y liquidación (no tienen servicio).
-- [ ] Filtrar por los eventos del organizador (limitación L17).
+- [x] Filtrar por los eventos del organizador (23/10, L18): el panel usa
+      `GET /api/eventos/mios` y, sin eventos, ofrece crear el primero. Sin
+      probar en el navegador.
 - [ ] (Opcional) Dashboard de analytics como nuevo suscriptor de
       `topico.compra-confirmada`.
 
@@ -468,11 +477,11 @@ carpeta 5 de Postman).
 
 ### Backend
 - [x] JUnit 5 + Mockito para la lógica de cada Session Bean, con las
-      interfaces de los otros componentes como dobles: 658 tests al 23/10
+      interfaces de los otros componentes como dobles: 673 tests al 23/10
       (detalle por servicio en la sección 16.1 del documento maestro).
 - [x] Reglas de negocio: tope de reventa, mínimo 50 %, cargo de servicio,
       máximo por venta, cierre de reventa a 3 horas, DNI único.
-- [x] Integración contra WildFly real: en lugar de Arquillian, 20 escenarios
+- [x] Integración contra WildFly real: en lugar de Arquillian, 21 escenarios
       en Node (`scripts/pruebas/escenarios.mjs`) por la API y `jboss-cli`, y la
       colección de Postman (`scripts/postman`).
 - [x] Endpoints: caso feliz, validaciones, 401 sin sesión, 403 con rol
@@ -526,8 +535,9 @@ carpeta 5 de Postman).
 - [x] `@RolesAllowed` en cada operación según rol; las internas, solo con rol
       `servicio`.
 - [~] Autorización por recurso: cada usuario ve solo sus entradas, ventas y
-      facturas (lo ajeno responde 404). Falta que cada organizador vea solo
-      sus eventos y que el staff esté asignado a un evento (L17 y L18).
+      facturas (lo ajeno responde 404), y desde el 23/10 cada organizador ve
+      solo sus eventos y el registro de la puerta de ellos (L18 y parte de
+      L17). Falta que el staff esté asignado a un evento (L17).
 - [~] Límite de intentos: hecho en login (Fase 2). Falta en registro,
       verificación (hoy 5 intentos por código) y escaneos.
 - [x] Cookies: no aplica, el token viaja en la cabecera `Authorization`.
@@ -600,7 +610,7 @@ la cátedra".
 | **06/11** | Entrega del diseño del TP Obligatorio | La consigna no la nombra. La cátedra respondió el 16/10 que la documentación es técnica, con diagramas de casos de uso y casos de uso, sin Figma ni manual de usuario | Hechos: el diagrama de casos de uso con los casos de uso (13.9), siete diagramas de secuencia, el WSDL y `docs/api/openapi.yaml` al día. Faltan los diagramas de secuencia de autenticación y de reventa, el diagrama SOA actualizado y el borrador del documento técnico; se sube el jueves 05/11 | 5 y 11 |
 | **13/11** | 2.ª Entrega PARCIAL | Entrega Obligatoria N.º 2 — 2.º Parcial (09/11), con defensa oral de 20 a 25 minutos y nota mínima 4. Hay que entregar: dos procesos con mensajería de punta a punta (uno por cola y uno por tópico); un servicio SOAP con su WSDL, justificado como sistema legado; un servicio REST (partner moderno o API de consumo externo); transacciones declarativas en un flujo crítico de varios pasos; documento técnico actualizado, de 8 a 12 páginas de contenido (sin contar los anexos, confirmado el 16/10), con un diagrama de secuencia por integración; y la declaración del uso de IA. Hay que defender: una demo que cruce componentes, mensajería y servicios web; por qué cada integración es síncrona o asincrónica; y qué pasa con la transacción si algo falla a mitad del flujo | Hecho y probado en el servidor: la cola (emisión) y el tópico (aviso, auditoría y factura), el SOAP con su WSDL (ARCA simulado), la API REST propia, la transacción declarativa que confirma la compra y la prueba repetible de una falla a mitad del flujo (escenario 14). Faltan el documento técnico con los dos diagramas de secuencia pendientes, la declaración del uso de IA (la escribe el grupo) y la demo recorrida en el navegador | 4, 5, 6 y 11 |
 | **20/11** | 3.er Check point TPO | La consigna no lo nombra: a confirmar con la cátedra | Validación y Reventa están implementadas y probadas por la API. Falta recorrer sus pantallas en el navegador | 7, 8 y 10 |
-| **27/11** | Prueba del TP Obligatorio | La consigna no la nombra así: qué se hace ese día, a confirmar con la cátedra. Se toma como límite para lo que pide la Entrega Final (30/11 en el detalle de la consigna): sistema completo que cumpla el checklist de la sección 6; documentación final de 10 a 15 páginas; historial de git incremental y con participación visible de todos; demo completa, preguntas individuales y reflexión del equipo (los aprendizajes los escribe el grupo) | Los 8 componentes y el frontend de reventa, puerta y panel están implementados. Faltan: las pruebas del frontend y de punta a punta, la base en Supabase, el control de dueño en el panel y la puerta, la documentación final, y que en git se vea a los cinco (hoy no hay commits a nombre de Joaquin Molina) | 9 a 13 |
+| **27/11** | Prueba del TP Obligatorio | La consigna no la nombra así: qué se hace ese día, a confirmar con la cátedra. Se toma como límite para lo que pide la Entrega Final (30/11 en el detalle de la consigna): sistema completo que cumpla el checklist de la sección 6; documentación final de 10 a 15 páginas; historial de git incremental y con participación visible de todos; demo completa, preguntas individuales y reflexión del equipo (los aprendizajes los escribe el grupo) | Los 8 componentes y el frontend de reventa, puerta y panel están implementados. Faltan: las pruebas del frontend y de punta a punta, la base en Supabase, la asignación del staff a cada evento, la documentación final, y que en git se vea a los cinco (hoy no hay commits a nombre de Joaquin Molina) | 9 a 13 |
 | **04/12** | Final adelantado | El encabezado de la consigna da el 04/12 y el 11/12 para la Entrega Final. El grupo decidió el 16/10 defenderla el viernes 04/12 (final adelantado); el 11/12 (final regular) queda como alternativa | Decidido | — |
 
 - El 16/10, el 23/10 y el 30/10 hay clase de "Desarrollo de una aplicación

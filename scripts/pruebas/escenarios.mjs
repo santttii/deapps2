@@ -1,8 +1,8 @@
-// Prueba de integración del backend de Palco: 20 escenarios de compra, mensajería, conciliación de pagos,
-// facturación, validación en puerta, reventa (con su conciliación y sus reembolsos) y devolución de cupo con Eventos caído, de
-// punta a punta, por la API y por jboss-cli. Los 13 primeros son los que produjeron docs/entrega3/evidencia/integracion-13-escenarios.txt.
+// Prueba de integración del backend de Palco: 21 escenarios de compra, mensajería, conciliación de pagos,
+// facturación, validación en puerta, reventa (con su conciliación y sus reembolsos), devolución de cupo con Eventos caído
+// y el dueño de cada evento, de punta a punta, por la API y por jboss-cli. Los 13 primeros son los que produjeron docs/entrega3/evidencia/integracion-13-escenarios.txt.
 //
-//   node scripts/pruebas/escenarios.mjs              corre los 20 escenarios
+//   node scripts/pruebas/escenarios.mjs              corre los 21 escenarios
 //   node scripts/pruebas/escenarios.mjs 1 2 7        corre solo esos
 //
 // Se corre desde cualquier carpeta: las rutas salen de la ubicación de este archivo. Necesita Node 18 o
@@ -15,7 +15,7 @@
 // otra (move-messages), y el 14 prende por unos segundos una propiedad de sistema que hace fallar todo
 // pago después del cobro. El 18 saca de servicio por un rato el WAR de Eventos: mientras tanto nadie puede
 // ver el catálogo ni comprar. Si otra persona está usando el servidor, se corren solo los demás:
-//   node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17
+//   node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17 21
 // El 14 espera a la conciliación de pagos, que corre una vez por minuto con 2 minutos de margen: tarda
 // entre 2 y 4 minutos. El 18 espera al barrido de devoluciones, que corre una vez por minuto: tarda hasta 1.
 // El 19 y el 20 esperan a la conciliación de reventas, que corre una vez por minuto con 2 minutos de margen:
@@ -1163,6 +1163,28 @@ async function escenario17() {
     lineasCon(marcaCompra, 'EmisionDeEntradas', c.ventaId).length, 0);
 }
 
+async function escenario21() {
+  informe.escenario(21, 'Dueño del evento: el organizador lista los suyos y ve el registro de la puerta solo de ellos (L17 y L18)');
+  const codigo = async (metodo, ruta, opciones) => (await http(metodo, ruta, opciones)).estado;
+  const mios = await http('GET', '/api/eventos/mios', { token: O });
+  const ids = (mios.json ?? []).map((e) => e.id);
+  informe.ok('GET /api/eventos/mios: 200 con el evento de la prueba y los seis de las migraciones',
+    mios.estado === 200 && ids.includes(EVENTO) && ['ev-1', 'ev-2', 'ev-3', 'ev-4', 'ev-5', 'ev-6'].every((id) => ids.includes(id)),
+    `${mios.estado} ${ids.length} eventos`);
+  const fechas = (mios.json ?? []).map((e) => e.fechaISO);
+  informe.ok('ordenados por fecha', fechas.every((f, i) => i === 0 || fechas[i - 1] <= f), fechas.join(' '));
+  const codigos = [await codigo('GET', '/api/eventos/mios'), await codigo('GET', '/api/eventos/mios', { token: T }),
+    await codigo('GET', '/api/eventos/mios', { token: ST }), await codigo('GET', '/api/eventos/mios', { token: S })];
+  informe.ok('sin token 401; con user, staff y servicio 403', codigos.join(' ') === '401 403 403 403', codigos.join(' '));
+
+  const propio = await http('GET', `/api/v1/validacion/escaneos?eventoId=${EVENTO}`, { token: O });
+  informe.igual('el organizador ve el registro de la puerta de su evento', propio.estado, 200);
+  esProblema(informe, await http('GET', '/api/v1/validacion/escaneos?eventoId=ev-de-otro', { token: O }),
+    403, 'evento-ajeno', '/api/v1/validacion/escaneos');
+  informe.igual('el personal de puerta sigue viendo cualquier registro (sin asignación de staff todavía)',
+    await codigo('GET', '/api/v1/validacion/escaneos?eventoId=ev-de-otro', { token: ST }), 200);
+}
+
 // ===================================================================================== corrida
 
 const servicios = ['api/usuarios', 'api/eventos', 'api/v1', 'api/v1/pagos', 'api/v1/validacion', 'api/v1/reventas',
@@ -1192,6 +1214,7 @@ const pasos = [
   [12, escenario12], [13, escenario13], [14, escenario14],
   [15, async () => { compra ??= await compraDeApoyo(); await escenario15(compra); }],
   [16, escenario16], [17, escenario17], [18, escenario18], [19, escenario19], [20, escenario20],
+  [21, escenario21],
 ];
 
 /** Si el escenario 5 o el 15 corren solos, necesitan una venta emitida del titular. También la usan el 16 y el 17. */

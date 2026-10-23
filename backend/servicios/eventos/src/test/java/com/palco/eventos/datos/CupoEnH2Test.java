@@ -246,4 +246,20 @@ class CupoEnH2Test {
         assertTrue(enTransaccion(() -> eventos.existeSlug("show-de-prueba")));
         assertFalse(enTransaccion(() -> eventos.existeSlug("show-de-prueba-2")));
     }
+
+    @Test
+    void losEventosDelOrganizadorSonSoloLosSuyosOrdenadosPorFecha() {
+        List<Evento> deOrg1 = enTransaccion(() -> eventos.listarDelOrganizador("org-1"));
+        // Los seis de las migraciones quedan a nombre de la cuenta organizadora de prueba (V6).
+        List<Evento> deLaCuentaDePrueba = enTransaccion(() -> eventos.listarDelOrganizador("user-organizador"));
+
+        assertEquals(List.of(EVENTO), deOrg1.stream().map(Evento::getId).toList());
+        assertEquals(6, deLaCuentaDePrueba.size());
+        for (int i = 1; i < deLaCuentaDePrueba.size(); i++) {
+            assertFalse(deLaCuentaDePrueba.get(i).getFecha().isBefore(deLaCuentaDePrueba.get(i - 1).getFecha()),
+                    "orden por fecha");
+        }
+        assertEquals(1, deOrg1.get(0).getSectores().size());
+        assertTrue(enTransaccion(() -> eventos.listarDelOrganizador("org-sin-eventos")).isEmpty());
+    }
 }

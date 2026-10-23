@@ -386,20 +386,21 @@ Los ocho componentes salen de la Entrega Parcial N.º 1. Los ocho están impleme
 ## 4.2 Eventos
 
 - **Responsabilidad:** catálogo de eventos y sus sectores (precio y cupo). Alta de eventos por el organizador y control del cupo vendido.
-- **Interfaz:** `IEventos`: `listarEventos`, `obtenerDetalle`, `crearEvento`, `actualizarCupo`.
+- **Interfaz:** `IEventos`: `listarEventos`, `listarDelOrganizador`, `obtenerDetalle`, `crearEvento`, `actualizarCupo`, `devolverCupo`.
 - **Stateless.** `ServicioDeEventos`: "cada operación es autocontenida y no depende de la llamada anterior, así que el contenedor reutiliza un pool de instancias". Fue el primer componente completo, presentado en la Entrega Parcial N.º 1 con esa misma justificación.
 
 | Método | Ruta | Rol | Qué hace |
 |---|---|---|---|
 | GET | `/api/eventos?categoria=&q=` | `@PermitAll` | Lista eventos, con filtro por categoría y búsqueda |
+| GET | `/api/eventos/mios` | `organizer` | Los eventos del organizador del token, por fecha (desde el 23/10, limitación L18). Lo usan el panel y Validación. Es una ruta fija: le gana a `{slug}`, y ningún evento recibe el slug `mios` |
 | GET | `/api/eventos/{slug}` | `@PermitAll` | Detalle de un evento con sus sectores |
 | POST | `/api/eventos` | `organizer` | Alta de evento |
 | POST | `/api/eventos/{eventoId}/sectores/{sectorId}/cupo` | `servicio` | Reserva o devuelve lugares de un sector (la llama Ventas) |
 
-- **Datos (esquema `eventos`):** `evento` (slug único, título, categoría, lugar, fecha, descripción, destacado, imagen, organizador) y `sector` (nombre, precio en pesos enteros, cupo, vendidas). La base garantiza que `vendidas` esté entre 0 y el cupo (`sector_vendidas_validas`): ese chequeo es la última red contra la sobreventa. V2 a V4 cargan eventos iniciales, corren sus fechas y agregan fotos.
-- **Capa de datos:** `EventoRepository` (listar por categoría, buscar por slug, `existeSlug`, guardar) y `SectorRepository` (buscar por id, `sumarVendidas`). El UPDATE condicional del cupo quedó en `SectorRepository.sumarVendidas`: una sola sentencia con la condición `0 <= vendidas + cantidad <= cupo`, así que de dos compras simultáneas del último lugar la base deja pasar una sola; si cambió una fila, relee el sector. La regla de evento empezado (solo frena reservar; devolver siempre se acepta) sigue en `ServicioDeEventos`. La búsqueda por texto del catálogo se hace en Java, para que no dependa de cómo cada base compara los acentos.
-- **Integraciones:** frontend (catálogo, alta y panel del organizador) y Ventas (cupo, con token de servicio).
-- **Estado:** Implementado y probado en el servidor el 16/10, con la capa de datos. Eventos tiene 41 tests: `ServicioDeEventosTest` (28), `CupoEnH2Test` (8, el UPDATE condicional contra H2 en modo PostgreSQL) y `NuevoEventoDtoTest` (5, con Bean Validation).
+- **Datos (esquema `eventos`):** `evento` (slug único, título, categoría, lugar, fecha, descripción, destacado, imagen, organizador) y `sector` (nombre, precio en pesos enteros, cupo, vendidas). La base garantiza que `vendidas` esté entre 0 y el cupo (`sector_vendidas_validas`): ese chequeo es la última red contra la sobreventa. V2 a V4 cargan eventos iniciales, corren sus fechas y agregan fotos; V5 guarda las devoluciones de cupo y V6 (23/10) pone los seis eventos iniciales a nombre de `organizador@palco.test` (`user-organizador`), con un índice por organizador.
+- **Capa de datos:** `EventoRepository` (listar por categoría, listar por organizador, buscar por slug, `existeSlug`, guardar) y `SectorRepository` (buscar por id, `sumarVendidas`). El UPDATE condicional del cupo quedó en `SectorRepository.sumarVendidas`: una sola sentencia con la condición `0 <= vendidas + cantidad <= cupo`, así que de dos compras simultáneas del último lugar la base deja pasar una sola; si cambió una fila, relee el sector. La regla de evento empezado (solo frena reservar; devolver siempre se acepta) sigue en `ServicioDeEventos`. La búsqueda por texto del catálogo se hace en Java, para que no dependa de cómo cada base compara los acentos.
+- **Integraciones:** frontend (catálogo, alta y panel del organizador), Ventas (cupo, con token de servicio), Reventa (fecha del evento) y Validación (los eventos del organizador, con el token del organizador).
+- **Estado:** Implementado y probado en el servidor el 16/10, con la capa de datos. Eventos tiene 53 tests al 23/10: `ServicioDeEventosTest` (37), `CupoEnH2Test` (11, el UPDATE condicional y los eventos por organizador contra H2 en modo PostgreSQL) y `NuevoEventoDtoTest` (5, con Bean Validation).
 
 ## 4.3 Ventas
 
@@ -476,24 +477,24 @@ Los ocho componentes salen de la Entrega Parcial N.º 1. Los ocho están impleme
 ## 4.6 Validación
 
 - **Responsabilidad:** validar en la puerta que el código de una entrada exista, sea del evento que se controla y se use una sola vez, y llevar el registro auditable de cada escaneo.
-- **Interfaz:** `IValidacion` (`@Local`): `escanear(codigoQr, eventoId, escaneadoPor)`, `listar(eventoId)` y `obtener(escaneoId)`. La Entrega Parcial N.º 1 definía dos operaciones, `validarEntrada` y `marcarComoUsada`; quedaron unidas en `escanear` porque, con dos pasos, entre "es válida" y "marcala" otra puerta podría usar la misma entrada.
+- **Interfaz:** `IValidacion` (`@Local`): `escanear(codigoQr, eventoId, escaneadoPor)`, `listar(eventoId, tokenDelOrganizador)` y `obtener(escaneoId, tokenDelOrganizador)` (el token es `null` si consulta el personal de puerta). La Entrega Parcial N.º 1 definía dos operaciones, `validarEntrada` y `marcarComoUsada`; quedaron unidas en `escanear` porque, con dos pasos, entre "es válida" y "marcala" otra puerta podría usar la misma entrada.
 - **Stateless.** `ServicioDeValidacion`: "cada escaneo es independiente y no recuerda nada del anterior. Lo que tiene que durar (que la entrada se usó) queda en la base de Ventas, y el registro de la puerta en la de este servicio, así que cualquier instancia del pool atiende cualquier escaneo de cualquier puerta". Corre sin transacción propia (`NOT_SUPPORTED`), igual que Pagos: entre leer el registro y guardar el escaneo espera a Ventas, y con una transacción abierta esa espera retendría una conexión del pool que comparten los servicios. Por la misma razón, el escaneo `SIN_RESPUESTA` queda guardado aunque después se devuelva el error.
 - **Uso único:** no se decide en Validación sino en Ventas, la dueña de la entrada, con el UPDATE condicional de `UsoDeEntradas` (sección 4.3). La base bloquea la fila y solo uno de dos escaneos simultáneos cambia algo, sin transacción distribuida.
-- **Capas:** `api/` (`EscaneosResource` y DTOs), `negocio/` (`IValidacion`, `ServicioDeValidacion`, `MigracionesValidacion`), `negocio/externos/` (`ClienteDeVentas`), `datos/` (`EscaneoRepository` y `EscaneoRepositoryJpa`, una transacción corta por método) y `dominio/` (`Escaneo` y el enum `ResultadoEscaneo`).
+- **Capas:** `api/` (`EscaneosResource` y DTOs), `negocio/` (`IValidacion`, `ServicioDeValidacion`, `MigracionesValidacion`), `negocio/externos/` (`ClienteDeVentas` y `ClienteDeEventos`), `datos/` (`EscaneoRepository` y `EscaneoRepositoryJpa`, una transacción corta por método) y `dominio/` (`Escaneo` y el enum `ResultadoEscaneo`).
 
 | Método | Ruta | Rol | Qué hace |
 |---|---|---|---|
 | POST | `/api/v1/validacion/escaneos` | `staff` | Escanea un código (`codigoQr` y `eventoId` en el cuerpo). Responde 201 con `Location` y el resultado (`VALIDA`, `YA_USADA`, `INEXISTENTE`, `OTRO_EVENTO` o `NO_HABILITADA`), `puedeEntrar`, el mensaje para el personal, el titular (solo con `VALIDA`) y el uso anterior (solo con `YA_USADA`). 504 `sin-respuesta` si Ventas no responde |
-| GET | `/api/v1/validacion/escaneos?eventoId=` | `staff`, `organizer` | Registro de un evento, del más nuevo al más viejo, con un máximo de 500 renglones |
-| GET | `/api/v1/validacion/escaneos/{escaneoId}` | `staff`, `organizer` | Un escaneo; 404 si no existe |
+| GET | `/api/v1/validacion/escaneos?eventoId=` | `staff`, `organizer` | Registro de un evento, del más nuevo al más viejo, con un máximo de 500 renglones. El organizador solo el de sus eventos: 403 `evento-ajeno` si no es suyo, 504 si Eventos no responde |
+| GET | `/api/v1/validacion/escaneos/{escaneoId}` | `staff`, `organizer` | Un escaneo; 404 si no existe o, para un organizador, si es de un evento ajeno |
 
 - **Por qué 201 con cualquier resultado:** lo que se crea es el renglón del registro. "No puede entrar" es un dato y no un error HTTP, con el mismo criterio que Pagos aplica a un cobro rechazado.
 - **Decisiones sobre los datos del escaneo:** el código viaja en el cuerpo y no en la ruta, para que no quede en los logs de acceso, y no se escribe en los logs de la aplicación. El registro guarda el código completo pero lo muestra recortado (`codigoParcial`, "…" más los últimos 6 caracteres), porque un código de otro evento escaneado por error sigue sirviendo allá. No guarda nombre ni DNI: son datos de Ventas, y a la entrada se llega por `entradaId`. Un 409 de Ventas con un tipo desconocido cuenta como `NO_HABILITADA`: ante la duda, no se deja entrar.
 - **Si Ventas no responde:** el intento queda como `SIN_RESPUESTA` y el pedido devuelve 504. Si ese intento sí llegó a usar la entrada, el próximo escaneo da `YA_USADA` con `usoAnterior` apuntando a él y un mensaje para que el personal controle el documento.
 - **Datos (esquema `validacion`):** tabla `escaneo` (id, código QR, evento, resultado, entrada, quién escaneó y cuándo, en UTC), con índices por evento y momento y por código. Sin claves foráneas a otros esquemas y sin check de lista de valores: los resultados válidos los controla el enum.
-- **Integraciones:** REST síncrono con Ventas (`POST /api/v1/entradas/usos`, rol `servicio`) a través de `ClienteDeVentas` (`@ApplicationScoped`), con 2 segundos para conectar y 5 para leer; ante un 401 pide un token de servicio nuevo y reintenta una sola vez. Es síncrona porque la puerta necesita el resultado en el momento. La consumen la pantalla de puerta y el panel del organizador. Reventa no la llama: una entrada publicada o vendida da `NO_HABILITADA` porque su estado está en Ventas.
-- **Límites conocidos:** el código QR es el UUID al azar que genera Ventas, no está firmado. No se verifica que el organizador sea dueño del evento cuyo registro consulta ni que el personal esté asignado a ese evento. Si falla el guardado de un escaneo `VALIDA` después de que Ventas usó la entrada, el pedido da 500 y el próximo escaneo da `YA_USADA` sin `usoAnterior`.
-- **Estado:** Implementado y probado en el servidor el 16/10 por la API (escenario 16 y carpeta 5 de Postman): `OTRO_EVENTO` sin tocar la entrada, `VALIDA` con la entrada `USADA`, `YA_USADA` al repetir, `INEXISTENTE` y 403 para un comprador. El caso de Ventas sin responder (504 y `SIN_RESPUESTA`) tiene tests pero no se provocó en el servidor, y la pantalla `/puerta` no se probó todavía en el navegador. Validación tiene 26 tests: `ServicioDeValidacionTest` (12), `ClienteDeVentasTest` (8), `EscaneosResourceTest` (3) y `RegistroEnH2Test` (3, con la migración en H2 modo PostgreSQL). Del lado de Ventas, `UsoDeEntradasTest` (6), `UsoEnH2Test` (3) y 2 tests en `EntradasResourceTest`.
+- **Integraciones:** REST síncrono con Ventas (`POST /api/v1/entradas/usos`, rol `servicio`) a través de `ClienteDeVentas` (`@ApplicationScoped`), con 2 segundos para conectar y 5 para leer; ante un 401 pide un token de servicio nuevo y reintenta una sola vez. Es síncrona porque la puerta necesita el resultado en el momento. La consumen la pantalla de puerta y el panel del organizador. Desde el 23/10 también llama a Eventos (`GET /api/eventos/mios`) por `ClienteDeEventos`, con los mismos tiempos de espera, para saber si el evento cuyo registro pide un organizador es suyo (limitación L17). Esa llamada va con el token del organizador y no con el de servicio: la pregunta es cuáles son los eventos de esa persona, y Eventos la contesta con el `sub` del token, sin que Validación tenga que mandarle un id de usuario. Si Eventos no responde, el organizador recibe 504 y no ve el registro: ante la duda, no se muestra. Reventa no la llama: una entrada publicada o vendida da `NO_HABILITADA` porque su estado está en Ventas.
+- **Límites conocidos:** el código QR es el UUID al azar que genera Ventas, no está firmado. No se verifica que el personal de puerta esté asignado al evento que escanea o consulta (la parte de la limitación L17 que sigue abierta); que el organizador sea dueño del evento sí se controla desde el 23/10. Si falla el guardado de un escaneo `VALIDA` después de que Ventas usó la entrada, el pedido da 500 y el próximo escaneo da `YA_USADA` sin `usoAnterior`.
+- **Estado:** Implementado y probado en el servidor el 16/10 por la API (escenario 16 y carpeta 5 de Postman): `OTRO_EVENTO` sin tocar la entrada, `VALIDA` con la entrada `USADA`, `YA_USADA` al repetir, `INEXISTENTE` y 403 para un comprador. El caso de Ventas sin responder (504 y `SIN_RESPUESTA`) tiene tests pero no se provocó en el servidor, y la pantalla `/puerta` no se probó todavía en el navegador. Validación tiene 38 tests al 23/10: `ServicioDeValidacionTest` (18, con el dueño del evento), `ClienteDeVentasTest` (8), `EscaneosResourceTest` (5), `ClienteDeEventosTest` (4) y `RegistroEnH2Test` (3, con la migración en H2 modo PostgreSQL). El control de dueño tiene su escenario de integración (21), que todavía no se corrió en el servidor. Del lado de Ventas, `UsoDeEntradasTest` (6), `UsoEnH2Test` (3) y 2 tests en `EntradasResourceTest`.
 
 ## 4.7 Reventa
 
@@ -1099,6 +1100,7 @@ Todas son síncronas por REST: quien llama necesita el resultado.
 | S1 | Ventas → Pagos: `POST /api/v1/pagos`, rol `servicio`, con `Idempotency-Key` | Cobrar | Implementado (`ClienteDePagos`, `reproduccion.txt`, paso 6) |
 | S2 | Todos → Usuarios: JWKS y token de servicio | Verificar tokens y autenticar llamadas internas | Implementado |
 | S3 | Validación → Ventas: `POST /api/v1/entradas/usos`, rol `servicio`, con `codigoQr` y `eventoId` en el cuerpo | Marcar la entrada como usada en el momento del escaneo | Implementado (`ClienteDeVentas`; escenario 16) |
+| S3 | Validación → Eventos: `GET /api/eventos/mios` con el token del organizador | Mostrarle al organizador el registro de la puerta solo de sus eventos (L17) | Implementado el 23/10 (`ClienteDeEventos`; escenario 21) |
 | S3 | Reventa → Eventos (`GET /api/eventos`), Pagos (`POST /api/v1/pagos`, clave `<idPublicación>:<clave>`) y Ventas (`/api/v1/operaciones-de-reventa/...`), rol `servicio` salvo el catálogo, que es público | Revender: controlar el cierre de 3 horas, cobrar y transferir la entrada (sección 7.10) | Implementado (escenario 17); la pasarela es **simulada** |
 
 **Por qué la validación en puerta es síncrona.** El personal de puerta necesita saber en el momento si la persona entra. La decisión del uso único la toma Ventas, que es la dueña de las entradas, con un `UPDATE` condicional (`VALIDA` → `USADA` solo si sigue `VALIDA`): de dos escaneos simultáneos del mismo código, la base deja cambiar la fila a uno solo, sin transacción distribuida. Validación guarda el registro de cada escaneo en su esquema (`validacion.escaneo`). Si Ventas no responde, `ClienteDeVentas` corta a los 2 s sin conectar o a los 5 s sin respuesta; el escaneo queda registrado como `SIN_RESPUESTA` y la puerta recibe 504 `sin-respuesta` para escanear de nuevo. Ante un 401, el cliente pide un token de servicio nuevo y reintenta una sola vez: Ventas rechazó el pedido sin tocar la entrada, así que repetir es seguro. `ServicioDeValidacion` lleva `NOT_SUPPORTED`, como Pagos, para no retener una conexión de la base mientras espera a Ventas. El detalle está en el diagrama de la sección 13.8.
@@ -1134,6 +1136,7 @@ La regla es que los servicios nuevos van bajo `/api/v1`. Usuarios, Eventos y Not
 | `GET /api/usuarios/jwks` | `@PermitAll` | 200 |
 | `GET /api/eventos`, `GET /api/eventos/{slug}` | `@PermitAll` | 200 |
 | `POST /api/eventos` | `organizer` | 201 con `Location` |
+| `GET /api/eventos/mios` (los eventos propios) | `organizer` | 200 |
 | `POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo` | `servicio` | 200 |
 | `POST /api/v1/ventas` (abre la compra y reserva cupo) | `user` | 201 con `Location` |
 | `GET /api/v1/ventas` (las compras propias), `GET /api/v1/ventas/{ventaId}` | `user` | 200 |
@@ -1148,7 +1151,7 @@ La regla es que los servicios nuevos van bajo `/api/v1`. Usuarios, Eventos y Not
 | `POST /api/v1/reventas/{publicacionId}/compra`, con `Idempotency-Key` | `user` | 201 con `Location` a la entrada nueva |
 | `GET /api/v1/facturas/{ventaId}` | `user` (solo la propia) y `servicio` | 200 |
 | `POST /api/v1/validacion/escaneos` | `staff` | 201 con `Location`, sea cual sea el resultado del escaneo |
-| `GET /api/v1/validacion/escaneos?eventoId=`, `GET /api/v1/validacion/escaneos/{escaneoId}` | `staff`, `organizer` | 200 |
+| `GET /api/v1/validacion/escaneos?eventoId=`, `GET /api/v1/validacion/escaneos/{escaneoId}` | `staff`, `organizer` (solo de sus eventos) | 200 |
 | `GET /api/notificaciones/auditoria` | `servicio` | 200 |
 | `POST /api/notificaciones/pruebas/...` (tres operaciones de prueba de mensajería) | `servicio` | Para la evidencia; no son parte del negocio. Se mantienen (decisión del 16/10) porque los usan la demo, la evidencia y la colección de Postman; son solo de desarrollo y para producción habría que deshabilitarlos |
 
@@ -1202,15 +1205,15 @@ Vigencia de la sesión (SEC-W05): **parcial, vigencia justificada** (decisión d
 | Carpeta | Requests | Qué prueba |
 |---|---|---|
 | 1 Usuarios | 10 en la corrida | Registro, login correcto, incorrecto y sin verificar, perfil con y sin token, token de servicio con secreto incorrecto, JWKS |
-| 2 Eventos | 13 | Catálogo, filtro, detalle, 404, alta sin token, con `organizer` e inválida, reserva y liberación de cupo con rol `servicio` y 403 con otro rol |
+| 2 Eventos | 15 | Catálogo, filtro, detalle, 404, alta sin token, con `organizer` e inválida, eventos propios con y sin token, reserva y liberación de cupo con rol `servicio` y 403 con otro rol |
 | 3 Diseño v1 (Ventas) | 31 | Compra con reserva de cupo, idempotencia (incluida la clave reutilizada, 409), pago rechazado (402) y aprobado, emisión asincrónica, compras propias, aislamiento entre compradores, control de rol y cancelación |
 | 4 Seguridad (clase 11) | 15 | Los criterios de la matriz de seguridad de la clase 11 que se prueban por HTTP, cada uno con su id: recurso ajeno pedido por otro comprador (404), rol equivocado (403), sin token (401), mismo 401 para email inexistente y clave mal, token alterado y sin firma (401 Problem Details), vigencia del token, 400 sin información interna, perfil sin contraseña y límite de intentos de login (429). Usa las cuentas de prueba `titular@palco.test` y `otro.titular@palco.test` y toma una compra emitida que deja la carpeta 3; el request del límite de intentos usa un email nuevo en cada corrida para no bloquear las cuentas de prueba |
-| 5 Validación en puerta | 12 | Escaneo sin token (401), con rol `user` (403) y sin evento (400); código inexistente, de otro evento, válido y repetido (201 con `INEXISTENTE`, `OTRO_EVENTO`, `VALIDA` y `YA_USADA`); la entrada `USADA`; y el registro de la puerta |
+| 5 Validación en puerta | 13 | Escaneo sin token (401), con rol `user` (403) y sin evento (400); código inexistente, de otro evento, válido y repetido (201 con `INEXISTENTE`, `OTRO_EVENTO`, `VALIDA` y `YA_USADA`); la entrada `USADA`; y el registro de la puerta |
 | 6 Reventa | 29 | Publicar sin token, de una entrada que no existe, sobre el tope, bajo el mínimo y dos veces la misma; listado público y propio; compra propia (409), sin `Idempotency-Key` (400), con el cobro rechazado (402), correcta, repetida con la misma clave y ya vendida; la entrada original `VENDIDA` y la nueva `VALIDA`; retiro ajeno (404), correcto (204) y repetido (409) |
 | 7 Facturación | 11 | La factura de la compra de la carpeta 3, consultada dos veces (la misma), sin token (401), por otro comprador (404), inexistente (404), con `staff` (403) y con rol `servicio` (200) |
 | Fuera de la corrida | 2 | Pasos manuales de verificación de email |
 
-La colección tiene 123 requests: los 121 de la corrida y los 2 pasos manuales. El secreto para el token de servicio sale de la variable de la colección `secretoServicios` (por defecto `palco-desarrollo`; si el servidor arrancó con el de `backend/.env`, se pasa con `--env-var secretoServicios=...`).
+La colección tiene 126 requests: los 124 de la corrida y los 2 pasos manuales (al 23/10; la última corrida, de abajo, fue con 121). El secreto para el token de servicio sale de la variable de la colección `secretoServicios` (por defecto `palco-desarrollo`; si el servidor arrancó con el de `backend/.env`, se pasa con `--env-var secretoServicios=...`).
 
 Última corrida: 16/10/2026, con la colección completa contra el servidor armado desde cero a las 11:04: Newman cuenta 126 requests (los 121 de la corrida más los cinco intentos de login que SEC-W04 manda antes de enviarse) y 406 aserciones, con 0 fallas, incluidas las carpetas 5, 6 y 7. Antes, ese mismo día, con las carpetas 1 a 4, la corrida había dado 74 requests y 252 aserciones con 1 falla: SEC-W05c, "el token dura 15 minutos o menos", que quedaba en rojo a propósito hasta decidir la vigencia; con la decisión del 16/10 (sección 9.4) pasó a comprobar que el token dura 8 horas y la corrida siguiente dio 0 fallas. La del 14/10 dio 54 requests y 206 aserciones sin fallas con las carpetas 1 a 3. Hay además una colección más vieja, `palco-eventos.postman_collection.json`.
 
@@ -1645,7 +1648,7 @@ Paso a paso:
 
 **Dos puertas a la vez.** Si dos puertas escanean la misma entrada al mismo tiempo, el `UPDATE` condicional deja pasar a una sola y la otra recibe `entrada-ya-usada`. Lo prueba `UsoEnH2Test` con dos conexiones contra H2 en modo PostgreSQL.
 
-Sin token, 401 `no-autenticado`; con un rol que no es `staff`, 403 `sin-permiso`. El registro se consulta con `GET /api/v1/validacion/escaneos?eventoId=` (roles `staff` u `organizer`), del más nuevo al más viejo y con el código recortado a sus últimos 6 caracteres (`codigoParcial`). Límites declarados: el código QR es el UUID al azar que genera Ventas, opaco pero sin firma; y cualquier `organizer` o `staff` ve el registro de cualquier evento, porque no se comprueba que sea dueño del evento o esté asignado a esa puerta.
+Sin token, 401 `no-autenticado`; con un rol que no es `staff`, 403 `sin-permiso`. El registro se consulta con `GET /api/v1/validacion/escaneos?eventoId=` (roles `staff` u `organizer`), del más nuevo al más viejo y con el código recortado a sus últimos 6 caracteres (`codigoParcial`). Desde el 23/10, un `organizer` ve solo el registro de sus eventos: Validación le pregunta a Eventos (`GET /api/eventos/mios`, con el token del organizador) y a un evento ajeno responde 403 `evento-ajeno`. Límites declarados: el código QR es el UUID al azar que genera Ventas, opaco pero sin firma; y cualquier `staff` escanea y ve el registro de cualquier evento, porque no hay asignación de personal a eventos.
 
 ## 13.9 Casos de uso
 
@@ -1816,11 +1819,12 @@ una factura de otra persona responde 404, igual que si no existiera, así no se 
 | Publicación que se retira | Tiene que ser del vendedor del token; ajena, 404 | `ServicioDeReventa.propia` | `ServicioDeReventaTest.retirarUnaAjenaEsNoEncontradaYUnaPropiaLaDevuelveAValida` |
 | Publicación propia que se quiere comprar | 409 `compra-propia` | `ServicioDeReventa.comprar` | `ServicioDeReventaTest.nadieCompraSuPropiaPublicacion` |
 | Factura | Con rol `user`, el `sub` tiene que ser el comprador guardado del mensaje `PAGO_CONFIRMADO`; ajena, inexistente o todavía sin facturar dan el mismo 404 | `FacturasResource` y `ServicioDeFacturacion` | `FacturasResourceTest` |
+| Eventos del panel (desde el 23/10) | `GET /api/eventos/mios` devuelve solo los eventos cuyo `organizador_id` es el `sub` del token | `ServicioDeEventos.listarDelOrganizador` | `CupoEnH2Test.losEventosDelOrganizadorSonSoloLosSuyosOrdenadosPorFecha` |
+| Registro de la puerta (desde el 23/10) | Con rol `organizer`, el evento tiene que estar entre los suyos, que Validación le pide a Eventos con el token del organizador; ajeno, 403 `evento-ajeno` (un escaneo suelto de un evento ajeno, 404) | `ServicioDeValidacion.listar` y `obtener` | `ServicioDeValidacionTest.elRegistroDeUnEventoAjenoEsUn403SinLeerLaBase` |
 
-Lo débil: el registro de la puerta no controla dueño. Cualquier cuenta `organizer` ve el registro de cualquier
-evento, y cualquier `staff` escanea en la puerta de cualquier evento, porque no se comprueba que el organizador sea
-el dueño del evento ni hay asignación de personal a eventos. Para cerrarlo habría que preguntarle a Eventos quién es
-el dueño y modelar esa asignación.
+Lo débil: no hay asignación de personal a eventos. Cualquier `staff` escanea en la puerta de cualquier evento y ve
+su registro. Para cerrarlo habría que modelar esa asignación (la haría el organizador dueño) y controlarla en
+Validación, como ya se controla el dueño del evento para el organizador (L17).
 
 Riesgo de este enfoque: un método nuevo sin anotación queda abierto, y no hay un test que recorra los recursos y
 falle si falta una. El `health` (`common/rest/HealthResource`) es justamente un método sin anotación: queda abierto,
@@ -2081,14 +2085,15 @@ pedir después de cada escaneo; si ese pedido falla, la puerta sigue escaneando,
 
 | Bloque | De dónde sale |
 |---|---|
-| Entradas vendidas, recaudado a precio de lista (sin el cargo de servicio ni la reventa) y cupo restante | Sectores de `GET /api/eventos`, ya cargados en el catálogo |
+| Entradas vendidas, recaudado a precio de lista (sin el cargo de servicio ni la reventa) y cupo restante | Sectores de `GET /api/eventos/mios`: solo los eventos del organizador |
 | Publicaciones activas, en total y por evento, con su precio promedio | Reventa (`useReventas`) |
 | Ocupación por sector del evento elegido | Eventos |
 | Accesos del evento elegido: ingresos, rechazos, por ingresar (vendidas menos ingresos) y tabla de escaneos | `GET /api/v1/validacion/escaneos?eventoId=` |
 
 Lo que no tiene servicio (ventas por día, liquidación, puestos de staff, publicaciones rechazadas por tope) se sacó
-del panel en vez de mostrarse con datos fijos. El panel muestra todos los eventos del catálogo y no solo los del
-organizador, porque `GET /api/eventos` no filtra por dueño, y el registro de la puerta tampoco lo controla (14.3).
+del panel en vez de mostrarse con datos fijos. Desde el 23/10 el panel muestra solo los eventos del organizador
+(`GET /api/eventos/mios`, limitación L18) y los vuelve a pedir al cerrar el alta de un evento; si no creó ninguno,
+ofrece crear el primero. El registro de la puerta también controla el dueño (L17): un evento ajeno da 403.
 
 ## 15.4 Decisiones de experiencia de uso
 
@@ -2198,10 +2203,10 @@ el total por módulo coincide con el de esa corrida.
 |---|---|---|
 | `common` | 52 | `PagoConfirmadoMensajeTest` (16: armado y lectura del mensaje del contrato), `TokenDeServicioTest` (7), `TextosTest` (5), `ErroresDeNegocioTest` (5), `ReglasDeNegocioTest` (4), `ProblemaTest` (4: cuerpo Problem Details), `ErrorInesperadoTest` (3: el 500 con `idError`), `CorsFilterTest` (3), `BaseDeDatosTest` (3), `ErrorDeAutenticacionServletTest` (2: el 401 por token inválido) |
 | Usuarios | 45 | `RegistroYVerificacionTest` (17), `LimiteDeIntentosDeLoginTest` (8: el 429 después de 5 fallidos), `RepositoriosEnH2Test` (6), `ContrasenasTest` (5), `TokenDeServicioEmitidoTest` (3), `TokensTest` (2), `MigracionesEnH2Test` (2), `RegistroCompletoTest` (1), `CuentasDePruebaTest` (1) |
-| Eventos | 50 (al 23/10) | `ServicioDeEventosTest` (35), `CupoEnH2Test` (10: la reserva y la devolución de cupo contra H2, con la clave repetida), `NuevoEventoDtoTest` (5: validación del alta) |
+| Eventos | 53 (al 23/10) | `ServicioDeEventosTest` (37), `CupoEnH2Test` (11: la reserva y la devolución de cupo contra H2, con la clave repetida, y los eventos por organizador), `NuevoEventoDtoTest` (5: validación del alta) |
 | Ventas | 291 (al 23/10) | `ComprasEnCursoTest` (57), `ServicioDeVentasTest` (54), `ClienteDePagosTest` (32), `ConciliacionDePagosTest` (20), `ClienteDeEventosTest` (19), `DevolucionDeCuposTest` (8), `DevolucionPendienteEnH2Test` (6), `ConciliacionEnH2Test` (12), `EmisionDeEntradasMDBTest` (11), `VencimientoDeReservasTest` (10), `EnlacesTest` (8), `VentasResourceTest` (8), `ClienteDeUsuariosTest` (6), `UsoDeEntradasTest` (6), `VentaTest` (6), `EntradasResourceTest` (5), `ConfirmacionConciliadaTest` (5), `ReventaDeEntradasEnH2Test` (5), `CobrosFakeTest` (5), `FabricaDeCobrosTest` (4), `UsoEnH2Test` (3), `EmisionEnH2Test` (1) |
 | Pagos | 36 (al 23/10) | `ServicioDePagosTest` (24, con el reembolso), `PagosFakeTest` (5), `PagosResourceTest` (4), `FabricaDePasarelaTest` (3); el repositorio se reemplaza por `PagoRepositoryEnMemoria` |
-| Validación | 26 | `ServicioDeValidacionTest` (12), `ClienteDeVentasTest` (8), `EscaneosResourceTest` (3: roles de cada operación), `RegistroEnH2Test` (3) |
+| Validación | 38 (al 23/10) | `ServicioDeValidacionTest` (18, con el dueño del evento), `ClienteDeVentasTest` (8), `EscaneosResourceTest` (5: roles de cada operación y a quién se le controla el dueño), `ClienteDeEventosTest` (4), `RegistroEnH2Test` (3) |
 | Reventa | 69 (al 23/10) | `ServicioDeReventaTest` (21: rango de precio, cierre, compra propia, dueño, la transferencia rechazada), `ConciliacionDeReventasTest` (15), `ClientesTest` (12), `PublicacionesEnH2Test` (9), `DevolucionDeCobrosTest` (8), `ReembolsosEnH2Test` (4: un reembolso por pago, también con dos a la vez) |
 | Notificaciones | 33 | `ServicioDeAuditoriaTest` (6), `AuditoriaDeComprasMDBTest` (5), `PruebasDeMensajeriaTest` (5), `AvisoDeCompraMDBTest` (4), `LogEnUnSoloRenglonTest` (4), `ServicioDeNotificacionesTest` (4), `RegistroDeAuditoriaEnH2Test` (3), `MigracionesEnH2Test` (2) |
 | Facturación | 38 | `ServicioDeFacturacionTest` (9), `FacturacionDeComprasMDBTest` (8), `ArcaSoapTest` (7: tiempo de espera y SOAP Fault), `FacturasResourceTest` (6), `FabricaDeArcaTest` (5: tiempos y parser inseguro de CXF), `FacturaEnH2Test` (3) |
@@ -2221,7 +2226,7 @@ el 401 por token inválido como Problem Details (`ErrorDeAutenticacionServletTes
 (`ErrorInesperadoTest`) y las 600.000 iteraciones de PBKDF2 (`ContrasenasTest`). `MigracionesEnH2Test` de Usuarios
 corre sus migraciones, V4 y V5 incluidas, contra H2.
 
-## 16.2 Los escenarios de integración (17 al 16/10, 19 desde el 23/10)
+## 16.2 Los escenarios de integración (17 al 16/10, 21 desde el 23/10)
 
 `scripts/pruebas/escenarios.mjs` (con sus ayudas en `lib.mjs`) prueba la compra, la mensajería, la conciliación de
 pagos, la facturación, la validación en puerta y la reventa de punta a punta, por la API REST y por `jboss-cli`,
@@ -2229,8 +2234,8 @@ contra el WildFly real. Usa el `fetch` de Node 18 o más nuevo y ningún paquete
 esperaba y qué vio; al final hay un resumen por escenario. Sale con código 0 si todo pasa y con 1 si algo falla.
 
 ```bash
-node scripts/pruebas/escenarios.mjs                                   # los 20 escenarios
-node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17       # solo los que no tocan el servidor compartido
+node scripts/pruebas/escenarios.mjs                                   # los 21 escenarios
+node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17 21    # solo los que no tocan el servidor compartido
 node scripts/pruebas/escenarios.mjs 14                                # uno solo
 ```
 
@@ -2256,6 +2261,7 @@ node scripts/pruebas/escenarios.mjs 14                                # uno solo
 | 18 | Devolución de cupo con Eventos caído (desde el 23/10) | Con el WAR de Eventos sacado de servicio por `jboss-cli`, cancelar una compra de 2 entradas responde 204 y Ventas avisa que reintenta (un 404 del servidor no se toma como rechazo); al volver a desplegar Eventos, el barrido `DevolucionDeCupos` devuelve las 2 entradas, y repetir la misma devolución con su clave no resta otra vez. Pasó el 23/10 (13 de 13 comprobaciones). Mientras corre nadie puede usar el catálogo: no va en la lista de los que no tocan el servidor compartido |
 | 19 | Reventa con Pagos sin respuesta (desde el 23/10) | Dos compras de reventa con `tok_sin_respuesta` (504); en una no hay cobro y en la otra se registra en Pagos un cobro aprobado con la misma clave. Mientras no se sabe, otra cuenta no compra y el vendedor no retira (409). La conciliación libera la primera (otra cuenta la compra) y transfiere la segunda al titular de la compra, sin cobrar de nuevo. Pasó el 23/10 (14 de 14 comprobaciones). Tarda entre 2 y 4 minutos |
 | 20 | Reventa cobrada y sin entrada (desde el 23/10) | Con la entrada devuelta a `VALIDA` en Ventas por detrás de Reventa (`/operaciones-de-reventa/retiros` con el token de servicio), la compra cobra y Ventas rechaza la transferencia: 409 con "Te devolvimos el pago", el pago `REEMBOLSADO` por el total, la publicación `ANULADA` y fuera del listado, y ni el reintento, ni otra cuenta, ni el vendedor la mueven. Una segunda, cobrada sin que Reventa lo supiera, la anula la conciliación y devuelve el pago. Pasó el 23/10 (20 de 20 comprobaciones). Tarda entre 2 y 4 minutos |
+| 21 | Dueño del evento (desde el 23/10) | `GET /api/eventos/mios` del organizador trae el evento de la prueba y los seis iniciales, por fecha; sin token 401 y con `user`, `staff` o `servicio` 403. El organizador ve el registro de la puerta de su evento (200) y el de un evento ajeno da 403 `evento-ajeno`; el personal de puerta sigue viendo cualquiera (sin asignación todavía). Sin correr en el servidor |
 
 **Última corrida: 16/10/2026, desde las 11:04, con el servidor armado desde cero con Facturación, Validación,
 Reventa y la conciliación de pagos: 17 de 17 escenarios.** Del 1 al 13 pasaron en la primera corrida. El 12, el 14,
@@ -2286,7 +2292,7 @@ Decisiones de diseño de la prueba, porque condicionan cómo leer el resultado:
 
 ## 16.3 Colección de Postman y Newman
 
-`docs/api/palco-api.postman_collection.json` tiene 123 requests en siete carpetas: "1 Usuarios (implementado)",
+`docs/api/palco-api.postman_collection.json` tiene 126 requests en siete carpetas: "1 Usuarios (implementado)",
 "2 Eventos (implementado)", "3 Diseño v1 (Ventas implementado)", "4 Seguridad (clase 11)" (15 requests que prueban
 criterios de la matriz de seguridad), "5 Validación en puerta (implementado)", "6 Reventa (implementado)" y
 "7 Facturación (implementado)". Dos requests, en la subcarpeta "Pasos manuales (fuera de la corrida)" de Usuarios,
@@ -2776,7 +2782,7 @@ Estado leído en el código y probado en el servidor el 16/10, con WildFly armad
 | Base de datos | Implementado en desarrollo | H2 en memoria en modo PostgreSQL: se vacía al reiniciar WildFly. Las migraciones no se corrieron contra PostgreSQL (Supabase) |
 | Frontend: sesión, catálogo, alta de eventos, compra y "Mis entradas" | Implementado | Llaman al backend (`frontend/src/servicios/`) y se recorrieron a mano en el navegador contra el backend |
 | Frontend: reventa, puerta y panel del organizador | Implementado, sin probar en el navegador | Llaman a Reventa, Validación y Eventos. El 16/10 el lint dio 0 errores y la compilación terminó bien, y los servicios que usan pasaron en el servidor, pero las pantallas no se recorrieron en el navegador. En `localStorage` solo queda el carrito de la compra en curso y la sesión; se quitaron los datos fijos de reventa y del organizador |
-| Panel del organizador | Implementado con los servicios que existen | No tiene backend propio: se arma con Eventos, Reventa y Validación. Lo que no tiene servicio (ventas por día, liquidación) se sacó del panel. Muestra todos los eventos, no solo los del organizador (L18) |
+| Panel del organizador | Implementado con los servicios que existen | No tiene backend propio: se arma con Eventos, Reventa y Validación. Lo que no tiene servicio (ventas por día, liquidación) se sacó del panel. Desde el 23/10 muestra solo los eventos del organizador (`GET /api/eventos/mios`) |
 | Seguridad: roles declarativos, recurso ajeno como 404, contraseñas PBKDF2 (600.000 iteraciones para los hashes nuevos; la migración V5 de Usuarios rehashea las cuentas de prueba) | Implementado | Matriz de la clase 11 al 16/10 (sección 14.9): 5 criterios cumplen con prueba en verde (W01, W02, W04, W06, D02), 3 cumplen en el código con prueba parcial o sin prueba propia (W03, D01, I01), 1 es parcial con la vigencia justificada (W05) y 1 no cumple y queda como riesgo aceptado (I02) |
 | Límite de intentos de login (SEC-W04) | Implementado | 5 fallidos en 15 minutos para un mismo email → 429 `/problemas/demasiados-intentos` con `Retry-After`, aunque la clave sea correcta y también para emails sin cuenta. Tabla `intento_login` (migración V4, guarda el SHA-256 del email), repositorio `datos/IntentoLoginRepository`; un login correcto borra los fallidos. Probado con `LimiteDeIntentosDeLoginTest`, en vivo (el 6.º intento dio 429 con `Retry-After: 898`) y con la petición SEC-W04 de Postman |
 | 401 por token inválido en Problem Details | Implementado | `web-fragment.xml` y `ErrorDeAutenticacionServlet` en `backend/common`: `application/problem+json` (`/problemas/token-invalido`), `WWW-Authenticate: Bearer error="invalid_token"` y cabeceras CORS. Probado en vivo contra `GET /api/v1/ventas` y con SEC-W05a y SEC-W05b de Postman |
@@ -2786,7 +2792,7 @@ Estado leído en el código y probado en el servidor el 16/10, con WildFly armad
 
 # 21. Limitaciones conocidas
 
-Cada limitación sale del código, de las secciones de componentes y transacciones (4 y 7.12) o del documento de integración (`docs/entrega3/Entrega_Parcial_2_Integracion.md`). Se ordenan por impacto. Ya no figuran las que se resolvieron el 16/10: el cobro sin resultado retenido hasta resolverlo a mano (lo cierra la conciliación de pagos, 7.8) y las capas sin separar en Usuarios, Eventos y Notificaciones (los ocho componentes tienen `datos/`). Tampoco la L1, la L2, la L4 y la L13, resueltas el 23/10. La L2: si el cobro salía aprobado y Ventas rechazaba la transferencia, la publicación volvía a `ACTIVA` y el pago se devolvía a mano; ahora se anula y Pagos devuelve el pago (7.10). La L13: la compra en la reventa no generaba aviso, auditoría ni factura; ahora publica `REVENTA_CONFIRMADA` en el tópico (10.1). La L1: si Pagos no respondía al cobrar una publicación, la toma vencía a los 2 minutos y otra persona podía comprar una entrada ya cobrada; ahora la toma no vence y la resuelve la conciliación de reventas (7.10). La L4: la devolución de cupo que fallaba no se reintentaba y esos lugares quedaban sin vender; ahora la reintenta el barrido `DevolucionDeCupos` con una devolución segura de repetir (7.5). Los números de las demás no cambian.
+Cada limitación sale del código, de las secciones de componentes y transacciones (4 y 7.12) o del documento de integración (`docs/entrega3/Entrega_Parcial_2_Integracion.md`). Se ordenan por impacto. Ya no figuran las que se resolvieron el 16/10: el cobro sin resultado retenido hasta resolverlo a mano (lo cierra la conciliación de pagos, 7.8) y las capas sin separar en Usuarios, Eventos y Notificaciones (los ocho componentes tienen `datos/`). Tampoco la L1, la L2, la L4, la L13 y la L18, resueltas el 23/10. La L18: el panel del organizador mostraba todos los eventos del catálogo; ahora pide los suyos a `GET /api/eventos/mios` (4.2). La L2: si el cobro salía aprobado y Ventas rechazaba la transferencia, la publicación volvía a `ACTIVA` y el pago se devolvía a mano; ahora se anula y Pagos devuelve el pago (7.10). La L13: la compra en la reventa no generaba aviso, auditoría ni factura; ahora publica `REVENTA_CONFIRMADA` en el tópico (10.1). La L1: si Pagos no respondía al cobrar una publicación, la toma vencía a los 2 minutos y otra persona podía comprar una entrada ya cobrada; ahora la toma no vence y la resuelve la conciliación de reventas (7.10). La L4: la devolución de cupo que fallaba no se reintentaba y esos lugares quedaban sin vender; ahora la reintenta el barrido `DevolucionDeCupos` con una devolución segura de repetir (7.5). Los números de las demás no cambian.
 
 | N.º | Limitación | Impacto | Cómo se resolvería | Tarea |
 |---|---|---|---|---|
@@ -2802,8 +2808,7 @@ Cada limitación sale del código, de las secciones de componentes y transaccion
 | L14 | **Las facturas no tienen anulación ni nota de crédito**, y el ARCA simulado numera en memoria: vuelve a 1 al redesplegarlo | Una reventa o una devolución no corrige la factura original. Tras redesplegar el ARCA simulado se repiten números (por eso no hay restricción única sobre el número) | Fuera del alcance (sección 1.5) | — |
 | L15 | **El cliente SOAP solo se probó en el servidor en el caso feliz.** Los tests corren sobre Metro y no sobre CXF, el cliente de WildFly | No está comprobado contra CXF que los tiempos de espera corten igual ni que un sobre con DTD o entidad externa se rechace (SEC-I01, prueba parcial) | Provocar en el servidor ARCA sin respuesta (`palco.arca.simular-sin-respuesta=true`), ARCA sin desplegar y un sobre con DTD | Facturación por SOAP (Santiago) |
 | L16 | **Pagos y la clave de idempotencia.** Tras un rechazo, la misma clave devuelve siempre ese rechazo; si la pasarela cobra y falla el guardado, el pago queda sin registro hasta el reintento; Pagos no tiene un tiempo de espera propio con la pasarela | Con `PagosFake` no hay impacto. Con Mercado Pago dependería de que deduplique por la clave, y una pasarela que tardara más de 2 minutos podría hacer que la conciliación venza una venta con el cobro en curso | Guardar el pedido antes de llamar a la pasarela, deduplicar con Mercado Pago por su clave de idempotencia y un tiempo de espera menor que `ConciliacionDePagos.MINUTOS_DE_MARGEN` | Mercado Pago real (Valentina), fuera del alcance |
-| L17 | **Validación y el panel no controlan a quién pertenece el evento.** No se verifica que el organizador sea dueño del evento cuyo registro de la puerta consulta ni que el staff esté asignado a ese evento | Un organizador ve los accesos de eventos ajenos; un staff puede escanear en cualquier puerta | Guardar el dueño del evento y la asignación del staff, y filtrar por ellos | Sin tarea |
-| L18 | **El panel del organizador muestra todos los eventos del catálogo** | `GET /api/eventos` no filtra por dueño | Un filtro por organizador en Eventos | Sin tarea |
+| L17 | **El personal de puerta no está asignado a eventos.** Desde el 23/10 el organizador ve el registro de la puerta solo de sus eventos (Validación le pregunta a Eventos, 4.6); lo que sigue abierto es el staff | Un staff puede escanear en cualquier puerta y ver el registro de cualquier evento | Guardar la asignación del staff a cada evento (la hace el organizador dueño) y controlarla al escanear y al consultar | Fase 8 de `TODO.md`, sin dueño |
 | L19 | **Exclusión en memoria entre la conciliación y un reintento.** La marca de "ocupada" de `ComprasEnCurso` vale para un solo servidor | Con varios servidores, un reintento y una conciliación que confirman a la vez el mismo pago dejarían un `SEVERE` falso | Una marca en la base, si el sistema corre en varios servidores. Hoy hay un solo WildFly | — |
 | L20 | **El monto que recibe Pagos se convierte antes de validarse**: el conversor de JSON trunca decimales y recorta números que no entran en un `long` | Pagos confía en sus dos clientes, Ventas y Reventa, que calculan el monto en el servidor. Un cliente nuevo podría cobrar otro monto | Recibir el monto como `BigDecimal` y rechazar lo que no sea entero | Sin tarea |
 | L21 | **Dos pedidos simultáneos con la misma clave reservan los dos** en Ventas | Si queda lugar para uno, el otro recibe 409 `cupo-agotado`; al repetirlo recibe la venta | Aceptado | — |
@@ -2846,7 +2851,7 @@ Siguen sin respuesta de la cátedra: la hora límite de subida; la confirmación
 |---|---|---|---|---|
 | 1 | Documentación final de 10 a 15 páginas, recortada de este documento, con la reflexión del equipo (los aprendizajes los escribe el grupo) | La exige la Entrega Final, que se defiende el 04/12 | Joaquin integra, con los cinco | 25/11 |
 | 2 | ~~Conciliación en Reventa (L1), reembolso de la compra sin entrada (L2) y mensaje de la compra en la reventa (L13)~~ hechos el 23/10 (7.10 y 10.1) | Son los dos huecos de la reventa que dejan un cobro sin entrada o una compra sin factura | Julian; L13 se decide con el grupo porque cambia el contrato de mensajería | Para el checkpoint del 20/11 |
-| 3 | Control de dueño en el panel y en la puerta: filtrar los eventos por organizador y asignar el staff a cada evento (L17 y L18) | Hoy un organizador ve los datos de eventos ajenos | A definir | — |
+| 3 | Asignar el staff a cada evento (L17). ~~Filtrar los eventos por organizador en el panel y en el registro de la puerta (L18 y la parte del organizador de L17)~~ hecho el 23/10 | Hoy un staff puede escanear en cualquier puerta | A definir | — |
 | 4 | Pruebas de frontend y de punta a punta (Vitest, Playwright) | El frontend no tiene tests propios; los recorridos con Playwright que se hicieron no están en el repo (Fase 11 de `TODO.md`) | A definir | — |
 | 5 | Base en PostgreSQL (Supabase), CI y hosting | La base de desarrollo se borra al reiniciar (L7) | A definir | — |
 | 6 | Aviso de compra por email | Hoy es una línea en el log. Falta elegir proveedor y pedirle a Usuarios el email del comprador | Julian, solo si sobra tiempo | Sin fecha |
