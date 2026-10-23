@@ -303,6 +303,11 @@ ServicioDeVentas ──► cola.emision-entradas ──► Módulo de emisión (
 
 ## Fase 7 — `ServicioDeReventa`
 
+- [x] Conciliación de las compras de reventa sin resultado (23/10, limitación
+      L1): la toma ya no vence a los 2 minutos y guarda el titular; el barrido
+      `ConciliacionDeReventas` le pregunta a Pagos por la clave y transfiere la
+      entrada o libera la publicación. Probado en el servidor (escenario 19).
+
 - [ ] `GET /api/entradas/mias`.
 - [ ] `POST /api/publicaciones`: valida (con `IUsuarios`) que quien publica sea
       el titular verificado, que la entrada esté válida, precio entre 50% y

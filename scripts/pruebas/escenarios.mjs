@@ -1,8 +1,8 @@
-// Prueba de integración del backend de Palco: 18 escenarios de compra, mensajería, conciliación de pagos,
-// facturación, validación en puerta, reventa y devolución de cupo con Eventos caído, de punta a punta, por la
-// API y por jboss-cli. Los 13 primeros son los que produjeron docs/entrega3/evidencia/integracion-13-escenarios.txt.
+// Prueba de integración del backend de Palco: 19 escenarios de compra, mensajería, conciliación de pagos,
+// facturación, validación en puerta, reventa (con su conciliación) y devolución de cupo con Eventos caído, de
+// punta a punta, por la API y por jboss-cli. Los 13 primeros son los que produjeron docs/entrega3/evidencia/integracion-13-escenarios.txt.
 //
-//   node scripts/pruebas/escenarios.mjs              corre los 18 escenarios
+//   node scripts/pruebas/escenarios.mjs              corre los 19 escenarios
 //   node scripts/pruebas/escenarios.mjs 1 2 7        corre solo esos
 //
 // Se corre desde cualquier carpeta: las rutas salen de la ubicación de este archivo. Necesita Node 18 o
@@ -18,6 +18,7 @@
 //   node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17
 // El 14 espera a la conciliación de pagos, que corre una vez por minuto con 2 minutos de margen: tarda
 // entre 2 y 4 minutos. El 18 espera al barrido de devoluciones, que corre una vez por minuto: tarda hasta 1.
+// El 19 espera a la conciliación de reventas, que corre una vez por minuto con 2 minutos de margen: entre 2 y 4.
 //
 // Los valores se comparan antes y después (el cupo, los contadores del broker, el log); los ids salen de
 // las respuestas. Los contadores del broker son de todo el servidor: si otra persona compra mientras
@@ -486,6 +487,73 @@ async function escenario18() {
   informe.igual('y no resta otra vez', await vendidas(SECTOR), antes);
   informe.igual('repetir el DELETE', (await cancelar(v.id)).estado, 204);
   informe.igual('el cupo sigue devuelto una sola vez', await vendidas(SECTOR), antes);
+}
+
+async function escenario19() {
+  informe.escenario(19, 'Reventa con Pagos sin respuesta: nadie más compra ni retira, y la conciliación libera o transfiere');
+  const OT = await login('otro.titular@palco.test');
+  const otra = await cuentaNueva();
+  const R = '/api/v1/reventas';
+  const tope = Math.floor(PRECIO * 1.1);
+  const monto = tope + Math.round(tope * 0.1);
+  const publicar = async () => {
+    const { entradaId } = await compraDeApoyo();
+    return { entradaId, pub: (await http('POST', R, { token: T, cuerpo: { entradaId, precio: tope } })).json };
+  };
+  const comprar = (pubId, token, clave, tokenDePago, nombre = 'Luis Pérez') => http('POST', `${R}/${pubId}/compra`, {
+    token, clave, cuerpo: { titular: { nombre, dni: String(dniSiguiente++) }, medioDePago: 'tarjeta', token: tokenDePago },
+  });
+  const estadoDe = async (pubId) => (await http('GET', `${R}/mias`, { token: T })).json.find((x) => x.id === pubId)?.estado;
+  const activa = async (pubId) => (await http('GET', `${R}?eventoId=${EVENTO}`)).json.some((x) => x.id === pubId);
+
+  const A = await publicar();
+  const B = await publicar();
+  informe.ok('dos publicaciones ACTIVA del titular', A.pub?.estado === 'ACTIVA' && B.pub?.estado === 'ACTIVA',
+    `${A.pub?.id} ${B.pub?.id}`);
+  const marca = marcaDelLog();
+
+  // A: Pagos no responde y no cobró nada.
+  const claveA = uuid();
+  esProblema(informe, await comprar(A.pub.id, OT, claveA, 'tok_sin_respuesta'), 504, 'sin-respuesta', `${R}/${A.pub.id}/compra`);
+  // B: Pagos no responde, pero el cobro se hizo (se registra a mano con la misma clave, como si Pagos sí hubiera cobrado).
+  const claveB = uuid();
+  esProblema(informe, await comprar(B.pub.id, OT, claveB, 'tok_sin_respuesta', 'Marta Ríos'), 504, 'sin-respuesta',
+    `${R}/${B.pub.id}/compra`);
+  const cobroB = await http('POST', '/api/v1/pagos', { token: S, clave: `${B.pub.id}:${claveB}`,
+    cuerpo: { ventaId: B.pub.id, monto, medioDePago: 'tarjeta', token: 'tok_test' } });
+  informe.ok('en Pagos queda aprobado el cobro de B con la clave de esa compra', cobroB.json?.estado === 'APROBADO',
+    `${cobroB.estado} ${cobroB.texto.slice(0, 160)}`);
+
+  // Mientras no se sabe cómo terminó, la toma no vence: ni otra persona la compra ni el vendedor la retira (L1).
+  esProblema(informe, await comprar(A.pub.id, otra.token, uuid(), 'tok_test'), 409, 'publicacion-no-activa',
+    `${R}/${A.pub.id}/compra`);
+  esProblema(informe, await http('DELETE', `${R}/${A.pub.id}`, { token: T }), 409, 'publicacion-no-activa', `${R}/${A.pub.id}`);
+
+  // La conciliación corre en el segundo 45 de cada minuto y mira las tomas de hace más de 2 minutos.
+  informe.dato('se espera a la conciliación de reventas (entre 2 y 4 minutos)');
+  const resuelta = await hasta(async () => (await activa(A.pub.id)) && (await estadoDe(B.pub.id)) === 'VENDIDA',
+    { maximoMs: 260000, cadaMs: 3000 });
+  informe.ok('la conciliación resolvió las dos', resuelta, `A activa: ${await activa(A.pub.id)}, B: ${await estadoDe(B.pub.id)}`);
+
+  const lineasA = lineasCon(marca, 'ConciliacionDeReventas', A.pub.id, 'Queda libre');
+  informe.ok('A: Pagos no tenía ningún cobro con esa clave y la publicación quedó libre', lineasA.length === 1,
+    lineasA.map((l) => l.slice(0, 200)).join(' // '));
+  const compraA = await comprar(A.pub.id, otra.token, uuid(), 'tok_test');
+  informe.ok('A: ahora otra persona la compra', compraA.estado === 201 && compraA.json.publicacion.estado === 'VENDIDA',
+    `${compraA.estado} ${compraA.texto.slice(0, 200)}`);
+
+  const lineasB = lineasCon(marca, 'ConciliacionDeReventas', B.pub.id, 'quedó VENDIDA');
+  informe.ok('B: la conciliación vio el pago aprobado, transfirió la entrada y la marcó VENDIDA', lineasB.length === 1,
+    lineasB.map((l) => l.slice(0, 220)).join(' // '));
+  informe.igual('B: la entrada original quedó VENDIDA', (await entrada(B.entradaId)).json.estado, 'VENDIDA');
+  const reintento = await comprar(B.pub.id, OT, claveB, 'tok_test', 'Marta Ríos');
+  const nueva = reintento.json?.entrada;
+  informe.ok('B: el comprador tiene su entrada a nombre del titular de la compra, sin haber reintentado (el reintento la devuelve igual)',
+    reintento.estado === 201 && nueva?.titular?.nombre === 'Marta Ríos' && nueva?.precioPagado === tope,
+    `${reintento.estado} ${reintento.texto.slice(0, 220)}`);
+  informe.igual('B: la entrada nueva es VALIDA', (await entrada(nueva?.id, OT)).json?.estado, 'VALIDA');
+  const cobrosB = lineasCon(marca, B.pub.id, 'vendida a');
+  informe.igual('B: no se cobró de nuevo (ninguna compra normal cerró B)', cobrosB.length, 0);
 }
 
 // ===================================================================================== mensajería
@@ -1029,7 +1097,7 @@ const pasos = [
   [6, escenario6], [7, escenario7], [8, escenario8], [9, escenario9], [10, escenario10], [11, escenario11],
   [12, escenario12], [13, escenario13], [14, escenario14],
   [15, async () => { compra ??= await compraDeApoyo(); await escenario15(compra); }],
-  [16, escenario16], [17, escenario17], [18, escenario18],
+  [16, escenario16], [17, escenario17], [18, escenario18], [19, escenario19],
 ];
 
 /** Si el escenario 5 o el 15 corren solos, necesitan una venta emitida del titular. También la usan el 16 y el 17. */
