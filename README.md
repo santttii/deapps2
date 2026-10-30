@@ -50,6 +50,35 @@ El repo tiene dos partes:
 
 ## Cómo correrlo
 
+### Todo junto, con un solo comando (Docker)
+
+Solo hace falta Docker (Docker Desktop en Windows y macOS) con Compose v2. Desde la raíz del repo:
+
+```bash
+docker compose up --build
+```
+
+Queda andando en **https://localhost** (el certificado es autofirmado y se genera al arrancar: el navegador pide
+aceptarlo una vez; `http://localhost` redirige a HTTPS). Se entra con los [usuarios de prueba](#usuarios-de-prueba).
+La primera vez baja unos 1,9 GB de imágenes base y después arma el backend (dependencias de Maven y WildFly): medido
+el 30/10, con las imágenes ya bajadas, el armado tardó unos 2,5 minutos y el arranque 28 segundos. Las siguientes veces
+es solo el arranque. Está listo cuando `docker compose ps` muestra los tres contenedores `healthy` (con `docker compose
+up --build --wait` el comando termina recién ahí).
+
+Levanta tres contenedores: `db` (PostgreSQL), `backend` (WildFly con los 8 servicios, el broker y el ARCA simulado)
+y `web` (nginx con el frontend, TLS y las cabeceras de seguridad, que pasa `/api` y `/legado` al backend). La API
+también queda en `http://localhost:8080`, solo para esta máquina (Postman y `scripts/pruebas`). Ningún secreto está
+en el repo: el secreto entre servicios y la clave de los tokens se generan en cada arranque si no se definen.
+
+| Para | Comando |
+|---|---|
+| Bajar todo | `docker compose down` (con `-v` borra también la base) |
+| Ver el log del servidor | `docker compose logs -f backend` |
+| Correr la prueba de integración contra el compose | `PALCO_DIR_LOGS=./logs docker compose up -d --wait` y después `JBOSS_CLI=scripts/qa/jboss-cli-docker.sh PALCO_LOG=logs/server.log node scripts/pruebas/escenarios.mjs` |
+| Usar otros puertos (si el 80 o el 443 están ocupados) | `PALCO_PUERTO_HTTP=8000 PALCO_PUERTO_HTTPS=8443 PALCO_URL_PUBLICA=https://localhost:8443 docker compose up --build` |
+
+Para desarrollar conviene lo de abajo (`npm run dev` y `./dev.sh`): recargan solos al cambiar el código.
+
 ### Frontend
 
 ```bash

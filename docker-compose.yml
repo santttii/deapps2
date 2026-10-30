@@ -1,0 +1,69 @@
+# Palco entero con un solo comando:  docker compose up --build
+# Después: https://localhost (certificado autofirmado: el navegador pide aceptarlo una vez).
+#
+# - db:      PostgreSQL. Las migraciones de cada servicio crean sus esquemas al arrancar.
+# - backend: WildFly con los 8 servicios, el broker JMS (embebido) y el ARCA simulado.
+# - web:     nginx con el frontend, TLS y cabeceras de seguridad; pasa /api y /legado al backend.
+#
+# Nada de esto es secreto: la base no se publica fuera de la red de compose y el secreto entre
+# servicios y la clave JWT se generan en cada arranque si no se definen. Para cambiar un valor,
+# definirlo en el entorno o en un archivo .env junto a este (no se sube al repo).
+
+name: palco
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: palco
+      POSTGRES_USER: palco
+      POSTGRES_PASSWORD: ${PALCO_DB_PASSWORD:-palco-local}
+    volumes:
+      - datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U palco -d palco"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    build: ./backend
+    environment:
+      PALCO_DB_DRIVER: postgresql
+      PALCO_DB_URL: jdbc:postgresql://db:5432/palco
+      PALCO_DB_USUARIO: palco
+      PALCO_DB_PASSWORD: ${PALCO_DB_PASSWORD:-palco-local}
+      PALCO_CORS_ORIGENES: ${PALCO_URL_PUBLICA:-https://localhost},http://localhost:5173
+      PALCO_SECRETO_SERVICIOS: ${PALCO_SECRETO_SERVICIOS:-}
+      PALCO_JWT_CLAVE_PRIVADA: ${PALCO_JWT_CLAVE_PRIVADA:-}
+    ports:
+      # Solo en esta máquina: para Postman, scripts/pruebas y el CI. La app se usa por https://localhost.
+      - "127.0.0.1:${PALCO_PUERTO_BACKEND:-8080}:8080"
+    volumes:
+      # El log del servidor, para scripts/pruebas (PALCO_LOG) y el control de logs. Por defecto en un
+      # volumen; con PALCO_DIR_LOGS=./logs (una carpeta) queda en esa carpeta de esta máquina. Así lo usa el CI.
+      - ${PALCO_DIR_LOGS:-logs}:/opt/palco/server/standalone/log
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        PALCO_URL_PUBLICA: ${PALCO_URL_PUBLICA:-https://localhost}
+    ports:
+      - "${PALCO_PUERTO_HTTP:-80}:80"
+      - "${PALCO_PUERTO_HTTPS:-443}:443"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider --no-check-certificate https://127.0.0.1/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  datos:
+  logs:
