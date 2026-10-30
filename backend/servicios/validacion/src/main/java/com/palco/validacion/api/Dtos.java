@@ -79,4 +79,11 @@ public final class Dtos {
             String escaneadoPor,
             String escaneado) {
     }
+
+    /**
+     * Una cuenta de puerta asignada a un evento. {@code asignada} va en UTC,
+     * formato ISO 8601.
+     */
+    public record PuertaAsignadaDto(String eventoId, String staffEmail, String asignadaPor, String asignada) {
+    }
 }

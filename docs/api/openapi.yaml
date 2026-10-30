@@ -289,6 +289,36 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
 
+  /eventos/{eventoId}/organizador:
+    get:
+      tags: [eventos]
+      summary: Quién es el dueño de un evento (uso interno)
+      description: >
+        Requiere rol `servicio`: la llama Validación para saber si el organizador que pide el registro de la puerta
+        o el equipo de puerta es el dueño del evento. El catálogo público no muestra el dueño. Un evento sin dueño
+        responde 200 con `organizadorId` en null. Desde el 23/10 (limitación L17).
+      parameters:
+        - name: eventoId
+          in: path
+          required: true
+          schema: { type: string, maxLength: 40, example: ev-1 }
+      responses:
+        '200':
+          description: El dueño del evento
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventoId: { type: string, example: ev-1 }
+                  organizadorId:
+                    type: string
+                    nullable: true
+                    example: user-organizador
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
   /eventos/{slug}:
     get:
       tags: [eventos]
@@ -839,6 +869,8 @@ paths:
         sea el resultado. Si la persona puede entrar lo dicen `resultado` y `puedeEntrar`, no el código HTTP.
         Con `VALIDA`, Validación le pide a Ventas que marque la entrada como `USADA` (operación interna
         `POST /v1/entradas/usos`); un segundo escaneo del mismo código da `YA_USADA` con el uso anterior.
+        Desde el 23/10 (limitación L17) solo escanea la cuenta de puerta asignada a ese evento: si no lo está,
+        403 `puerta-no-asignada` sin llamar a Ventas y sin dejar renglón en el registro.
       requestBody:
         required: true
         content:
@@ -855,7 +887,13 @@ paths:
               schema: { $ref: '#/components/schemas/ResultadoDeEscaneo' }
         '400': { $ref: '#/components/responses/DatosInvalidos' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
-        '403': { $ref: '#/components/responses/SinPermiso' }
+        '403':
+          description: >
+            Sin el rol (`/problemas/sin-permiso`), o la cuenta no tiene asignada la puerta de ese evento
+            (`/problemas/puerta-no-asignada`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
         '504':
           description: >
             Ventas no respondió (`/problemas/sin-respuesta`). El intento queda en el registro como `SIN_RESPUESTA`:
@@ -869,8 +907,9 @@ paths:
       description: >
         Requiere rol `staff` u `organizer`. Del escaneo más nuevo al más viejo. El código no viaja completo: solo
         sus últimos caracteres (`codigoParcial`). Desde el 23/10 (limitación L17), el organizador ve solo el registro
-        de sus eventos: Validación le pregunta a Eventos (`GET /api/eventos/mios`, con el token del organizador). El
-        personal de puerta todavía ve el de cualquier evento, porque no hay asignación de staff a eventos.
+        de sus eventos: Validación le pregunta a Eventos quién es el dueño
+        (`GET /api/eventos/{eventoId}/organizador`, rol `servicio`). El personal de puerta ve solo el de los eventos
+        donde tiene la puerta asignada.
       parameters:
         - name: eventoId
           in: query
@@ -886,10 +925,11 @@ paths:
                 items: { $ref: '#/components/schemas/Escaneo' }
         '400': { $ref: '#/components/responses/DatosInvalidos' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
         '403':
           description: >
-            Sin el rol (`/problemas/sin-permiso`), o un organizador que pide el registro de un evento que no es suyo
-            (`/problemas/evento-ajeno`)
+            Sin el rol (`/problemas/sin-permiso`), o una cuenta de puerta sin asignar a ese evento
+            (`/problemas/puerta-no-asignada`). Para un organizador, un evento que no es suyo responde 404
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
@@ -913,6 +953,93 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Escaneo' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '504': { $ref: '#/components/responses/SinRespuesta' }
+
+  /v1/validacion/puertas/mias:
+    get:
+      tags: [validacion]
+      summary: Los eventos donde la cuenta puede escanear
+      description: >
+        Requiere rol `staff`. Las puertas asignadas a la cuenta del token. Sin ninguna no puede escanear en ningún
+        evento. Desde el 23/10 (limitación L17).
+      responses:
+        '200':
+          description: Puertas asignadas (vacío si no tiene ninguna)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PuertaAsignada' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /v1/validacion/puertas:
+    get:
+      tags: [validacion]
+      summary: Las cuentas de la puerta de un evento propio
+      description: >
+        Requiere rol `organizer` y ser el dueño del evento: uno ajeno responde 404, igual que uno que no existe.
+        Desde el 23/10 (limitación L17).
+      parameters:
+        - name: eventoId
+          in: query
+          required: true
+          schema: { type: string, maxLength: 40, example: ev-1 }
+      responses:
+        '200':
+          description: El equipo de puerta del evento (vacío si no hay ninguna cuenta asignada)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PuertaAsignada' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '504': { $ref: '#/components/responses/SinRespuesta' }
+
+  /v1/validacion/puertas/{eventoId}/{email}:
+    parameters:
+      - name: eventoId
+        in: path
+        required: true
+        schema: { type: string, maxLength: 40, example: ev-1 }
+      - name: email
+        in: path
+        required: true
+        description: El email de la cuenta de puerta. Se guarda en minúsculas.
+        schema: { type: string, format: email, maxLength: 200, example: puerta@palco.test }
+    put:
+      tags: [validacion]
+      summary: Asignar una cuenta a la puerta de un evento propio
+      description: >
+        Requiere rol `organizer` y ser el dueño del evento. Repetirlo devuelve la misma asignación (es idempotente).
+        No se comprueba que el email sea de una cuenta `staff`: uno que no existe no deja escanear a nadie.
+        Desde el 23/10 (limitación L17).
+      responses:
+        '200':
+          description: La asignación
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PuertaAsignada' }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '504': { $ref: '#/components/responses/SinRespuesta' }
+    delete:
+      tags: [validacion]
+      summary: Quitar una cuenta de la puerta de un evento propio
+      description: >
+        Requiere rol `organizer` y ser el dueño del evento. Responde 204 aunque la cuenta no estuviera asignada.
+        Desde el 23/10 (limitación L17).
+      responses:
+        '204': { description: La cuenta no tiene la puerta de ese evento }
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
@@ -1483,6 +1610,15 @@ components:
         publicacion: { $ref: '#/components/schemas/Publicacion' }
         entrada: { $ref: '#/components/schemas/EntradaTransferida' }
         ventaId: { type: string, description: La venta del comprador en Ventas, example: V-7a1b2c3d }
+
+    PuertaAsignada:
+      type: object
+      description: Una cuenta de puerta asignada a un evento. La clave es el par evento y email.
+      properties:
+        eventoId: { type: string, maxLength: 40, example: ev-1 }
+        staffEmail: { type: string, format: email, description: Siempre en minúsculas, example: puerta@palco.test }
+        asignadaPor: { type: string, description: El organizador que la asignó, example: user-organizador }
+        asignada: { type: string, format: date-time, description: Cuándo se asignó, en UTC }
 
     NuevoEscaneo:
       type: object

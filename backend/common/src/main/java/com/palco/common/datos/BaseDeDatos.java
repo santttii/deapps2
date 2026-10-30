@@ -42,17 +42,35 @@ public final class BaseDeDatos {
     }
 
     /**
+     * El candado de las migraciones, compartido por todos los WAR del mismo
+     * WildFly. Cada WAR tiene su propia copia de esta clase (otro class
+     * loader), así que un {@code synchronized} sobre la clase no los ordena;
+     * un literal de texto sí, porque la JVM guarda una sola instancia de cada
+     * literal para todos los class loaders.
+     */
+    private static final Object CANDADO_DE_MIGRACIONES = "palco.migraciones";
+
+    /**
      * Crea o actualiza las tablas del esquema del servicio corriendo los
      * scripts de {@code src/main/resources/db/migracion} (V1__..., V2__...).
      * Los scripts tienen que ser SQL compatible con PostgreSQL.
+     *
+     * Los servicios migran de a uno. Al desplegar, WildFly arranca los 8 WAR a
+     * la vez, y en H2 un {@code CREATE} o {@code ALTER TABLE} bloquea la tabla
+     * del sistema: con varias migraciones al mismo tiempo, alguna esperaba más
+     * que el tiempo de espera ("Tiempo vencido intentando trabar la tabla
+     * SYS") y su WAR no desplegaba. En PostgreSQL no hace falta, pero tampoco
+     * molesta: es una sola vez por despliegue y cada migración tarda poco.
      */
     public static void migrar(DataSource dataSource, String esquema) {
-        Flyway.configure(BaseDeDatos.class.getClassLoader())
-                .dataSource(dataSource)
-                .schemas(esquema)
-                .createSchemas(true)
-                .locations("classpath:db/migracion")
-                .load()
-                .migrate();
+        synchronized (CANDADO_DE_MIGRACIONES) {
+            Flyway.configure(BaseDeDatos.class.getClassLoader())
+                    .dataSource(dataSource)
+                    .schemas(esquema)
+                    .createSchemas(true)
+                    .locations("classpath:db/migracion")
+                    .load()
+                    .migrate();
+        }
     }
 }

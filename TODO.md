@@ -10,9 +10,9 @@ Convención: `[ ]` pendiente · `[x]` hecho · `[~]` en curso.
 **Puesta al día del 23/10/2026.** Se revisó cada fase contra el código y contra
 `docs/documentacion/Palco_Documentacion_Completa.md`, que es la fuente del
 detalle; acá queda el estado de cada tarea. Los 8 componentes están
-implementados y probados en el servidor: 673 tests del backend y 21 escenarios
+implementados y probados en el servidor: 761 tests del backend y 21 escenarios
 de integración (`scripts/pruebas/escenarios.mjs`; el 21, del dueño de cada
-evento, todavía no se corrió en el servidor). Lo que falta para las
+evento y de la puerta asignada, todavía no se corrió en el servidor). Lo que falta para las
 entregas está en la sección 22 del documento maestro y, resumido, en
 [Entregas de la materia](#entregas-de-la-materia).
 
@@ -70,9 +70,17 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 - [~] Instalar JDK 25 y Maven en cada máquina del grupo (hecho en la de Julián).
 - [ ] Crear el proyecto en Supabase y compartir la cadena de conexión
       (usar el *session pooler*, puerto 5432, que funciona por IPv4).
-- [ ] Crear cuenta de email de prueba **(a confirmar)**: Mailtrap (atrapa los
-      emails en una bandeja web, reemplaza a MailHog). Hoy el código de
-      verificación y el aviso de compra quedan en el log.
+- [x] Envío de emails resuelto sin atarse a un proveedor (30/10): `Correos` en
+      `common/email` con `CorreoSmtp` (Jakarta Mail, que ya trae la
+      plataforma) y `CorreoAlLog`, y `FabricaDeCorreos` elige según
+      `PALCO_SMTP_HOST`. Sin servidor configurado los emails quedan en el log
+      con un WARNING; con él, salen de verdad.
+- [ ] Crear la cuenta del proveedor y poner las variables `PALCO_SMTP_*`
+      **(a confirmar)**: Mailtrap (atrapa los emails en una bandeja web,
+      reemplaza a MailHog). Es lo único que falta para que los emails lleguen.
+- [ ] Crear el bucket `eventos` en Supabase Storage (público) y poner
+      `PALCO_SUPABASE_URL` y `PALCO_SUPABASE_CLAVE`: el código de la subida de
+      imágenes está hecho y probado con dobles, pero no contra un bucket real.
 - [x] Empaquetado: **8 WAR independientes (uno por servicio) en un solo
       WildFly**, más el WAR del ARCA simulado. Cada uno tiene su API y su
       esquema de base, y se comunican solo por REST, SOAP o JMS. Se pueden
@@ -157,8 +165,8 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       PBKDF2-SHA256.
 - [x] Verificación de email con código de 6 dígitos: se guarda solo el hash,
       vence a los 15 minutos, máximo 5 intentos, reenvío cada 30 segundos.
-- [ ] Mandar el código por email (hoy queda en el log del servidor; falta
-      elegir proveedor).
+- [x] Mandar el código por email (30/10): sale por `Correos`. Sin
+      `PALCO_SMTP_HOST` queda en el log, como antes.
 - [x] `POST /api/usuarios/login` y `GET /api/usuarios/yo`. Logout = el front
       descarta el token.
 - [x] Sesión con JWT (decidido: con 8 WAR separados una sesión HTTP no se
@@ -180,7 +188,19 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 - [x] Verificación de identidad (`identidadVerificada`), decidida: en esta
       etapa el email verificado es la verificación de identidad, y se marca al
       completar el registro. No se pide foto del DNI.
-- [ ] Recuperar contraseña (no existe hoy en el front).
+- [x] Recuperar contraseña en el backend (30/10):
+      `POST /api/usuarios/password/olvide` manda un código de 6 dígitos y
+      `POST /api/usuarios/password/reinicio` la cambia. Tabla
+      `reinicio_password` aparte de `codigo_verificacion` (migración V7), así
+      un código de contraseña no sirve para verificar un email. Siempre
+      responde 204, exista o no la cuenta, y pedirlo de nuevo antes de los 30
+      segundos tampoco es error: sería la única respuesta distinta según si el
+      email existe. Al cambiarla se olvidan los intentos de login fallidos.
+      14 tests.
+- [ ] La pantalla de "olvidé mi contraseña" en el frontend (el backend ya está).
+- [ ] Al cambiar la contraseña, las sesiones abiertas siguen valiendo hasta
+      que vencen: el token es un JWT firmado y no hay lista de revocados.
+      Queda como limitación, igual que la vigencia de 8 horas (L10).
 - [x] Límite de intentos de login: 5 fallidos y 15 minutos de espera, con 429
       y `Retry-After`. Es por email, no por IP (limitación L25). Registro y
       escaneos siguen sin límite (Fase 12).
@@ -209,16 +229,37 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 - [x] Crear evento requiere rol `organizer` (queda a su nombre) y actualizar
       cupo requiere rol `servicio`.
 - [x] Tests del Session Bean y de la capa de datos (Eventos tiene 50).
-- [ ] `PUT /api/eventos/{id}` (solo el organizador dueño).
-- [ ] Cancelar evento (dispara alertas de cancelación por Notificaciones y,
-      si se decide, reembolsos).
+- [x] `PUT /api/eventos/{eventoId}` (30/10, solo el organizador dueño; ajeno
+      responde 404). Reemplaza el evento completo. El slug no cambia aunque
+      cambie el título: lo lleva la URL del frontend. Con 409
+      `sector-con-ventas` se frenan bajar el cupo por debajo de lo vendido,
+      cambiar el precio de un sector con ventas (el tope de la reventa se
+      calcula sobre lo que pagó cada comprador) y quitar un sector con
+      entradas. Un evento que ya empezó o está cancelado no se edita.
+- [x] Cancelar evento (30/10): `POST /api/eventos/{eventoId}/cancelacion`,
+      solo el dueño. Es el segundo proceso asincrónico de punta a punta; el
+      detalle está en la [Fase 6](#fase-6--mensajería-jms-pago-confirmado).
+      El evento no se borra: sale del catálogo, su detalle sigue respondiendo
+      con el motivo, no se le vende más y no se edita. Cancelar dos veces da
+      409 `evento-cancelado`, y así nadie reembolsa dos veces. Migración V7.
+- [ ] La pantalla de editar y el botón de cancelar en el panel (el backend ya está).
 - [x] Relación evento ↔ organizador (23/10, limitación L18): el evento guarda
-      quién lo creó y `GET /api/eventos/mios` (rol `organizer`) devuelve los
-      del token. La migración V6 pone los seis eventos de prueba a nombre de
-      `organizador@palco.test`. Ningún evento recibe el slug `mios`.
-      Escenario 21, sin correr en el servidor.
-- [ ] Subida de imágenes **(a confirmar dónde)**: disco del servidor en
-      desarrollo o storage externo. Hoy el alta usa la foto de la categoría.
+      quién lo creó, `GET /api/eventos/mios` (rol `organizer`) devuelve los
+      del token y `GET /api/eventos/{eventoId}/organizador` (rol `servicio`)
+      le dice a Validación de quién es un evento. La migración V6 pone los
+      seis eventos de prueba a nombre de `organizador@palco.test`. Ningún
+      evento recibe el slug `mios`. Escenario 21, sin correr en el servidor.
+- [x] Subida de imágenes (30/10, decidido: **Supabase Storage**, no disco del
+      servidor, porque el hosting que se piensa usar tiene disco efímero y la
+      imagen se perdería al redesplegar). `POST /api/eventos/imagenes`
+      devuelve la URL pública. Solo JPG, PNG o WEBP, hasta 2 MB; sin SVG, que
+      puede traer scripts. El nombre del archivo lo pone el almacén con un
+      UUID: si lo decidiera el nombre que llegó, un `../` escribiría fuera del
+      bucket. Sin configurar, la subida se rechaza con un error que explica
+      qué falta y el alta sigue usando la foto de la categoría. 12 tests.
+- [ ] Probarla contra un bucket real: hoy solo está probada con dobles, porque
+      el proyecto en Supabase todavía no existe.
+- [ ] El input de imagen en el alta y la edición del frontend (el backend ya está).
 
 ## Fase 4 — `ServicioDeVentas` (stateful) y `ServicioDePagos`
 
@@ -293,12 +334,27 @@ Probado en el servidor el 16/10 (escenario 15).
 
 Según el taller: el mismo evento se publica en una **cola** y en un **tópico**.
 
+Desde el 30/10 hay un **segundo proceso asincrónico**: cancelar un evento.
+
 ```
 ServicioDeVentas ──► cola.emision-entradas ──► Emisión de entradas (consumidor único)
                  └─► topico.compra-confirmada ─┬► Notificaciones: aviso (no durable)
                                                ├► Auditoría (durable)
                                                └► Facturación (durable)
+
+ServicioDeEventos ─► topico.eventos-cancelados ──► Ventas: anula entradas y pide
+                     (EVENTO_CANCELADO)              el reembolso a Pagos
+                                                            │
+ServicioDeVentas ──► topico.eventos-cancelados ─┬► Notificaciones: aviso (no durable)
+                     (COMPRA_ANULADA, una        └► Auditoría de cancelaciones (durable)
+                      por compra)
 ```
+
+Por qué dos mensajes y no uno: la cancelación es un hecho del evento (uno por
+evento) y la anulación es un hecho de cada compra (uno por comprador). Eventos
+no sabe quién compró qué, así que su mensaje lleva solo el id del evento;
+Ventas, que es la dueña de las ventas, abre un `COMPRA_ANULADA` por cada una,
+que es el que trae a quién avisarle y cuánto se le devolvió.
 
 - [x] **Diferencia entre documentos, resuelta:** vale el taller de mensajería,
       que es posterior: las entradas se emiten por la cola, después del pago.
@@ -307,12 +363,24 @@ ServicioDeVentas ──► cola.emision-entradas ──► Emisión de entradas 
 - [x] ActiveMQ Artemis embebido en WildFly (capa `embedded-activemq`).
 - [x] `cola.emision-entradas` y `topico.compra-confirmada` creados por el
       script CLI.
+- [x] `topico.eventos-cancelados` creado por el script CLI (30/10). Es un
+      tópico aparte del de compras porque es otro proceso, con otros
+      suscriptores y otro cuerpo de mensaje: en el mismo, cada consumidor
+      tendría que filtrar los tipos del otro.
 - [x] Mensaje `TextMessage` con JSON, mismo body en los dos canales:
       `ventaId`, `compradorId`, `eventoId`, `entradas[]` (`entradaId`,
       `sector`, `titular` con `nombre` y `dni`), `montoTotal`, `timestamp`.
 - [x] Propiedad `tipoEvento=PAGO_CONFIRMADO` en cada mensaje.
 - [x] Clase del mensaje en `common` (`PagoConfirmadoMensaje`), con JSON-B.
 - [x] Contrato documentado en `docs/api/mensajeria-pago-confirmado.md`.
+- [x] Clases de los mensajes de la cancelación en `common` (30/10):
+      `EventoCanceladoMensaje` (`eventoId`, `titulo`, `motivo`, `timestamp`) y
+      `CompraAnuladaMensaje` (`ventaId`, `compradorId`, `eventoId`, `titulo`,
+      `motivo`, `monto`, `reembolsado`, `timestamp`), las dos con la misma
+      validación y el mismo cuidado con el JSON cortado que
+      `PagoConfirmadoMensaje`.
+- [ ] Documentar el contrato de los dos mensajes nuevos, como está hecho el de
+      `PAGO_CONFIRMADO`.
 - [x] Mensaje de la compra en la reventa (23/10, limitación L13, decidido por
       el grupo): Ventas publica `REVENTA_CONFIRMADA` solo en el tópico, con el
       mismo cuerpo; aviso, auditoría y facturación lo reciben (selector
@@ -337,16 +405,54 @@ ServicioDeVentas ──► cola.emision-entradas ──► Emisión de entradas 
 - [x] Reintentos y cola de mensajes fallidos (DLQ) configurados en Artemis
       (escenario 12).
 
+### Cancelar un evento (segundo proceso, 30/10)
+- [x] Eventos publica `EVENTO_CANCELADO` dentro de la misma transacción que
+      marca el evento como cancelado (el publicador es `MANDATORY`): si el
+      mensaje no sale, el evento no queda cancelado, y si la marca se deshace,
+      nadie reembolsa.
+- [x] `CancelacionDeEventoMDB` en Ventas, con suscripción **durable** y
+      selector `tipoEvento = 'EVENTO_CANCELADO'` (sin el filtro se escucharía
+      a sí mismo, porque los `COMPRA_ANULADA` van al mismo tópico).
+- [x] Una transacción por compra (`REQUIRES_NEW`): si las N compras de un
+      evento fueran una sola transacción, un fallo en la última desharía las
+      anteriores y el reintento del mensaje volvería a pedirle a Pagos todos
+      los reembolsos.
+- [x] Idempotente por la base: anular una venta es un UPDATE condicional, así
+      que una segunda entrega no cambia filas, no pide otro reembolso y no
+      vuelve a avisar.
+- [x] El reembolso no bloquea la anulación: si Pagos no contesta, la entrada se
+      anula igual y el aviso dice que la devolución está en curso
+      (`reembolsado = false`). Lo contrario sería peor: entradas que siguen
+      valiendo para un evento que no existe.
+- [x] `reembolsar` agregado a `Cobros` y a sus dos implementaciones
+      (`ClienteDePagos` y `CobrosFake`).
+- [ ] Probarlo en el servidor: el flujo completo solo tiene tests con dobles
+      (ver Fase 11).
+
 ### Suscriptores del tópico
 - [x] MDB de aviso al comprador (`AvisoDeCompraMDB`): suscripción no durable.
-      El aviso se escribe en el log, no se manda un email.
+      Desde el 30/10 el aviso sale por email: Notificaciones le pide a
+      Usuarios el email del comprador (`GET /api/usuarios/{usuarioId}`, rol
+      `servicio`), porque el mensaje lleva ids y no datos personales. Si no lo
+      consigue o el SMTP no contesta, el aviso queda en el log y el mensaje se
+      da por atendido: un aviso que no sale no puede hacer que se reentregue y
+      la compra se avise dos veces.
+- [x] MDB de aviso de cancelación (`AvisoDeCancelacionMDB`, 30/10): escucha
+      `COMPRA_ANULADA` y le manda el email a cada comprador. No durable, como
+      el de compra.
+- [x] MDB de auditoría de cancelaciones (`AuditoriaDeCancelacionesMDB`,
+      30/10): suscripción **durable**. Anota la anulación de cada compra y no
+      la cancelación del evento, porque la fila necesita venta, comprador y
+      monto, y el mensaje del evento no los tiene.
 - [x] MDB de auditoría (`AuditoriaDeComprasMDB`): guarda el evento con
       suscripción **durable** (escenario 11).
 - [x] Selector por `tipoEvento` en cada MDB.
 
 ### Otros procesos asincrónicos (de la Entrega 1)
 - [ ] Recordatorios antes del evento (`@Schedule` + Notificaciones).
-- [ ] Alertas de cancelación de evento (depende de cancelar evento, Fase 3).
+- [x] Alertas de cancelación de evento (30/10): `COMPRA_ANULADA` →
+      `AvisoDeCancelacionMDB`. `INotificaciones.enviarAlertaCancelacion`, que
+      estaba declarada como pendiente desde la Entrega 1, ya existe.
 - [ ] Aviso al vendedor cuando se vende su entrada en reventa.
 - [x] Reintentos de factura (Fase 5): los hace el broker con los reintentos
       que ya existen (decisión del 16/10), sin cola aparte.
@@ -405,11 +511,20 @@ carpeta 5 de Postman).
       escribe un lector; muestra contadores de ingresos y rechazos y los
       últimos escaneos. No se probó todavía en el navegador.
 - [x] Controlar que el organizador sea dueño del evento cuyo registro
-      consulta (23/10, parte de L17): Validación le pide a Eventos
-      `GET /api/eventos/mios` con el token del organizador; un evento ajeno da
-      403 `evento-ajeno` y un escaneo suelto de un evento ajeno, 404.
-- [ ] Asignar staff a eventos y controlarlo al escanear y al consultar el
-      registro (lo que queda de L17).
+      consulta (23/10, L17): Validación le pregunta a Eventos
+      `GET /api/eventos/{eventoId}/organizador` con el token de servicio; un
+      evento ajeno responde 404, igual que uno que no existe.
+- [x] Asignar staff a eventos y controlarlo al escanear y al consultar el
+      registro (23/10, lo que quedaba de L17): tabla `puerta_asignada` y
+      `/api/v1/validacion/puertas` (el dueño asigna y quita por email, el
+      staff ve sus puertas). Sin la puerta asignada el escaneo da 403
+      `puerta-no-asignada` sin llamar a Ventas ni dejar renglón. El escaneo
+      no consulta a Eventos: la asignación está en la base de Validación, así
+      la puerta sigue funcionando aunque Eventos no responda. Sin correr en el
+      servidor.
+- [ ] Comprobar que el email que se asigna sea de una cuenta con rol `staff`:
+      hoy un email mal escrito se acepta y simplemente no deja escanear a
+      nadie, sin avisarle al organizador.
 - [ ] Provocar en el servidor Ventas sin respuesta (504 y renglón
       `SIN_RESPUESTA`; hoy solo con tests).
 - [ ] Modo offline: fuera del alcance de esta etapa.
@@ -422,7 +537,14 @@ carpeta 5 de Postman).
       todavía en el navegador.
 - [x] Borrar `src/data/organizer.ts`: ya no existe. Lo que no tiene servicio
       se sacó del panel en lugar de mostrarse con datos fijos.
-- [ ] Ventas por día y liquidación (no tienen servicio).
+- [x] Ventas por día y liquidación (30/10): `GET /api/v1/resumenes?eventoId=`
+      en Ventas, que es la dueña de las ventas, con rol `organizer` y control
+      de dueño preguntándole a Eventos. Devuelve el detalle por día y la
+      liquidación: el comprador paga subtotal + cargo, Palco se queda el cargo
+      y al organizador se le liquida el subtotal. Las ventas anuladas no se
+      liquidan. El agrupado por día se hace en Java, no con un `group by`:
+      sacar la fecha de un timestamp se escribe distinto en cada base. 6 tests.
+- [ ] Mostrarlas en el panel: hoy el endpoint existe y el frontend no lo usa.
 - [x] Filtrar por los eventos del organizador (23/10, L18): el panel usa
       `GET /api/eventos/mios` y, sin eventos, ofrece crear el primero. Sin
       probar en el navegador.
@@ -457,6 +579,18 @@ carpeta 5 de Postman).
   - [x] Publicar, retirar y comprar en la reventa → `/api/v1/reventas/*`
         (`src/servicios/reventa.ts`).
   - [x] Escanear en la puerta → `/api/v1/validacion/escaneos`.
+- [ ] **Conectar las seis operaciones que el backend ganó el 30/10.** Están
+      implementadas y probadas, y el frontend todavía no las usa:
+  - [ ] Editar evento → `PUT /api/eventos/{eventoId}` (falta la pantalla).
+  - [ ] Cancelar evento → `POST /api/eventos/{eventoId}/cancelacion` (falta el
+        botón en el panel, con su confirmación: dispara reembolsos).
+  - [ ] Subir la foto del evento → `POST /api/eventos/imagenes`, y mandar la
+        URL que devuelve como `imagenUrl` al crear o editar.
+  - [ ] Olvidé mi contraseña → `POST /api/usuarios/password/olvide` y
+        `/password/reinicio` (falta la pantalla con el código de 6 dígitos).
+  - [ ] Ventas por día y liquidación → `GET /api/v1/resumenes?eventoId=`.
+  - [ ] Mostrar el aviso de evento cancelado: `EventoDto` ahora trae
+        `cancelado` y `cancelacionMotivo`, y el catálogo ya no los lista.
 - [ ] **Probar en el navegador, contra el backend, las pantallas de reventa,
       puerta y panel** con el recorrido de la sección 15.5 del documento
       maestro (punto 3 de 22.1). El backend que usan pasó en el servidor.
@@ -477,13 +611,20 @@ carpeta 5 de Postman).
 
 ### Backend
 - [x] JUnit 5 + Mockito para la lógica de cada Session Bean, con las
-      interfaces de los otros componentes como dobles: 673 tests al 23/10
+      interfaces de los otros componentes como dobles: 761 tests al 30/10
       (detalle por servicio en la sección 16.1 del documento maestro).
 - [x] Reglas de negocio: tope de reventa, mínimo 50 %, cargo de servicio,
       máximo por venta, cierre de reventa a 3 horas, DNI único.
 - [x] Integración contra WildFly real: en lugar de Arquillian, 21 escenarios
       en Node (`scripts/pruebas/escenarios.mjs`) por la API y `jboss-cli`, y la
       colección de Postman (`scripts/postman`).
+- [ ] Escenario de la cancelación de un evento con sus reembolsos (30/10): es
+      el que prueba el segundo proceso de mensajería de punta a punta, y es lo
+      que la defensa del 13/11 va a querer ver corriendo. Hoy el flujo solo
+      tiene tests con dobles.
+- [ ] Sumar a `openapi.yaml` y a la colección de Postman las 8 rutas nuevas
+      del 30/10 (editar y cancelar evento, subir imagen, las dos de
+      contraseña, el usuario por id y el resumen de ventas).
 - [x] Endpoints: caso feliz, validaciones, 401 sin sesión, 403 con rol
       incorrecto (escenarios 4 y 5, carpetas de Postman).
 - [x] Concurrencia contra H2: último lugar comprado por dos a la vez
@@ -534,12 +675,22 @@ carpeta 5 de Postman).
 - [x] Bean Validation en los DTOs de entrada.
 - [x] `@RolesAllowed` en cada operación según rol; las internas, solo con rol
       `servicio`.
-- [~] Autorización por recurso: cada usuario ve solo sus entradas, ventas y
-      facturas (lo ajeno responde 404), y desde el 23/10 cada organizador ve
-      solo sus eventos y el registro de la puerta de ellos (L18 y parte de
-      L17). Falta que el staff esté asignado a un evento (L17).
-- [~] Límite de intentos: hecho en login (Fase 2). Falta en registro,
-      verificación (hoy 5 intentos por código) y escaneos.
+- [x] Autorización por recurso: cada usuario ve solo sus entradas, ventas y
+      facturas (lo ajeno responde 404) y, desde el 23/10, cada organizador ve
+      solo sus eventos y el registro y el equipo de puerta de ellos (L18), y
+      cada cuenta de puerta escanea solo en los eventos que tiene asignados
+      (L17). Queda sin correr en el servidor.
+- [~] Límite de intentos: hecho en login (Fase 2) y, desde el 30/10, en el
+      reinicio de contraseña (5 intentos por código, como la verificación).
+      Falta en registro, en la verificación por email y en escaneos.
+- [x] Credenciales nuevas fuera del repo (30/10): las de SMTP
+      (`PALCO_SMTP_*`) y la `service_role key` de Supabase
+      (`PALCO_SUPABASE_CLAVE`) van en `backend/.env`, que no se versiona, y en
+      el hosting. La clave de Supabase permite escribir en el storage, así que
+      nunca viaja al frontend: la imagen se sube al backend y él la reenvía.
+- [x] Subida de archivos acotada (30/10): solo JPG, PNG y WEBP, hasta 2 MB; el
+      nombre del archivo lo pone el servidor con un UUID, así el que llegó no
+      decide la ruta; y no se acepta SVG, que puede traer scripts.
 - [x] Cookies: no aplica, el token viaja en la cabecera `Authorization`.
       CORS restringido a `PALCO_CORS_ORIGENES`.
 - [x] Usuario y contraseña en el broker (SEC-I02): riesgo aceptado el 16/10.
@@ -608,9 +759,9 @@ la cátedra".
 | 18/09 | 1.ª entrega parcial | Entrega Obligatoria N.º 1 (14/09): tres componentes desplegados, uno stateful y uno stateless, tres patrones, seguridad declarativa y documento de 5 a 8 páginas. Con defensa oral | Ya pasó | — |
 | **23/10**, sin confirmar | No figura con nombre: ese día hay clase | Entrega Parcial N.º 2 (19/10), checkpoint formativo sin defensa: diagrama de arquitectura de integración (SOA); clasificación justificada de cada integración externa en síncrona (SOAP o REST) o asincrónica (cola o tópico); y un proceso de negocio de punta a punta con mensajería real y broker configurado | Documento, diagrama y evidencia en `docs/entrega3/`, congelados en el tag `entrega-parcial-2` (14/10). La subida la confirma el grupo | 2, 3, 4 y 6 |
 | **06/11** | Entrega del diseño del TP Obligatorio | La consigna no la nombra. La cátedra respondió el 16/10 que la documentación es técnica, con diagramas de casos de uso y casos de uso, sin Figma ni manual de usuario | Hechos: el diagrama de casos de uso con los casos de uso (13.9), siete diagramas de secuencia, el WSDL y `docs/api/openapi.yaml` al día. Faltan los diagramas de secuencia de autenticación y de reventa, el diagrama SOA actualizado y el borrador del documento técnico; se sube el jueves 05/11 | 5 y 11 |
-| **13/11** | 2.ª Entrega PARCIAL | Entrega Obligatoria N.º 2 — 2.º Parcial (09/11), con defensa oral de 20 a 25 minutos y nota mínima 4. Hay que entregar: dos procesos con mensajería de punta a punta (uno por cola y uno por tópico); un servicio SOAP con su WSDL, justificado como sistema legado; un servicio REST (partner moderno o API de consumo externo); transacciones declarativas en un flujo crítico de varios pasos; documento técnico actualizado, de 8 a 12 páginas de contenido (sin contar los anexos, confirmado el 16/10), con un diagrama de secuencia por integración; y la declaración del uso de IA. Hay que defender: una demo que cruce componentes, mensajería y servicios web; por qué cada integración es síncrona o asincrónica; y qué pasa con la transacción si algo falla a mitad del flujo | Hecho y probado en el servidor: la cola (emisión) y el tópico (aviso, auditoría y factura), el SOAP con su WSDL (ARCA simulado), la API REST propia, la transacción declarativa que confirma la compra y la prueba repetible de una falla a mitad del flujo (escenario 14). Faltan el documento técnico con los dos diagramas de secuencia pendientes, la declaración del uso de IA (la escribe el grupo) y la demo recorrida en el navegador | 4, 5, 6 y 11 |
+| **13/11** | 2.ª Entrega PARCIAL | Entrega Obligatoria N.º 2 — 2.º Parcial (09/11), con defensa oral de 20 a 25 minutos y nota mínima 4. Hay que entregar: dos procesos con mensajería de punta a punta (uno por cola y uno por tópico); un servicio SOAP con su WSDL, justificado como sistema legado; un servicio REST (partner moderno o API de consumo externo); transacciones declarativas en un flujo crítico de varios pasos; documento técnico actualizado, de 8 a 12 páginas de contenido (sin contar los anexos, confirmado el 16/10), con un diagrama de secuencia por integración; y la declaración del uso de IA. Hay que defender: una demo que cruce componentes, mensajería y servicios web; por qué cada integración es síncrona o asincrónica; y qué pasa con la transacción si algo falla a mitad del flujo | Hecho y probado en el servidor: la cola (emisión) y el tópico (aviso, auditoría y factura), el SOAP con su WSDL (ARCA simulado), la API REST propia, la transacción declarativa que confirma la compra y la prueba repetible de una falla a mitad del flujo (escenario 14). Desde el 30/10 hay un **segundo proceso asincrónico** completo: cancelar un evento (Eventos → Ventas → reembolso en Pagos → aviso y auditoría), que cubre de sobra los "dos procesos con mensajería" que pide la consigna; le falta correrlo en el servidor. Faltan el documento técnico con los dos diagramas de secuencia pendientes y el de la cancelación, la declaración del uso de IA (la escribe el grupo) y la demo recorrida en el navegador | 4, 5, 6 y 11 |
 | **20/11** | 3.er Check point TPO | La consigna no lo nombra: a confirmar con la cátedra | Validación y Reventa están implementadas y probadas por la API. Falta recorrer sus pantallas en el navegador | 7, 8 y 10 |
-| **27/11** | Prueba del TP Obligatorio | La consigna no la nombra así: qué se hace ese día, a confirmar con la cátedra. Se toma como límite para lo que pide la Entrega Final (30/11 en el detalle de la consigna): sistema completo que cumpla el checklist de la sección 6; documentación final de 10 a 15 páginas; historial de git incremental y con participación visible de todos; demo completa, preguntas individuales y reflexión del equipo (los aprendizajes los escribe el grupo) | Los 8 componentes y el frontend de reventa, puerta y panel están implementados. Faltan: las pruebas del frontend y de punta a punta, la base en Supabase, la asignación del staff a cada evento, la documentación final, y que en git se vea a los cinco (hoy no hay commits a nombre de Joaquin Molina) | 9 a 13 |
+| **27/11** | Prueba del TP Obligatorio | La consigna no la nombra así: qué se hace ese día, a confirmar con la cátedra. Se toma como límite para lo que pide la Entrega Final (30/11 en el detalle de la consigna): sistema completo que cumpla el checklist de la sección 6; documentación final de 10 a 15 páginas; historial de git incremental y con participación visible de todos; demo completa, preguntas individuales y reflexión del equipo (los aprendizajes los escribe el grupo) | Los 8 componentes están implementados. Desde el 30/10 el backend tiene también editar y cancelar evento con reembolsos, recuperar contraseña, el envío de emails, la subida de imágenes y las ventas por día. Faltan: las pantallas de esas seis cosas en el frontend, las pruebas del frontend y de punta a punta, la base y el bucket en Supabase, la documentación final, recorrer en el navegador el panel y la puerta, y que en git se vea a los cinco (hoy no hay commits a nombre de Joaquin Molina) | 9 a 13 |
 | **04/12** | Final adelantado | El encabezado de la consigna da el 04/12 y el 11/12 para la Entrega Final. El grupo decidió el 16/10 defenderla el viernes 04/12 (final adelantado); el 11/12 (final regular) queda como alternativa | Decidido | — |
 
 - El 16/10, el 23/10 y el 30/10 hay clase de "Desarrollo de una aplicación

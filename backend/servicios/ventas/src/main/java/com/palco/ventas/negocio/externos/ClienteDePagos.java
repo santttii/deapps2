@@ -21,6 +21,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.Textos;
 import com.palco.common.seguridad.TokenDeServicio;
 
 /**
@@ -88,6 +89,10 @@ public class ClienteDePagos implements Cobros {
     private static final Jsonb JSONB = JsonbBuilder.create();
 
     /** Lo que se le manda a Pagos. La clave de idempotencia no va acá: viaja en la cabecera. */
+    /** El cuerpo del pedido de reembolso, como lo espera Pagos. */
+    public record PedidoDeReembolso(String ventaId, String motivo) {
+    }
+
     public record Pedido(String ventaId, long monto, String medioDePago, String token) {
     }
 
@@ -100,6 +105,8 @@ public class ClienteDePagos implements Cobros {
 
     /** El {@code type} del 404 con el que Pagos dice que con esa clave no hay ningún pago. */
     static final String TIPO_NO_ENCONTRADO = "/problemas/no-encontrado";
+    /** El {@code type} del 409 con el que Pagos dice que ese pago no se puede devolver. */
+    static final String TIPO_PAGO_NO_REEMBOLSABLE = "/problemas/pago-no-reembolsable";
 
     /** El parámetro de la consulta por clave: {@code GET /api/v1/pagos?claveIdempotencia=...}. */
     static final String PARAMETRO_CLAVE = "claveIdempotencia";
@@ -194,6 +201,78 @@ public class ClienteDePagos implements Cobros {
         LOG.warning("Pagos respondió " + respuesta.estado() + " a la consulta del cobro de la venta " + ventaId
                 + ": no se sabe cómo terminó.");
         throw new ErroresDeNegocio.SinRespuesta(PAGOS_NO_RESPONDE);
+    }
+
+    /**
+     * Pide que se devuelva el pago de una venta:
+     * {@code POST /api/v1/pagos/{pagoId}/reembolso}. Pagos lo hace una sola
+     * vez, así que repetirlo es seguro.
+     *
+     * <ul>
+     * <li>200 con el pago {@code REEMBOLSADO} y de esta venta: {@code HECHA}.</li>
+     * <li>409 {@code pago-no-reembolsable} o 404 de Pagos: {@code RECHAZADA}. Repetirlo daría lo mismo.</li>
+     * <li>Cualquier otra cosa, incluido un 404 sin el error de Pagos (el WAR no está desplegado):
+     * {@code SIN_RESPUESTA}.</li>
+     * </ul>
+     *
+     * No lanza: la cancelación de un evento anula la entrada igual, y el
+     * reembolso que quedó sin respuesta se vuelve a pedir después.
+     */
+    @Override
+    public Devolucion reembolsar(String pagoId, String ventaId, String motivo) {
+        String cuerpo = JSONB.toJson(new PedidoDeReembolso(ventaId, motivo));
+        Respuesta respuesta;
+        try {
+            respuesta = devolver(pagoId, cuerpo, tokenParaConsultar(ventaId));
+            if (respuesta.estado() == 401) {
+                tokenDeServicio.invalidar();
+                respuesta = devolver(pagoId, cuerpo, tokenParaConsultar(ventaId));
+            }
+        } catch (ErroresDeNegocio.SinRespuesta e) {
+            return Devolucion.SIN_RESPUESTA;
+        }
+        if (respuesta.estado() == 200) {
+            Pago pago = leerPago(respuesta.cuerpo());
+            if (pago != null && "REEMBOLSADO".equals(pago.estado()) && ventaId.equals(pago.ventaId())) {
+                return Devolucion.HECHA;
+            }
+        } else if ((respuesta.estado() == 409 && TIPO_PAGO_NO_REEMBOLSABLE.equals(tipoDeProblema(respuesta.cuerpo())))
+                || (respuesta.estado() == 404 && TIPO_NO_ENCONTRADO.equals(tipoDeProblema(respuesta.cuerpo())))) {
+            LOG.warning("Pagos no acepta devolver el pago " + Textos.enUnaLinea(pagoId) + " de la venta "
+                    + Textos.enUnaLinea(ventaId) + " (" + respuesta.estado() + ").");
+            return Devolucion.RECHAZADA;
+        }
+        LOG.warning("Pagos respondió " + respuesta.estado() + " al devolver el pago " + Textos.enUnaLinea(pagoId)
+                + " de la venta " + Textos.enUnaLinea(ventaId) + ": no se sabe si lo devolvió.");
+        return Devolucion.SIN_RESPUESTA;
+    }
+
+    /** La llamada HTTP del reembolso. No es privada para que el test la reemplace. */
+    Respuesta devolver(String pagoId, String cuerpo, String tokenDeServicio) {
+        try (Response respuesta = cliente.target(TokenDeServicio.URL_INTERNA + RUTA_DE_PAGOS + "/" + pagoId
+                        + "/reembolso")
+                .request(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenDeServicio)
+                .post(Entity.entity(cuerpo, MediaType.APPLICATION_JSON))) {
+            // El cuerpo interesa en un 200 (el pago) y en los errores que traen type (409 y 404).
+            int estado = respuesta.getStatus();
+            return new Respuesta(estado,
+                    estado == 200 || estado == 409 || estado == 404 ? respuesta.readEntity(String.class) : null);
+        } catch (ProcessingException e) {
+            LOG.warning("Pagos no respondió al devolver un pago: " + e.getMessage());
+            throw new ErroresDeNegocio.SinRespuesta(PAGOS_NO_RESPONDE);
+        }
+    }
+
+    private static Pago leerPago(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return JSONB.fromJson(json, Pago.class);
+        } catch (JsonbException e) {
+            return null;
+        }
     }
 
     /** El token de servicio para la consulta. Si Usuarios no lo entrega, no se sabe nada del cobro. */

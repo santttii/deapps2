@@ -4842,7 +4842,7 @@
           ]
         },
         {
-          "name": "GET /v1/validacion/escaneos de un evento ajeno, rol organizer (403)",
+          "name": "GET /v1/validacion/escaneos de un evento ajeno, rol organizer (404)",
           "request": {
             "method": "GET",
             "header": [
@@ -4866,7 +4866,7 @@
                 }
               ]
             },
-            "description": "El organizador ve solo el registro de sus eventos: Validación le pregunta a Eventos cuáles son (GET /api/eventos/mios, con el token del organizador)."
+            "description": "El organizador ve solo el registro de sus eventos: Validación le pregunta a Eventos quién es el dueño (GET /api/eventos/{eventoId}/organizador, rol servicio). Un evento ajeno no existe para él, igual que uno que no existe de verdad."
           },
           "event": [
             {
@@ -4874,12 +4874,12 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
                   "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
-                  "pm.test('type es /problemas/evento-ajeno', () => {",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
                   "  const p = pm.response.json();",
-                  "  pm.expect(p.type).to.eql('/problemas/evento-ajeno');",
-                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
                   "  pm.expect(p.title).to.be.a('string');",
                   "  pm.expect(p.detail).to.be.a('string');",
                   "});"

@@ -33,7 +33,7 @@ export class ErrorApi extends Error {
 }
 
 export interface OpcionesPedido {
-  metodo?: 'GET' | 'POST' | 'DELETE';
+  metodo?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   cuerpo?: unknown; // se manda como JSON
   consulta?: Record<string, string | undefined>; // parámetros de la URL; los vacíos se omiten
   conSesion?: boolean; // manda Authorization: Bearer con el token guardado

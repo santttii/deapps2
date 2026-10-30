@@ -70,6 +70,18 @@ public class CobrosFake implements Cobros {
     }
 
     /**
+     * El simulador no guarda los cobros, así que tampoco puede devolverlos: no
+     * sabe si el pago existía ni si estaba aprobado. Contesta que no se sabe,
+     * que es lo mismo que diría Pagos si no respondiera, y la cancelación deja
+     * el reembolso pendiente. Para probar el reembolso de verdad hay que usar
+     * el servicio de Pagos, que es el cobro por defecto.
+     */
+    @Override
+    public Devolucion reembolsar(String pagoId, String ventaId, String motivo) {
+        return Devolucion.SIN_RESPUESTA;
+    }
+
+    /**
      * El id del pago sale de la clave de idempotencia, no del azar: el servicio
      * de Pagos devuelve el mismo pago cuando se repite la clave, y el simulador
      * hace lo mismo sin guardar nada. {@code nameUUIDFromBytes} da siempre el

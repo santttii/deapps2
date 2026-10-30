@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.ejb.Local;
 
 import com.palco.validacion.api.Dtos.EscaneoDto;
+import com.palco.validacion.api.Dtos.PuertaAsignadaDto;
 import com.palco.validacion.api.Dtos.ResultadoDeEscaneoDto;
 
 /**
@@ -29,25 +30,39 @@ public interface IValidacion {
      * Lanza {@code SinRespuesta} si Ventas no contesta. Ese intento también
      * queda en el registro, como {@code SIN_RESPUESTA}.
      *
-     * @param escaneadoPor el usuario de puerta (claim "sub" de su token)
+     * Solo escanea una cuenta asignada a la puerta de ese evento; si no, lanza
+     * {@code SinPermiso} ({@code puerta-no-asignada}) sin llamar a Ventas ni
+     * registrar nada.
+     *
+     * @param staff el usuario de puerta: su id queda en el registro
      */
-    ResultadoDeEscaneoDto escanear(String codigoQr, String eventoId, String escaneadoPor);
+    ResultadoDeEscaneoDto escanear(String codigoQr, String eventoId, Solicitante staff);
 
     /**
      * Los escaneos del evento, del más nuevo al más viejo, hasta
-     * {@code MAXIMO_POR_CONSULTA}.
-     *
-     * @param tokenDelOrganizador el token de quien consulta si es un
-     *        organizador, o {@code null} si es el personal de puerta. Con
-     *        token, el evento tiene que ser suyo (se le pregunta a Eventos): si
-     *        no, es 403 {@code evento-ajeno}.
+     * {@code MAXIMO_POR_CONSULTA}. Los ve el staff asignado a esa puerta (si no,
+     * {@code puerta-no-asignada}) y el organizador dueño del evento (si no,
+     * {@code NoEncontrado}, igual que un evento que no existe).
      */
-    List<EscaneoDto> listar(String eventoId, String tokenDelOrganizador);
+    List<EscaneoDto> listar(String eventoId, Solicitante quien);
+
+    /** El escaneo con ese id, con el mismo control que {@link #listar}; si no lo puede ver, {@code NoEncontrado}. */
+    EscaneoDto obtener(String escaneoId, Solicitante quien);
+
+    /** Las puertas de esa cuenta de staff: los eventos donde puede escanear. */
+    List<PuertaAsignadaDto> misPuertas(Solicitante staff);
+
+    /** Las cuentas asignadas a la puerta del evento. Solo para el organizador dueño; si no, {@code NoEncontrado}. */
+    List<PuertaAsignadaDto> equipoDePuerta(String eventoId, Solicitante organizador);
 
     /**
-     * El escaneo con ese id, o {@code NoEncontrado}. Para un organizador
-     * ({@code tokenDelOrganizador} no nulo), un escaneo de un evento ajeno
-     * también es {@code NoEncontrado}: no se le confirma que exista.
+     * Asigna una cuenta a la puerta del evento. Solo el organizador dueño; si
+     * no, {@code NoEncontrado}. Asignar una cuenta que ya estaba devuelve la
+     * asignación que había. No se comprueba que el email sea de una cuenta de
+     * puerta: uno que no existe no deja escanear a nadie.
      */
-    EscaneoDto obtener(String escaneoId, String tokenDelOrganizador);
+    PuertaAsignadaDto asignar(String eventoId, String staffEmail, Solicitante organizador);
+
+    /** Saca una cuenta de la puerta del evento, si estaba. Solo el organizador dueño; si no, {@code NoEncontrado}. */
+    void quitar(String eventoId, String staffEmail, Solicitante organizador);
 }

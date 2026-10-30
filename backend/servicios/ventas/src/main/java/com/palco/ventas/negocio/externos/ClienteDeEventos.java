@@ -47,6 +47,7 @@ public class ClienteDeEventos {
 
     /** La operación de Eventos: cantidad positiva reserva, negativa libera. Los ids van como plantilla. */
     static final String RUTA_DEL_CUPO = "/api/eventos/{eventoId}/sectores/{sectorId}/cupo";
+    static final String RUTA_DEL_ORGANIZADOR = "/api/eventos/%s/organizador";
 
     private static final Jsonb JSONB = JsonbBuilder.create();
 
@@ -62,6 +63,8 @@ public class ClienteDeEventos {
      * aplicó otro pedido con la misma clave. Para quien devuelve es un éxito.
      */
     static final String TIPO_DEVOLUCION_YA_APLICADA = "/problemas/devolucion-ya-aplicada";
+    /** El {@code type} del 404 con el que Eventos dice que el evento no existe. */
+    static final String TIPO_NO_ENCONTRADO = "/problemas/no-encontrado";
 
     /** De un error de Eventos (Problem Details) solo se lee el {@code type}. */
     public record Problema(String type) {
@@ -78,6 +81,10 @@ public class ClienteDeEventos {
         RECHAZADA,
         /** Eventos no respondió o respondió otra cosa: no se sabe si la aplicó. Se puede reintentar. */
         SIN_RESPUESTA
+    }
+
+    /** Lo que devuelve Eventos al preguntar el dueño. {@code organizadorId} es null si no tiene. */
+    public record Organizador(String eventoId, String organizadorId) {
     }
 
     /** Lo que se mira de una respuesta HTTP: el código de estado y el cuerpo como texto. */
@@ -210,6 +217,61 @@ public class ClienteDeEventos {
     @PreDestroy
     void cerrarCliente() {
         cliente.close();
+    }
+
+    /**
+     * El id del organizador dueño del evento, o null si el evento no tiene
+     * dueño. Lo usa el resumen de ventas, para que un organizador vea solo el
+     * de sus eventos.
+     *
+     * Lanza {@code NoEncontrado} si Eventos dice que el evento no existe, y
+     * {@code SinRespuesta} ante cualquier otra respuesta: sin saber de quién
+     * es, no se muestran sus ventas.
+     */
+    public String organizadorDe(String eventoId) {
+        Respuesta respuesta = consultarOrganizador(eventoId, tokenDeServicio.obtener());
+        if (respuesta.estado() == 401) {
+            // Usuarios se redesplegó y cambió la clave: se pide otro token y se repite. Es una lectura.
+            tokenDeServicio.invalidar();
+            respuesta = consultarOrganizador(eventoId, tokenDeServicio.obtener());
+        }
+        if (respuesta.estado() == 200) {
+            Organizador leido = leerOrganizador(respuesta.cuerpo());
+            if (leido != null && eventoId.equals(leido.eventoId())) {
+                return leido.organizadorId();
+            }
+        } else if (respuesta.estado() == 404 && TIPO_NO_ENCONTRADO.equals(tipoDeProblema(respuesta.cuerpo()))) {
+            throw new ErroresDeNegocio.NoEncontrado("No existe ese evento.");
+        }
+        LOG.warning("Eventos respondió " + respuesta.estado() + " al preguntar el dueño del evento "
+                + Textos.enUnaLinea(eventoId) + ".");
+        throw new ErroresDeNegocio.SinRespuesta("El servicio de eventos no responde. Probá de nuevo.");
+    }
+
+    /** La consulta HTTP del dueño. No es privada para que el test la reemplace. */
+    Respuesta consultarOrganizador(String eventoId, String token) {
+        try (Response respuesta = cliente.target(TokenDeServicio.URL_INTERNA
+                        + String.format(RUTA_DEL_ORGANIZADOR, eventoId))
+                .request(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .get()) {
+            int estado = respuesta.getStatus();
+            return new Respuesta(estado, respuesta.hasEntity() ? respuesta.readEntity(String.class) : null);
+        } catch (ProcessingException e) {
+            LOG.warning("Eventos no respondió al preguntar el dueño de un evento: " + e.getMessage());
+            throw new ErroresDeNegocio.SinRespuesta("El servicio de eventos no responde. Probá de nuevo.");
+        }
+    }
+
+    private static Organizador leerOrganizador(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return JSONB.fromJson(json, Organizador.class);
+        } catch (JsonbException e) {
+            return null;
+        }
     }
 
     /**

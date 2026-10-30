@@ -50,6 +50,11 @@
             <artifactId>junit-jupiter</artifactId>
         </dependency>
         <dependency>
+            <!-- Jakarta Mail para los tests del envío de emails; la versión y el alcance (test) vienen del pom padre. -->
+            <groupId>org.eclipse.angus</groupId>
+            <artifactId>angus-mail</artifactId>
+        </dependency>
+        <dependency>
             <!-- JSON-B para los tests del mensaje y de los errores; la versión y el alcance (test) vienen del pom padre. -->
             <groupId>org.eclipse</groupId>
             <artifactId>yasson</artifactId>

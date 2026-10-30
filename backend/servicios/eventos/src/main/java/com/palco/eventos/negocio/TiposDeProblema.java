@@ -20,6 +20,16 @@ public final class TiposDeProblema {
     /** 409: la clave de devolución ya se usó para otro sector o con otra cantidad. */
     public static final String CLAVE_REUTILIZADA = "clave-reutilizada";
 
+    /**
+     * 409: el cambio choca con entradas que ya se vendieron (bajar el cupo por
+     * debajo de las vendidas, mover el precio de un sector con ventas o quitar
+     * un sector que tiene entradas).
+     */
+    public static final String SECTOR_CON_VENTAS = "sector-con-ventas";
+
+    /** 409: el evento ya está cancelado, así que no se puede cambiar ni cancelar de nuevo. */
+    public static final String EVENTO_CANCELADO = "evento-cancelado";
+
     private TiposDeProblema() {
     }
 }

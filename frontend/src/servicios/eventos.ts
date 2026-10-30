@@ -35,7 +35,8 @@ export async function listarEventos(filtros: FiltrosEventos = {}): Promise<Event
   return eventos.map(aEvento);
 }
 
-// Requiere sesión con rol organizer: los eventos que creó quien tiene la sesión, ordenados por fecha.
+// Los eventos del organizador de la sesión (rol organizer), ordenados por fecha. Es lo que muestra
+// su panel: el catálogo tiene también los de otros organizadores.
 export async function listarMisEventos(): Promise<Evento[]> {
   const eventos = await pedir<EventoDelServidor[]>('/api/eventos/mios', { conSesion: true });
   return eventos.map(aEvento);

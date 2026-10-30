@@ -28,9 +28,10 @@ public class EventoRepositoryJpa implements EventoRepository {
     @Override
     public List<Evento> listar(Categoria categoria) {
         // "distinct" porque el join fetch repite el evento una vez por sector.
+        // Los cancelados no salen en el catálogo: no se les puede comprar nada.
         return em.createQuery("""
                         select distinct e from Evento e left join fetch e.sectores
-                        where :categoria is null or e.categoria = :categoria
+                        where e.cancelado = false and (:categoria is null or e.categoria = :categoria)
                         order by e.fecha""", Evento.class)
                 .setParameter("categoria", categoria)
                 .getResultList();
@@ -40,10 +41,15 @@ public class EventoRepositoryJpa implements EventoRepository {
     public List<Evento> listarDelOrganizador(String organizadorId) {
         return em.createQuery("""
                         select distinct e from Evento e left join fetch e.sectores
-                        where e.organizadorId = :organizadorId
+                        where e.organizadorId = :organizador
                         order by e.fecha""", Evento.class)
-                .setParameter("organizadorId", organizadorId)
+                .setParameter("organizador", organizadorId)
                 .getResultList();
+    }
+
+    @Override
+    public Optional<Evento> buscarPorId(String id) {
+        return Optional.ofNullable(em.find(Evento.class, id));
     }
 
     @Override

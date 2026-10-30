@@ -153,6 +153,45 @@ public class VentaRepositoryJpa implements VentaRepository {
     }
 
     @Override
+    public List<Venta> pagadasDelEvento(String eventoId) {
+        return em.createQuery("""
+                        select v from Venta v
+                        where v.eventoId = :evento and v.estado in (:confirmada, :emitida)
+                        order by v.creada desc""", Venta.class)
+                .setParameter("evento", eventoId)
+                .setParameter("confirmada", EstadoVenta.CONFIRMADA)
+                .setParameter("emitida", EstadoVenta.EMITIDA)
+                .getResultList();
+    }
+
+    @Override
+    public List<Venta> pagadasDelEventoConItems(String eventoId) {
+        // "distinct" porque el join fetch repite la venta una vez por renglón.
+        return em.createQuery("""
+                        select distinct v from Venta v left join fetch v.items
+                        where v.eventoId = :evento and v.estado in (:confirmada, :emitida)
+                        order by v.confirmada""", Venta.class)
+                .setParameter("evento", eventoId)
+                .setParameter("confirmada", EstadoVenta.CONFIRMADA)
+                .setParameter("emitida", EstadoVenta.EMITIDA)
+                .getResultList();
+    }
+
+    @Override
+    public boolean anularPorCancelacionDelEvento(String ventaId) {
+        // La condición va adentro del UPDATE: si el mensaje llega dos veces, la segunda no
+        // cambia ninguna fila y no se vuelve a publicar el aviso ni a pedir el reembolso.
+        return cambioUnaFila(em.createQuery("""
+                        update Venta v set v.estado = :cancelada, v.devolucionPendiente = true
+                        where v.id = :id
+                          and v.estado in (:confirmada, :emitida)""")
+                .setParameter("id", ventaId)
+                .setParameter("cancelada", EstadoVenta.CANCELADA)
+                .setParameter("confirmada", EstadoVenta.CONFIRMADA)
+                .setParameter("emitida", EstadoVenta.EMITIDA));
+    }
+
+    @Override
     public boolean vencer(String ventaId, LocalDateTime ahora) {
         return cambioUnaFila(em.createQuery("""
                         update Venta v set v.estado = :vencida, v.devolucionPendiente = true

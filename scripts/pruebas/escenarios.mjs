@@ -1,6 +1,6 @@
 // Prueba de integración del backend de Palco: 21 escenarios de compra, mensajería, conciliación de pagos,
-// facturación, validación en puerta, reventa (con su conciliación y sus reembolsos), devolución de cupo con Eventos caído
-// y el dueño de cada evento, de punta a punta, por la API y por jboss-cli. Los 13 primeros son los que produjeron docs/entrega3/evidencia/integracion-13-escenarios.txt.
+// facturación, validación en puerta (con el control de dueño), reventa (con su conciliación y sus reembolsos) y devolución de cupo con Eventos caído, de
+// punta a punta, por la API y por jboss-cli. Los 13 primeros son los que produjeron docs/entrega3/evidencia/integracion-13-escenarios.txt.
 //
 //   node scripts/pruebas/escenarios.mjs              corre los 21 escenarios
 //   node scripts/pruebas/escenarios.mjs 1 2 7        corre solo esos
@@ -225,6 +225,9 @@ async function eventoDePrueba() {
     },
   });
   if (r.estado !== 201) throw new Error(`No se pudo crear el evento de prueba: ${r.estado} ${r.texto}`);
+  // Solo escanea el staff asignado a la puerta del evento: la arma su organizador (limitación L17).
+  const puerta = await http('PUT', `/api/v1/validacion/puertas/${r.json.id}/puerta@palco.test`, { token: O });
+  if (puerta.estado !== 200) throw new Error(`No se pudo asignar la puerta del evento de prueba: ${puerta.estado} ${puerta.texto}`);
   return r.json;
 }
 
@@ -626,6 +629,70 @@ async function escenario20() {
   const pagoB = (await verPago(`${B.pub.id}:${claveB}`)).json;
   informe.ok('en Pagos el cobro de B quedó REEMBOLSADO', pagoB?.estado === 'REEMBOLSADO' && pagoB?.monto === monto,
     JSON.stringify(pagoB));
+}
+
+async function escenario21() {
+  informe.escenario(21, 'Dueño del evento: cada organizador ve y arma solo la puerta de sus eventos, y escanea solo el staff asignado (L17 y L18)');
+  const OO = await login('otro.organizador@palco.test');
+  const OS = await login('otra.puerta@palco.test');
+  const P = '/api/v1/validacion/puertas';
+  const E = '/api/v1/validacion/escaneos';
+  const sub = (token) => JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).sub;
+  const idsDe = (r) => (r.json ?? []).map((x) => x.id ?? x.eventoId);
+
+  // L18: el panel pide solo los eventos propios.
+  const mios = await http('GET', '/api/eventos/mios', { token: O });
+  informe.ok('GET /api/eventos/mios de la organizadora trae el evento de la prueba y los iniciales',
+    mios.estado === 200 && idsDe(mios).includes(EVENTO) && idsDe(mios).includes('ev-1'), `${mios.estado} ${idsDe(mios).length} eventos`);
+  const ajenos = await http('GET', '/api/eventos/mios', { token: OO });
+  informe.ok('el otro organizador no ve ninguno de esos', ajenos.estado === 200
+    && !idsDe(ajenos).includes(EVENTO) && !idsDe(ajenos).includes('ev-1'), `${ajenos.estado} ${idsDe(ajenos).join(' ')}`);
+  informe.igual('sin sesión, 401', (await http('GET', '/api/eventos/mios')).estado, 401);
+  informe.igual('con rol user, 403', (await http('GET', '/api/eventos/mios', { token: T })).estado, 403);
+  const duenio = await http('GET', `/api/eventos/${EVENTO}/organizador`, { token: S });
+  informe.igual('Eventos le dice a otro servicio quién es el dueño', duenio.json?.organizadorId, sub(O));
+  informe.igual('y a un usuario no', (await http('GET', `/api/eventos/${EVENTO}/organizador`, { token: O })).estado, 403);
+
+  // L17: el registro de la puerta.
+  const antes = await http('GET', `${E}?eventoId=${EVENTO}`, { token: O });
+  informe.igual('la dueña ve el registro', antes.estado, 200);
+  esProblema(informe, await http('GET', `${E}?eventoId=${EVENTO}`, { token: OO }), 404, 'no-encontrado', E);
+  esProblema(informe, await http('GET', `${E}?eventoId=${EVENTO}`, { token: OS }), 403, 'puerta-no-asignada', E);
+
+  // Una cuenta de puerta sin asignar no escanea, y su intento no queda en el registro.
+  const sinPuerta = await http('POST', E, { token: OS, cuerpo: { codigoQr: 'no-es-un-codigo-de-palco', eventoId: EVENTO } });
+  esProblema(informe, sinPuerta, 403, 'puerta-no-asignada', E);
+  const despues = await http('GET', `${E}?eventoId=${EVENTO}`, { token: O });
+  informe.igual('el registro no cambió', despues.json?.length, antes.json?.length);
+  informe.ok('sus puertas no incluyen este evento', !idsDe(await http('GET', `${P}/mias`, { token: OS })).includes(EVENTO));
+
+  // El otro organizador no ve ni toca el equipo de puerta de un evento ajeno.
+  esProblema(informe, await http('GET', `${P}?eventoId=${EVENTO}`, { token: OO }), 404, 'no-encontrado', P);
+  const intruso = await http('PUT', `${P}/${EVENTO}/otra.puerta@palco.test`, { token: OO });
+  informe.igual('el otro organizador no asigna staff en un evento ajeno (404)', intruso.estado, 404);
+
+  // La dueña la asigna: ahora escanea; repetirlo no duplica nada.
+  const asignada = await http('PUT', `${P}/${EVENTO}/Otra.Puerta@palco.test`, { token: O });
+  informe.ok('la dueña asigna la cuenta (el email queda en minúsculas)',
+    asignada.estado === 200 && asignada.json?.staffEmail === 'otra.puerta@palco.test' && asignada.json?.asignadaPor === sub(O),
+    asignada.texto.slice(0, 200));
+  const otraVez = await http('PUT', `${P}/${EVENTO}/otra.puerta@palco.test`, { token: O });
+  informe.igual('asignarla de nuevo devuelve la misma', otraVez.json?.asignada, asignada.json?.asignada);
+  const equipo = await http('GET', `${P}?eventoId=${EVENTO}`, { token: O });
+  informe.igual('el equipo de puerta del evento', (equipo.json ?? []).map((x) => x.staffEmail).join(' '),
+    'otra.puerta@palco.test puerta@palco.test');
+  informe.ok('sus puertas ahora incluyen este evento', idsDe(await http('GET', `${P}/mias`, { token: OS })).includes(EVENTO));
+  const conPuerta = await http('POST', E, { token: OS, cuerpo: { codigoQr: 'no-es-un-codigo-de-palco', eventoId: EVENTO } });
+  informe.ok('ahora escanea: 201 INEXISTENTE', conPuerta.estado === 201 && conPuerta.json?.resultado === 'INEXISTENTE',
+    conPuerta.texto.slice(0, 160));
+  informe.igual('y ve el registro', (await http('GET', `${E}?eventoId=${EVENTO}`, { token: OS })).estado, 200);
+  informe.igual('un escaneo de un evento ajeno no se ve: 404', (await http('GET', `${E}/${conPuerta.json?.id}`, { token: OO })).estado, 404);
+
+  // Quitarla le saca la puerta otra vez.
+  informe.igual('el otro organizador no la quita (404)', (await http('DELETE', `${P}/${EVENTO}/otra.puerta@palco.test`, { token: OO })).estado, 404);
+  informe.igual('la dueña la quita: 204', (await http('DELETE', `${P}/${EVENTO}/otra.puerta@palco.test`, { token: O })).estado, 204);
+  esProblema(informe, await http('POST', E, { token: OS, cuerpo: { codigoQr: 'no-es-un-codigo-de-palco', eventoId: EVENTO } }),
+    403, 'puerta-no-asignada', E);
 }
 
 // ===================================================================================== mensajería
@@ -1161,28 +1228,6 @@ async function escenario17() {
     JSON.stringify(factura));
   informe.igual('no fue a la cola de emisión (la entrada ya estaba emitida)',
     lineasCon(marcaCompra, 'EmisionDeEntradas', c.ventaId).length, 0);
-}
-
-async function escenario21() {
-  informe.escenario(21, 'Dueño del evento: el organizador lista los suyos y ve el registro de la puerta solo de ellos (L17 y L18)');
-  const codigo = async (metodo, ruta, opciones) => (await http(metodo, ruta, opciones)).estado;
-  const mios = await http('GET', '/api/eventos/mios', { token: O });
-  const ids = (mios.json ?? []).map((e) => e.id);
-  informe.ok('GET /api/eventos/mios: 200 con el evento de la prueba y los seis de las migraciones',
-    mios.estado === 200 && ids.includes(EVENTO) && ['ev-1', 'ev-2', 'ev-3', 'ev-4', 'ev-5', 'ev-6'].every((id) => ids.includes(id)),
-    `${mios.estado} ${ids.length} eventos`);
-  const fechas = (mios.json ?? []).map((e) => e.fechaISO);
-  informe.ok('ordenados por fecha', fechas.every((f, i) => i === 0 || fechas[i - 1] <= f), fechas.join(' '));
-  const codigos = [await codigo('GET', '/api/eventos/mios'), await codigo('GET', '/api/eventos/mios', { token: T }),
-    await codigo('GET', '/api/eventos/mios', { token: ST }), await codigo('GET', '/api/eventos/mios', { token: S })];
-  informe.ok('sin token 401; con user, staff y servicio 403', codigos.join(' ') === '401 403 403 403', codigos.join(' '));
-
-  const propio = await http('GET', `/api/v1/validacion/escaneos?eventoId=${EVENTO}`, { token: O });
-  informe.igual('el organizador ve el registro de la puerta de su evento', propio.estado, 200);
-  esProblema(informe, await http('GET', '/api/v1/validacion/escaneos?eventoId=ev-de-otro', { token: O }),
-    403, 'evento-ajeno', '/api/v1/validacion/escaneos');
-  informe.igual('el personal de puerta sigue viendo cualquier registro (sin asignación de staff todavía)',
-    await codigo('GET', '/api/v1/validacion/escaneos?eventoId=ev-de-otro', { token: ST }), 200);
 }
 
 // ===================================================================================== corrida

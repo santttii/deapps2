@@ -1211,12 +1211,13 @@ const validacion = carpeta('5 Validación en puerta (implementado)',
           '});',
         ],
       }),
-    pedido('GET /v1/validacion/escaneos de un evento ajeno, rol organizer (403)', 'GET',
+    pedido('GET /v1/validacion/escaneos de un evento ajeno, rol organizer (404)', 'GET',
       url('baseValidacion', ['escaneos'], [{ key: 'eventoId', value: 'ev-de-otro' }]), {
-        descripcion: 'El organizador ve solo el registro de sus eventos: Validación le pregunta a Eventos cuáles son '
-          + '(GET /api/eventos/mios, con el token del organizador).',
+        descripcion: 'El organizador ve solo el registro de sus eventos: Validación le pregunta a Eventos quién es '
+          + 'el dueño (GET /api/eventos/{eventoId}/organizador, rol servicio). Un evento ajeno no existe para él, '
+          + 'igual que uno que no existe de verdad.',
         cabeceras: [bearer('tokenOrganizador')],
-        tests: problema(403, 'evento-ajeno'),
+        tests: problema(404, 'no-encontrado'),
       }),
     pedido('GET /v1/validacion/escaneos sin eventoId (400)', 'GET', url('baseValidacion', ['escaneos']), {
       cabeceras: [bearer('tokenStaff')],

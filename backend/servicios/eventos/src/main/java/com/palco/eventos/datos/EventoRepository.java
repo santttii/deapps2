@@ -21,13 +21,21 @@ public interface EventoRepository {
 
     /**
      * Los eventos de esa categoría, o todos si es {@code null}, ordenados por
-     * fecha. La búsqueda por texto no está acá: la hace el negocio en Java,
-     * para que no dependa de cómo cada base compara acentos.
+     * fecha. No incluye los cancelados: son el catálogo público y a un evento
+     * cancelado no se le puede comprar nada. La búsqueda por texto no está
+     * acá: la hace el negocio en Java, para que no dependa de cómo cada base
+     * compara acentos.
      */
     List<Evento> listar(Categoria categoria);
 
-    /** Los eventos que creó ese organizador, ordenados por fecha. */
+    /**
+     * Los eventos de ese organizador, ordenados por fecha. Acá sí vienen los
+     * cancelados: su panel los tiene que seguir mostrando.
+     */
     List<Evento> listarDelOrganizador(String organizadorId);
+
+    /** El evento con ese id, si existe. */
+    Optional<Evento> buscarPorId(String id);
 
     /** El evento con ese slug, si existe. */
     Optional<Evento> buscarPorSlug(String slug);

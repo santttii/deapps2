@@ -18,6 +18,17 @@ import com.palco.ventas.dominio.Entrada;
 public interface EntradaRepository {
 
     /**
+     * Anula las entradas de una venta cuyo evento se canceló: las que estén
+     * {@code PENDIENTE_EMISION}, {@code VALIDA} o {@code PUBLICADA} pasan a
+     * {@code ANULADA}. Devuelve cuántas cambió.
+     *
+     * No toca las {@code USADA} (alguien ya entró con ella) ni las
+     * {@code VENDIDA} (la revendió y la entrada nueva es de otra venta, que se
+     * anula por su cuenta). Como es un UPDATE condicional, repetirlo devuelve 0.
+     */
+    int anularDeLaVenta(String ventaId);
+
+    /**
      * Guarda las entradas de una venta recién confirmada; los INSERT salen en
      * el momento. Lanza {@code ErroresDeNegocio.Conflicto} si la venta ya tiene
      * una entrada para alguno de esos DNI: es la base la que lo impide, con una

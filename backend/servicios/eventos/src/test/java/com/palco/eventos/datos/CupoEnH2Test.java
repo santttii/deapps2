@@ -100,6 +100,18 @@ class CupoEnH2Test {
         fabrica.close();
     }
 
+    @Test
+    void losEventosInicialesSonDeLaCuentaOrganizadoraYCadaUnoVeSoloLosSuyos() {
+        // V6 les puso dueño a los seis de V2; el de prueba es de "org-1".
+        var deLaOrganizadora = eventos.listarDelOrganizador("user-organizador");
+        assertEquals(6, deLaOrganizadora.size());
+        assertTrue(deLaOrganizadora.stream().allMatch(e -> "user-organizador".equals(e.getOrganizadorId())));
+        assertEquals(List.of(EVENTO), eventos.listarDelOrganizador("org-1").stream().map(Evento::getId).toList());
+        assertTrue(eventos.listarDelOrganizador("user-otro-organizador").isEmpty());
+        assertEquals("org-1", eventos.buscarPorId(EVENTO).orElseThrow().getOrganizadorId());
+        assertTrue(eventos.buscarPorId("ev-9").isEmpty());
+    }
+
     /** Corre el paso en una transacción propia, como lo haría el contenedor con cada pedido. */
     private <T> T enTransaccion(Supplier<T> paso) {
         em.getTransaction().begin();

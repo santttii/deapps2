@@ -85,4 +85,22 @@ class CuentasDePruebaTest {
         }
         assertTrue(otra[0].length() <= 40 && otra[3].length() <= 8, "respeta los largos de V1");
     }
+
+    @Test
+    void elSegundoOrganizadorYLaSegundaPuertaSeCarganConSuRolYPalco1234() throws IOException {
+        String v6 = leer("V6__segundo_organizador_y_segundo_staff.sql");
+        assertTrue(sinEspacios(v6).contains(COLUMNAS), "V6 tiene que insertar las mismas columnas que V2");
+
+        List<String[]> deV6 = filas(v6);
+        assertEquals(2, deV6.size());
+        assertEquals("otro.organizador@palco.test", deV6.get(0)[4]);
+        assertEquals("organizer", deV6.get(0)[6]);
+        assertEquals("otra.puerta@palco.test", deV6.get(1)[4]);
+        assertEquals("staff", deV6.get(1)[6]);
+        for (String[] cuenta : deV6) {
+            assertEquals("true", cuenta[7], "email_verificado");
+            assertTrue(cuenta[5].startsWith("pbkdf2-sha256$" + Contrasenas.ITERACIONES + "$"), cuenta[4]);
+            assertTrue(Contrasenas.verificar("palco1234", cuenta[5]), cuenta[4] + " tiene que ser palco1234");
+        }
+    }
 }

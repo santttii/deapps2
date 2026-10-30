@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,10 +25,15 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.mensajeria.CompraAnuladaMensaje;
+import com.palco.common.mensajeria.EventoCanceladoMensaje;
+import com.palco.common.mensajeria.PublicadorDeCancelaciones;
+import com.palco.eventos.api.Dtos.EditarEventoDto;
 import com.palco.eventos.api.Dtos.EventoDto;
 import com.palco.eventos.api.Dtos.NuevoEventoDto;
 import com.palco.eventos.api.Dtos.NuevoSectorDto;
 import com.palco.eventos.api.Dtos.SectorDto;
+import com.palco.eventos.api.Dtos.SectorEditadoDto;
 import com.palco.eventos.datos.DevolucionDeCupoRepository;
 import com.palco.eventos.datos.EventoRepository;
 import com.palco.eventos.datos.SectorRepository;
@@ -55,12 +61,14 @@ class ServicioDeEventosTest {
     private final EventoRepository eventos = mock(EventoRepository.class);
     private final SectorRepository sectores = mock(SectorRepository.class);
     private final DevolucionDeCupoRepository devoluciones = mock(DevolucionDeCupoRepository.class);
+    private final CancelacionesPublicadas publicadas = new CancelacionesPublicadas();
     private final ServicioDeEventos servicio = new ServicioDeEventos();
 
     ServicioDeEventosTest() {
         servicio.eventos = eventos;
         servicio.sectores = sectores;
         servicio.devoluciones = devoluciones;
+        servicio.cancelaciones = publicadas;
         when(devoluciones.buscar(any())).thenReturn(Optional.empty());
         servicio.reloj = Clock.fixed(AHORA, ServicioDeEventos.ZONA_DE_LOS_EVENTOS);
         when(sectores.sumarVendidas(any(), anyInt())).thenReturn(true);
@@ -187,11 +195,32 @@ class ServicioDeEventosTest {
     }
 
     @Test
-    void ningunEventoRecibeElSlugMiosQueEsLaRutaDeLosEventosPropios() {
-        NuevoEventoDto nuevo = new NuevoEventoDto("Míos", "Música", "Arena", MAS_TARDE, "Descripción", null,
-                List.of(new NuevoSectorDto("Campo", 50_000, 100)));
+    void unEventoLlamadoMiosNoTapaLaRutaDeLosEventosPropios() {
+        NuevoEventoDto nuevo = new NuevoEventoDto("Míos", "Fiesta", "Club", MAS_TARDE, "Descripción", null,
+                List.of(new NuevoSectorDto("General", 10_000, 50)));
 
         assertEquals("mios-2", servicio.crearEvento(nuevo, "org-1").slug());
+    }
+
+    // --- El dueño (limitaciones L17 y L18) ---
+
+    @Test
+    void losEventosDelOrganizadorSonLosQueDevuelveElRepositorioParaSuId() {
+        when(eventos.listarDelOrganizador("org-1")).thenReturn(List.of(
+                evento("ev-1", "kiroshi", "Kiroshi", Categoria.MUSICA, "Arena", MAS_TARDE)));
+
+        assertEquals(List.of("kiroshi"), slugs(servicio.listarDelOrganizador("org-1")));
+        assertEquals(List.of(), servicio.listarDelOrganizador("org-otro"));
+    }
+
+    @Test
+    void elDuenoDeUnEventoEsSuOrganizadorYUnEventoQueNoExisteEsNoEncontrado() {
+        when(eventos.buscarPorId("ev-1")).thenReturn(Optional.of(
+                evento("ev-1", "kiroshi", "Kiroshi", Categoria.MUSICA, "Arena", MAS_TARDE)));
+        when(eventos.buscarPorId("ev-9")).thenReturn(Optional.empty());
+
+        assertEquals("org-1", servicio.organizadorDe("ev-1"));
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.organizadorDe("ev-9"));
     }
 
     private Evento eventoGuardado() {
@@ -212,7 +241,8 @@ class ServicioDeEventosTest {
         EventoDto detalle = servicio.obtenerDetalle("show");
 
         assertEquals(new EventoDto(EVENTO, "show", "Show", "Música", "Estadio", "2026-10-16T21:00:00",
-                "Descripción", false, null, List.of(new SectorDto(SECTOR, "Campo", 50_000, 100, 0))), detalle);
+                "Descripción", false, null, false, null,
+                List.of(new SectorDto(SECTOR, "Campo", 50_000, 100, 0))), detalle);
     }
 
     @Test
@@ -489,6 +519,255 @@ class ServicioDeEventosTest {
         return sector;
     }
 
+    // --- Editar un evento ---
+
+    @Test
+    void editarCambiaLosDatosYLosSectoresPeroNoElSlug() {
+        Evento evento = conUnSector(0);
+        // El slug sigue siendo el viejo aunque el título cambie: lo lleva la URL del frontend.
+        EventoDto editado = servicio.editarEvento(EVENTO, editar("Show nuevo", "Teatro",
+                List.of(new SectorEditadoDto(SECTOR, "Campo VIP", 60_000, 150))), "org-1");
+
+        assertEquals("show", editado.slug());
+        assertEquals("Show nuevo", editado.titulo());
+        assertEquals("Teatro", editado.categoria());
+        assertEquals(1, editado.sectores().size());
+        assertEquals("Campo VIP", editado.sectores().get(0).nombre());
+        assertEquals(60_000, editado.sectores().get(0).precio());
+        assertEquals(150, editado.sectores().get(0).cupo());
+    }
+
+    @Test
+    void editarAgregaUnSectorNuevoYQuitaElQueNoVieneEnLaLista() {
+        Evento evento = conUnSector(0);
+
+        EventoDto editado = servicio.editarEvento(EVENTO, editar("Show", "Música",
+                List.of(new SectorEditadoDto(null, "Platea", 80_000, 50))), "org-1");
+
+        // El que estaba no vino en la lista y no tenía ventas: se fue.
+        assertEquals(1, editado.sectores().size());
+        assertEquals("Platea", editado.sectores().get(0).nombre());
+        assertEquals(1, evento.getSectores().size());
+    }
+
+    @Test
+    void noSePuedeBajarElCupoPorDebajoDeLoQueYaSeVendio() {
+        conUnSector(30);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 29))), "org-1"));
+
+        assertEquals(TiposDeProblema.SECTOR_CON_VENTAS, error.tipo());
+    }
+
+    @Test
+    void bajarElCupoHastaLoVendidoSePuede() {
+        conUnSector(30);
+
+        EventoDto editado = servicio.editarEvento(EVENTO, editar("Show", "Música",
+                List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 30))), "org-1");
+
+        assertEquals(30, editado.sectores().get(0).cupo());
+    }
+
+    @Test
+    void noSePuedeCambiarElPrecioDeUnSectorConVentas() {
+        // El tope de la reventa se calcula sobre lo que pagó cada comprador.
+        conUnSector(1);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 60_000, 100))), "org-1"));
+
+        assertEquals(TiposDeProblema.SECTOR_CON_VENTAS, error.tipo());
+    }
+
+    @Test
+    void dejarElMismoPrecioEnUnSectorConVentasNoEsUnCambio() {
+        conUnSector(1);
+
+        EventoDto editado = servicio.editarEvento(EVENTO, editar("Show", "Música",
+                List.of(new SectorEditadoDto(SECTOR, "Campo renombrado", 50_000, 100))), "org-1");
+
+        assertEquals("Campo renombrado", editado.sectores().get(0).nombre());
+    }
+
+    @Test
+    void noSePuedeQuitarUnSectorQueTieneEntradasVendidas() {
+        conUnSector(1);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
+                        List.of(new SectorEditadoDto(null, "Otro", 10_000, 10))), "org-1"));
+
+        assertEquals(TiposDeProblema.SECTOR_CON_VENTAS, error.tipo());
+    }
+
+    @Test
+    void unEventoAjenoNoSePuedeEditarYParaElOrganizadorNoExiste() {
+        conUnSector(0);
+
+        assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-2"));
+    }
+
+    @Test
+    void unEventoQueYaEmpezoNoSeEdita() {
+        Evento empezado = evento(EVENTO, "show", "Show", Categoria.MUSICA, "Estadio", AHORA_LOCAL.minusHours(1));
+        empezado.agregarSector(new Sector(SECTOR, empezado, "Campo", 50_000, 100, 1));
+        when(eventos.buscarPorId(EVENTO)).thenReturn(Optional.of(empezado));
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1"));
+
+        assertEquals(TiposDeProblema.EVENTO_FINALIZADO, error.tipo());
+    }
+
+    @Test
+    void laFechaNuevaTambienTieneQueSerFutura() {
+        conUnSector(0);
+
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.editarEvento(EVENTO, new EditarEventoDto("Show", "Música", "Estadio",
+                        AHORA_LOCAL.minusDays(1), "Descripción", null,
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1"));
+    }
+
+    @Test
+    void unSectorDeOtroEventoEsUnDatoInvalido() {
+        conUnSector(0);
+
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
+                        List.of(new SectorEditadoDto("sec-de-otro", "Campo", 50_000, 100))), "org-1"));
+    }
+
+    // --- Cancelar un evento ---
+
+    @Test
+    void cancelarMarcaElEventoYPublicaElMensajeConSuMotivo() {
+        Evento evento = conUnSector(10);
+
+        EventoDto cancelado = servicio.cancelarEvento(EVENTO, "  Se lesionó el artista  ", "org-1");
+
+        assertTrue(cancelado.cancelado());
+        assertEquals("Se lesionó el artista", cancelado.cancelacionMotivo());
+        assertTrue(evento.isCancelado());
+        assertEquals(AHORA_LOCAL, evento.getCanceladoEn());
+        assertEquals(1, publicadas.eventos.size());
+        EventoCanceladoMensaje mensaje = publicadas.eventos.get(0);
+        assertEquals(EVENTO, mensaje.eventoId());
+        assertEquals("Show", mensaje.titulo());
+        assertEquals("Se lesionó el artista", mensaje.motivo());
+        assertEquals(AHORA, mensaje.timestamp());
+    }
+
+    @Test
+    void sePuedeCancelarSinDarMotivo() {
+        conUnSector(10);
+
+        EventoDto cancelado = servicio.cancelarEvento(EVENTO, "   ", "org-1");
+
+        assertTrue(cancelado.cancelado());
+        assertEquals(null, cancelado.cancelacionMotivo());
+        assertEquals(null, publicadas.eventos.get(0).motivo());
+    }
+
+    @Test
+    void cancelarDosVecesNoPublicaOtroMensajeYAsiNadieReembolsaDosVeces() {
+        conUnSector(10);
+        servicio.cancelarEvento(EVENTO, null, "org-1");
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.cancelarEvento(EVENTO, null, "org-1"));
+
+        assertEquals(TiposDeProblema.EVENTO_CANCELADO, error.tipo());
+        assertEquals(1, publicadas.eventos.size());
+    }
+
+    @Test
+    void unEventoAjenoNoSePuedeCancelar() {
+        conUnSector(10);
+
+        assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> servicio.cancelarEvento(EVENTO, null, "org-2"));
+
+        assertTrue(publicadas.eventos.isEmpty());
+    }
+
+    @Test
+    void unEventoQueYaEmpezoNoSeCancela() {
+        // Reembolsar entradas que ya se usaron no corresponde.
+        Evento empezado = evento(EVENTO, "show", "Show", Categoria.MUSICA, "Estadio", AHORA_LOCAL.minusHours(1));
+        when(eventos.buscarPorId(EVENTO)).thenReturn(Optional.of(empezado));
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.cancelarEvento(EVENTO, null, "org-1"));
+
+        assertEquals(TiposDeProblema.EVENTO_FINALIZADO, error.tipo());
+        assertTrue(publicadas.eventos.isEmpty());
+    }
+
+    @Test
+    void unEventoCanceladoNoVendeMasEntradasPeroSiguePudiendoDevolverCupo() {
+        Evento evento = conUnSector(10);
+        servicio.cancelarEvento(EVENTO, null, "org-1");
+        when(sectores.buscarPorId(SECTOR)).thenReturn(Optional.of(evento.getSectores().get(0)));
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.actualizarCupo(EVENTO, SECTOR, 1));
+        assertEquals(TiposDeProblema.EVENTO_CANCELADO, error.tipo());
+
+        // Devolver tiene que andar igual: es lo que hace Ventas al anular las compras.
+        assertEquals(10, servicio.actualizarCupo(EVENTO, SECTOR, -1).vendidas());
+    }
+
+    @Test
+    void unEventoCanceladoTampocoSeEdita() {
+        conUnSector(0);
+        servicio.cancelarEvento(EVENTO, null, "org-1");
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1"));
+
+        assertEquals(TiposDeProblema.EVENTO_CANCELADO, error.tipo());
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    /** Un evento futuro de org-1 con un sector de 100 lugares y las vendidas que se pidan. */
+    private Evento conUnSector(int vendidas) {
+        Evento evento = evento(EVENTO, "show", "Show", Categoria.MUSICA, "Estadio", MAS_TARDE);
+        Sector campo = new Sector(SECTOR, evento, "Campo", 50_000, 100, 1);
+        if (vendidas > 0) {
+            // Las vendidas no tienen setter: se llega a ellas por la operación que las sube.
+            campo.cambiarCupo(100);
+            vender(campo, vendidas);
+        }
+        evento.agregarSector(campo);
+        when(eventos.buscarPorId(EVENTO)).thenReturn(Optional.of(evento));
+        return evento;
+    }
+
+    /** Sube las vendidas de un sector sin pasar por el repositorio, que en este test es un doble. */
+    private static void vender(Sector sector, int cantidad) {
+        try {
+            var campo = Sector.class.getDeclaredField("vendidas");
+            campo.setAccessible(true);
+            campo.setInt(sector, cantidad);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static EditarEventoDto editar(String titulo, String categoria, List<SectorEditadoDto> sectores) {
+        return new EditarEventoDto(titulo, categoria, "Estadio", MAS_TARDE, "Descripción", null, sectores);
+    }
+
     private static Evento evento(String id, String slug, String titulo, Categoria categoria, String venue,
             LocalDateTime fecha) {
         return new Evento(id, slug, titulo, categoria, venue, fecha, "Descripción", null, "org-1");
@@ -497,5 +776,21 @@ class ServicioDeEventosTest {
     private static NuevoEventoDto nuevoEvento(LocalDateTime fecha) {
         return new NuevoEventoDto("Show", "Música", "Estadio", fecha, "Descripción", null,
                 List.of(new NuevoSectorDto("Campo", 50_000, 100)));
+    }
+
+    /** Lo que se publicó en el tópico de cancelaciones. Eventos solo publica el del evento. */
+    private static final class CancelacionesPublicadas implements PublicadorDeCancelaciones {
+        private final List<EventoCanceladoMensaje> eventos = new ArrayList<>();
+
+        @Override
+        public void publicarEventoCancelado(EventoCanceladoMensaje mensaje) {
+            mensaje.validar();
+            eventos.add(mensaje);
+        }
+
+        @Override
+        public void publicarCompraAnulada(CompraAnuladaMensaje mensaje) {
+            throw new AssertionError("Eventos no publica COMPRA_ANULADA: eso lo hace Ventas.");
+        }
     }
 }

@@ -58,6 +58,23 @@ public class EntradaRepositoryJpa implements EntradaRepository {
     }
 
     @Override
+    public int anularDeLaVenta(String ventaId) {
+        // Un solo UPDATE: todas las entradas anulables de la venta pasan juntas. La condición
+        // sobre el estado es lo que lo hace idempotente, igual que en emitirPendientes.
+        // USADA y VENDIDA quedan afuera: alguien ya entró con una, y la otra la tiene otro comprador.
+        em.flush();
+        return em.createQuery("""
+                        update Entrada e set e.estado = :anulada
+                        where e.venta.id = :ventaId and e.estado in (:pendiente, :valida, :publicada)""")
+                .setParameter("ventaId", ventaId)
+                .setParameter("anulada", EstadoEntrada.ANULADA)
+                .setParameter("pendiente", EstadoEntrada.PENDIENTE_EMISION)
+                .setParameter("valida", EstadoEntrada.VALIDA)
+                .setParameter("publicada", EstadoEntrada.PUBLICADA)
+                .executeUpdate();
+    }
+
+    @Override
     public int emitirPendientes(String ventaId, LocalDateTime ahora) {
         // Primero se manda a la base lo que estuviera pendiente, para que la consulta lo encuentre.
         em.flush();

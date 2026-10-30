@@ -5,8 +5,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
@@ -16,11 +18,14 @@ import jakarta.inject.Inject;
 import com.palco.common.ErroresDeNegocio;
 import com.palco.validacion.api.Dtos.EntradaEscaneadaDto;
 import com.palco.validacion.api.Dtos.EscaneoDto;
+import com.palco.validacion.api.Dtos.PuertaAsignadaDto;
 import com.palco.validacion.api.Dtos.ResultadoDeEscaneoDto;
 import com.palco.validacion.api.Dtos.TitularDto;
 import com.palco.validacion.api.Dtos.UsoAnteriorDto;
 import com.palco.validacion.datos.EscaneoRepository;
+import com.palco.validacion.datos.PuertaAsignadaRepository;
 import com.palco.validacion.dominio.Escaneo;
+import com.palco.validacion.dominio.PuertaAsignada;
 import com.palco.validacion.dominio.ResultadoEscaneo;
 import com.palco.validacion.negocio.externos.ClienteDeEventos;
 import com.palco.validacion.negocio.externos.ClienteDeVentas;
@@ -58,8 +63,10 @@ public class ServicioDeValidacion implements IValidacion {
     /** Cuántos caracteres del final del código muestra el registro. */
     static final int CARACTERES_VISIBLES_DEL_CODIGO = 6;
 
-    /** El {@code type} del 403 cuando un organizador pide el registro de un evento que no es suyo. */
-    static final String EVENTO_AJENO = "evento-ajeno";
+    /** El {@code type} del 403 cuando el staff no trabaja en la puerta de ese evento. */
+    static final String PUERTA_NO_ASIGNADA = "puerta-no-asignada";
+
+    private static final Logger LOG = Logger.getLogger(ServicioDeValidacion.class.getName());
 
     @Inject
     EscaneoRepository escaneos;
@@ -68,16 +75,22 @@ public class ServicioDeValidacion implements IValidacion {
     ClienteDeVentas ventas;
 
     @Inject
+    PuertaAsignadaRepository puertas;
+
+    @Inject
     ClienteDeEventos eventos;
 
     /** De dónde sale el "ahora". No es estado: es fijo, y los tests lo reemplazan por un reloj detenido. */
     Clock reloj = Clock.systemUTC();
 
     @Override
-    public ResultadoDeEscaneoDto escanear(String codigoQr, String eventoId, String escaneadoPor) {
+    public ResultadoDeEscaneoDto escanear(String codigoQr, String eventoId, Solicitante staff) {
         // Un código tipeado a mano puede traer espacios de más; el que genera Ventas no tiene ninguno.
         String codigo = codigoQr.strip();
         String evento = eventoId.strip();
+        String escaneadoPor = staff.id();
+        // Antes que nada: solo escanea quien trabaja en esta puerta. No se llama a Ventas ni se registra.
+        exigirPuerta(evento, staff);
 
         ClienteDeVentas.Uso uso;
         try {
@@ -107,11 +120,12 @@ public class ServicioDeValidacion implements IValidacion {
     }
 
     @Override
-    public List<EscaneoDto> listar(String eventoId, String tokenDelOrganizador) {
+    public List<EscaneoDto> listar(String eventoId, Solicitante quien) {
         String evento = eventoId.strip();
-        if (tokenDelOrganizador != null && !esDelOrganizador(evento, tokenDelOrganizador)) {
-            throw new ErroresDeNegocio.SinPermiso(EVENTO_AJENO,
-                    "Ese evento no es tuyo: solo ves el registro de la puerta de tus eventos.");
+        if (quien.organizador()) {
+            exigirDueno(evento, quien);
+        } else {
+            exigirPuerta(evento, quien);
         }
         return escaneos.listarPorEvento(evento, MAXIMO_POR_CONSULTA).stream()
                 .map(ServicioDeValidacion::aDto)
@@ -119,21 +133,89 @@ public class ServicioDeValidacion implements IValidacion {
     }
 
     @Override
-    public EscaneoDto obtener(String escaneoId, String tokenDelOrganizador) {
-        return escaneos.buscarPorId(escaneoId)
-                .filter(e -> tokenDelOrganizador == null || esDelOrganizador(e.getEventoId(), tokenDelOrganizador))
-                .map(ServicioDeValidacion::aDto)
+    public EscaneoDto obtener(String escaneoId, Solicitante quien) {
+        Escaneo escaneo = escaneos.buscarPorId(escaneoId)
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe ese escaneo."));
+        // Uno de un evento ajeno responde igual que uno que no existe.
+        boolean loPuedeVer = quien.organizador()
+                ? esDueno(escaneo.getEventoId(), quien)
+                : puertas.estaAsignada(escaneo.getEventoId(), quien.email());
+        if (!loPuedeVer) {
+            throw new ErroresDeNegocio.NoEncontrado("No existe ese escaneo.");
+        }
+        return aDto(escaneo);
     }
 
-    /**
-     * Si el evento es del organizador del token. Lo decide Eventos, que es
-     * quien sabe quién creó cada evento; Validación no guarda dueños. Al
-     * personal de puerta no se le pregunta: todavía no hay asignación de staff
-     * a eventos (la otra mitad de la limitación L17).
-     */
-    private boolean esDelOrganizador(String eventoId, String tokenDelOrganizador) {
-        return eventos.eventosDelOrganizador(tokenDelOrganizador).contains(eventoId);
+    @Override
+    public List<PuertaAsignadaDto> misPuertas(Solicitante staff) {
+        return puertas.deLaCuenta(staff.email()).stream().map(ServicioDeValidacion::aDto).toList();
+    }
+
+    @Override
+    public List<PuertaAsignadaDto> equipoDePuerta(String eventoId, Solicitante organizador) {
+        String evento = eventoId.strip();
+        exigirDueno(evento, organizador);
+        return puertas.delEvento(evento).stream().map(ServicioDeValidacion::aDto).toList();
+    }
+
+    @Override
+    public PuertaAsignadaDto asignar(String eventoId, String staffEmail, Solicitante organizador) {
+        String evento = eventoId.strip();
+        String email = normalizarEmail(staffEmail);
+        exigirDueno(evento, organizador);
+        Optional<PuertaAsignada> existente = puertas.buscar(evento, email);
+        if (existente.isPresent()) {
+            return aDto(existente.get());
+        }
+        PuertaAsignada nueva = new PuertaAsignada(evento, email, organizador.id(), ahora());
+        try {
+            puertas.guardar(nueva);
+        } catch (ErroresDeNegocio.Conflicto choque) {
+            // La misma asignación llegó dos veces a la vez: vale la que se guardó.
+            return puertas.buscar(evento, email).map(ServicioDeValidacion::aDto).orElseThrow(() -> choque);
+        }
+        LOG.info("Puerta del evento " + evento + ": " + organizador.id() + " asignó una cuenta de staff.");
+        return aDto(nueva);
+    }
+
+    @Override
+    public void quitar(String eventoId, String staffEmail, Solicitante organizador) {
+        String evento = eventoId.strip();
+        exigirDueno(evento, organizador);
+        if (puertas.quitar(evento, normalizarEmail(staffEmail))) {
+            LOG.info("Puerta del evento " + evento + ": " + organizador.id() + " quitó una cuenta de staff.");
+        }
+    }
+
+    /** El staff tiene que estar asignado a la puerta del evento. */
+    private void exigirPuerta(String eventoId, Solicitante staff) {
+        if (!puertas.estaAsignada(eventoId, staff.email())) {
+            throw new ErroresDeNegocio.SinPermiso(PUERTA_NO_ASIGNADA,
+                    "No estás asignado a la puerta de este evento. Pedíselo al organizador.");
+        }
+    }
+
+    /** El organizador tiene que ser el dueño del evento. Si no lo es, el evento "no existe" para él. */
+    private void exigirDueno(String eventoId, Solicitante organizador) {
+        if (!esDueno(eventoId, organizador)) {
+            throw new ErroresDeNegocio.NoEncontrado("No existe ese evento entre los tuyos.");
+        }
+    }
+
+    private boolean esDueno(String eventoId, Solicitante organizador) {
+        if (!eventoId.matches("[A-Za-z0-9_-]{1,40}")) {
+            // Va en la ruta del pedido a Eventos: un id con una barra no sale.
+            return false;
+        }
+        try {
+            return organizador.id().equals(eventos.organizadorDe(eventoId));
+        } catch (ErroresDeNegocio.NoEncontrado e) {
+            return false;
+        }
+    }
+
+    static String normalizarEmail(String email) {
+        return email.strip().toLowerCase(Locale.ROOT);
     }
 
     /**
@@ -168,6 +250,10 @@ public class ServicioDeValidacion implements IValidacion {
     static String parcial(String codigo) {
         return codigo.length() <= CARACTERES_VISIBLES_DEL_CODIGO ? codigo
                 : "…" + codigo.substring(codigo.length() - CARACTERES_VISIBLES_DEL_CODIGO);
+    }
+
+    static PuertaAsignadaDto aDto(PuertaAsignada p) {
+        return new PuertaAsignadaDto(p.getEventoId(), p.getStaffEmail(), p.getAsignadaPor(), enUtc(p.getAsignada()));
     }
 
     static EscaneoDto aDto(Escaneo e) {

@@ -11,6 +11,7 @@ import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 
 import com.palco.common.Textos;
+import com.palco.common.mensajeria.CompraAnuladaMensaje;
 import com.palco.common.mensajeria.DestinosJms;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.notificaciones.api.Dtos.RegistroDeAuditoriaDto;
@@ -59,6 +60,24 @@ public class ServicioDeAuditoria implements IAuditoria {
                 mensaje.compradorId(),
                 mensaje.eventoId(),
                 mensaje.montoTotal(),
+                cuerpo,
+                ahoraEnUtc()));
+    }
+
+    @Override
+    public void registrarAnulacion(String mensajeId, CompraAnuladaMensaje mensaje, String cuerpo) {
+        if (registros.existe(mensajeId)) {
+            LOG.info("El mensaje " + Textos.enUnaLinea(mensajeId)
+                    + " ya estaba registrado (reentrega del broker): no se repite.");
+            return;
+        }
+        registros.guardar(new RegistroDeAuditoria(
+                mensajeId,
+                DestinosJms.COMPRA_ANULADA,
+                mensaje.ventaId(),
+                mensaje.compradorId(),
+                mensaje.eventoId(),
+                mensaje.monto(),
                 cuerpo,
                 ahoraEnUtc()));
     }

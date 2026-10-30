@@ -12,6 +12,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -20,9 +21,11 @@ import jakarta.ws.rs.core.SecurityContext;
 
 import com.palco.common.seguridad.Sesion;
 import com.palco.usuarios.api.Dtos.LoginDto;
+import com.palco.usuarios.api.Dtos.OlvideDto;
 import com.palco.usuarios.api.Dtos.ReenvioDto;
 import com.palco.usuarios.api.Dtos.RegistroDto;
 import com.palco.usuarios.api.Dtos.RegistroPendienteDto;
+import com.palco.usuarios.api.Dtos.ReinicioDto;
 import com.palco.usuarios.api.Dtos.SecretoDto;
 import com.palco.usuarios.api.Dtos.SesionDto;
 import com.palco.usuarios.api.Dtos.TokenDeServicioDto;
@@ -37,8 +40,13 @@ import com.palco.usuarios.seguridad.Tokens;
  *
  * Flujo de alta: {@code POST /registro} → llega un código por email →
  * {@code POST /verificacion} devuelve la sesión. Después, {@code POST /login}.
+ *
  * La sesión es un token JWT que el frontend manda en cada pedido como
  * {@code Authorization: Bearer <token>}; cerrar sesión es descartarlo.
+ *
+ * Si se olvidó la contraseña: {@code POST /password/olvide} manda un código y
+ * {@code POST /password/reinicio} la cambia. Después se inicia sesión con la
+ * nueva: el reinicio no devuelve sesión.
  */
 @RequestScoped
 @Path("/")
@@ -77,6 +85,31 @@ public class UsuariosResource {
         return Response.noContent().build();
     }
 
+    /**
+     * Manda por email un código para poner una contraseña nueva. Siempre 204,
+     * exista o no la cuenta: si contestara distinto se podría averiguar qué
+     * emails están registrados.
+     */
+    @POST
+    @Path("password/olvide")
+    @PermitAll
+    public Response olvidePassword(@NotNull(message = FALTA_CUERPO) @Valid OlvideDto olvide) {
+        usuarios.pedirReinicioDePassword(olvide.email());
+        return Response.noContent().build();
+    }
+
+    /**
+     * Cambia la contraseña con el código que llegó por email. No devuelve
+     * sesión: después hay que iniciarla con la contraseña nueva.
+     */
+    @POST
+    @Path("password/reinicio")
+    @PermitAll
+    public Response reiniciarPassword(@NotNull(message = FALTA_CUERPO) @Valid ReinicioDto reinicio) {
+        usuarios.reiniciarPassword(reinicio);
+        return Response.noContent().build();
+    }
+
     @POST
     @Path("login")
     @PermitAll
@@ -102,6 +135,23 @@ public class UsuariosResource {
     @PermitAll
     public TokenDeServicioDto tokenDeServicio(@NotNull(message = FALTA_CUERPO) @Valid SecretoDto pedido) {
         return usuarios.emitirTokenDeServicio(pedido.secreto());
+    }
+
+    /**
+     * Un usuario por su id, para otros servicios (rol {@code servicio}): lo usa
+     * Notificaciones, que del mensaje de la compra tiene el {@code compradorId}
+     * y necesita su email para mandarle el aviso.
+     *
+     * Es una ruta con parámetro y convive con las fijas ({@code yo},
+     * {@code jwks}, {@code login}…) porque JAX-RS prefiere la literal, y
+     * además ningún id puede chocar con ellas: todos tienen la forma
+     * {@code user-3f9a1c2b}.
+     */
+    @GET
+    @Path("{usuarioId}")
+    @RolesAllowed("servicio")
+    public UsuarioDto porId(@PathParam("usuarioId") String usuarioId) {
+        return usuarios.obtener(usuarioId);
     }
 
     /** Clave pública con la que los demás servicios verifican los tokens. */

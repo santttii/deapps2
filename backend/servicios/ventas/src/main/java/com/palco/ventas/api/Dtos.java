@@ -191,4 +191,43 @@ public final class Dtos {
                     creada, venceReserva, pagoId, entradasConEnlaces, nuevos);
         }
     }
+
+    /**
+     * Un día de ventas de un evento, para el panel del organizador. La fecha
+     * es la de confirmación del pago, en formato {@code 2026-10-30}.
+     */
+    public record DiaDeVentasDto(
+            String fecha,
+            int ventas,
+            int entradas,
+            /** Precio de lista, sin el cargo de servicio: es lo que se le liquida al organizador. */
+            long subtotal,
+            /** El cargo de servicio de Palco de ese día. */
+            long cargoServicio,
+            /** Lo que pagaron los compradores: subtotal + cargo. */
+            long total) {
+    }
+
+    /**
+     * La liquidación de un evento: cuánto pagaron los compradores, cuánto se
+     * queda Palco por el cargo de servicio y cuánto le corresponde al
+     * organizador.
+     *
+     * Solo cuenta las compras pagadas y vigentes ({@code CONFIRMADA} y
+     * {@code EMITIDA}): una venta anulada por la cancelación del evento se
+     * reembolsa y no se liquida. Las compras de la reventa oficial son ventas
+     * nuevas y entran acá como cualquier otra.
+     */
+    public record LiquidacionDto(
+            int ventas,
+            int entradas,
+            long recaudadoDeLosCompradores,
+            long cargoDePalco,
+            /** {@code recaudadoDeLosCompradores} menos {@code cargoDePalco}. */
+            long aLiquidarAlOrganizador) {
+    }
+
+    /** El resumen de ventas de un evento: el detalle por día y el total a liquidar. */
+    public record ResumenDeVentasDto(String eventoId, List<DiaDeVentasDto> porDia, LiquidacionDto liquidacion) {
+    }
 }

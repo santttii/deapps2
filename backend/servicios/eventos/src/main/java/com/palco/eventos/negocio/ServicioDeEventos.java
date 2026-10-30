@@ -5,17 +5,25 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.Textos;
+import com.palco.common.mensajeria.EventoCanceladoMensaje;
+import com.palco.common.mensajeria.PublicadorDeCancelaciones;
+import com.palco.eventos.api.Dtos.EditarEventoDto;
 import com.palco.eventos.api.Dtos.EventoDto;
 import com.palco.eventos.api.Dtos.NuevoEventoDto;
 import com.palco.eventos.api.Dtos.NuevoSectorDto;
 import com.palco.eventos.api.Dtos.SectorDto;
+import com.palco.eventos.api.Dtos.SectorEditadoDto;
 import com.palco.eventos.datos.DevolucionDeCupoRepository;
 import com.palco.eventos.datos.EventoRepository;
 import com.palco.eventos.datos.SectorRepository;
@@ -44,6 +52,13 @@ public class ServicioDeEventos implements IEventos {
      */
     static final ZoneId ZONA_DE_LOS_EVENTOS = ZoneId.of("America/Argentina/Buenos_Aires");
 
+    /**
+     * Slugs que no puede tener un evento porque son rutas de la API: un evento
+     * llamado "Míos" quedaría tapado por {@code GET /api/eventos/mios}. Lleva
+     * "-2" como cualquier slug repetido.
+     */
+    static final Set<String> SLUGS_RESERVADOS = Set.of(RUTA_MIOS, RUTA_IMAGENES);
+
     @Inject
     EventoRepository eventos;
 
@@ -52,6 +67,9 @@ public class ServicioDeEventos implements IEventos {
 
     @Inject
     DevolucionDeCupoRepository devoluciones;
+
+    @Inject
+    PublicadorDeCancelaciones cancelaciones;
 
     /** No es privado para que el test fije la hora. */
     Clock reloj = Clock.system(ZONA_DE_LOS_EVENTOS);
@@ -73,9 +91,14 @@ public class ServicioDeEventos implements IEventos {
 
     @Override
     public List<EventoDto> listarDelOrganizador(String organizadorId) {
-        return eventos.listarDelOrganizador(organizadorId).stream()
-                .map(ServicioDeEventos::aDto)
-                .toList();
+        return eventos.listarDelOrganizador(organizadorId).stream().map(ServicioDeEventos::aDto).toList();
+    }
+
+    @Override
+    public String organizadorDe(String eventoId) {
+        return eventos.buscarPorId(eventoId)
+                .map(Evento::getOrganizadorId)
+                .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe el evento " + eventoId + "."));
     }
 
     @Override
@@ -112,13 +135,137 @@ public class ServicioDeEventos implements IEventos {
     }
 
     @Override
+    public EventoDto editarEvento(String eventoId, EditarEventoDto cambios, String organizadorId) {
+        Evento evento = propio(eventoId, organizadorId);
+        if (evento.isCancelado()) {
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_CANCELADO,
+                    "El evento está cancelado: no se puede editar.");
+        }
+        if (yaEmpezo(evento.getFecha())) {
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_FINALIZADO,
+                    "El evento ya empezó: no se puede editar.");
+        }
+        if (yaEmpezo(cambios.fechaISO())) {
+            throw new ErroresDeNegocio.DatosInvalidos("fechaISO", "La fecha del evento tiene que ser futura.");
+        }
+
+        evento.actualizarDatos(
+                cambios.titulo().trim(),
+                parsearCategoria(cambios.categoria()),
+                cambios.venue().trim(),
+                cambios.fechaISO(),
+                cambios.descripcion().trim(),
+                cambios.imagenUrl());
+        aplicarSectores(evento, cambios.sectores());
+        return aDto(evento);
+    }
+
+    /**
+     * Deja el evento con exactamente los sectores de la lista: cambia los que
+     * traen id, agrega los que no y quita los que no aparecen. El orden del
+     * resultado es el de la lista que llegó.
+     */
+    private void aplicarSectores(Evento evento, List<SectorEditadoDto> pedidos) {
+        Map<String, Sector> actuales = evento.getSectores().stream()
+                .collect(Collectors.toMap(Sector::getId, s -> s));
+
+        // Primero los que se van: un sector con entradas vendidas no se puede quitar.
+        Set<String> quedan = pedidos.stream()
+                .map(SectorEditadoDto::id)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        for (Sector sector : List.copyOf(evento.getSectores())) {
+            if (!quedan.contains(sector.getId())) {
+                if (sector.getVendidas() > 0) {
+                    throw new ErroresDeNegocio.Conflicto(TiposDeProblema.SECTOR_CON_VENTAS,
+                            "No se puede quitar " + sector.getNombre() + ": ya tiene "
+                                    + sector.getVendidas() + " entradas vendidas.");
+                }
+                evento.quitarSector(sector);
+            }
+        }
+
+        int orden = 1;
+        for (SectorEditadoDto pedido : pedidos) {
+            if (pedido.id() == null || pedido.id().isBlank()) {
+                evento.agregarSector(new Sector(nuevoId("sec"), evento, pedido.nombre().trim(),
+                        pedido.precio(), pedido.cupo(), orden++));
+                continue;
+            }
+            Sector sector = actuales.get(pedido.id());
+            if (sector == null) {
+                throw new ErroresDeNegocio.DatosInvalidos("sectores",
+                        "El sector " + pedido.id() + " no es de este evento.");
+            }
+            cambiar(sector, pedido, orden++);
+        }
+    }
+
+    /** Un sector que ya existe: lo que se puede cambiar depende de si tiene ventas. */
+    private void cambiar(Sector sector, SectorEditadoDto pedido, int orden) {
+        if (pedido.cupo() < sector.getVendidas()) {
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.SECTOR_CON_VENTAS,
+                    "El cupo de " + sector.getNombre() + " no puede ser menor que las "
+                            + sector.getVendidas() + " entradas ya vendidas.");
+        }
+        if (pedido.precio() != sector.getPrecio() && sector.getVendidas() > 0) {
+            // El tope de la reventa se calcula sobre lo que pagó cada comprador: mover el
+            // precio de lista después de vender dejaría topes que no se corresponden.
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.SECTOR_CON_VENTAS,
+                    "No se puede cambiar el precio de " + sector.getNombre() + ": ya tiene entradas vendidas.");
+        }
+        sector.renombrar(pedido.nombre().trim());
+        sector.cambiarPrecio(pedido.precio());
+        sector.cambiarCupo(pedido.cupo());
+        sector.cambiarOrden(orden);
+    }
+
+    /** El evento, si es de ese organizador. Si no existe o es de otro, 404: para él no existe. */
+    private Evento propio(String eventoId, String organizadorId) {
+        Evento evento = eventos.buscarPorId(eventoId).orElse(null);
+        if (evento == null || evento.getOrganizadorId() == null
+                || !evento.getOrganizadorId().equals(organizadorId)) {
+            throw new ErroresDeNegocio.NoEncontrado("No existe ese evento entre los tuyos.");
+        }
+        return evento;
+    }
+
+    @Override
+    public EventoDto cancelarEvento(String eventoId, String motivo, String organizadorId) {
+        Evento evento = propio(eventoId, organizadorId);
+        if (evento.isCancelado()) {
+            // Cortar acá es lo que evita que una segunda cancelación publique otro mensaje
+            // y Ventas reembolse dos veces.
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_CANCELADO,
+                    "El evento ya está cancelado.");
+        }
+        if (yaEmpezo(evento.getFecha())) {
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_FINALIZADO,
+                    "El evento ya empezó: no se puede cancelar.");
+        }
+
+        LocalDateTime ahora = LocalDateTime.now(reloj);
+        evento.cancelar(motivo, ahora);
+        // En la misma transacción que la marca: si el mensaje no sale, el evento no queda
+        // cancelado, y si la marca se deshace, nadie reembolsa. El publicador es MANDATORY.
+        cancelaciones.publicarEventoCancelado(new EventoCanceladoMensaje(
+                evento.getId(), evento.getTitulo(), evento.getCancelacionMotivo(),
+                ahora.atZone(ZONA_DE_LOS_EVENTOS).toInstant()));
+        return aDto(evento);
+    }
+
+    @Override
     public SectorDto actualizarCupo(String eventoId, String sectorId, int cantidad) {
         Sector sector = delEvento(eventoId, sectorId);
         if (cantidad == 0) {
             return aDto(sector);
         }
         // Solo se frena la reserva. Devolver lugares (cantidad negativa) tiene que andar siempre:
-        // cancelar o vencer una compra no puede fallar porque el evento ya empezó.
+        // cancelar o vencer una compra no puede fallar porque el evento esté cancelado o ya haya empezado.
+        if (cantidad > 0 && sector.getEvento().isCancelado()) {
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_CANCELADO,
+                    "El evento está cancelado: no se venden más entradas.");
+        }
         if (cantidad > 0 && yaEmpezo(sector.getEvento().getFecha())) {
             throw new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_FINALIZADO,
                     "El evento ya empezó: no se venden más entradas.");
@@ -186,8 +333,7 @@ public class ServicioDeEventos implements IEventos {
     private String slugUnico(String titulo) {
         String base = Textos.slug(titulo);
         String candidato = base;
-        // "mios" no se puede usar: GET /api/eventos/mios es la lista del organizador, no un detalle.
-        for (int n = 2; candidato.equals(RUTA_MIOS) || eventos.existeSlug(candidato); n++) {
+        for (int n = 2; SLUGS_RESERVADOS.contains(candidato) || eventos.existeSlug(candidato); n++) {
             candidato = base + "-" + n;
         }
         return candidato;
@@ -208,6 +354,8 @@ public class ServicioDeEventos implements IEventos {
                 e.getDescripcion(),
                 e.isDestacado(),
                 e.getImagenUrl(),
+                e.isCancelado(),
+                e.getCancelacionMotivo(),
                 e.getSectores().stream().map(ServicioDeEventos::aDto).toList());
     }
 

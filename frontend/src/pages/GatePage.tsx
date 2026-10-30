@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useApp } from '../store/AppContext';
 import { mensajeDeError } from '../lib/api';
 import { fechaHora, formatearDNI } from '../lib/format';
-import { escanear, listarEscaneos, type Escaneo, type ResultadoDeEscaneo } from '../servicios/validacion';
+import { escanear, listarEscaneos, misPuertas, type Escaneo, type ResultadoDeEscaneo } from '../servicios/validacion';
 import ImagePlaceholder from '../components/ImagePlaceholder';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -25,7 +25,10 @@ function hora(iso: string): string {
 // Control de acceso del personal de puerta (rol staff). Cada código leído (o tipeado) va a
 // Validación (POST /api/v1/validacion/escaneos), que consulta a Ventas y marca la entrada como
 // usada en el mismo paso: no hay un segundo botón de "marcar ingreso". El resultado, el texto y
-// el titular para contrastar con el documento vienen del backend.
+// el titular para contrastar con el documento vienen del backend. Solo se ofrecen los eventos a los
+// que el organizador asignó esta cuenta (GET /api/v1/validacion/puertas/mias).
+type Puertas = { fase: 'cargando' } | { fase: 'error'; mensaje: string } | { fase: 'lista'; eventoIds: string[] };
+
 export default function GatePage() {
   const { state } = useApp();
   const [eventoId, setEventoId] = useState('');
@@ -35,8 +38,21 @@ export default function GatePage() {
   const [enviando, setEnviando] = useState(false);
   const [registro, setRegistro] = useState<Escaneo[]>([]);
   const [vueltas, setVueltas] = useState(0); // sube después de cada escaneo
+  const [puertas, setPuertas] = useState<Puertas>({ fase: 'cargando' });
 
-  const evento = state.eventos.find((e) => e.id === eventoId) ?? state.eventos[0];
+  useEffect(() => {
+    let vigente = true;
+    misPuertas()
+      .then((lista) => vigente && setPuertas({ fase: 'lista', eventoIds: lista.map((p) => p.eventoId) }))
+      .catch((err: unknown) => vigente && setPuertas({ fase: 'error', mensaje: mensajeDeError(err) }));
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  const eventosDeLaPuerta =
+    puertas.fase === 'lista' ? state.eventos.filter((e) => puertas.eventoIds.includes(e.id)) : [];
+  const evento = eventosDeLaPuerta.find((e) => e.id === eventoId) ?? eventosDeLaPuerta[0];
   const idEvento = evento?.id;
 
   // El registro de esta puerta, del más nuevo al más viejo. Si no se puede leer, la puerta sigue
@@ -77,6 +93,21 @@ export default function GatePage() {
     <PageTransition>
       <div className="mx-auto max-w-[1240px] px-7 py-10">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Validación en puerta</h1>
+        {puertas.fase === 'cargando' && (
+          <p role="status" className="mt-4 text-sm text-muted">
+            Buscando tus puertas…
+          </p>
+        )}
+        {puertas.fase === 'error' && (
+          <p role="alert" className="mt-4 text-sm text-muted">
+            {puertas.mensaje}
+          </p>
+        )}
+        {puertas.fase === 'lista' && eventosDeLaPuerta.length === 0 && (
+          <p role="alert" className="mt-4 text-sm text-muted">
+            No estás asignado a la puerta de ningún evento. Pedile al organizador que te agregue a su equipo de puerta.
+          </p>
+        )}
 
         <div className="mt-6 grid grid-cols-1 gap-8 md:grid-cols-2">
           <div>
@@ -103,7 +134,7 @@ export default function GatePage() {
                   }}
                   className="min-h-[44px] border border-edge bg-paper px-3 text-sm"
                 >
-                  {state.eventos.map((ev) => (
+                  {eventosDeLaPuerta.map((ev) => (
                     <option key={ev.id} value={ev.id}>
                       {ev.titulo} · {fechaHora(ev.fechaISO)}
                     </option>

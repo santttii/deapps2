@@ -76,14 +76,16 @@ class AvisoDeCompraMDBTest {
     }
 
     @Test
-    void elLogDiceQueElAvisoNoSeEnviaPorqueNoHayProveedorDeCorreo() throws JMSException {
+    void elLogDeUnMensajeAtendidoNombraLaVentaYNoAfirmaQueElEmailSalio() throws JMSException {
+        // El MDB no sabe si el email salió: eso lo decide ServicioDeNotificaciones, que si no
+        // consigue el email del comprador o el SMTP no contesta deja el aviso en su propio log.
         PagoConfirmadoMensaje mensaje = Ejemplos.pagoConfirmado();
 
         try (LogCapturado log = new LogCapturado(AvisoDeCompraMDB.class)) {
             mdb.onMessage(mensajeDeTexto(mensaje.aJson()));
 
-            assertEquals(List.of("AvisoDeCompra: aviso por la venta " + mensaje.ventaId()
-                    + " registrado en el log; no se envía: no hay proveedor de correo."), log.lineas());
+            assertEquals(List.of("AvisoDeCompra: atendido el aviso por la venta " + mensaje.ventaId() + "."),
+                    log.lineas());
             assertFalse(log.lineas().get(0).contains("enviado"), log.lineas().get(0));
         }
     }

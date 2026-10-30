@@ -1,77 +1,81 @@
 package com.palco.validacion.negocio.externos;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
-import java.util.Set;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.seguridad.TokenDeServicio;
 
-/**
- * Qué hace Validación con cada respuesta de {@code GET /api/eventos/mios}. Sin
- * servidor: la llamada HTTP se reemplaza por una respuesta preparada.
- */
+/** Qué hace Validación con cada respuesta de Eventos al preguntar el dueño de un evento. Sin red. */
 class ClienteDeEventosTest {
 
-    private static final String DOS_EVENTOS = """
-            [{"id":"ev-1","slug":"atletico-norte-racing-sur","titulo":"Atlético Norte vs. Racing del Sur",
-              "sectores":[{"id":"sec-1-1","nombre":"Popular norte","precio":18000,"cupo":4000,"vendidas":3680}]},
-             {"id":"ev-4","slug":"el-metodo-gronholm","titulo":"El método Grönholm","sectores":[]}]""";
-
-    /** Entrega la respuesta que le cargó el test y anota con qué token se llamó. */
     private static class EventosSinRed extends ClienteDeEventos {
-        Respuesta respuesta;
-        final List<String> tokens = new ArrayList<>();
+        final Deque<Respuesta> respuestas = new ArrayDeque<>();
+        final List<String> llamadas = new ArrayList<>();
 
         void responde(int estado, String cuerpo) {
-            respuesta = new Respuesta(estado, cuerpo);
+            respuestas.add(new Respuesta(estado, cuerpo));
         }
 
         @Override
-        Respuesta enviar(String token) {
-            tokens.add(token);
-            return respuesta;
+        Respuesta enviar(String eventoId, String token) {
+            llamadas.add(eventoId + " " + token);
+            return respuestas.removeFirst();
         }
     }
 
+    private final TokenDeServicio token = mock(TokenDeServicio.class);
     private final EventosSinRed eventos = new EventosSinRed();
 
-    @Test
-    void devuelveLosIdsDeLosEventosYPreguntaConElTokenDelOrganizador() {
-        eventos.responde(200, DOS_EVENTOS);
-
-        assertEquals(Set.of("ev-1", "ev-4"), eventos.eventosDelOrganizador("token-del-organizador"));
-        assertEquals(List.of("token-del-organizador"), eventos.tokens);
+    @BeforeEach
+    void armar() {
+        eventos.tokenDeServicio = token;
+        when(token.obtener()).thenReturn("token-1", "token-2");
     }
 
     @Test
-    void unOrganizadorSinEventosRecibeUnaListaVacia() {
-        eventos.responde(200, "[]");
+    void conUn200DevuelveElOrganizadorOElNullDeUnEventoSinDueno() {
+        eventos.responde(200, "{\"eventoId\":\"ev-1\",\"organizadorId\":\"user-organizador\"}");
+        eventos.responde(200, "{\"eventoId\":\"ev-2\",\"organizadorId\":null}");
 
-        assertEquals(Set.of(), eventos.eventosDelOrganizador("token"));
+        assertEquals("user-organizador", eventos.organizadorDe("ev-1"));
+        assertNull(eventos.organizadorDe("ev-2"));
+        assertEquals(List.of("ev-1 token-1", "ev-2 token-2"), eventos.llamadas);
     }
 
     @Test
-    void cualquierOtroEstadoEsSinRespuesta() {
-        for (int estado : new int[] { 401, 403, 500, 503 }) {
-            eventos.responde(estado, null);
+    void elNoEncontradoDeEventosEsNoEncontradoYUnoSinSuErrorEsQueNoSeSabe() {
+        eventos.responde(404, "{\"type\":\"/problemas/no-encontrado\"}");
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> eventos.organizadorDe("ev-9"));
 
-            assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> eventos.eventosDelOrganizador("token"),
-                    "estado " + estado);
-        }
+        eventos.responde(404, "<html>Not Found</html>");
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> eventos.organizadorDe("ev-9"));
+        eventos.responde(500, null);
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> eventos.organizadorDe("ev-9"));
+        // Un 200 de otro evento tampoco sirve.
+        eventos.responde(200, "{\"eventoId\":\"ev-2\",\"organizadorId\":\"user-organizador\"}");
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> eventos.organizadorDe("ev-1"));
     }
 
     @Test
-    void unCuerpoQueNoEsUnaListaEsSinRespuesta() {
-        for (String cuerpo : new String[] { null, "", "{\"id\":\"ev-1\"}", "no es json" }) {
-            eventos.responde(200, cuerpo);
+    void anteUn401PideOtroTokenYRepiteUnaVez() {
+        eventos.responde(401, null);
+        eventos.responde(200, "{\"eventoId\":\"ev-1\",\"organizadorId\":\"user-organizador\"}");
 
-            assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> eventos.eventosDelOrganizador("token"),
-                    "cuerpo " + cuerpo);
-        }
+        assertEquals("user-organizador", eventos.organizadorDe("ev-1"));
+        verify(token).invalidar();
+        assertEquals(List.of("ev-1 token-1", "ev-1 token-2"), eventos.llamadas);
     }
 }

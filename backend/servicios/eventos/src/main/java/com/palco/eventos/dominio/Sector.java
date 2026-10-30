@@ -49,6 +49,34 @@ public class Sector {
         this.orden = orden;
     }
 
+    public void renombrar(String nombre) {
+        this.nombre = nombre;
+    }
+
+    /**
+     * Cambia el precio de lista. Quien llama tiene que haber comprobado que no
+     * haya entradas vendidas: el tope de la reventa se calcula sobre el precio
+     * que pagó cada comprador, y mover el de lista después de vender dejaría
+     * publicaciones con topes que no se corresponden con lo que se cobró.
+     */
+    public void cambiarPrecio(long precio) {
+        this.precio = precio;
+    }
+
+    /**
+     * Cambia el cupo. Quien llama tiene que haber comprobado que el cupo nuevo
+     * no sea menor que las vendidas: la base lo garantiza igual
+     * ({@code sector_vendidas_validas}), pero como error de restricción y no
+     * con un mensaje que se entienda.
+     */
+    public void cambiarCupo(int cupo) {
+        this.cupo = cupo;
+    }
+
+    public void cambiarOrden(int orden) {
+        this.orden = orden;
+    }
+
     public int disponibles() {
         return cupo - vendidas;
     }

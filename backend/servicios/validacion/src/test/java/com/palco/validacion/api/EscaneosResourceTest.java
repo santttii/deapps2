@@ -2,7 +2,6 @@ package com.palco.validacion.api;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -21,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import com.palco.common.ErroresDeNegocio;
 import com.palco.validacion.api.Dtos.NuevoEscaneoDto;
 import com.palco.validacion.negocio.IValidacion;
+import com.palco.validacion.negocio.Solicitante;
 
 /**
  * Lo que el recurso decide por su cuenta, sin servidor: que sin un token de
@@ -59,22 +59,34 @@ class EscaneosResourceTest {
     }
 
     @Test
-    void alPersonalDePuertaNoSeLeControlaElDuenoDelEvento() {
-        SecurityContext puerta = mock(SecurityContext.class);
-        when(puerta.isUserInRole("staff")).thenReturn(true);
-
-        assertNull(EscaneosResource.tokenDelOrganizador(puerta));
+    void laPuertaLaArmaElOrganizadorYElStaffVeLasSuyas() throws NoSuchMethodException {
+        assertArrayEquals(new String[] { "staff" },
+                roles(PuertasResource.class.getMethod("mias", SecurityContext.class)));
+        assertArrayEquals(new String[] { "organizer" },
+                roles(PuertasResource.class.getMethod("equipo", String.class, SecurityContext.class)));
+        assertArrayEquals(new String[] { "organizer" },
+                roles(PuertasResource.class.getMethod("asignar", String.class, String.class, SecurityContext.class)));
+        assertArrayEquals(new String[] { "organizer" },
+                roles(PuertasResource.class.getMethod("quitar", String.class, String.class, SecurityContext.class)));
     }
 
     @Test
-    void alOrganizadorSeLeControlaConSuPropioToken() {
-        JsonWebToken token = mock(JsonWebToken.class);
-        when(token.getRawToken()).thenReturn("token-del-organizador");
-        SecurityContext organizador = mock(SecurityContext.class);
-        when(organizador.isUserInRole("organizer")).thenReturn(true);
-        when(organizador.getUserPrincipal()).thenReturn(token);
+    void conRolOrganizerElPedidoEsDelOrganizadorYSiNoDelStaffConSuEmailEnMinusculas() {
+        SecurityContext organizador = token("U-org", "Organizador@Palco.test", true);
+        SecurityContext staff = token("U-puerta", "puerta@palco.test", false);
 
-        assertEquals("token-del-organizador", EscaneosResource.tokenDelOrganizador(organizador));
+        assertEquals(Solicitante.organizador("U-org", "organizador@palco.test"), EscaneosResource.quien(organizador));
+        assertEquals(Solicitante.staff("U-puerta", "puerta@palco.test"), EscaneosResource.quien(staff));
+    }
+
+    private static SecurityContext token(String id, String email, boolean organizador) {
+        org.eclipse.microprofile.jwt.JsonWebToken jwt = mock(org.eclipse.microprofile.jwt.JsonWebToken.class);
+        when(jwt.getSubject()).thenReturn(id);
+        when(jwt.getName()).thenReturn(email);
+        SecurityContext seguridad = mock(SecurityContext.class);
+        when(seguridad.getUserPrincipal()).thenReturn(jwt);
+        when(seguridad.isUserInRole("organizer")).thenReturn(organizador);
+        return seguridad;
     }
 
     // ---------------------------------------------------------------------------------------------

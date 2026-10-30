@@ -95,6 +95,33 @@ public interface VentaRepository {
     boolean cancelar(String ventaId);
 
     /**
+     * Las ventas pagadas de un evento, de la más nueva a la más vieja: las que
+     * hay que anular y reembolsar cuando se cancela el evento. Son las
+     * {@code CONFIRMADA} y las {@code EMITIDA}; una {@code EN_CHECKOUT} no se
+     * cobró y la vence el barrido, y las ya canceladas o vencidas no tienen
+     * nada que devolver.
+     */
+    List<Venta> pagadasDelEvento(String eventoId);
+
+    /**
+     * Anula una venta pagada porque se canceló su evento: la pasa a
+     * {@code CANCELADA} y marca el cupo por devolver. Es un UPDATE con la
+     * condición adentro (tiene que seguir {@code CONFIRMADA} o
+     * {@code EMITIDA}), así que repetirlo no cambia nada y devuelve false: es
+     * lo que hace idempotente a la cancelación si el mensaje llega dos veces.
+     */
+    boolean anularPorCancelacionDelEvento(String ventaId);
+
+    /**
+     * Las ventas pagadas de un evento con sus renglones ya cargados, de la más
+     * vieja a la más nueva, para el resumen del panel del organizador. Es la
+     * misma selección que {@link #pagadasDelEvento} (las {@code CONFIRMADA} y
+     * las {@code EMITIDA}: una anulada no se liquida), pero trae los items en
+     * la misma consulta, porque el resumen cuenta entradas.
+     */
+    List<Venta> pagadasDelEventoConItems(String eventoId);
+
+    /**
      * {@code EN_CHECKOUT} → {@code VENCIDA}, solo si la reserva ya venció en el
      * instante {@code ahora}, con la marca de devolución de cupo pendiente. No
      * cambia nada si hay un pago en curso.

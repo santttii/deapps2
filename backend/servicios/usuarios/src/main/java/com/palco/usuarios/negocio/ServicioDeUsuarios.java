@@ -25,17 +25,23 @@ import jakarta.inject.Inject;
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.ReglasDeNegocio;
 import com.palco.common.Textos;
+import com.palco.common.email.CorreoAlLog;
+import com.palco.common.email.Correos;
+import com.palco.common.email.Email;
 import com.palco.common.seguridad.TokenDeServicio;
 import com.palco.usuarios.api.Dtos.LoginDto;
+import com.palco.usuarios.api.Dtos.ReinicioDto;
 import com.palco.usuarios.api.Dtos.RegistroDto;
 import com.palco.usuarios.api.Dtos.RegistroPendienteDto;
 import com.palco.usuarios.api.Dtos.SesionDto;
 import com.palco.usuarios.api.Dtos.TokenDeServicioDto;
 import com.palco.usuarios.api.Dtos.UsuarioDto;
 import com.palco.usuarios.api.Dtos.VerificacionDto;
+import com.palco.usuarios.datos.CodigoDeReinicioRepository;
 import com.palco.usuarios.datos.CodigoVerificacionRepository;
 import com.palco.usuarios.datos.IntentoLoginRepository;
 import com.palco.usuarios.datos.UsuarioRepository;
+import com.palco.usuarios.dominio.CodigoDeReinicio;
 import com.palco.usuarios.dominio.CodigoVerificacion;
 import com.palco.usuarios.dominio.Rol;
 import com.palco.usuarios.dominio.Usuario;
@@ -101,7 +107,18 @@ public class ServicioDeUsuarios implements IUsuarios {
     CodigoVerificacionRepository codigos;
 
     @Inject
+    CodigoDeReinicioRepository reinicios;
+
+    @Inject
     IntentoLoginRepository intentos;
+
+    /**
+     * Por dónde salen los emails. En el servidor lo reemplaza CDI con lo que
+     * elija {@code FabricaDeCorreos}; el valor de acá es el que usan los tests,
+     * que no tienen contenedor.
+     */
+    @Inject
+    Correos correos = new CorreoAlLog();
 
     @Inject
     ClavesJwt claves;
@@ -232,6 +249,62 @@ public class ServicioDeUsuarios implements IUsuarios {
     }
 
     @Override
+    public void pedirReinicioDePassword(String email) {
+        Optional<Usuario> encontrado = usuarios.buscarPorEmail(normalizarEmail(email))
+                .filter(Usuario::isEmailVerificado);
+        if (encontrado.isEmpty()) {
+            // No se revela si el email existe. Una cuenta sin verificar tiene que terminar
+            // de verificarse, no reiniciar la contraseña: para ella el pedido tampoco hace nada.
+            return;
+        }
+        Usuario usuario = encontrado.get();
+        CodigoDeReinicio codigo = reinicios.buscarPorUsuario(usuario.getId()).orElse(null);
+        if (codigo == null) {
+            codigo = new CodigoDeReinicio(usuario.getId());
+            mandarCodigoDeReinicio(usuario, codigo);
+            reinicios.guardar(codigo);
+            return;
+        }
+        // A diferencia de reenviarCodigo, pedirlo de nuevo antes de los 30 segundos no es un
+        // error: sería la única respuesta distinta según si el email existe, y con eso se
+        // podrían averiguar las cuentas registradas. Se deja el código que ya salió.
+        if (codigo.getEnviado().plus(ESPERA_REENVIO).isAfter(LocalDateTime.now(reloj))) {
+            return;
+        }
+        mandarCodigoDeReinicio(usuario, codigo);
+    }
+
+    @Override
+    public void reiniciarPassword(ReinicioDto r) {
+        String email = normalizarEmail(r.email());
+        Usuario usuario = usuarios.buscarPorEmail(email)
+                .filter(Usuario::isEmailVerificado)
+                .orElseThrow(() -> new ErroresDeNegocio.DatosInvalidos("codigo", "El código no es correcto."));
+
+        CodigoDeReinicio codigo = reinicios.buscarPorUsuario(usuario.getId()).orElse(null);
+        if (codigo == null || LocalDateTime.now(reloj).isAfter(codigo.getExpira())) {
+            throw new ErroresDeNegocio.DatosInvalidos("codigo", "El código venció. Pedí uno nuevo.");
+        }
+        if (codigo.getIntentos() >= MAX_INTENTOS_CODIGO) {
+            throw new ErroresDeNegocio.DatosInvalidos("codigo", "Demasiados intentos. Pedí un código nuevo.");
+        }
+        if (!MessageDigest.isEqual(
+                codigo.getCodigoHash().getBytes(StandardCharsets.US_ASCII),
+                sha256(r.codigo()).getBytes(StandardCharsets.US_ASCII))) {
+            // El intento cuenta aunque la respuesta sea un error: no se deshace la transacción.
+            codigo.sumarIntento();
+            reinicios.guardarCambios(codigo);
+            throw new CodigoIncorrecto();
+        }
+
+        usuario.cambiarPassword(Contrasenas.hashear(r.password()));
+        reinicios.borrar(codigo);
+        // Quien olvidó la contraseña suele haber fallado varias veces y quedado bloqueado:
+        // con la nueva tiene que poder entrar sin esperar los 15 minutos.
+        intentos.olvidar(sha256(email));
+    }
+
+    @Override
     public UsuarioDto obtener(String usuarioId) {
         return usuarios.buscarPorId(usuarioId)
                 .map(ServicioDeUsuarios::aDto)
@@ -306,12 +379,27 @@ public class ServicioDeUsuarios implements IUsuarios {
     }
 
     private void enviarCodigoNuevo(Usuario usuario, CodigoVerificacion codigo) {
-        String numero = "%06d".formatted(AZAR.nextInt(1_000_000));
-        LocalDateTime ahora = LocalDateTime.now();
+        String numero = nuevoCodigo();
+        LocalDateTime ahora = LocalDateTime.now(reloj);
         codigo.renovar(sha256(numero), ahora, ahora.plus(VIGENCIA_CODIGO));
-        // TODO(ServicioDeNotificaciones): mandarlo por email. Mientras tanto queda en el log del servidor.
-        // El email lo escribió quien se registra: al log va en un solo renglón (ver Textos.enUnaLinea).
-        LOG.info("Código de verificación para " + Textos.enUnaLinea(usuario.getEmail()) + ": " + numero);
+        correos.enviar(new Email(usuario.getEmail(), "Tu código de Palco",
+                "Hola " + usuario.getNombre() + ": tu código para verificar el email es " + numero
+                        + ". Vence en " + VIGENCIA_CODIGO.toMinutes() + " minutos."));
+    }
+
+    private void mandarCodigoDeReinicio(Usuario usuario, CodigoDeReinicio codigo) {
+        String numero = nuevoCodigo();
+        LocalDateTime ahora = LocalDateTime.now(reloj);
+        codigo.renovar(sha256(numero), ahora, ahora.plus(VIGENCIA_CODIGO));
+        correos.enviar(new Email(usuario.getEmail(), "Volvé a poner tu contraseña de Palco",
+                "Hola " + usuario.getNombre() + ": tu código para poner una contraseña nueva es " + numero
+                        + ". Vence en " + VIGENCIA_CODIGO.toMinutes() + " minutos."
+                        + " Si no lo pediste, no hace falta que hagas nada."));
+    }
+
+    /** Seis dígitos al azar, con SecureRandom: un Random común se puede predecir. */
+    private static String nuevoCodigo() {
+        return "%06d".formatted(AZAR.nextInt(1_000_000));
     }
 
     private static String normalizarEmail(String email) {

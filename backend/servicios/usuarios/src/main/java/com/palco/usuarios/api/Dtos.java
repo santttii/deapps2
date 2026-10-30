@@ -66,6 +66,25 @@ public final class Dtos {
     public record ReenvioDto(@NotBlank(message = "Ingresá tu email.") String email) {
     }
 
+    /**
+     * Pedido de reinicio de contraseña: solo el email. La respuesta es la misma
+     * exista o no la cuenta, para no revelar qué emails están registrados.
+     */
+    public record OlvideDto(@NotBlank(message = "Ingresá tu email.") String email) {
+    }
+
+    /** El código que llegó por email y la contraseña nueva. */
+    public record ReinicioDto(
+            @NotBlank(message = "Ingresá tu email.") String email,
+
+            @NotBlank(message = "Ingresá el código de 6 dígitos.")
+            @Pattern(regexp = "^\\d{6}$", message = "Ingresá el código de 6 dígitos.") String codigo,
+
+            @NotNull(message = "Mínimo 8 caracteres, con letras y números.")
+            @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).{8,}$", message = "Mínimo 8 caracteres, con letras y números.")
+            String password) {
+    }
+
     public record LoginDto(
             @NotBlank(message = "Revisá el email y la contraseña.") String email,
             @NotBlank(message = "Revisá el email y la contraseña.") String password) {

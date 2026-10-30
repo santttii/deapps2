@@ -27,11 +27,12 @@ import com.palco.validacion.api.Dtos.EscaneoDto;
 import com.palco.validacion.api.Dtos.NuevoEscaneoDto;
 import com.palco.validacion.api.Dtos.ResultadoDeEscaneoDto;
 import com.palco.validacion.negocio.IValidacion;
+import com.palco.validacion.negocio.Solicitante;
 
 /**
  * API REST de la puerta, en {@code /api/v1/validacion/escaneos}. Escanear lo
- * hace solo el personal de puerta ({@code staff}); el registro lo ve también
- * el organizador.
+ * hace solo el personal de puerta ({@code staff}) asignado a ese evento; el
+ * registro lo ve también el organizador dueño del evento (limitación L17).
  *
  * Cada escaneo responde 201, sea cual sea el resultado: lo que se crea es el
  * renglón del registro, que existe tanto si la entrada era válida como si no.
@@ -63,7 +64,7 @@ public class EscaneosResource {
     public Response escanear(@NotNull(message = "Falta el cuerpo de la solicitud.") @Valid NuevoEscaneoDto nuevo,
             @Context SecurityContext seguridad, @Context UriInfo pedido) {
         ResultadoDeEscaneoDto resultado = validacion.escanear(nuevo.codigoQr(), nuevo.eventoId(),
-                Sesion.usuarioId(seguridad));
+                quien(seguridad));
         return Response.created(pedido.getAbsolutePathBuilder().path(resultado.id()).build())
                 .entity(resultado)
                 .build();
@@ -71,8 +72,9 @@ public class EscaneosResource {
 
     /**
      * {@code GET /api/v1/validacion/escaneos?eventoId=ev-1}: el registro de la
-     * puerta, del más nuevo al más viejo. El organizador ve solo el de sus
-     * eventos (403 {@code evento-ajeno} si no es suyo).
+     * puerta, del más nuevo al más viejo. Para el staff asignado a esa puerta
+     * (si no, 403 {@code puerta-no-asignada}) y el organizador dueño del evento
+     * (si no, 404).
      */
     @GET
     @RolesAllowed({ "staff", "organizer" })
@@ -82,7 +84,7 @@ public class EscaneosResource {
             @Size(max = 40, message = "El id del evento tiene hasta 40 caracteres.")
             String eventoId,
             @Context SecurityContext seguridad) {
-        return validacion.listar(eventoId, tokenDelOrganizador(seguridad));
+        return validacion.listar(eventoId, quien(seguridad));
     }
 
     /** {@code GET /api/v1/validacion/escaneos/ESC-1a2b3c4d}: un renglón del registro. */
@@ -90,15 +92,13 @@ public class EscaneosResource {
     @Path("{escaneoId}")
     @RolesAllowed({ "staff", "organizer" })
     public EscaneoDto obtener(@PathParam("escaneoId") String escaneoId, @Context SecurityContext seguridad) {
-        return validacion.obtener(escaneoId, tokenDelOrganizador(seguridad));
+        return validacion.obtener(escaneoId, quien(seguridad));
     }
 
-    /**
-     * El token de quien consulta si es organizador, para que el negocio le
-     * pregunte a Eventos cuáles son sus eventos; {@code null} si es el
-     * personal de puerta, que por ahora ve el registro de cualquier evento.
-     */
-    static String tokenDelOrganizador(SecurityContext seguridad) {
-        return seguridad.isUserInRole("staff") ? null : Sesion.tokenDelUsuario(seguridad);
+    /** Quién pide, según su token. Con rol {@code organizer} cuenta como organizador; si no, como staff. */
+    static Solicitante quien(SecurityContext seguridad) {
+        String id = Sesion.usuarioId(seguridad);
+        String email = Sesion.email(seguridad);
+        return seguridad.isUserInRole("organizer") ? Solicitante.organizador(id, email) : Solicitante.staff(id, email);
     }
 }

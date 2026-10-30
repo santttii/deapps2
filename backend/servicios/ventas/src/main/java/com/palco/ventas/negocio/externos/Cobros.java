@@ -14,6 +14,16 @@ import java.util.Optional;
  */
 public interface Cobros {
 
+    /** Cómo terminó un pedido de reembolso. */
+    enum Devolucion {
+        /** Pagos devolvió el pago (ahora o en un pedido anterior). */
+        HECHA,
+        /** Pagos contestó que ese pago no se puede devolver: no existe, no está aprobado o es de otra venta. */
+        RECHAZADA,
+        /** No se sabe: hay que repetir el pedido. */
+        SIN_RESPUESTA
+    }
+
     /**
      * Cobra una venta. Un rechazo no es una excepción: es un resultado, con
      * estado {@code RECHAZADO} y su motivo. Si quien cobra no contesta, lanza
@@ -40,4 +50,18 @@ public interface Cobros {
      * @param claveIdempotencia la misma que se pasó a {@link #cobrar}
      */
     Optional<ResultadoDeCobro> buscarCobro(String ventaId, String claveIdempotencia);
+
+    /**
+     * Pide que se devuelva el pago de una venta. Lo usa la cancelación de un
+     * evento: la entrada se anula y el dinero vuelve.
+     *
+     * No lanza: devuelve {@link Devolucion#SIN_RESPUESTA} si no se sabe si se
+     * devolvió, para que quien cancela decida qué hacer. Pagos devuelve un
+     * pago una sola vez, así que repetir el pedido es seguro.
+     *
+     * @param pagoId el pago que se quiere devolver
+     * @param ventaId la venta de ese pago, que Pagos comprueba
+     * @param motivo para qué se devuelve; queda en el pago
+     */
+    Devolucion reembolsar(String pagoId, String ventaId, String motivo);
 }

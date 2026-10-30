@@ -83,6 +83,16 @@ public class Usuario {
         this.identidadVerificada = true;
     }
 
+    /**
+     * Pone otro hash de contraseña. No invalida las sesiones que ya estén
+     * abiertas: el token es un JWT firmado, se valida sin consultar la base y
+     * no hay lista de revocados, así que una sesión robada sigue sirviendo
+     * hasta que vence (8 horas). Queda anotado como limitación.
+     */
+    public void cambiarPassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public String getId() { return id; }
     public String getNombre() { return nombre; }
     public String getApellido() { return apellido; }

@@ -1,15 +1,12 @@
 package com.palco.validacion.negocio.externos;
 
-import java.util.Arrays;
-import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.json.bind.Jsonb;
 import jakarta.json.bind.JsonbBuilder;
 import jakarta.json.bind.JsonbException;
@@ -25,55 +22,73 @@ import com.palco.common.Textos;
 import com.palco.common.seguridad.TokenDeServicio;
 
 /**
- * Lo que Validación le pide a ServicioDeEventos: los eventos de un organizador
- * ({@code GET /api/eventos/mios}), para que el organizador vea el registro de
- * la puerta solo de los suyos (limitación L17).
+ * Lo que Validación le pregunta a ServicioDeEventos: quién es el dueño de un
+ * evento ({@code GET /api/eventos/{eventoId}/organizador}, rol
+ * {@code servicio}). Con eso un organizador ve el registro y arma la puerta
+ * solo de sus eventos (limitación L17).
  *
- * A diferencia de {@link ClienteDeVentas}, no usa el token de servicio sino el
- * del organizador que hace el pedido: la pregunta es "¿cuáles son los eventos
- * de este usuario?", y Eventos la contesta con el {@code sub} del token. Así
- * Validación no tiene que mandar un id de usuario que Eventos debería creer, y
- * Eventos no necesita una consulta por dueño para otros servicios.
+ * El escaneo no la usa: si el staff está asignado se sabe en la base de
+ * Validación, así la puerta sigue funcionando aunque Eventos no responda.
  *
- * {@code @ApplicationScoped}: una instancia sin estado y un cliente HTTP para
- * todo el servicio, igual que {@link ClienteDeVentas}.
+ * {@code @ApplicationScoped}, como {@link ClienteDeVentas}: un solo cliente
+ * HTTP para todo el servicio y ningún dato de los pedidos.
  */
 @ApplicationScoped
 public class ClienteDeEventos {
 
     private static final Logger LOG = Logger.getLogger(ClienteDeEventos.class.getName());
 
-    static final String RUTA_DE_LOS_MIOS = "/api/eventos/mios";
+    static final String RUTA = "/api/eventos/%s/organizador";
+    static final String TIPO_NO_ENCONTRADO = "/problemas/no-encontrado";
     private static final String EVENTOS_NO_RESPONDE = "El servicio de eventos no responde. Probá de nuevo.";
 
     private static final Jsonb JSONB = JsonbBuilder.create();
 
-    /** Del evento solo interesa el id. */
-    public record Evento(String id) {
+    /** Lo que devuelve Eventos. {@code organizadorId} es null si el evento no tiene dueño. */
+    public record Organizador(String eventoId, String organizadorId) {
     }
 
-    /** Lo que se mira de una respuesta HTTP: el código de estado y el cuerpo como texto. */
+    /** De un error de Eventos solo se lee el {@code type}. */
+    public record Problema(String type) {
+    }
+
     record Respuesta(int estado, String cuerpo) {
     }
+
+    @Inject
+    TokenDeServicio tokenDeServicio;
 
     private Client cliente;
 
     /**
-     * Los ids de los eventos del organizador dueño del token. Lanza 504
-     * {@code sin-respuesta} si Eventos no contesta o contesta algo que no es
-     * la lista: sin la lista no se sabe si el evento es suyo, y ante la duda
-     * no se muestra el registro.
+     * El id del organizador dueño del evento, o null si no tiene. Lanza
+     * {@code NoEncontrado} si Eventos dice que el evento no existe, y
+     * {@code SinRespuesta} ante cualquier otra respuesta: no se sabe de quién es.
      */
-    public Set<String> eventosDelOrganizador(String tokenDelOrganizador) {
-        Respuesta respuesta = enviar(tokenDelOrganizador);
-        if (respuesta.estado() != 200) {
-            LOG.warning("Eventos respondió " + respuesta.estado() + " al pedir los eventos de un organizador.");
-            throw new ErroresDeNegocio.SinRespuesta(EVENTOS_NO_RESPONDE);
+    public String organizadorDe(String eventoId) {
+        Respuesta respuesta = enviar(eventoId, tokenDeServicio.obtener());
+        if (respuesta.estado() == 401) {
+            // Usuarios se redesplegó y cambió la clave: se pide otro token y se repite. Es una lectura.
+            tokenDeServicio.invalidar();
+            respuesta = enviar(eventoId, tokenDeServicio.obtener());
         }
-        return leer(respuesta.cuerpo());
+        if (respuesta.estado() == 200) {
+            Organizador leido = leer(respuesta.cuerpo(), Organizador.class);
+            if (leido != null && eventoId.equals(leido.eventoId())) {
+                return leido.organizadorId();
+            }
+        } else if (respuesta.estado() == 404) {
+            Problema problema = leer(respuesta.cuerpo(), Problema.class);
+            // Un 404 sin el error de Eventos es el servidor diciendo que el WAR no está: no se sabe nada.
+            if (problema != null && TIPO_NO_ENCONTRADO.equals(problema.type())) {
+                throw new ErroresDeNegocio.NoEncontrado("No existe ese evento.");
+            }
+        }
+        LOG.warning("Eventos respondió " + respuesta.estado() + " al preguntar el dueño del evento "
+                + Textos.enUnaLinea(eventoId) + ".");
+        throw new ErroresDeNegocio.SinRespuesta(EVENTOS_NO_RESPONDE);
     }
 
-    /** 2 segundos para conectar y 5 para leer, como el cliente de Ventas. */
     @PostConstruct
     void abrirCliente() {
         cliente = ClientBuilder.newBuilder()
@@ -87,36 +102,29 @@ public class ClienteDeEventos {
         cliente.close();
     }
 
-    /** Hace la llamada HTTP. No es privado para que el test lo reemplace y no necesite un servidor. */
-    Respuesta enviar(String token) {
+    /** La llamada HTTP. No es privada para que un test la reemplace y no necesite un servidor. */
+    Respuesta enviar(String eventoId, String token) {
         try (Response respuesta = cliente.target(TokenDeServicio.URL_INTERNA)
-                .path(RUTA_DE_LOS_MIOS)
+                .path(String.format(RUTA, eventoId))
                 .request(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .get()) {
-            int estado = respuesta.getStatus();
-            return new Respuesta(estado, estado == 200 ? respuesta.readEntity(String.class) : null);
+            return new Respuesta(respuesta.getStatus(), respuesta.hasEntity() ? respuesta.readEntity(String.class) : null);
         } catch (ProcessingException e) {
-            LOG.warning("Eventos no respondió al pedir los eventos de un organizador. Motivo: "
+            LOG.warning("Eventos no respondió al preguntar el dueño de un evento. Motivo: "
                     + Textos.enUnaLinea(e.getMessage()));
             throw new ErroresDeNegocio.SinRespuesta(EVENTOS_NO_RESPONDE);
         }
     }
 
-    private static Set<String> leer(String json) {
-        try {
-            Evento[] eventos = json == null ? null : JSONB.fromJson(json, Evento[].class);
-            if (eventos != null) {
-                return Arrays.stream(eventos)
-                        .filter(Objects::nonNull)
-                        .map(Evento::id)
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toUnmodifiableSet());
-            }
-        } catch (JsonbException e) {
-            // Se trata abajo.
+    private static <T> T leer(String json, Class<T> tipo) {
+        if (json == null || json.isBlank()) {
+            return null;
         }
-        LOG.warning("Eventos respondió 200 a los eventos de un organizador, pero sin una lista de eventos.");
-        throw new ErroresDeNegocio.SinRespuesta("Eventos respondió algo que no es una lista de eventos.");
+        try {
+            return JSONB.fromJson(json, tipo);
+        } catch (JsonbException e) {
+            return null;
+        }
     }
 }

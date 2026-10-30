@@ -12,9 +12,9 @@
 # Por defecto: H2 en memoria, en modo compatible con PostgreSQL (desarrollo).
 # Para Supabase: definir PALCO_DB_DRIVER=postgresql, PALCO_DB_URL,
 # PALCO_DB_USUARIO y PALCO_DB_PASSWORD. Los servicios no cambian.
-# LOCK_TIMEOUT=10000: al desplegar, los 8 servicios migran a la vez sobre la misma base en memoria, y un
-# ALTER TABLE espera el bloqueo de la tabla del sistema de H2. Con el segundo que trae H2 por defecto, una
-# migración podía fallar ("Tiempo vencido intentando trabar la tabla SYS") y su WAR no desplegaba.
+# LOCK_TIMEOUT=10000: en H2 un pedido espera hasta 10 segundos un bloqueo, en vez del segundo que trae por
+# defecto. Las migraciones de los 8 servicios ya no chocan (corren de a una, BaseDeDatos.migrar), pero un
+# pedido que llega mientras otro servicio todavía migra espera el bloqueo de la tabla del sistema.
 data-source add --name=PalcoDS \
     --jndi-name=java:jboss/datasources/PalcoDS \
     --driver-name=${env.PALCO_DB_DRIVER:h2} \
@@ -32,6 +32,12 @@ jms-queue add --queue-address=cola.emision-entradas --entries=["java:/jms/queue/
 
 # Publicación/suscripción: Notificaciones y Auditoría reciben cada una su copia.
 jms-topic add --topic-address=topico.compra-confirmada --entries=["java:/jms/topic/compraConfirmada"]
+
+# Segundo proceso asincrónico: cancelar un evento. Eventos publica EVENTO_CANCELADO; Ventas
+# lo consume, anula las entradas, pide el reembolso a Pagos y publica un COMPRA_ANULADA por
+# compra, que escuchan el aviso al comprador y la auditoría. Tópico aparte del de compras:
+# otro proceso, otros suscriptores y otro cuerpo de mensaje.
+jms-topic add --topic-address=topico.eventos-cancelados --entries=["java:/jms/topic/eventosCancelados"]
 
 # Reintentos: un mensaje que falla se entrega hasta 5 veces, con 2 segundos entre una y
 # otra, y después pasa a la cola de mensajes fallidos (DLQ, java:/jms/queue/DLQ), que ya

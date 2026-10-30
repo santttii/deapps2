@@ -1,0 +1,13 @@
+# Una sola identidad por persona en `git log`, `git shortlog` y `git blame`.
+# No reescribe nada: solo mapea cómo se muestran los commits ya hechos.
+# Formato: Nombre que se muestra <email canónico> <email del commit>
+
+Julián Zuchowicki <julianzucho@gmail.com>
+Julián Zuchowicki <julianzucho@gmail.com> <Improvement@mesucan.com.ar>
+Julián Zuchowicki <julianzucho@gmail.com> <105009157+julianzucho@users.noreply.github.com>
+
+Santiago Loto <sloto@uade.edu.ar>
+# El PR #1 salió de su rama claude/focused-pascal-pvd4tr: los commits son de su trabajo.
+Santiago Loto <sloto@uade.edu.ar> <noreply@anthropic.com>
+Valentina Frisoli <133791245+vfrisoli@users.noreply.github.com>
+Sebastian Deya <sebastiandeya88@gmail.com>

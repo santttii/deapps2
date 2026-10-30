@@ -30,6 +30,10 @@
         <version.junit>6.1.3</version.junit>
         <version.mockito>5.24.0</version.mockito>
         <version.yasson>3.0.5</version.yasson>
+        <!-- Implementación de Jakarta Mail (el envío de emails). La API viene en la plataforma y la
+             implementación la trae WildFly: acá solo se usa en los tests, para armar un MimeMessage
+             sin servidor, igual que yasson con JSON-B. -->
+        <version.angus.mail>2.0.4</version.angus.mail>
         <!-- SOAP (Facturación y el ARCA simulado). La API la pone WildFly con la capa "webservices";
              Metro (la implementación de referencia) solo se usa en los tests, para publicar y
              llamar un servicio SOAP sin servidor. -->
@@ -77,6 +81,13 @@
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-database-postgresql</artifactId>
                 <version>${version.flyway}</version>
+            </dependency>
+            <dependency>
+                <!-- Implementación de Jakarta Mail para los tests (en WildFly ya viene incluida) -->
+                <groupId>org.eclipse.angus</groupId>
+                <artifactId>angus-mail</artifactId>
+                <version>${version.angus.mail}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <!-- Implementación de JSON-B para los tests (en WildFly ya viene incluida) -->
