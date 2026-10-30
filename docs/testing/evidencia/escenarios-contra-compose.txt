@@ -1,0 +1,445 @@
+Prueba de integración del backend de Palco. 30/10/2026, 12:55:56
+Servicios: api/usuarios/health 200 | api/eventos/health 200 | api/v1/health 200 | api/v1/pagos/health 200 | api/v1/validacion/health 200 | api/v1/reventas/health 200 | api/notificaciones/health 200 | api/v1/facturas/health 200
+Broker al empezar:  cola: agregados=0 pendientes=0 consumidores=15 | tópico: agregados=0 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=0 pendientes=0 | DLQ: pendientes=0
+Evento de la prueba: ev-f4fbc114 (Integracion backend 1793364963207). Sector de las compras: {"cupo":500,"id":"sec-d80a13d4","nombre":"Platea B","precio":27500,"vendidas":0,"eventoId":"ev-f4fbc114"}
+
+====================================================================================================
+ESCENARIO 1. Compra completa: iniciar, pagar contra Pagos, venta emitida, cupo y pago   (12:56:03)
+====================================================================================================
+   dato  vendidas de sec-d80a13d4 antes: 0
+   ok   POST /api/v1/ventas responde (se espera 201): 201
+   ok   Location apunta a la venta: http://localhost:8080/api/v1/ventas/V-b1ab2fc6
+   ok   estado al abrir (se espera "EN_CHECKOUT"): "EN_CHECKOUT"
+   ok   montoTotal (2 x 27.500 + 10 %) (se espera 60500): 60500
+   ok   trae la fecha de creación y la reserva vence 10 minutos después: creada=2026-10-30T12:56:04Z venceReserva=2026-10-30T13:06:04Z
+   ok   sin entradas ni pago, con los enlaces pagar y cancelar: {"self":{"href":"/api/v1/ventas/V-b1ab2fc6","method":"GET"},"pagar":{"href":"/api/v1/ventas/V-b1ab2fc6/pagos","method":"POST"},"cancelar":{"href":"/api/v1/ventas/V-b1ab2fc6","method":"DELETE"}}
+   ok   vendidas con la compra abierta (reserva de cupo en Eventos) (se espera 2): 2
+   ok   POST /api/v1/ventas/{id}/pagos responde (se espera 201): 201
+   ok   al volver el pago la venta está CONFIRMADA (o ya EMITIDA) con su pago: CONFIRMADA P-d6394b72
+   ok   Location del pago: http://localhost:8080/api/v1/ventas/V-b1ab2fc6/pagos/P-d6394b72
+   ok   dos entradas, cada una con sectorId y precioPagado: T-1994eacd PENDIENTE_EMISION sec-d80a13d4 27500 | T-4eb49b58 PENDIENTE_EMISION sec-d80a13d4 27500
+   ok   la venta pasa a EMITIDA (emisión asincrónica): EMITIDA
+   ok   las dos entradas quedan VALIDA y traen su código dentro de la venta: T-1994eacd VALIDA 7f07a035-5b8f-495f-9896-20719f8e14fd | T-4eb49b58 VALIDA 923d5c19-46eb-42ef-a967-f5e614604042
+   ok   GET /api/v1/entradas/{id}: VALIDA, mismo código, con fecha de emisión y precio pagado: 200 {"_links":{"self":{"href":"/api/v1/entradas/T-1994eacd","method":"GET"}},"codigoQr":"7f07a035-5b8f-495f-9896-20719f8e14fd","emitida":"2026-10-30T12:56:04Z","estado":"VALIDA","eventoId":"ev-f4fbc114","id":"T-1994eacd","precioPagado":27500,"sector":"Platea B","sectorId":"sec-d80a13d4","titular":{"dni"
+   ok   vendidas al final: subió exactamente lo comprado (se espera 2): 2
+   ok   en Pagos existe ese pago, de esa venta, por ese monto y APROBADO: 200 {"estado":"APROBADO","idExterno":"fake-V-b1ab2fc6:4ce5cfbf-fafe-4dc4-9e45-e0f80c3cceeb","monto":60500,"motivo":null,"pagoId":"P-d6394b72","ventaId":"V-b1ab2fc6"}
+   ok   GET /api/v1/ventas (mis compras) la trae EMITIDA y con sus entradas: 200, 1 ventas
+   ok   y la lista viene de la más nueva a la más vieja: 2026-10-30T12:56:04Z
+
+====================================================================================================
+ESCENARIO 2. Idempotencia: la misma clave al iniciar y al pagar no duplica nada   (12:56:05)
+====================================================================================================
+   ok   los dos POST /ventas con la misma clave responden 201 con la misma venta: 201 V-b4f11def / 201 V-b4f11def
+   ok   el cupo se reservó una sola vez (se espera 3): 3
+   ok   los dos pagos con la misma clave responden 201 con el mismo pago: 201 P-8f273655 / 201 P-8f273655
+   ok   en "mis compras" hay una sola venta con ese titular: V-b4f11def
+   ok   cupo al final (se espera 3): 3
+   ok   un solo pago guardado por Pagos para esa venta (líneas de ServicioDePagos en el log) (se espera 1): 1
+   ok   una sola confirmación de Ventas (se espera 1): 1
+   dato  broker: cola +1 | tópico +3 | suscripción durable +1 | DLQ +0
+   ok   un solo mensaje a la cola (se espera 1): 1
+   ok   una sola copia para auditoría (un mensaje al tópico) (se espera 1): 1
+   ok   una sola fila de auditoría de esa venta (se espera 1): 1
+
+====================================================================================================
+ESCENARIO 3. Pago rechazado: 402, venta sin confirmar, ningún mensaje; un segundo intento la completa   (12:56:11)
+====================================================================================================
+   ok   402 pago-rechazado en Problem Details: 402 application/problem+json {"type":"/problemas/pago-rechazado","title":"Pago rechazado","status":402,"detail":"El pago fue rechazado (fondos_insuficientes). Podés probar con otro medio de pago.","instance":"/api/v1/ventas/V-c496108a/pagos"}
+   dato  cuerpo del 402: {"type":"/problemas/pago-rechazado","title":"Pago rechazado","status":402,"detail":"El pago fue rechazado (fondos_insuficientes). Podés probar con otro medio de pago.","instance":"/api/v1/ventas/V-c496108a/pagos"}
+   ok   la venta sigue EN_CHECKOUT, sin pago ni entradas: EN_CHECKOUT pagoId=null entradas=0
+   dato  broker tras el rechazo: cola +0 | tópico +0 | suscripción durable +0 | DLQ +0
+   ok   el rechazo no publicó nada en la cola (se espera 0): 0
+   ok   ni en el tópico (se espera 0): 0
+   ok   ninguna fila de auditoría de esa venta (se espera 0): 0
+   ok   ninguna línea de los consumidores por esa venta (se espera 0): 0
+   ok   repetir la MISMA clave devuelve el mismo rechazo aunque cambie el token (regla de Pagos) (se espera 402): 402
+   ok   segundo intento, con clave nueva y tok_test (se espera 201): 201
+   ok   la compra se completa: EMITIDA con su entrada VALIDA: EMITIDA VALIDA
+   ok   ahora sí salió un mensaje a la cola (se espera 1): 1
+
+====================================================================================================
+ESCENARIO 4. Reglas de negocio: cada una con su código y su cuerpo Problem Details   (12:56:22)
+====================================================================================================
+   ok   422 maximo-de-entradas en Problem Details: 422 application/problem+json {"type":"/problemas/maximo-de-entradas","title":"Regla de negocio incumplida","status":422,"detail":"Se pueden comprar hasta 6 entradas por compra.","instance":"/api/v1/ventas"}
+   ok   422 dni-repetido en Problem Details: 422 application/problem+json {"type":"/problemas/dni-repetido","title":"Regla de negocio incumplida","status":422,"detail":"Cada entrada va a nombre de una persona distinta: el DNI 21028297 está repetido.","instance":"/api/v1/ventas"}
+   ok   422 titulares-no-coinciden en Problem Details: 422 application/problem+json {"type":"/problemas/titulares-no-coinciden","title":"Regla de negocio incumplida","status":422,"detail":"Hace falta un titular por entrada: son 2 entradas y 1 titulares.","instance":"/api/v1/ventas"}
+   ok   422 sector-inexistente en Problem Details: 422 application/problem+json {"type":"/problemas/sector-inexistente","title":"Regla de negocio incumplida","status":422,"detail":"El evento no tiene ese sector.","instance":"/api/v1/ventas"}
+   dato  sector sec-97986fd9 con cupo 3 y sec-f29c74e2 con cupo 50
+   ok   409 cupo-agotado en Problem Details: 409 application/problem+json {"type":"/problemas/cupo-agotado","title":"Conflicto","status":409,"detail":"No quedan suficientes entradas en ese sector.","instance":"/api/v1/ventas"}
+   ok   el sector sin cupo suficiente no vendió nada (se espera 0): 0
+   ok   409 cupo-agotado en Problem Details: 409 application/problem+json {"type":"/problemas/cupo-agotado","title":"Conflicto","status":409,"detail":"No quedan suficientes entradas en ese sector.","instance":"/api/v1/ventas"}
+   ok   si falla el segundo sector, el primero devuelve lo que había reservado (se espera 0): 0
+   ok   exactamente el cupo que queda sí se puede comprar (se espera 201): 201
+   ok   409 cupo-agotado en Problem Details: 409 application/problem+json {"type":"/problemas/cupo-agotado","title":"Conflicto","status":409,"detail":"No quedan suficientes entradas en ese sector.","instance":"/api/v1/ventas"}
+   ok   cancelar esa compra (se espera 204): 204
+   ok   y el cupo vuelve a cero (se espera 0): 0
+   ok   400 datos-invalidos: sin la cabecera Idempotency-Key: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"Mandá la cabecera Idempotency-Key con un UUID nuevo por cada compra y por cada pago.","instance":"/api/v1/ventas","errores":{"Idempote
+   ok   400 datos-invalidos: con una clave que no es un UUID: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"Mandá la cabecera Idempotency-Key con un UUID nuevo por cada compra y por cada pago.","instance":"/api/v1/ventas","errores":{"Idempote
+   ok   400 datos-invalidos: sin cuerpo: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"El cuerpo de la solicitud no es un JSON válido.","instance":"/api/v1/ventas"}
+   ok   400 datos-invalidos: sin titulares: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"Hay datos inválidos.","instance":"/api/v1/ventas","errores":{"titulares":"Faltan los titulares de las entradas."}}
+   ok   400 datos-invalidos: con cantidad 0: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"Hay datos inválidos.","instance":"/api/v1/ventas","errores":{"cantidad":"La cantidad tiene que ser al menos 1."}}
+   ok   400 datos-invalidos: con un DNI que no tiene 7 u 8 dígitos: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"El DNI de cada titular debe tener 7 u 8 dígitos.","instance":"/api/v1/ventas","errores":{"titulares":"El DNI de cada titular debe tene
+   ok   400 datos-invalidos: con un salto de línea en el nombre del titular (inyección en el log): 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"El nombre de cada titular va en una sola línea, sin saltos de línea ni caracteres de control.","instance":"/api/v1/ventas","errores":{
+   ok   la línea falsa no aparece en server.log (se espera 0): 0
+   ok   400 datos-invalidos: pagar sin medio de pago: 400 application/problem+json {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"Hay datos inválidos.","instance":"/api/v1/ventas/V-3f9d926d/pagos","errores":{"medioDePago":"Falta el medio de pago."}}
+   ok   404 no-encontrado en Problem Details: 404 application/problem+json {"type":"/problemas/no-encontrado","title":"No encontrado","status":404,"detail":"No existe esa venta.","instance":"/api/v1/ventas/V-00000000"}
+   ok   ninguna de estas pruebas dejó cupo tomado en sec-d80a13d4 (se espera 4): 4
+
+====================================================================================================
+ESCENARIO 5. Seguridad: sin token, con el token de otro usuario, con otro rol, y lo interno solo con rol servicio   (12:56:23)
+====================================================================================================
+   dato  venta abierta por titular@palco.test: V-f1f139c1; venta emitida suya: V-b1ab2fc6 (entrada T-1994eacd)
+   ok   sin token: abrir, listar, ver, pagar, cancelar y ver una entrada responden 401: 401 401 401 401 401 401
+   ok   con un token con la firma alterada (se espera 401): 401
+   dato  cuenta nueva integracion.1793364984066@palco.test (user-d1d66521)
+   ok   GET /api/usuarios/yo con el token de la cuenta nueva la devuelve, con rol user: 200 {"apellido":"Integracion","dni":"21028323","email":"integracion.1793364984066@palco.test","id":"user-d1d66521","identidadVerificada":true,"nombre":"Bruno","rol":"user"}
+   ok   la cuenta recién registrada abre una compra sin ningún paso más (se espera 201): 201
+   ok   con el token de otro usuario: ver, pagar y cancelar una venta ajena, y ver una entrada ajena, responden 404: 404 404 404 404 404
+   ok   la venta ajena quedó como estaba: EN_CHECKOUT y sin pago: EN_CHECKOUT pagoId=null
+   ok   su listado trae solo su compra: V-70f48e1c
+   ok   y el listado del titular no trae la compra del otro, pero sí las suyas: 6 ventas
+   ok   la cuenta nueva cancela su compra (se espera 204): 204
+   ok   el titular cancela la suya (se espera 204): 204
+   ok   rol organizer: abrir, listar, ver una venta y ver una entrada responden 403: 403 403 403 403
+   ok   rol staff: abrir, listar, ver una venta y ver una entrada responden 403: 403 403 403 403
+   ok   rol servicio: abrir, listar, ver una venta y ver una entrada responden 403: 403 403 403 403
+   ok   rol user: crear un evento (es de organizer) (se espera 403): 403
+   ok   rol servicio: GET /api/usuarios/yo (no es una persona) (se espera 403): 403
+   ok   sin token: GET /api/usuarios/yo (se espera 401): 401
+   ok   POST /api/v1/pagos: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   GET /api/v1/pagos/P-d6394b72: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   POST /api/eventos/ev-f4fbc114/sectores/sec-d80a13d4/cupo: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   GET /api/notificaciones/auditoria: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   POST /api/notificaciones/pruebas/pago-confirmado: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   POST /api/notificaciones/pruebas/pago-confirmado-con-falla: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   ok   POST /api/notificaciones/pruebas/mensaje-invalido: 401 sin token y 403 con user, organizer y staff: 401 403 403 403
+   dato  broker: cola +0 | tópico +0 | suscripción durable +0 | DLQ +0
+   ok   ninguno de esos pedidos rechazados publicó un mensaje en la cola (se espera 0): 0
+   ok   con el token de rol servicio: consultar el pago, tocar el cupo (cantidad 0) y leer auditoría responden 200: 200 200 200
+   ok   token de servicio con el secreto incorrecto (se espera 401): 401
+   ok   el cupo de sec-d80a13d4 quedó como al empezar (se espera 4): 4
+
+====================================================================================================
+ESCENARIO 6. Cancelar una compra en curso libera el cupo   (12:56:31)
+====================================================================================================
+   ok   vendidas con la compra abierta (se espera 6): 6
+   ok   DELETE /api/v1/ventas/V-c2e11488 (se espera 204): 204
+   ok   vendidas después de cancelar (se espera 4): 4
+   ok   la venta queda CANCELADA y sin los enlaces pagar y cancelar: CANCELADA self
+   ok   repetir el DELETE (se espera 204): 204
+   ok   el cupo no se devuelve dos veces (se espera 4): 4
+   ok   409 reserva-vencida en Problem Details: 409 application/problem+json {"type":"/problemas/reserva-vencida","title":"Conflicto","status":409,"detail":"La reserva de esta compra ya no está vigente. Empezá la compra de nuevo.","instance":"/api/v1/ventas/V-c2e11488/pagos"}
+   ok   el log de Ventas dice que canceló y devolvió el cupo: 2026-10-30 12:56:31,464 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra V-c2e11488 cancelada (instancia 32139cdf). // 2026-10-30 12:56:31,466 INFO  [com.palco.ventas.negocio.ServicioDeVentas] (default task-2) Compra en curso: el contenedor destruye la instancia 32139cdf de la v // 2026-10-30 12:56:31,466 INFO  [com.palco.ventas.negocio.ComprasEnCurso] (default task-2) Venta V-c2e11488 cancelada por su comprador: se devuelve el cupo a Even
+   dato  el vencimiento real a los 10 minutos no se repite acá: está en docs/entrega3/evidencia/vencimiento-de-reserva.txt
+
+====================================================================================================
+ESCENARIO 7. Al confirmarse un pago sale UN mensaje a la cola y UNO al tópico, con el tipoEvento del contrato   (12:56:31)
+====================================================================================================
+   ok   el tópico tiene tres suscripciones: las durables de auditoría y de facturación, y la del aviso: d47092fe-2219-4c28-8bf2-af5f533b3e9e , palco-auditoria.compras-confirmadas , palco-facturacion.facturacion-compras-confirmadas
+   ok   las tres filtran por la propiedad tipoEvento: PAGO_CONFIRMADO o REVENTA_CONFIRMADA: tipoEvento IN ('PAGO_CONFIRMADO', 'REVENTA_CONFIRMADA') | tipoEvento IN ('PAGO_CONFIRMADO', 'REVENTA_CONFIRMADA') | tipoEvento IN ('PAGO_CONFIRMADO', 'REVENTA_CONFIRMADA')
+   dato  antes de pagar V-c85ce430 (la compra ya está abierta: abrirla no publica):  cola: agregados=3 pendientes=0 consumidores=15 | tópico: agregados=9 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=3 pendientes=0 | DLQ: pendientes=0
+   ok   pago (se espera 201): 201
+   dato  después de pagar:  cola: agregados=4 pendientes=0 consumidores=15 | tópico: agregados=12 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=4 pendientes=0 | DLQ: pendientes=0
+   ok   cola: mensajes agregados (se espera 1): 1
+   ok   tópico: copias agregadas, una por cada una de sus 3 suscripciones (se espera 3): 3
+   ok   suscripción durable (auditoría): recibió (se espera 1): 1
+   ok   suscripción no durable (aviso): recibió al menos 1: 1
+   ok   no quedó nada pendiente ni fue nada a la DLQ: cola 0, auditoría 0, DLQ +0
+   ok   la fila de auditoría trae, leídos del cuerpo del mensaje, la venta, el comprador, el evento y el total: {"compradorId":"user-titular","eventoId":"ev-f4fbc114","mensajeId":"ID:597238e9-d461-11f1-a589-d246afaa2a8d","montoTotal":60500,"recibidoEn":"2026-10-30T12:56:40Z","tipoEvento":"PAGO_CONFIRMADO","ventaId":"V-c85ce430"}
+   ok   Ventas dejó en el log una sola publicación, dentro de la transacción del pago (se espera 1): 1
+   ok   el aviso nombra el sector y a los dos titulares, que viajan en entradas[] del cuerpo: Aviso al comprador user-titular: tu compra V-c85ce430 quedó confirmada. Evento ev-f4fbc114, 2 entradas: Platea B (Prueba Integracion 1), Platea B (Prueba Integracion 2). Total: $60500.
+   ok   y las entradas emitidas son las que nombraba el mensaje: T-c32c1769 T-cbc99006
+
+====================================================================================================
+ESCENARIO 8. El consumidor de la cola emite una sola vez aunque el mensaje llegue dos veces   (12:56:47)
+====================================================================================================
+   dato  cómo se logra la segunda entrega sin tocar código: se detiene auditoría, su copia del mensaje queda
+   dato  guardada en palco-auditoria.compras-confirmadas, y con move-messages se la pasa a cola.emision-entradas: es el mismo texto con el mismo tipoEvento.
+   ok   nombre interno de la cola de emisión: jms.queue.cola.emision-entradas
+   ok   stop-delivery de AuditoriaDeCompras
+   ok   pago (se espera 201): 201
+   ok   primera entrega: venta EMITIDA con sus dos códigos: T-02187830=f6399066-9c40-4237-9fea-de177337ef14 T-c103efdf=2ca16ec1-dff6-4dfb-afb7-12a384e078a8 | emitidas 2026-10-30T12:56:54Z 2026-10-30T12:56:54Z
+   ok   una emisión en el log (se espera 1): 1
+   ok   la copia de auditoría espera en su suscripción durable (se espera 1): 1
+   ok   move-messages: se pasó 1 mensaje a la cola de emisión: { "outcome" => "success", "result" => 1 }
+   ok   segunda entrega: el consumidor la reconoce como repetida y no cambia nada: 2026-10-30 12:57:00,789 INFO  [com.palco.ventas.mensajeria.EmisionDeEntradasMDB] (Thread-2 (activemq-client-global)) EmisionDeEntradas: procesado el mensaje de la venta V-11cd424c. No había nada pendiente: es un mensaje repetido y no cambió nada.
+   ok   los códigos de las entradas no cambiaron: T-02187830=f6399066-9c40-4237-9fea-de177337ef14 T-c103efdf=2ca16ec1-dff6-4dfb-afb7-12a384e078a8
+   ok   las fechas de emisión tampoco (se espera "2026-10-30T12:56:54Z 2026-10-30T12:56:54Z"): "2026-10-30T12:56:54Z 2026-10-30T12:56:54Z"
+   ok   la venta sigue EMITIDA (se espera "EMITIDA"): "EMITIDA"
+   ok   sigue habiendo una sola emisión en el log (se espera 1): 1
+   ok   la cola quedó vacía y la DLQ igual: un repetido no es un error: cola pendientes 0, DLQ +0
+   dato  esa venta (V-11cd424c) no tiene fila de auditoría: su copia se usó para la prueba.
+   ok   start-delivery de AuditoriaDeCompras
+
+====================================================================================================
+ESCENARIO 9. Los dos suscriptores del tópico reciben cada uno su copia: el aviso (log) y la auditoría (fila)   (12:57:06)
+====================================================================================================
+   ok   pago (se espera 201): 201
+   ok   auditoría: GET /api/notificaciones/auditoria trae una fila de esa venta: {"compradorId":"user-titular","eventoId":"ev-f4fbc114","mensajeId":"ID:693541b4-d461-11f1-a589-d246afaa2a8d","montoTotal":30250,"recibidoEn":"2026-10-30T12:57:06Z","tipoEvento":"PAGO_CONFIRMADO","ventaId":"V-42097199"}
+   ok   recibida hace instantes, en UTC: 2026-10-30T12:57:06Z
+   ok   el listado sumó al menos una fila (o ya estaba en su tope de 50): 4 -> 5
+   ok   aviso: una línea con el texto para el comprador (se espera 1): 1
+   ok   aviso: una línea del MDB AvisoDeCompra (se espera 1): 1
+   ok   auditoría: una línea del MDB AuditoriaDeCompras (se espera 1): 1
+   dato  2026-10-30 12:57:06,747 INFO  [com.palco.notificaciones.negocio.ServicioDeNotificaciones] (Thread-0 (activemq-client-global)) Aviso al comprador user-titular: tu compra V-42097199 quedó confirmada. Evento ev-f4fbc114, 1 entrada: Platea B (Prueba Integracion 1)
+   dato  2026-10-30 12:57:06,748 INFO  [com.palco.notificaciones.mensajeria.AvisoDeCompraMDB] (Thread-0 (activemq-client-global)) AvisoDeCompra: aviso por la venta V-42097199 registrado en el log; no se envía: no hay proveedor de correo.
+   dato  2026-10-30 12:57:06,758 INFO  [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-3 (activemq-client-global)) AuditoriaDeCompras: procesado el mensaje de la venta V-42097199.
+   dato  hilos: aviso (Thread-0 (activemq-client-global)), auditoría (Thread-3 (activemq-client-global))
+
+====================================================================================================
+ESCENARIO 10. Taller: con el consumidor de emisión detenido el mensaje espera en la cola; al reanudarlo se emite   (12:57:07)
+====================================================================================================
+   ok   stop-delivery de EmisionDeEntradas
+   ok   el pago responde igual, sin esperar a la emisión (se espera 201): 201
+   ok   4 segundos después la venta sigue CONFIRMADA y sus entradas PENDIENTE_EMISION, sin código: CONFIRMADA PENDIENTE_EMISION/null PENDIENTE_EMISION/null
+   dato  con el consumidor detenido:  cola: agregados=8 pendientes=1 consumidores=0 | tópico: agregados=21 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=7 pendientes=0 | DLQ: pendientes=0
+   ok   el mensaje espera en la cola: pendientes (se espera 1): 1
+   ok   la cola no tiene consumidores (se espera 0): 0
+   ok   el mensaje pendiente lleva la propiedad tipoEvento = PAGO_CONFIRMADO, es de texto (type 3) y persistente: { "outcome" => "success", "result" => [{ "JMSDeliveryMode" => true, "address" => "jms.queue.cola.emision-entradas", "__AMQ_CID" => "44209c68-d461-11f1-a589-d246afaa2a8d", "tipoEvento" => "PAGO_CONFIRMADO", "_AMQ_ROUTING_TYPE" => 1, "messageID" => 229, "JMSExpiration" => 0, "type" => 3, "JMSPriority" => 4, "JMSMessageID" => "ID:6ce3cac6-d461-11f1-a589-d246afaa2a8d", "JMSTimestamp" => 1793365032898L }] } 
+   ok   mientras tanto los suscriptores del tópico sí recibieron su copia (aviso y auditoría): aviso 1, filas 1
+   ok   y todavía no hay ninguna línea de la emisión (se espera 0): 0
+   ok   start-delivery de EmisionDeEntradas
+   ok   al reanudarlo, la venta pasa a EMITIDA y las entradas a VALIDA con su código: EMITIDA VALIDA VALIDA
+   dato  después de reanudar:  cola: agregados=8 pendientes=0 consumidores=15 | tópico: agregados=21 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=7 pendientes=0 | DLQ: pendientes=0
+   ok   la cola quedó sin pendientes y otra vez con consumidores: pendientes 0, consumidores 15
+   ok   una sola emisión en el log (se espera 1): 1
+
+====================================================================================================
+ESCENARIO 11. Suscripción durable: con auditoría detenida se publican mensajes y al reanudarla los recibe   (12:57:31)
+====================================================================================================
+   ok   stop-delivery de AuditoriaDeCompras
+   ok   pago de una compra real (se espera 201): 201
+   ok   y un mensaje de prueba (se espera 202): 202
+   ok   los dos mensajes esperan en la suscripción durable (se espera 2): 2
+   ok   auditoría no tiene filas de ninguno de los dos (se espera 0): 0
+   ok   el aviso (no durable) sí recibió los dos (se espera 2): 2
+   ok   la emisión no depende de auditoría: la venta ya está EMITIDA (se espera "EMITIDA"): "EMITIDA"
+   ok   start-delivery de AuditoriaDeCompras
+   ok   al reanudarla, auditoría registra los dos mensajes que se había perdido: V-9b2c7b7d 2026-10-30T12:57:43Z | prueba-42d51f88 2026-10-30T12:57:43Z
+   ok   la suscripción durable quedó sin pendientes (se espera 0): 0
+
+====================================================================================================
+ESCENARIO 12. Un mensaje inválido se reintenta y termina en la DLQ sin trabar a los demás   (12:57:49)
+====================================================================================================
+   ok   POST /api/notificaciones/pruebas/mensaje-invalido (se espera 202): 202
+   ok   pago de una compra hecha durante los reintentos (se espera 201): 201
+   ok   esa compra se emite y se audita enseguida, sin esperar a que terminen los reintentos: EMITIDA, fila sí, el inválido llevaba 1 entregas
+   ok   auditoría lo devolvió al broker 5 veces (se espera 5): 5
+   ok   numeradas de la entrega 1 a la 5 (se espera "1 2 3 4 5"): "1 2 3 4 5"
+   ok   con unos 2 segundos entre una y otra: 2.0 2.0 2.0 2.0
+   ok   el broker lo pasó a la DLQ (AMQ222149): 2026-10-30 12:57:59,495 WARN  [org.apache.activemq.artemis.core.server] (Thread-19 (activemq-default)) AMQ222149: Sending message Reference[301]:RELIABLE:CoreMessage[messageID=301, durable=true, userI
+   ok   el aviso (no durable) lo descartó una sola vez, sin reintentar (se espera 1): 1
+   dato  2026-10-30 12:57:51,452 WARNING [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-0 (activemq-client-global)) AuditoriaDeCompras: mensaje inválido (entrega 1), vuelve al br
+   dato  2026-10-30 12:57:53,462 WARNING [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-3 (activemq-client-global)) AuditoriaDeCompras: mensaje inválido (entrega 2), vuelve al br
+   dato  2026-10-30 12:57:55,472 WARNING [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-0 (activemq-client-global)) AuditoriaDeCompras: mensaje inválido (entrega 3), vuelve al br
+   dato  2026-10-30 12:57:57,479 WARNING [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-1 (activemq-client-global)) AuditoriaDeCompras: mensaje inválido (entrega 4), vuelve al br
+   dato  2026-10-30 12:57:59,487 WARNING [com.palco.notificaciones.mensajeria.AuditoriaDeComprasMDB] (Thread-3 (activemq-client-global)) AuditoriaDeCompras: mensaje inválido (entrega 5), vuelve al br
+   ok   DLQ, una copia por suscriptor durable (auditoría y facturación) (se espera 2): 2
+   ok   nada pendiente en la suscripción de auditoría ni en la cola: 0 0
+   ok   move-messages de la DLQ a la cola de emisión: 2 mensaje(s)
+   ok   pago de otra compra, con el inválido reintentándose en la cola (se espera 201): 201
+   ok   esa compra se emite igual (se espera "EMITIDA"): "EMITIDA"
+   ok   el consumidor de la cola también lo devuelve 5 veces por mensaje (se espera 10): 10
+   ok   y vuelve a la DLQ: la cola queda vacía: cola pendientes 0, DLQ 2 (antes de moverlo 2)
+
+====================================================================================================
+ESCENARIO 13. Si la transacción se deshace después de publicar, el mensaje no sale   (12:58:17)
+====================================================================================================
+   ok   409 conflicto en Problem Details: 409 application/problem+json {"type":"/problemas/conflicto","title":"Conflicto","status":409,"detail":"Falla provocada a propósito después de publicar: la transacción se deshace y el mensaje no sale.","instance":"/api/notificaciones/pruebas/pago-confirmado-con-falla"}
+   dato  cuerpo del 409: {"type":"/problemas/conflicto","title":"Conflicto","status":409,"detail":"Falla provocada a propósito después de publicar: la transacción se deshace y el mensaje no sale.","instance":"/api/notificaciones/pruebas/pago-confirmado-con-falla"}
+   dato  broker: cola +0 | tópico +0 | suscripción durable +0 | DLQ +0
+   ok   cola (se espera 0): 0
+   ok   tópico (se espera 0): 0
+   ok   suscripción durable (se espera 0): 0
+   ok   DLQ (se espera 0): 0
+   ok   ninguna línea nueva de los tres consumidores (salvo las de ventas ajenas) (se espera 0): 0
+   ok   ninguna fila nueva en auditoría (salvo las de ventas ajenas) (se espera 0): 0
+   ok   control: el mismo mensaje sin la falla (pruebas/pago-confirmado) (se espera 202): 202
+   dato  broker con el control: cola +1 | tópico +3 | suscripción durable +1 | DLQ +0
+   ok   ese sí sale a la cola (se espera 1): 1
+   ok   y al tópico, una copia por suscripción (se espera 3): 3
+   ok   y la emisión descarta ese mensaje de prueba, porque su venta no existe (se espera 1): 1
+
+====================================================================================================
+ESCENARIO 14. Falla después del cobro: se deshace la confirmación, el pago queda en Pagos y la conciliación termina la compra   (12:58:28)
+====================================================================================================
+   ok   jboss-cli: palco.ventas.fallar-despues-del-cobro=true
+   ok   jboss-cli: se quita la propiedad
+   ok   500 error-inesperado en Problem Details: 500 application/problem+json {"type":"/problemas/error-inesperado","title":"Error inesperado","status":500,"detail":"Ocurrió un error inesperado.","instance":"/api/v1/ventas/V-843abae5/pagos","idError":"d6f6c22d-faeb-43d8-a1ea-8b604f6b928a"}
+   ok   el 500 trae idError y nada interno: {"type":"/problemas/error-inesperado","title":"Error inesperado","status":500,"detail":"Ocurrió un error inesperado.","instance":"/api/v1/ventas/V-843abae5/pagos","idError":"d6f6c22d-faeb-43d8-a1ea-8b604f6b928a"}
+   ok   la falla de prueba quedó en el log (se espera 1): 1
+   ok   la venta NO quedó CONFIRMADA: sigue EN_CHECKOUT, sin pago ni entradas: EN_CHECKOUT pagoId=null entradas=0
+   ok   en Pagos el cobro sí quedó guardado, APROBADO (GET /api/v1/pagos?claveIdempotencia=): {"estado":"APROBADO","idExterno":"fake-V-843abae5:c37db792-74e3-4cbe-9bda-05ecf5b0a534","monto":30250,"motivo":null,"pagoId":"P-78351325","ventaId":"V-843abae5"}
+   dato  broker tras la falla: cola +0 | tópico +0 | suscripción durable +0 | DLQ +0
+   ok   ningún mensaje a la cola (se espera 0): 0
+   ok   ninguno al tópico (se espera 0): 0
+   ok   ninguna fila de auditoría de esa venta (se espera 0): 0
+   ok   el cupo sigue reservado: no se libera algo que pudo cobrarse (se espera 15): 15
+   dato  12:58:39 se espera a la conciliación (hasta 4 minutos y medio)
+   dato  13:01:35 fin de la espera
+   ok   la conciliación la confirmó con ESE pago y la entrada se emitió: EMITIDA P-78351325 VALIDA
+   ok   la conciliación lo dejó en el log (se espera 1): 1
+   dato  broker con la conciliación: cola +1 | tópico +3 | suscripción durable +1 | DLQ +0
+   ok   ahora sí, un mensaje a la cola (se espera 1): 1
+   ok   y una copia por suscripción del tópico (se espera 3): 3
+   ok   una fila de auditoría de esa venta (se espera 1): 1
+   ok   el cupo no cambió (se espera 15): 15
+   ok   un solo pago en Pagos para esa venta (líneas de ServicioDePagos en el log) (se espera 1): 1
+
+====================================================================================================
+ESCENARIO 15. Facturación: la compra confirmada se factura una sola vez, con número y CAE de ARCA (simulado)   (13:01:38)
+====================================================================================================
+   ok   GET /api/v1/facturas/{ventaId} la trae (la factura es asincrónica: se reintenta hasta 30 s): {"cae":"13235623370169","compradorId":"user-titular","comprobante":"00001-00000001","emitida":"2026-10-30T12:56:05Z","eventoId":"ev-f4fbc114","fecha":"2026-10-30","importe":60500,"numero":1,"puntoDeVenta":1,"tipoComprobante":6,"vencimientoCae":"2026-11-09","ventaId":"V-b1ab2fc6"}
+   ok   factura B (6) de esa venta, por el total cobrado: 6 60500 60500
+   ok   con número impreso y CAE de 14 dígitos: 00001-00000001 CAE 13235623370169 vence 2026-11-09
+   ok   consultada de nuevo (rol servicio) es la misma: mismo número y mismo CAE: 00001-00000001 13235623370169
+   ok   403 sin-permiso en Problem Details: 403 application/problem+json {"type":"/problemas/sin-permiso","title":"Sin permiso","status":403,"detail":"No tenés permiso para hacer esto.","instance":"/api/v1/facturas/V-b1ab2fc6"}
+   ok   404 no-encontrado en Problem Details: 404 application/problem+json {"type":"/problemas/no-encontrado","title":"No encontrado","status":404,"detail":"No hay una factura de esa venta.","instance":"/api/v1/facturas/V-00000000"}
+   ok   pago de otra compra (se espera 201): 201
+   ok   la factura de la compra nueva tiene un número mayor y otro CAE: 00001-00000001 -> 00001-00000014
+   ok   una sola factura emitida para esa venta (líneas de ServicioDeFacturacion en el log) (se espera 1): 1
+   ok   y ningún aviso de mensaje repetido (se espera 0): 0
+   dato  log: 2026-10-30 13:01:39,098 INFO  [com.palco.facturacion.negocio.ServicioDeFacturacion] (Thread-6 (activemq-client-global)) Factura 00001-00000014 de la venta V-79e990ea, CAE 54229526110378.
+
+====================================================================================================
+ESCENARIO 16. Validación en puerta: el primer escaneo deja entrar y marca la entrada USADA; el segundo, no   (13:01:42)
+====================================================================================================
+   ok   la entrada está VALIDA y con código: VALIDA 90ac4025-82de-4f6f-b99f-e25950dc4809
+   ok   en la puerta de otro evento: 201 OTRO_EVENTO, no entra: 201 {"entrada":null,"escaneado":"2026-10-30T13:01:42Z","escaneadoPor":"user-staff","eventoId":"ev-1","id":"ESC-cc71c822","mensaje":"La entrada es de otro evento. No puede entrar por esta puerta.","puedeEn
+   ok   y la entrada sigue VALIDA (se espera "VALIDA"): "VALIDA"
+   ok   primer escaneo: 201 VALIDA, puede entrar, con la entrada y su titular: 201 {"entrada":{"id":"T-5b0becd2","sector":"Platea B","sectorId":"sec-d80a13d4","titular":{"dni":"21028342","nombre":"Prueba Integracion 1"}},"escaneado":"2026-10-30T13:01:42Z","escaneadoPor":"user-staff","eventoId":"ev-f4fbc114","id":"ESC-86bd34f3","mensaje":"Puede entrar. Controlá que el nombre y el D
+   ok   Location del escaneo: http://localhost:8080/api/v1/validacion/escaneos/ESC-86bd34f3
+   ok   en Ventas la entrada quedó USADA (se espera "USADA"): "USADA"
+   ok   segundo escaneo: 201 YA_USADA, no entra, y dice cuál fue el uso anterior: 201 {"entrada":null,"escaneado":"2026-10-30T13:01:42Z","escaneadoPor":"user-staff","eventoId":"ev-f4fbc114","id":"ESC-c5323f77","mensaje":"La entrada ya se usó. No puede entrar.","puedeEntrar":false,"resultado":"YA_USADA","usoAnterior":{"escaneado":"2026-10-30T13:01:42Z","escaneadoPor":"user-staff","esc
+   ok   un código que no existe: 201 INEXISTENTE: {"entrada":null,"escaneado":"2026-10-30T13:01:42Z","escaneadoPor":"user-staff","eventoId":"ev-f4fbc114","id":"ESC-004246dc","mensaje":"El código no corresponde 
+   ok   403 sin-permiso en Problem Details: 403 application/problem+json {"type":"/problemas/sin-permiso","title":"Sin permiso","status":403,"detail":"No tenés permiso para hacer esto.","instance":"/api/v1/validacion/escaneos"}
+   ok   el registro de la puerta (rol organizer) tiene VALIDA y YA_USADA, del más nuevo al más viejo: YA_USADA VALIDA
+   ok   y no muestra el código completo
+
+====================================================================================================
+ESCENARIO 17. Reventa de punta a punta: publicar dentro del rango, la compra de otra cuenta, la entrada nueva y su REVENTA_CONFIRMADA   (13:01:42)
+====================================================================================================
+   ok   422 precio-fuera-de-rango en Problem Details: 422 application/problem+json {"type":"/problemas/precio-fuera-de-rango","title":"Regla de negocio incumplida","status":422,"detail":"El precio tiene que estar entre $13750 y $30250.","instance":"/api/v1/reventas"}
+   ok   422 precio-fuera-de-rango en Problem Details: 422 application/problem+json {"type":"/problemas/precio-fuera-de-rango","title":"Regla de negocio incumplida","status":422,"detail":"El precio tiene que estar entre $13750 y $30250.","instance":"/api/v1/reventas"}
+   ok   404 no-encontrado en Problem Details: 404 application/problem+json {"type":"/problemas/no-encontrado","title":"No encontrado","status":404,"detail":"No existe esa entrada entre las tuyas.","instance":"/api/v1/reventas"}
+   ok   publicar al tope exacto (30250): 201 ACTIVA, con su precioMaximo: 201 {"entradaId":"T-c3027ce8","estado":"ACTIVA","eventoId":"ev-f4fbc114","id":"R-0e4a2615","precio":30250,"precioMaximo":30250,"publicada":"2026-10-30T13:01:44Z","sector":"Platea B","sectorId":"sec-d80a13d4"}
+   ok   409 entrada-no-disponible en Problem Details: 409 application/problem+json {"type":"/problemas/entrada-no-disponible","title":"Conflicto","status":409,"detail":"La entrada no se puede revender: está PUBLICADA.","instance":"/api/v1/reventas"}
+   ok   en Ventas la entrada quedó PUBLICADA (se espera "PUBLICADA"): "PUBLICADA"
+   ok   GET /api/v1/reventas?eventoId= (sin token) la lista: 200
+   ok   publicada no sirve para entrar: NO_HABILITADA: {"entrada":null,"escaneado":"2026-10-30T13:01:44Z","escaneadoPor":"user-staff","eventoId":"ev-f4fbc114","id":"ESC-4c622725","mensaje":"La entrada no está habili
+   ok   409 compra-propia en Problem Details: 409 application/problem+json {"type":"/problemas/compra-propia","title":"Conflicto","status":409,"detail":"No podés comprar tu propia publicación.","instance":"/api/v1/reventas/R-0e4a2615/compra"}
+   ok   402 pago-rechazado en Problem Details: 402 application/problem+json {"type":"/problemas/pago-rechazado","title":"Pago rechazado","status":402,"detail":"El pago fue rechazado (fondos_insuficientes). Probá con otro medio de pago.","instance":"/api/v1/reventas/R-0e4a2615/compra"}
+   ok   otra cuenta la compra: 201 con la publicación VENDIDA, la entrada nueva y su venta: 201 {"entrada":{"codigoQr":"6ffe6488-75b5-4722-aae6-e89bf0d9c951","eventoId":"ev-f4fbc114","id":"T-2300aaa4","precioPagado":30250,"sectorId":"sec-d80a13d4","titular":{"dni":"21028346","nombre":"Luis Pérez"}},"publicacion":{"entradaId":"T-c3027ce8","estado":"VENDIDA","eventoId":"ev-f4fbc114","id":"R-0e4a
+   ok   repetida con la misma clave: la misma entrada, sin cobrar de nuevo: 201 T-2300aaa4
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está disponible.","instance":"/api/v1/reventas/R-0e4a2615/compra"}
+   ok   la entrada original quedó VENDIDA (se espera "VENDIDA"): "VENDIDA"
+   ok   la nueva es del comprador: VALIDA, a nombre del titular indicado: {"_links":{"self":{"href":"/api/v1/entradas/T-2300aaa4","method":"GET"}},"codigoQr":"6ffe6488-75b5-4722-aae6-e89bf0d9c951","emitida":"2026-10-30T13:01:44Z","estado":"VALIDA","eventoId":"ev-f4fbc114","id":"T-2300aaa4","precioPagado":30250,"sector":"Platea B","sectorId":"sec-d80a13d4","titular":{"dni":"21028346","nombre":"Luis Pérez"},"ventaId":"V-d8e38972"}
+   ok   404 no-encontrado en Problem Details: 404 application/problem+json {"type":"/problemas/no-encontrado","title":"No encontrado","status":404,"detail":"No existe esa entrada.","instance":"/api/v1/entradas/T-2300aaa4"}
+   ok   ya no figura entre las activas
+   ok   en "mis publicaciones" del vendedor figura VENDIDA (se espera "VENDIDA"): "VENDIDA"
+   ok   el código viejo no entra: NO_HABILITADA (se espera "NO_HABILITADA"): "NO_HABILITADA"
+   ok   el nuevo sí: VALIDA (se espera "VALIDA"): "VALIDA"
+   ok   la auditoría registró la venta nueva una vez, como REVENTA_CONFIRMADA: [{"compradorId":"user-otro-titular","eventoId":"ev-f4fbc114","mensajeId":"ID:0ecebf74-d462-11f1-a589-d246afaa2a8d","montoTotal":33275,"recibidoEn":"2026-10-30T13:01:44Z","tipoEvento":"REVENTA_CONFIRMADA","ventaId":"V-d8e38972"}]
+   ok   el aviso al comprador dice que fue en la reventa oficial: 2026-10-30 13:01:44,567 INFO  [com.palco.notificaciones.negocio.ServicioDeNotificaciones] (Thread-9 (activemq-client-global)) Aviso al comprador user-otro-titular: tu compra en la reventa oficial V-d8
+   ok   la venta nueva tiene su factura, por el precio de reventa más el cargo de servicio: {"cae":"79108598932316","compradorId":"user-otro-titular","comprobante":"00001-00000017","emitida":"2026-10-30T13:01:44Z","eventoId":"ev-f4fbc114","fecha":"2026-10-30","importe":33275,"numero":17,"puntoDeVenta":1,"tipoComprobante":6,"vencimientoCae":"2026-11-09","ventaId":"V-d8e38972"}
+   ok   no fue a la cola de emisión (la entrada ya estaba emitida) (se espera 0): 0
+
+====================================================================================================
+ESCENARIO 18. Con Eventos caído, la devolución del cupo de una compra cancelada se reintenta sola y se aplica una vez   (13:01:44)
+====================================================================================================
+   ok   vendidas con la compra abierta (se espera 20): 20
+   ok   se saca de servicio el WAR de Eventos
+   ok   Eventos no responde (404 del servidor, no de Eventos) (se espera 404): 404
+   ok   DELETE /api/v1/ventas/V-45e55797 con Eventos caído (se espera 204): 204
+   ok   Ventas avisa que no pudo devolver el cupo y que lo reintenta (no lo da por rechazado): 2026-10-30 13:01:47,039 WARNING [com.palco.ventas.negocio.externos.ClienteDeEventos] (default task-2) No se pudo devolver el cupo de la venta V-45e55797: evento ev-f4fbc114, sector sec-d80a13d4, canti
+   ok   se vuelve a desplegar Eventos
+   ok   Eventos responde otra vez
+   ok   el barrido devuelve el cupo apenas Eventos vuelve: vendidas 18, antes 18
+   ok   el reintento lo hizo el barrido (DevolucionDeCupos): 2026-10-30 13:02:30,010 INFO  [com.palco.ventas.negocio.DevolucionDeCupos] (EJB default - 2) DevolucionDeCupos: la venta V-45e55797 (CANCELADA) tiene el cupo si
+   ok   repetir la devolución con la misma clave responde 200 (se espera 200): 200
+   ok   y no resta otra vez (se espera 18): 18
+   ok   repetir el DELETE (se espera 204): 204
+   ok   el cupo sigue devuelto una sola vez (se espera 18): 18
+
+====================================================================================================
+ESCENARIO 19. Reventa con Pagos sin respuesta: nadie más compra ni retira, y la conciliación libera o transfiere   (13:02:31)
+====================================================================================================
+   ok   dos publicaciones ACTIVA del titular: R-1e51fe1e R-7281430e
+   ok   504 sin-respuesta en Problem Details: 504 application/problem+json {"type":"/problemas/sin-respuesta","title":"Sin respuesta","status":504,"detail":"El servicio de pagos no responde. Probá de nuevo.","instance":"/api/v1/reventas/R-1e51fe1e/compra"}
+   ok   504 sin-respuesta en Problem Details: 504 application/problem+json {"type":"/problemas/sin-respuesta","title":"Sin respuesta","status":504,"detail":"El servicio de pagos no responde. Probá de nuevo.","instance":"/api/v1/reventas/R-7281430e/compra"}
+   ok   en Pagos queda aprobado el cobro de B con la clave de esa compra: 201 {"estado":"APROBADO","idExterno":"fake-R-7281430e:e33fc2e2-1d68-4985-9689-dc5ce86246d5","monto":33275,"motivo":null,"pagoId":"P-2de42f14","ventaId":"R-7281430e"
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está disponible: otra persona la está comprando o ya la compró.","instance":"/api/v1/reventas/R-1e51fe1e/compra"}
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está activa, o alguien la está comprando en este momento.","instance":"/api/v1/reventas/R-1e51fe1e"}
+   dato  se espera a la conciliación de reventas (entre 2 y 4 minutos)
+   ok   la conciliación resolvió las dos: A activa: true, B: VENDIDA
+   ok   A: Pagos no tenía ningún cobro con esa clave y la publicación quedó libre: 2026-10-30 13:04:45,026 INFO  [com.palco.reventa.negocio.ConciliacionDeReventas] (EJB default - 3) ConciliacionDeReventas: la publicación R-1e51fe1e tenía una compra sin terminar y Pagos no tiene ning
+   ok   A: ahora otra persona la compra: 201 {"entrada":{"codigoQr":"ff16bf9f-1c91-4ff2-b939-7ae8aff48403","eventoId":"ev-f4fbc114","id":"T-ef7c43d3","precioPagado":30250,"sectorId":"sec-d80a13d4","titular":{"dni":"21028357","nombre":"Luis Pérez
+   ok   B: la conciliación vio el pago aprobado, transfirió la entrada y la marcó VENDIDA: 2026-10-30 13:04:45,084 INFO  [com.palco.reventa.negocio.ConciliacionDeReventas] (EJB default - 3) ConciliacionDeReventas: la publicación R-7281430e tenía una compra sin terminar con el pago aprobado P-2de42f14. La entra
+   ok   B: la entrada original quedó VENDIDA (se espera "VENDIDA"): "VENDIDA"
+   ok   B: el comprador tiene su entrada a nombre del titular de la compra, sin haber reintentado (el reintento la devuelve igual): 201 {"entrada":{"codigoQr":"b81d2fe3-0c2b-418b-b2d8-5b1f00c08a54","eventoId":"ev-f4fbc114","id":"T-a4b0b3ca","precioPagado":30250,"sectorId":"sec-d80a13d4","titular":{"dni":"21028355","nombre":"Marta Ríos"}},"publicacion":{"
+   ok   B: la entrada nueva es VALIDA (se espera "VALIDA"): "VALIDA"
+   ok   B: no se cobró de nuevo (ninguna compra normal cerró B) (se espera 0): 0
+
+====================================================================================================
+ESCENARIO 20. Reventa cobrada y sin entrada: Ventas rechaza la transferencia, la publicación se anula y el pago se devuelve (L2)   (13:04:47)
+====================================================================================================
+   ok   dos publicaciones ACTIVA del titular: R-e8b16986 R-639de772
+   ok   Ventas devuelve la entrada de A a VALIDA por detrás de Reventa (se espera 200): 200
+   ok   A sigue ACTIVA en la reventa
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La entrada ya no está disponible. Te devolvimos el pago.","instance":"/api/v1/reventas/R-e8b16986/compra"}
+   ok   el comprador sabe que le devolvieron el pago: La entrada ya no está disponible. Te devolvimos el pago.
+   ok   en Pagos el cobro de A quedó REEMBOLSADO, por el total cobrado: {"estado":"REEMBOLSADO","idExterno":"fake-R-e8b16986:ade01f4f-016b-4a3a-8046-b629978b6e87","monto":33275,"motivo":null,"pagoId":"P-c22f0a3e","ventaId":"R-e8b16986"}
+   ok   A quedó ANULADA (se espera "ANULADA"): "ANULADA"
+   ok   A ya no aparece en la reventa del evento
+   ok   la entrada del vendedor sigue VALIDA y suya (se espera "VALIDA"): "VALIDA"
+   ok   Pagos devolvió el pago una sola vez (se espera 1): 1
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está disponible.","instance":"/api/v1/reventas/R-e8b16986/compra"}
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está disponible.","instance":"/api/v1/reventas/R-e8b16986/compra"}
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está activa, o alguien la está comprando en este momento.","instance":"/api/v1/reventas/R-e8b16986"}
+   ok   el reintento no volvió a devolver ni a cobrar (se espera 1): 1
+   ok   504 sin-respuesta en Problem Details: 504 application/problem+json {"type":"/problemas/sin-respuesta","title":"Sin respuesta","status":504,"detail":"El servicio de pagos no responde. Probá de nuevo.","instance":"/api/v1/reventas/R-639de772/compra"}
+   ok   en Pagos queda aprobado el cobro de B (se espera "APROBADO"): "APROBADO"
+   ok   Ventas devuelve la entrada de B a VALIDA (se espera 200): 200
+   dato  se espera a la conciliación de reventas (entre 2 y 4 minutos)
+   ok   la conciliación anuló B: B: ANULADA
+   ok   la conciliación vio el pago aprobado, Ventas rechazó la transferencia y avisó que el pago se devuelve: 2026-10-30 13:07:45,095 WARNING [com.palco.reventa.negocio.ConciliacionDeReventas] (EJB default - 2) ConciliacionDeReventas: la publicación R-639de772 tiene el pago aprobado P-291d922f del comprador user-otro-titular per
+   ok   en Pagos el cobro de B quedó REEMBOLSADO: {"estado":"REEMBOLSADO","idExterno":"fake-R-639de772:a81e84e5-2f31-439f-96e5-e420362b0833","monto":33275,"motivo":null,"pagoId":"P-291d922f","ventaId":"R-639de772"}
+
+====================================================================================================
+ESCENARIO 21. Dueño del evento: el organizador lista los suyos y ve el registro de la puerta solo de ellos (L17 y L18)   (13:07:47)
+====================================================================================================
+   ok   GET /api/eventos/mios: 200 con el evento de la prueba y los seis de las migraciones: 200 7 eventos
+   ok   ordenados por fecha: 2026-12-26T17:00:00 2027-01-08T21:00:00 2027-01-16T00:30:00 2027-01-21T20:30:00 2027-01-24T16:00:00 2027-01-29T20:00:00 2027-12-31T20:00:00
+   ok   sin token 401; con user, staff y servicio 403: 401 403 403 403
+   ok   el organizador ve el registro de la puerta de su evento (se espera 200): 200
+   ok   403 evento-ajeno en Problem Details: 403 application/problem+json {"type":"/problemas/evento-ajeno","title":"Sin permiso","status":403,"detail":"Ese evento no es tuyo: solo ves el registro de la puerta de tus eventos.","instance":"/api/v1/validacion/escaneos"}
+   ok   el personal de puerta sigue viendo cualquier registro (sin asignación de staff todavía) (se espera 200): 200
+
+Broker al terminar: cola: agregados=23 pendientes=0 consumidores=15 | tópico: agregados=72 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=24 pendientes=0 | DLQ: pendientes=2
+
+====================================================================================================
+RESUMEN
+====================================================================================================
+PASA   1. Compra completa: iniciar, pagar contra Pagos, venta emitida, cupo y pago  (18/18 comprobaciones)
+PASA   2. Idempotencia: la misma clave al iniciar y al pagar no duplica nada  (10/10 comprobaciones)
+PASA   3. Pago rechazado: 402, venta sin confirmar, ningún mensaje; un segundo intento la completa  (10/10 comprobaciones)
+PASA   4. Reglas de negocio: cada una con su código y su cuerpo Problem Details  (23/23 comprobaciones)
+PASA   5. Seguridad: sin token, con el token de otro usuario, con otro rol, y lo interno solo con rol servicio  (27/27 comprobaciones)
+PASA   6. Cancelar una compra en curso libera el cupo  (8/8 comprobaciones)
+PASA   7. Al confirmarse un pago sale UN mensaje a la cola y UNO al tópico, con el tipoEvento del contrato  (12/12 comprobaciones)
+PASA   8. El consumidor de la cola emite una sola vez aunque el mensaje llegue dos veces  (14/14 comprobaciones)
+PASA   9. Los dos suscriptores del tópico reciben cada uno su copia: el aviso (log) y la auditoría (fila)  (7/7 comprobaciones)
+PASA   10. Taller: con el consumidor de emisión detenido el mensaje espera en la cola; al reanudarlo se emite  (12/12 comprobaciones)
+PASA   11. Suscripción durable: con auditoría detenida se publican mensajes y al reanudarla los recibe  (10/10 comprobaciones)
+PASA   12. Un mensaje inválido se reintenta y termina en la DLQ sin trabar a los demás  (15/15 comprobaciones)
+PASA   13. Si la transacción se deshace después de publicar, el mensaje no sale  (11/11 comprobaciones)
+PASA   14. Falla después del cobro: se deshace la confirmación, el pago queda en Pagos y la conciliación termina la compra  (18/18 comprobaciones)
+PASA   15. Facturación: la compra confirmada se factura una sola vez, con número y CAE de ARCA (simulado)  (10/10 comprobaciones)
+PASA   16. Validación en puerta: el primer escaneo deja entrar y marca la entrada USADA; el segundo, no  (11/11 comprobaciones)
+PASA   17. Reventa de punta a punta: publicar dentro del rango, la compra de otra cuenta, la entrada nueva y su REVENTA_CONFIRMADA  (24/24 comprobaciones)
+PASA   18. Con Eventos caído, la devolución del cupo de una compra cancelada se reintenta sola y se aplica una vez  (13/13 comprobaciones)
+PASA   19. Reventa con Pagos sin respuesta: nadie más compra ni retira, y la conciliación libera o transfiere  (14/14 comprobaciones)
+PASA   20. Reventa cobrada y sin entrada: Ventas rechaza la transferencia, la publicación se anula y el pago se devuelve (L2)  (20/20 comprobaciones)
+PASA   21. Dueño del evento: el organizador lista los suyos y ve el registro de la puerta solo de ellos (L17 y L18)  (6/6 comprobaciones)
+
+TODO BIEN
