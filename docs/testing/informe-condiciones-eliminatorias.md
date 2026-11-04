@@ -2,7 +2,7 @@
 
 - **Fecha:** 30/10/2026
 - **Rama:** `testing/condiciones-eliminatorias`, creada desde `master` en `f655139`
-- **Autor:** Joaquin Molina (QA lead), con asistencia de Claude Code
+- **Autor:** Joaquin Molina (QA lead), con asistencia de una herramienta de IA generativa
 - **Base:** "Plan de implementación — Prueba del TP Obligatorio (testing)", tareas P0 de los frentes F1, F5 y F6
 
 ## 1. Resumen

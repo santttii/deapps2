@@ -92,10 +92,10 @@ ESCENARIO 5. Seguridad: sin token, con el token de otro usuario, con otro rol, y
    ok   sin token: abrir, listar, ver, pagar, cancelar y ver una entrada responden 401: 401 401 401 401 401 401
    ok   con un token con la firma alterada (se espera 401): 401
   FALLA el escenario terminó sin errores del guion: TypeError: Cannot read properties of null (reading 'match')
-    at cuentaNueva (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:324:24)
-    at async escenario5 (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:353:16)
-    at async file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:1257:55
-    at async file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:1279:5
+    at cuentaNueva (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:324:24)
+    at async escenario5 (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:353:16)
+    at async file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:1257:55
+    at async file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:1279:5
 
 ====================================================================================================
 ESCENARIO 6. Cancelar una compra en curso libera el cupo   (13:23:34)
@@ -342,17 +342,17 @@ ESCENARIO 18. Con Eventos caído, la devolución del cupo de una compra cancelad
 ESCENARIO 19. Reventa con Pagos sin respuesta: nadie más compra ni retira, y la conciliación libera o transfiere   (13:29:30)
 ====================================================================================================
   FALLA el escenario terminó sin errores del guion: TypeError: Cannot read properties of null (reading 'match')
-    at cuentaNueva (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:324:24)
-    at async escenario19 (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:499:16)
-    at async file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:1279:5
+    at cuentaNueva (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:324:24)
+    at async escenario19 (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:499:16)
+    at async file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:1279:5
 
 ====================================================================================================
 ESCENARIO 20. Reventa cobrada y sin entrada: Ventas rechaza la transferencia, la publicación se anula y el pago se devuelve (L2)   (13:29:47)
 ====================================================================================================
   FALLA el escenario terminó sin errores del guion: TypeError: Cannot read properties of null (reading 'match')
-    at cuentaNueva (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:324:24)
-    at async escenario20 (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:566:16)
-    at async file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:1279:5
+    at cuentaNueva (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:324:24)
+    at async escenario20 (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:566:16)
+    at async file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:1279:5
 
 ====================================================================================================
 ESCENARIO 21. Dueño del evento: cada organizador ve y arma solo la puerta de sus eventos, y escanea solo el staff asignado (L17 y L18)   (13:30:03)
@@ -393,10 +393,10 @@ PASA   3. Pago rechazado: 402, venta sin confirmar, ningún mensaje; un segundo 
 PASA   4. Reglas de negocio: cada una con su código y su cuerpo Problem Details  (23/23 comprobaciones)
 FALLA  5. Seguridad: sin token, con el token de otro usuario, con otro rol, y lo interno solo con rol servicio  (2/3 comprobaciones)
          - el escenario terminó sin errores del guion: TypeError: Cannot read properties of null (reading 'match')
-    at cuentaNueva (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:324:24)
-    at async escenario5 (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:353:16)
-    at async file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:1257:55
-    at async file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:1279:5
+    at cuentaNueva (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:324:24)
+    at async escenario5 (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:353:16)
+    at async file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:1257:55
+    at async file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:1279:5
 PASA   6. Cancelar una compra en curso libera el cupo  (8/8 comprobaciones)
 FALLA  7. Al confirmarse un pago sale UN mensaje a la cola y UNO al tópico, con el tipoEvento del contrato  (11/12 comprobaciones)
          - el aviso nombra el sector y a los dos titulares, que viajan en entradas[] del cuerpo: 
@@ -415,14 +415,14 @@ PASA   17. Reventa de punta a punta: publicar dentro del rango, la compra de otr
 PASA   18. Con Eventos caído, la devolución del cupo de una compra cancelada se reintenta sola y se aplica una vez  (13/13 comprobaciones)
 FALLA  19. Reventa con Pagos sin respuesta: nadie más compra ni retira, y la conciliación libera o transfiere  (0/1 comprobaciones)
          - el escenario terminó sin errores del guion: TypeError: Cannot read properties of null (reading 'match')
-    at cuentaNueva (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:324:24)
-    at async escenario19 (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:499:16)
-    at async file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:1279:5
+    at cuentaNueva (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:324:24)
+    at async escenario19 (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:499:16)
+    at async file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:1279:5
 FALLA  20. Reventa cobrada y sin entrada: Ventas rechaza la transferencia, la publicación se anula y el pago se devuelve (L2)  (0/1 comprobaciones)
          - el escenario terminó sin errores del guion: TypeError: Cannot read properties of null (reading 'match')
-    at cuentaNueva (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:324:24)
-    at async escenario20 (file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:566:16)
-    at async file:///tmp/claude-0/-home-user-deapps2/613cdfb4-b121-55f8-9842-7cbb4779fdd1/scratchpad/limpio3/scripts/pruebas/escenarios.mjs:1279:5
+    at cuentaNueva (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:324:24)
+    at async escenario20 (file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:566:16)
+    at async file:///<copia-de-trabajo>/scripts/pruebas/escenarios.mjs:1279:5
 PASA   21. Dueño del evento: cada organizador ve y arma solo la puerta de sus eventos, y escanea solo el staff asignado (L17 y L18)  (24/24 comprobaciones)
 
 HAY 6 COMPROBACIONES QUE FALLAN
