@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Palco API",
-    "description": "API de Palco, la plataforma de venta de entradas con reventa oficial (Desarrollo de Aplicaciones II, UADE). Se corre entera, en orden, con el Runner o con Newman, contra el backend local: las carpetas 1 a 7 son automáticas y se pueden repetir sin reiniciar el servidor. La subcarpeta \"Pasos manuales\" queda fuera de la corrida. La guía está en docs/api/GUIA_POSTMAN.md.",
+    "description": "API de Palco, la plataforma de venta de entradas con reventa oficial (Desarrollo de Aplicaciones II, UADE). Se corre entera, en orden, con el Runner o con Newman, contra el backend local: las carpetas 1 a 8 son automáticas y se pueden repetir sin reiniciar el servidor. La subcarpeta \"Pasos manuales\" queda fuera de la corrida. La guía está en docs/api/GUIA_POSTMAN.md.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -328,6 +328,78 @@
       "value": "",
       "type": "string",
       "description": "Seguridad: los códigos de los cinco intentos previos de SEC-W04, en JSON."
+    },
+    {
+      "key": "tokenOtroOrganizador",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: token de otro.organizador@palco.test, para lo ajeno."
+    },
+    {
+      "key": "eventoPropioId",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: id del evento que se edita y se cancela. Sale de la respuesta."
+    },
+    {
+      "key": "sectorPropioId",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: id del sector de ese evento. Sale de la respuesta."
+    },
+    {
+      "key": "slugPropio",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: slug de ese evento, para pedir su detalle."
+    },
+    {
+      "key": "ventaPropiaId",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: la compra que se anula al cancelar el evento."
+    },
+    {
+      "key": "montoPropio",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: el total de esa compra, que se reembolsa."
+    },
+    {
+      "key": "pagoPropioId",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: el pago de esa compra."
+    },
+    {
+      "key": "intentosAnulacion",
+      "value": "0",
+      "type": "string",
+      "description": "Contador interno de la espera de la anulación."
+    },
+    {
+      "key": "emailOlvide",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: email de la cuenta que pide recuperar la contraseña, nuevo en cada corrida."
+    },
+    {
+      "key": "dniOlvide",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: DNI de esa cuenta, nuevo en cada corrida."
+    },
+    {
+      "key": "emailSinCuenta",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: email que no existe, nuevo en cada corrida."
+    },
+    {
+      "key": "respuestaOlvide",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: la respuesta a la cuenta que existe, para compararla con la del email que no existe."
     }
   ],
   "item": [
@@ -6940,6 +7012,1623 @@
                 "exec": [
                   "pm.test('responde 200', () => pm.response.to.have.status(200));",
                   "pm.test('es la misma factura', () => pm.expect(pm.response.json().cae).to.eql(pm.collectionVariables.get('cae')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8 Operaciones del 30/10 (implementado)",
+      "description": "Las operaciones que se sumaron para el 30/10, sobre un evento y una cuenta que crea la misma carpeta (nunca sobre los eventos de la demo). organizador@palco.test crea un evento, lo edita y titular@palco.test le compra 2 entradas; con la compra emitida se piden las ventas por día y la liquidación. Después el organizador cancela el evento: la venta queda CANCELADA, sus entradas ANULADA y el pago REEMBOLSADO, que es asincrónico y se espera como la emisión. otro.organizador@palco.test prueba que lo ajeno responde 404, como si no existiera, y el token de un comprador, que el rol equivocado responde 403. Además, la subida de la foto en el backend local (sin almacén configurado) y con un formato que no se acepta, y la recuperación de la contraseña: siempre la misma respuesta, exista o no el email, y un código incorrecto que no cambia la contraseña. Corre entera sin intervención: pide sus propios tokens.",
+      "item": [
+        {
+          "name": "Login organizador (200) guarda tokenOrganizador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/login",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "description": "El dueño del evento de la carpeta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"organizador@palco.test\",\n  \"password\": \"palco1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const sesion = pm.response.json();",
+                  "pm.test('trae el token y cuánto dura', () => {",
+                  "  pm.expect(sesion.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(sesion.expiraEnSegundos).to.be.above(0);",
+                  "});",
+                  "pm.test('la cuenta es organizador@palco.test, con rol organizer', () => {",
+                  "  pm.expect(sesion.usuario.email).to.eql('organizador@palco.test');",
+                  "  pm.expect(sesion.usuario.rol).to.eql('organizer');",
+                  "});",
+                  "pm.collectionVariables.set('tokenOrganizador', sesion.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login otro organizador (200) guarda tokenOtroOrganizador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/login",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Otro organizador, para probar que el evento ajeno no se ve, no se edita ni se cancela.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"otro.organizador@palco.test\",\n  \"password\": \"palco1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const sesion = pm.response.json();",
+                  "pm.test('trae el token y cuánto dura', () => {",
+                  "  pm.expect(sesion.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(sesion.expiraEnSegundos).to.be.above(0);",
+                  "});",
+                  "pm.test('la cuenta es otro.organizador@palco.test, con rol organizer', () => {",
+                  "  pm.expect(sesion.usuario.email).to.eql('otro.organizador@palco.test');",
+                  "  pm.expect(sesion.usuario.rol).to.eql('organizer');",
+                  "});",
+                  "pm.collectionVariables.set('tokenOtroOrganizador', sesion.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login comprador (200) guarda token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/login",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Quien compra en el evento que se cancela. Con su token también se prueba el 403 por rol.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"titular@palco.test\",\n  \"password\": \"palco1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const sesion = pm.response.json();",
+                  "pm.test('trae el token y cuánto dura', () => {",
+                  "  pm.expect(sesion.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(sesion.expiraEnSegundos).to.be.above(0);",
+                  "});",
+                  "pm.test('la cuenta es titular@palco.test, con rol user', () => {",
+                  "  pm.expect(sesion.usuario.email).to.eql('titular@palco.test');",
+                  "  pm.expect(sesion.usuario.rol).to.eql('user');",
+                  "});",
+                  "pm.collectionVariables.set('token', sesion.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear evento para editar y cancelar (201) guarda eventoPropioId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [],
+              "query": []
+            },
+            "description": "Un evento propio con un sector de 100 lugares a 10.000. Cada corrida crea uno y lo deja cancelado: no aparece en el catálogo, pero su detalle sigue respondiendo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Evento de prueba Postman para cancelar\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Luna Park\",\n  \"fechaISO\": \"2027-12-31T21:00:00\",\n  \"descripcion\": \"Evento creado por la colección de Postman. Se puede ignorar.\",\n  \"sectores\": [\n    {\n      \"nombre\": \"General\",\n      \"precio\": 10000,\n      \"cupo\": 100\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "const creado = pm.response.json();",
+                  "pm.test('devuelve el evento sin cancelar, con su sector', () => {",
+                  "  pm.expect(creado.id).to.be.a('string').and.not.empty;",
+                  "  pm.expect(creado.cancelado).to.eql(false);",
+                  "  pm.expect(creado.sectores).to.have.lengthOf(1);",
+                  "});",
+                  "pm.collectionVariables.set('eventoPropioId', creado.id);",
+                  "pm.collectionVariables.set('sectorPropioId', creado.sectores[0].id);",
+                  "pm.collectionVariables.set('slugPropio', creado.slug);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /eventos/{id} propio (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoPropioId}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoPropioId}}"
+              ],
+              "query": []
+            },
+            "description": "Es un reemplazo completo: cambian el título, el lugar, la fecha, la descripción y el sector, que mantiene su id, pasa a llamarse Campo y sube a 150 lugares. El slug y el dueño no cambian.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Evento de prueba Postman, editado\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Estadio Obras\",\n  \"fechaISO\": \"2027-12-30T21:00:00\",\n  \"descripcion\": \"Editado por la colección de Postman.\",\n  \"imagenUrl\": null,\n  \"sectores\": [\n    {\n      \"id\": \"{{sectorPropioId}}\",\n      \"nombre\": \"Campo\",\n      \"precio\": 10000,\n      \"cupo\": 150\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const e = pm.response.json();",
+                  "pm.test('es el mismo evento, con el mismo slug', () => {",
+                  "  pm.expect(e.id).to.eql(pm.collectionVariables.get('eventoPropioId'));",
+                  "  pm.expect(e.slug).to.eql(pm.collectionVariables.get('slugPropio'));",
+                  "});",
+                  "pm.test('trae los datos nuevos', () => {",
+                  "  pm.expect(e.titulo).to.eql('Evento de prueba Postman, editado');",
+                  "  pm.expect(e.venue).to.eql('Estadio Obras');",
+                  "  pm.expect(e.fechaISO).to.match(/^2027-12-30T21:00/);",
+                  "  pm.expect(e.descripcion).to.eql('Editado por la colección de Postman.');",
+                  "});",
+                  "pm.test('el sector conserva su id, con el nombre y el cupo nuevos', () => {",
+                  "  pm.expect(e.sectores).to.have.lengthOf(1);",
+                  "  pm.expect(e.sectores[0].id).to.eql(pm.collectionVariables.get('sectorPropioId'));",
+                  "  pm.expect(e.sectores[0].nombre).to.eql('Campo');",
+                  "  pm.expect(e.sectores[0].cupo).to.eql(150);",
+                  "  pm.expect(e.sectores[0].vendidas).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /eventos/{id} ajeno (404)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOtroOrganizador}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoPropioId}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoPropioId}}"
+              ],
+              "query": []
+            },
+            "description": "El evento es de organizador@palco.test. Para otro organizador no existe: 404, igual que un evento que no existe de verdad, así no se puede saber qué ids hay. Al final de la carpeta, el detalle muestra que la edición no quedó.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Evento de prueba Postman, editado\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Estadio Obras\",\n  \"fechaISO\": \"2027-12-30T21:00:00\",\n  \"descripcion\": \"Esta edición no tendría que quedar.\",\n  \"imagenUrl\": null,\n  \"sectores\": [\n    {\n      \"id\": \"{{sectorPropioId}}\",\n      \"nombre\": \"Campo\",\n      \"precio\": 10000,\n      \"cupo\": 150\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /eventos/{id} con rol user (403)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoPropioId}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoPropioId}}"
+              ],
+              "query": []
+            },
+            "description": "Un token válido de comprador: editar eventos es del rol organizer. Responde 403, no 401.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Evento de prueba Postman, editado\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Estadio Obras\",\n  \"fechaISO\": \"2027-12-30T21:00:00\",\n  \"descripcion\": \"Esta edición no tendría que quedar.\",\n  \"imagenUrl\": null,\n  \"sectores\": [\n    {\n      \"id\": \"{{sectorPropioId}}\",\n      \"nombre\": \"Campo\",\n      \"precio\": 10000,\n      \"cupo\": 150\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-permiso', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-permiso');",
+                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas en el evento propio (201) guarda ventaPropiaId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas"
+              ],
+              "query": []
+            },
+            "description": "2 entradas de Campo a 10.000: 20.000 más el 10 % de cargo da 22.000.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventoId\": \"{{eventoPropioId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorPropioId}}\",\n      \"cantidad\": 2\n    }\n  ],\n  \"titulares\": [\n    {\n      \"nombre\": \"Ana Gómez\",\n      \"dni\": \"30123456\"\n    },\n    {\n      \"nombre\": \"Luis Pérez\",\n      \"dni\": \"31234567\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "const v = pm.response.json();",
+                  "pm.test('es una compra del evento propio, por 22.000', () => {",
+                  "  pm.expect(v.eventoId).to.eql(pm.collectionVariables.get('eventoPropioId'));",
+                  "  pm.expect(v.montoTotal).to.eql(22000);",
+                  "});",
+                  "pm.collectionVariables.set('ventaPropiaId', v.id);",
+                  "pm.collectionVariables.set('montoPropio', v.montoTotal);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas/{id}/pagos en el evento propio (201) guarda pagoPropioId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/{{ventaPropiaId}}/pagos",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "{{ventaPropiaId}}",
+                "pagos"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"medioDePago\": \"tarjeta\",\n  \"token\": \"tok_test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "const v = pm.response.json();",
+                  "pm.test('la venta está CONFIRMADA, con su pago', () => {",
+                  "  pm.expect(v.estado).to.eql('CONFIRMADA');",
+                  "  pm.expect(v.pagoId).to.match(/^P-[0-9a-f]{8}$/);",
+                  "});",
+                  "pm.collectionVariables.set('pagoPropioId', v.pagoId);",
+                  "pm.collectionVariables.set('intentosEmision', 0);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/ventas/{id} del evento propio (200, EMITIDA)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/{{ventaPropiaId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "{{ventaPropiaId}}"
+              ],
+              "query": []
+            },
+            "description": "Se espera la emisión antes de cancelar, para que lo que se anule sea una compra con sus entradas VALIDA. En una corrida se repite hasta 10 veces, con 1 segundo entre una y otra."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// El proceso es asincrónico: se espera 1 segundo antes de preguntar.",
+                  "setTimeout(() => {}, 1000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const MAXIMO_DE_INTENTOS = 10;",
+                  "const intento = Number(pm.collectionVariables.get('intentosEmision') || 0) + 1;",
+                  "const todaviaNo = !(pm.response.code === 200 && pm.response.json().estado === 'EMITIDA');",
+                  "",
+                  "if (todaviaNo && intento < MAXIMO_DE_INTENTOS) {",
+                  "  // Todavía no: se repite este mismo request, sin evaluar nada.",
+                  "  pm.collectionVariables.set('intentosEmision', intento);",
+                  "  if (pm.execution && pm.execution.setNextRequest) {",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "  } else {",
+                  "    postman.setNextRequest(pm.info.requestName);",
+                  "  }",
+                  "} else {",
+                  "  pm.collectionVariables.set('intentosEmision', 0);",
+                  "  pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('la venta está EMITIDA', () => pm.expect(pm.response.json().estado).to.eql('EMITIDA'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/resumenes?eventoId propio (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/resumenes?eventoId={{eventoPropioId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "resumenes"
+              ],
+              "query": [
+                {
+                  "key": "eventoId",
+                  "value": "{{eventoPropioId}}"
+                }
+              ]
+            },
+            "description": "Las ventas por día y la liquidación del evento: lo que muestra el panel del organizador. Cuenta las compras pagadas; el cargo de servicio es de Palco y el resto se le liquida al organizador."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const r = pm.response.json();",
+                  "pm.test('es el resumen del evento, con el detalle por día y la liquidación', () => {",
+                  "  pm.expect(r).to.include.all.keys('eventoId', 'porDia', 'liquidacion');",
+                  "  pm.expect(r.eventoId).to.eql(pm.collectionVariables.get('eventoPropioId'));",
+                  "});",
+                  "pm.test('liquidación: 1 venta, 2 entradas, 22.000 cobrados, 2.000 de cargo y 20.000 para el organizador', () => {",
+                  "  pm.expect(r.liquidacion).to.eql({ ventas: 1, entradas: 2, recaudadoDeLosCompradores: 22000, cargoDePalco: 2000, aLiquidarAlOrganizador: 20000 });",
+                  "});",
+                  "pm.test('un solo día, con los mismos montos', () => {",
+                  "  pm.expect(r.porDia).to.have.lengthOf(1);",
+                  "  pm.expect(r.porDia[0].fecha).to.match(/^\\d{4}-\\d{2}-\\d{2}$/);",
+                  "  pm.expect(r.porDia[0]).to.include({ ventas: 1, entradas: 2, subtotal: 20000, cargoServicio: 2000, total: 22000 });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/resumenes?eventoId ajeno (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOtroOrganizador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/resumenes?eventoId={{eventoPropioId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "resumenes"
+              ],
+              "query": [
+                {
+                  "key": "eventoId",
+                  "value": "{{eventoPropioId}}"
+                }
+              ]
+            },
+            "description": "El resumen de un evento de otro organizador responde como el de uno que no existe. Ventas le pregunta a Eventos quién es el dueño."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/resumenes?eventoId con rol user (403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/resumenes?eventoId={{eventoPropioId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "resumenes"
+              ],
+              "query": [
+                {
+                  "key": "eventoId",
+                  "value": "{{eventoPropioId}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-permiso', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-permiso');",
+                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /eventos/{id}/cancelacion ajeno (404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOtroOrganizador}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoPropioId}}/cancelacion",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoPropioId}}",
+                "cancelacion"
+              ],
+              "query": []
+            },
+            "description": "Otro organizador no puede cancelar el evento: para él no existe.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"La colección de Postman cancela su propio evento.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /eventos/{id}/cancelacion con rol user (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoPropioId}}/cancelacion",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoPropioId}}",
+                "cancelacion"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"La colección de Postman cancela su propio evento.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-permiso', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-permiso');",
+                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /eventos/{id}/cancelacion propio (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoPropioId}}/cancelacion",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoPropioId}}",
+                "cancelacion"
+              ],
+              "query": []
+            },
+            "description": "Cancela el evento con un motivo. El evento no se borra: queda marcado, y Eventos publica EVENTO_CANCELADO para que Ventas anule las compras y pida los reembolsos.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"La colección de Postman cancela su propio evento.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const e = pm.response.json();",
+                  "pm.test('el evento queda cancelado, con el motivo', () => {",
+                  "  pm.expect(e.id).to.eql(pm.collectionVariables.get('eventoPropioId'));",
+                  "  pm.expect(e.cancelado).to.eql(true);",
+                  "  pm.expect(e.cancelacionMotivo).to.eql('La colección de Postman cancela su propio evento.');",
+                  "});",
+                  "pm.collectionVariables.set('intentosAnulacion', 0);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /eventos/{id}/cancelacion repetida (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoPropioId}}/cancelacion",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoPropioId}}",
+                "cancelacion"
+              ],
+              "query": []
+            },
+            "description": "Un evento se cancela una sola vez: la segunda no publica otro mensaje, y por eso nadie reembolsa dos veces.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"La colección de Postman cancela su propio evento.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/evento-cancelado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/evento-cancelado');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/ventas/{id} anulada (200, CANCELADA)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/{{ventaPropiaId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "{{ventaPropiaId}}"
+              ],
+              "query": []
+            },
+            "description": "La anulación es asincrónica: Ventas consume EVENTO_CANCELADO, anula las entradas, le pide el reembolso a Pagos y publica COMPRA_ANULADA para el aviso al comprador. En una corrida espera 1 segundo y se repite hasta 10 veces, hasta que la venta queda CANCELADA. Enviado a mano no se repite solo."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// El proceso es asincrónico: se espera 1 segundo antes de preguntar.",
+                  "setTimeout(() => {}, 1000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const MAXIMO_DE_INTENTOS = 10;",
+                  "const intento = Number(pm.collectionVariables.get('intentosAnulacion') || 0) + 1;",
+                  "const todaviaNo = !(pm.response.code === 200 && pm.response.json().estado === 'CANCELADA');",
+                  "",
+                  "if (todaviaNo && intento < MAXIMO_DE_INTENTOS) {",
+                  "  // Todavía no: se repite este mismo request, sin evaluar nada.",
+                  "  pm.collectionVariables.set('intentosAnulacion', intento);",
+                  "  if (pm.execution && pm.execution.setNextRequest) {",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "  } else {",
+                  "    postman.setNextRequest(pm.info.requestName);",
+                  "  }",
+                  "} else {",
+                  "  pm.collectionVariables.set('intentosAnulacion', 0);",
+                  "  pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "  const v = pm.response.json();",
+                  "  pm.test('la venta está CANCELADA y conserva su pago', () => {",
+                  "    pm.expect(v.estado).to.eql('CANCELADA');",
+                  "    pm.expect(v.pagoId).to.eql(pm.collectionVariables.get('pagoPropioId'));",
+                  "  });",
+                  "  pm.test('sus dos entradas quedaron ANULADA', () => {",
+                  "    pm.expect(v.entradas).to.have.lengthOf(2);",
+                  "    v.entradas.forEach((e) => pm.expect(e.estado).to.eql('ANULADA'));",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token de servicio (200) guarda tokenServicio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/servicios/token",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "servicios",
+                "token"
+              ],
+              "query": []
+            },
+            "description": "El pago se consulta en Pagos, que atiende solo al rol servicio.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"secreto\": \"{{secretoServicios}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenServicio', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/pagos/{id} de la venta anulada (200, REEMBOLSADO)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/pagos/{{pagoPropioId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "pagos",
+                "{{pagoPropioId}}"
+              ],
+              "query": []
+            },
+            "description": "Ventas pide el reembolso en la misma transacción en que anula la venta: cuando la venta se ve CANCELADA, el pago ya se devolvió."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const p = pm.response.json();",
+                  "pm.test('es el pago de la venta, por el total cobrado', () => {",
+                  "  pm.expect(p.pagoId).to.eql(pm.collectionVariables.get('pagoPropioId'));",
+                  "  pm.expect(p.ventaId).to.eql(pm.collectionVariables.get('ventaPropiaId'));",
+                  "  pm.expect(p.monto).to.eql(Number(pm.collectionVariables.get('montoPropio')));",
+                  "});",
+                  "pm.test('el pago quedó REEMBOLSADO', () => pm.expect(p.estado).to.eql('REEMBOLSADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/resumenes?eventoId después de cancelar (200, sin ventas)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/resumenes?eventoId={{eventoPropioId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "resumenes"
+              ],
+              "query": [
+                {
+                  "key": "eventoId",
+                  "value": "{{eventoPropioId}}"
+                }
+              ]
+            },
+            "description": "Una compra anulada no se liquida: el resumen queda vacío."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('sin días y con la liquidación en cero', () => {",
+                  "  pm.expect(r.porDia).to.be.an('array').that.is.empty;",
+                  "  pm.expect(r.liquidacion).to.eql({ ventas: 0, entradas: 0, recaudadoDeLosCompradores: 0, cargoDePalco: 0, aLiquidarAlOrganizador: 0 });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalle del evento cancelado (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseEventos}}/{{slugPropio}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{slugPropio}}"
+              ],
+              "query": []
+            },
+            "description": "El detalle sigue respondiendo, con la marca y el motivo, y con los datos de la edición del dueño: la del otro organizador no quedó."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const e = pm.response.json();",
+                  "pm.test('está cancelado, con el motivo', () => {",
+                  "  pm.expect(e.cancelado).to.eql(true);",
+                  "  pm.expect(e.cancelacionMotivo).to.eql('La colección de Postman cancela su propio evento.');",
+                  "});",
+                  "pm.test('conserva la edición del dueño', () => {",
+                  "  pm.expect(e.titulo).to.eql('Evento de prueba Postman, editado');",
+                  "  pm.expect(e.descripcion).to.eql('Editado por la colección de Postman.');",
+                  "  pm.expect(e.sectores[0].cupo).to.eql(150);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/ventas en el evento cancelado (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas"
+              ],
+              "query": []
+            },
+            "description": "Un evento cancelado no vende más entradas: 409 evento-cancelado, sin reservar cupo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventoId\": \"{{eventoPropioId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorPropioId}}\",\n      \"cantidad\": 1\n    }\n  ],\n  \"titulares\": [\n    {\n      \"nombre\": \"Ana Gómez\",\n      \"dni\": \"30123456\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/evento-cancelado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/evento-cancelado');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /eventos/imagenes sin almacén configurado (504)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "image/png"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/imagenes",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "imagenes"
+              ],
+              "query": []
+            },
+            "description": "En el backend local no hay almacén de imágenes (faltan PALCO_SUPABASE_URL y PALCO_SUPABASE_CLAVE): la subida se rechaza con un detail que dice qué falta. El alta y la edición del evento siguen andando sin foto. El cuerpo es texto con el tipo image/png, porque sin almacén no se llega a mirar el contenido.",
+            "body": {
+              "mode": "raw",
+              "raw": "no es una imagen de verdad",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 504', () => pm.response.to.have.status(504));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-respuesta', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-respuesta');",
+                  "  pm.expect(p.status).to.eql(504);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "pm.test('el detail dice que falta configurar el almacenamiento', () => {",
+                  "  pm.expect(pm.response.json().detail).to.include('falta configurar el almacenamiento');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /eventos/imagenes con un SVG (415)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "image/svg+xml"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/imagenes",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "imagenes"
+              ],
+              "query": []
+            },
+            "description": "Solo se aceptan JPG, PNG y WEBP; un SVG puede traer scripts. Se rechaza por el tipo, antes de llegar al almacén: con o sin almacén configurado responde 415.",
+            "body": {
+              "mode": "raw",
+              "raw": "<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
+              "options": {
+                "raw": {
+                  "language": "xml"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 415', () => pm.response.to.have.status(415));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type about:blank: el problema es el código mismo', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('about:blank');",
+                  "  pm.expect(p.status).to.eql(415);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registro para recuperar la contraseña (201) guarda emailOlvide",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/registro",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "registro"
+              ],
+              "query": []
+            },
+            "description": "Una cuenta propia de la carpeta, con email y DNI nuevos en cada corrida: así la recuperación no toca las cuentas de prueba. Queda sin verificar, porque el código de verificación solo sale en el log.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ana\",\n  \"apellido\": \"Gomez\",\n  \"dni\": \"{{dniOlvide}}\",\n  \"fechaNacimiento\": \"1995-05-10\",\n  \"email\": \"{{emailOlvide}}\",\n  \"telefono\": \"1155550000\",\n  \"password\": \"Clave1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const sufijo = Date.now().toString(36) + Math.floor(Math.random() * 1000);",
+                  "pm.collectionVariables.set('emailOlvide', 'olvide-' + sufijo + '@palco.test');",
+                  "pm.collectionVariables.set('dniOlvide', String(50000000 + Math.floor(Math.random() * 49999999)));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /password/olvide de una cuenta que existe (204)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/password/olvide",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "password",
+                "olvide"
+              ],
+              "query": []
+            },
+            "description": "Pide el código para poner una contraseña nueva. Responde 204 sin cuerpo; el código, si corresponde, va por email. Una cuenta sin verificar, como esta, no recibe código: primero tiene que terminar la verificación.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailOlvide}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 204', () => pm.response.to.have.status(204));",
+                  "pm.test('no trae cuerpo', () => pm.expect(pm.response.text()).to.eql(''));",
+                  "pm.collectionVariables.set('respuestaOlvide', JSON.stringify({ codigo: pm.response.code, cuerpo: pm.response.text() }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /password/olvide de un email que no existe (204, la misma respuesta)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/password/olvide",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "password",
+                "olvide"
+              ],
+              "query": []
+            },
+            "description": "Un email sin cuenta, nuevo en cada corrida: la misma respuesta que para una cuenta que existe, así no se puede averiguar qué emails están registrados.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailSinCuenta}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const sufijo = Date.now().toString(36) + Math.floor(Math.random() * 1000);",
+                  "pm.collectionVariables.set('emailSinCuenta', 'sin-cuenta-' + sufijo + '@palco.test');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 204', () => pm.response.to.have.status(204));",
+                  "pm.test('no trae cuerpo', () => pm.expect(pm.response.text()).to.eql(''));",
+                  "pm.test('es la misma respuesta que con la cuenta que existe', () => {",
+                  "  const anterior = JSON.parse(pm.collectionVariables.get('respuestaOlvide') || '{}');",
+                  "  pm.expect({ codigo: pm.response.code, cuerpo: pm.response.text() }).to.eql(anterior);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /password/reinicio con un código incorrecto (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/password/reinicio",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "password",
+                "reinicio"
+              ],
+              "query": []
+            },
+            "description": "La cuenta de la carpeta no tiene código, porque sin verificar no recibe: cualquier código es incorrecto. Responde 400 con errores.codigo \"El código no es correcto.\", el mismo error que un código equivocado en una cuenta verificada, así tampoco se sabe en qué estado está la cuenta. El reinicio completo necesita el código, que solo sale en el log del servidor, como el de verificación.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailOlvide}}\",\n  \"codigo\": \"000000\",\n  \"password\": \"Nueva12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/datos-invalidos', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/datos-invalidos');",
+                  "  pm.expect(p.status).to.eql(400);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "pm.test('errores.codigo dice que el código no es correcto', () => {",
+                  "  pm.expect(pm.response.json().errores.codigo).to.eql('El código no es correcto.');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login con la contraseña de siempre (409): no cambió",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/login",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Con una contraseña incorrecta el login responde 401; con la correcta, a una cuenta sin verificar, 409. Que responda 409 con la de siempre muestra que el reinicio rechazado no la cambió.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailOlvide}}\",\n  \"password\": \"Clave1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/conflicto', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/conflicto');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
                 ]
               }
             }

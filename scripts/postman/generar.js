@@ -43,7 +43,7 @@ function pedido(nombre, metodo, direccion, opciones = {}) {
     item.request.body = {
       mode: 'raw',
       raw: typeof opciones.cuerpo === 'string' ? opciones.cuerpo : JSON.stringify(opciones.cuerpo, null, 2),
-      options: { raw: { language: 'json' } },
+      options: { raw: { language: opciones.lenguaje || 'json' } },
     };
   }
   if (opciones.antes) {
@@ -101,12 +101,13 @@ const nuevaClave = (variable) => [
 const TITULAR = { email: 'titular@palco.test', password: 'palco1234' };
 const OTRO_COMPRADOR = { email: 'otro.titular@palco.test', password: 'palco1234' };
 const ORGANIZADOR = { email: 'organizador@palco.test', password: 'palco1234' };
+const OTRO_ORGANIZADOR = { email: 'otro.organizador@palco.test', password: 'palco1234' };
 const STAFF = { email: 'puerta@palco.test', password: 'palco1234' };
 
-const registro = (email, password) => ({
+const registro = (email, password, dni = '{{dniRegistro}}') => ({
   nombre: 'Ana',
   apellido: 'Gomez',
-  dni: '{{dniRegistro}}',
+  dni,
   fechaNacimiento: '1995-05-10',
   email,
   telefono: '1155550000',
@@ -122,9 +123,9 @@ const eventoDePrueba = (titulo, sectores) => ({
   sectores,
 });
 
-const compra = (cantidad, titulares) => ({
-  eventoId: '{{eventoId}}',
-  items: [{ sectorId: '{{sectorId}}', cantidad }],
+const compra = (cantidad, titulares, evento = '{{eventoId}}', sector = '{{sectorId}}') => ({
+  eventoId: evento,
+  items: [{ sectorId: sector, cantidad }],
   titulares,
 });
 
@@ -443,7 +444,7 @@ const eventos = carpeta('2 Eventos (implementado)',
 // ---------------------------------------------------------------------------------------------
 // 3 Diseño v1: Ventas
 
-const ventaEnCheckout = (cantidad, titularesEsperados) => [
+const ventaEnCheckout = (cantidad) => [
   'const v = pm.response.json();',
   "pm.test('la venta trae los campos del contrato', () => {",
   `  pm.expect(v).to.include.all.keys(${CAMPOS_VENTA});`,
@@ -1571,6 +1572,381 @@ const facturacion = carpeta('7 Facturación (implementado)',
   ]);
 
 // ---------------------------------------------------------------------------------------------
+// 8 Operaciones del 30/10: editar y cancelar un evento, su resumen de ventas, la foto y la contraseña
+
+const MOTIVO_CANCELACION = 'La colección de Postman cancela su propio evento.';
+const DESCRIPCION_EDITADA = 'Editado por la colección de Postman.';
+
+/** Reemplazo completo del evento de la carpeta: otro título, lugar y fecha, y el sector con otro nombre y más cupo. */
+const eventoEditado = (descripcion) => ({
+  titulo: 'Evento de prueba Postman, editado',
+  categoria: 'Música',
+  venue: 'Estadio Obras',
+  fechaISO: '2027-12-30T21:00:00',
+  descripcion,
+  imagenUrl: null,
+  sectores: [{ id: '{{sectorPropioId}}', nombre: 'Campo', precio: 10000, cupo: 150 }],
+});
+
+const editar = (nombre, variableToken, descripcion, opciones) => pedido(nombre, 'PUT',
+  url('baseEventos', ['{{eventoPropioId}}']), {
+    cabeceras: [bearer(variableToken), JSON_CT],
+    cuerpo: eventoEditado(descripcion),
+    ...opciones,
+  });
+
+const cancelar = (nombre, variableToken, opciones) => pedido(nombre, 'POST',
+  url('baseEventos', ['{{eventoPropioId}}', 'cancelacion']), {
+    cabeceras: [bearer(variableToken), JSON_CT],
+    cuerpo: { motivo: MOTIVO_CANCELACION },
+    ...opciones,
+  });
+
+const resumen = (nombre, variableToken, opciones) => pedido(nombre, 'GET',
+  url('baseApi', ['resumenes'], [{ key: 'eventoId', value: '{{eventoPropioId}}' }]), {
+    cabeceras: [bearer(variableToken)],
+    ...opciones,
+  });
+
+const subirImagen = (nombre, tipo, cuerpo, lenguaje, opciones) => pedido(nombre, 'POST',
+  url('baseEventos', ['imagenes']), {
+    cabeceras: [bearer('tokenOrganizador'), { key: 'Content-Type', value: tipo }],
+    cuerpo,
+    lenguaje,
+    ...opciones,
+  });
+
+const sinCuerpo = "pm.test('no trae cuerpo', () => pm.expect(pm.response.text()).to.eql(''));";
+
+const operacionesDel3010 = carpeta('8 Operaciones del 30/10 (implementado)',
+  'Las operaciones que se sumaron para el 30/10, sobre un evento y una cuenta que crea la misma carpeta (nunca '
+  + 'sobre los eventos de la demo). organizador@palco.test crea un evento, lo edita y titular@palco.test le compra '
+  + '2 entradas; con la compra emitida se piden las ventas por día y la liquidación. Después el organizador cancela '
+  + 'el evento: la venta queda CANCELADA, sus entradas ANULADA y el pago REEMBOLSADO, que es asincrónico y se espera '
+  + 'como la emisión. otro.organizador@palco.test prueba que lo ajeno responde 404, como si no existiera, y el token '
+  + 'de un comprador, que el rol equivocado responde 403. Además, la subida de la foto en el backend local (sin '
+  + 'almacén configurado) y con un formato que no se acepta, y la recuperación de la contraseña: siempre la misma '
+  + 'respuesta, exista o no el email, y un código incorrecto que no cambia la contraseña. Corre entera sin '
+  + 'intervención: pide sus propios tokens.',
+  [
+    login('Login organizador (200) guarda tokenOrganizador', ORGANIZADOR, 'organizer', 'tokenOrganizador',
+      'El dueño del evento de la carpeta.'),
+    login('Login otro organizador (200) guarda tokenOtroOrganizador', OTRO_ORGANIZADOR, 'organizer',
+      'tokenOtroOrganizador', 'Otro organizador, para probar que el evento ajeno no se ve, no se edita ni se cancela.'),
+    login('Login comprador (200) guarda token', TITULAR, 'user', 'token',
+      'Quien compra en el evento que se cancela. Con su token también se prueba el 403 por rol.'),
+    pedido('Crear evento para editar y cancelar (201) guarda eventoPropioId', 'POST', url('baseEventos'), {
+      descripcion: 'Un evento propio con un sector de 100 lugares a 10.000. Cada corrida crea uno y lo deja '
+        + 'cancelado: no aparece en el catálogo, pero su detalle sigue respondiendo.',
+      cabeceras: [bearer('tokenOrganizador'), JSON_CT],
+      cuerpo: eventoDePrueba('Evento de prueba Postman para cancelar', [{ nombre: 'General', precio: 10000, cupo: 100 }]),
+      tests: [
+        estado(201),
+        'const creado = pm.response.json();',
+        "pm.test('devuelve el evento sin cancelar, con su sector', () => {",
+        "  pm.expect(creado.id).to.be.a('string').and.not.empty;",
+        '  pm.expect(creado.cancelado).to.eql(false);',
+        '  pm.expect(creado.sectores).to.have.lengthOf(1);',
+        '});',
+        "pm.collectionVariables.set('eventoPropioId', creado.id);",
+        "pm.collectionVariables.set('sectorPropioId', creado.sectores[0].id);",
+        "pm.collectionVariables.set('slugPropio', creado.slug);",
+      ],
+    }),
+    editar('PUT /eventos/{id} propio (200)', 'tokenOrganizador', DESCRIPCION_EDITADA, {
+      descripcion: 'Es un reemplazo completo: cambian el título, el lugar, la fecha, la descripción y el sector, que '
+        + 'mantiene su id, pasa a llamarse Campo y sube a 150 lugares. El slug y el dueño no cambian.',
+      tests: [
+        estado(200),
+        esJson,
+        'const e = pm.response.json();',
+        "pm.test('es el mismo evento, con el mismo slug', () => {",
+        "  pm.expect(e.id).to.eql(pm.collectionVariables.get('eventoPropioId'));",
+        "  pm.expect(e.slug).to.eql(pm.collectionVariables.get('slugPropio'));",
+        '});',
+        "pm.test('trae los datos nuevos', () => {",
+        "  pm.expect(e.titulo).to.eql('Evento de prueba Postman, editado');",
+        "  pm.expect(e.venue).to.eql('Estadio Obras');",
+        "  pm.expect(e.fechaISO).to.match(/^2027-12-30T21:00/);",
+        `  pm.expect(e.descripcion).to.eql('${DESCRIPCION_EDITADA}');`,
+        '});',
+        "pm.test('el sector conserva su id, con el nombre y el cupo nuevos', () => {",
+        '  pm.expect(e.sectores).to.have.lengthOf(1);',
+        "  pm.expect(e.sectores[0].id).to.eql(pm.collectionVariables.get('sectorPropioId'));",
+        "  pm.expect(e.sectores[0].nombre).to.eql('Campo');",
+        '  pm.expect(e.sectores[0].cupo).to.eql(150);',
+        '  pm.expect(e.sectores[0].vendidas).to.eql(0);',
+        '});',
+      ],
+    }),
+    editar('PUT /eventos/{id} ajeno (404)', 'tokenOtroOrganizador', 'Esta edición no tendría que quedar.', {
+      descripcion: 'El evento es de organizador@palco.test. Para otro organizador no existe: 404, igual que un evento '
+        + 'que no existe de verdad, así no se puede saber qué ids hay. Al final de la carpeta, el detalle muestra '
+        + 'que la edición no quedó.',
+      tests: problema(404, 'no-encontrado'),
+    }),
+    editar('PUT /eventos/{id} con rol user (403)', 'token', 'Esta edición no tendría que quedar.', {
+      descripcion: 'Un token válido de comprador: editar eventos es del rol organizer. Responde 403, no 401.',
+      tests: problema(403, 'sin-permiso'),
+    }),
+    pedido('POST /v1/ventas en el evento propio (201) guarda ventaPropiaId', 'POST', url('baseApi', ['ventas']), {
+      descripcion: '2 entradas de Campo a 10.000: 20.000 más el 10 % de cargo da 22.000.',
+      cabeceras: [bearer('token'), clave('{{$guid}}'), JSON_CT],
+      cuerpo: compra(2, [ANA, LUIS], '{{eventoPropioId}}', '{{sectorPropioId}}'),
+      tests: [
+        estado(201),
+        'const v = pm.response.json();',
+        "pm.test('es una compra del evento propio, por 22.000', () => {",
+        "  pm.expect(v.eventoId).to.eql(pm.collectionVariables.get('eventoPropioId'));",
+        '  pm.expect(v.montoTotal).to.eql(22000);',
+        '});',
+        "pm.collectionVariables.set('ventaPropiaId', v.id);",
+        "pm.collectionVariables.set('montoPropio', v.montoTotal);",
+      ],
+    }),
+    pedido('POST /v1/ventas/{id}/pagos en el evento propio (201) guarda pagoPropioId', 'POST',
+      url('baseApi', ['ventas', '{{ventaPropiaId}}', 'pagos']), {
+        cabeceras: [bearer('token'), clave('{{$guid}}'), JSON_CT],
+        cuerpo: { medioDePago: 'tarjeta', token: 'tok_test' },
+        tests: [
+          estado(201),
+          'const v = pm.response.json();',
+          "pm.test('la venta está CONFIRMADA, con su pago', () => {",
+          "  pm.expect(v.estado).to.eql('CONFIRMADA');",
+          "  pm.expect(v.pagoId).to.match(/^P-[0-9a-f]{8}$/);",
+          '});',
+          "pm.collectionVariables.set('pagoPropioId', v.pagoId);",
+          "pm.collectionVariables.set('intentosEmision', 0);",
+        ],
+      }),
+    pedido('GET /v1/ventas/{id} del evento propio (200, EMITIDA)', 'GET', url('baseApi', ['ventas', '{{ventaPropiaId}}']), {
+      descripcion: 'Se espera la emisión antes de cancelar, para que lo que se anule sea una compra con sus entradas '
+        + 'VALIDA. En una corrida se repite hasta 10 veces, con 1 segundo entre una y otra.',
+      cabeceras: [bearer('token')],
+      antes: esperaDeUnSegundo,
+      tests: repetirHasta('intentosEmision', "pm.response.code === 200 && pm.response.json().estado === 'EMITIDA'", 10, [
+        estado(200),
+        "pm.test('la venta está EMITIDA', () => pm.expect(pm.response.json().estado).to.eql('EMITIDA'));",
+      ]),
+    }),
+    resumen('GET /v1/resumenes?eventoId propio (200)', 'tokenOrganizador', {
+      descripcion: 'Las ventas por día y la liquidación del evento: lo que muestra el panel del organizador. Cuenta '
+        + 'las compras pagadas; el cargo de servicio es de Palco y el resto se le liquida al organizador.',
+      tests: [
+        estado(200),
+        esJson,
+        'const r = pm.response.json();',
+        "pm.test('es el resumen del evento, con el detalle por día y la liquidación', () => {",
+        "  pm.expect(r).to.include.all.keys('eventoId', 'porDia', 'liquidacion');",
+        "  pm.expect(r.eventoId).to.eql(pm.collectionVariables.get('eventoPropioId'));",
+        '});',
+        "pm.test('liquidación: 1 venta, 2 entradas, 22.000 cobrados, 2.000 de cargo y 20.000 para el organizador', () => {",
+        '  pm.expect(r.liquidacion).to.eql({ ventas: 1, entradas: 2, recaudadoDeLosCompradores: 22000, cargoDePalco: 2000, aLiquidarAlOrganizador: 20000 });',
+        '});',
+        "pm.test('un solo día, con los mismos montos', () => {",
+        '  pm.expect(r.porDia).to.have.lengthOf(1);',
+        "  pm.expect(r.porDia[0].fecha).to.match(/^\\d{4}-\\d{2}-\\d{2}$/);",
+        '  pm.expect(r.porDia[0]).to.include({ ventas: 1, entradas: 2, subtotal: 20000, cargoServicio: 2000, total: 22000 });',
+        '});',
+      ],
+    }),
+    resumen('GET /v1/resumenes?eventoId ajeno (404)', 'tokenOtroOrganizador', {
+      descripcion: 'El resumen de un evento de otro organizador responde como el de uno que no existe. Ventas le '
+        + 'pregunta a Eventos quién es el dueño.',
+      tests: problema(404, 'no-encontrado'),
+    }),
+    resumen('GET /v1/resumenes?eventoId con rol user (403)', 'token', {
+      tests: problema(403, 'sin-permiso'),
+    }),
+    cancelar('POST /eventos/{id}/cancelacion ajeno (404)', 'tokenOtroOrganizador', {
+      descripcion: 'Otro organizador no puede cancelar el evento: para él no existe.',
+      tests: problema(404, 'no-encontrado'),
+    }),
+    cancelar('POST /eventos/{id}/cancelacion con rol user (403)', 'token', {
+      tests: problema(403, 'sin-permiso'),
+    }),
+    cancelar('POST /eventos/{id}/cancelacion propio (200)', 'tokenOrganizador', {
+      descripcion: 'Cancela el evento con un motivo. El evento no se borra: queda marcado, y Eventos publica '
+        + 'EVENTO_CANCELADO para que Ventas anule las compras y pida los reembolsos.',
+      tests: [
+        estado(200),
+        esJson,
+        'const e = pm.response.json();',
+        "pm.test('el evento queda cancelado, con el motivo', () => {",
+        "  pm.expect(e.id).to.eql(pm.collectionVariables.get('eventoPropioId'));",
+        '  pm.expect(e.cancelado).to.eql(true);',
+        `  pm.expect(e.cancelacionMotivo).to.eql('${MOTIVO_CANCELACION}');`,
+        '});',
+        "pm.collectionVariables.set('intentosAnulacion', 0);",
+      ],
+    }),
+    cancelar('POST /eventos/{id}/cancelacion repetida (409)', 'tokenOrganizador', {
+      descripcion: 'Un evento se cancela una sola vez: la segunda no publica otro mensaje, y por eso nadie '
+        + 'reembolsa dos veces.',
+      tests: problema(409, 'evento-cancelado'),
+    }),
+    pedido('GET /v1/ventas/{id} anulada (200, CANCELADA)', 'GET', url('baseApi', ['ventas', '{{ventaPropiaId}}']), {
+      descripcion: 'La anulación es asincrónica: Ventas consume EVENTO_CANCELADO, anula las entradas, le pide el '
+        + 'reembolso a Pagos y publica COMPRA_ANULADA para el aviso al comprador. En una corrida espera 1 segundo y '
+        + 'se repite hasta 10 veces, hasta que la venta queda CANCELADA. Enviado a mano no se repite solo.',
+      cabeceras: [bearer('token')],
+      antes: esperaDeUnSegundo,
+      tests: repetirHasta('intentosAnulacion', "pm.response.code === 200 && pm.response.json().estado === 'CANCELADA'", 10, [
+        estado(200),
+        'const v = pm.response.json();',
+        "pm.test('la venta está CANCELADA y conserva su pago', () => {",
+        "  pm.expect(v.estado).to.eql('CANCELADA');",
+        "  pm.expect(v.pagoId).to.eql(pm.collectionVariables.get('pagoPropioId'));",
+        '});',
+        "pm.test('sus dos entradas quedaron ANULADA', () => {",
+        '  pm.expect(v.entradas).to.have.lengthOf(2);',
+        "  v.entradas.forEach((e) => pm.expect(e.estado).to.eql('ANULADA'));",
+        '});',
+      ]),
+    }),
+    pedido('Token de servicio (200) guarda tokenServicio', 'POST', url('baseUsuarios', ['servicios', 'token']), {
+      descripcion: 'El pago se consulta en Pagos, que atiende solo al rol servicio.',
+      cabeceras: [JSON_CT],
+      cuerpo: { secreto: '{{secretoServicios}}' },
+      tests: [estado(200), "pm.collectionVariables.set('tokenServicio', pm.response.json().token);"],
+    }),
+    pedido('GET /v1/pagos/{id} de la venta anulada (200, REEMBOLSADO)', 'GET', url('baseApi', ['pagos', '{{pagoPropioId}}']), {
+      descripcion: 'Ventas pide el reembolso en la misma transacción en que anula la venta: cuando la venta se ve '
+        + 'CANCELADA, el pago ya se devolvió.',
+      cabeceras: [bearer('tokenServicio')],
+      tests: [
+        estado(200),
+        esJson,
+        'const p = pm.response.json();',
+        "pm.test('es el pago de la venta, por el total cobrado', () => {",
+        "  pm.expect(p.pagoId).to.eql(pm.collectionVariables.get('pagoPropioId'));",
+        "  pm.expect(p.ventaId).to.eql(pm.collectionVariables.get('ventaPropiaId'));",
+        "  pm.expect(p.monto).to.eql(Number(pm.collectionVariables.get('montoPropio')));",
+        '});',
+        "pm.test('el pago quedó REEMBOLSADO', () => pm.expect(p.estado).to.eql('REEMBOLSADO'));",
+      ],
+    }),
+    resumen('GET /v1/resumenes?eventoId después de cancelar (200, sin ventas)', 'tokenOrganizador', {
+      descripcion: 'Una compra anulada no se liquida: el resumen queda vacío.',
+      tests: [
+        estado(200),
+        'const r = pm.response.json();',
+        "pm.test('sin días y con la liquidación en cero', () => {",
+        "  pm.expect(r.porDia).to.be.an('array').that.is.empty;",
+        '  pm.expect(r.liquidacion).to.eql({ ventas: 0, entradas: 0, recaudadoDeLosCompradores: 0, cargoDePalco: 0, aLiquidarAlOrganizador: 0 });',
+        '});',
+      ],
+    }),
+    pedido('Detalle del evento cancelado (200)', 'GET', url('baseEventos', ['{{slugPropio}}']), {
+      descripcion: 'El detalle sigue respondiendo, con la marca y el motivo, y con los datos de la edición del dueño: '
+        + 'la del otro organizador no quedó.',
+      tests: [
+        estado(200),
+        'const e = pm.response.json();',
+        "pm.test('está cancelado, con el motivo', () => {",
+        '  pm.expect(e.cancelado).to.eql(true);',
+        `  pm.expect(e.cancelacionMotivo).to.eql('${MOTIVO_CANCELACION}');`,
+        '});',
+        "pm.test('conserva la edición del dueño', () => {",
+        "  pm.expect(e.titulo).to.eql('Evento de prueba Postman, editado');",
+        `  pm.expect(e.descripcion).to.eql('${DESCRIPCION_EDITADA}');`,
+        '  pm.expect(e.sectores[0].cupo).to.eql(150);',
+        '});',
+      ],
+    }),
+    pedido('POST /v1/ventas en el evento cancelado (409)', 'POST', url('baseApi', ['ventas']), {
+      descripcion: 'Un evento cancelado no vende más entradas: 409 evento-cancelado, sin reservar cupo.',
+      cabeceras: [bearer('token'), clave('{{$guid}}'), JSON_CT],
+      cuerpo: compra(1, [ANA], '{{eventoPropioId}}', '{{sectorPropioId}}'),
+      tests: problema(409, 'evento-cancelado'),
+    }),
+    subirImagen('POST /eventos/imagenes sin almacén configurado (504)', 'image/png', 'no es una imagen de verdad', 'text', {
+      descripcion: 'En el backend local no hay almacén de imágenes (faltan PALCO_SUPABASE_URL y PALCO_SUPABASE_CLAVE): '
+        + 'la subida se rechaza con un detail que dice qué falta. El alta y la edición del evento siguen andando sin '
+        + 'foto. El cuerpo es texto con el tipo image/png, porque sin almacén no se llega a mirar el contenido.',
+      tests: [
+        ...problema(504, 'sin-respuesta'),
+        "pm.test('el detail dice que falta configurar el almacenamiento', () => {",
+        "  pm.expect(pm.response.json().detail).to.include('falta configurar el almacenamiento');",
+        '});',
+      ],
+    }),
+    subirImagen('POST /eventos/imagenes con un SVG (415)', 'image/svg+xml', '<svg xmlns="http://www.w3.org/2000/svg"/>', 'xml', {
+      descripcion: 'Solo se aceptan JPG, PNG y WEBP; un SVG puede traer scripts. Se rechaza por el tipo, antes de '
+        + 'llegar al almacén: con o sin almacén configurado responde 415.',
+      tests: [
+        estado(415),
+        esProblema,
+        "pm.test('type about:blank: el problema es el código mismo', () => {",
+        '  const p = pm.response.json();',
+        "  pm.expect(p.type).to.eql('about:blank');",
+        '  pm.expect(p.status).to.eql(415);',
+        '});',
+      ],
+    }),
+    pedido('Registro para recuperar la contraseña (201) guarda emailOlvide', 'POST', url('baseUsuarios', ['registro']), {
+      descripcion: 'Una cuenta propia de la carpeta, con email y DNI nuevos en cada corrida: así la recuperación no '
+        + 'toca las cuentas de prueba. Queda sin verificar, porque el código de verificación solo sale en el log.',
+      cabeceras: [JSON_CT],
+      cuerpo: registro('{{emailOlvide}}', 'Clave1234', '{{dniOlvide}}'),
+      antes: [
+        ...emailNuevo('emailOlvide', 'olvide'),
+        "pm.collectionVariables.set('dniOlvide', String(50000000 + Math.floor(Math.random() * 49999999)));",
+      ],
+      tests: [estado(201)],
+    }),
+    pedido('POST /password/olvide de una cuenta que existe (204)', 'POST', url('baseUsuarios', ['password', 'olvide']), {
+      descripcion: 'Pide el código para poner una contraseña nueva. Responde 204 sin cuerpo; el código, si '
+        + 'corresponde, va por email. Una cuenta sin verificar, como esta, no recibe código: primero tiene que '
+        + 'terminar la verificación.',
+      cabeceras: [JSON_CT],
+      cuerpo: { email: '{{emailOlvide}}' },
+      tests: [
+        estado(204),
+        sinCuerpo,
+        "pm.collectionVariables.set('respuestaOlvide', JSON.stringify({ codigo: pm.response.code, cuerpo: pm.response.text() }));",
+      ],
+    }),
+    pedido('POST /password/olvide de un email que no existe (204, la misma respuesta)', 'POST',
+      url('baseUsuarios', ['password', 'olvide']), {
+        descripcion: 'Un email sin cuenta, nuevo en cada corrida: la misma respuesta que para una cuenta que existe, '
+          + 'así no se puede averiguar qué emails están registrados.',
+        cabeceras: [JSON_CT],
+        cuerpo: { email: '{{emailSinCuenta}}' },
+        antes: emailNuevo('emailSinCuenta', 'sin-cuenta'),
+        tests: [
+          estado(204),
+          sinCuerpo,
+          "pm.test('es la misma respuesta que con la cuenta que existe', () => {",
+          "  const anterior = JSON.parse(pm.collectionVariables.get('respuestaOlvide') || '{}');",
+          '  pm.expect({ codigo: pm.response.code, cuerpo: pm.response.text() }).to.eql(anterior);',
+          '});',
+        ],
+      }),
+    pedido('POST /password/reinicio con un código incorrecto (400)', 'POST', url('baseUsuarios', ['password', 'reinicio']), {
+      descripcion: 'La cuenta de la carpeta no tiene código, porque sin verificar no recibe: cualquier código es '
+        + 'incorrecto. Responde 400 con errores.codigo "El código no es correcto.", el mismo error que un código '
+        + 'equivocado en una cuenta verificada, así tampoco se sabe en qué estado está la cuenta. El reinicio completo '
+        + 'necesita el código, que solo sale en el log del servidor, como el de verificación.',
+      cabeceras: [JSON_CT],
+      cuerpo: { email: '{{emailOlvide}}', codigo: '000000', password: 'Nueva12345' },
+      tests: [
+        ...problema(400, 'datos-invalidos'),
+        "pm.test('errores.codigo dice que el código no es correcto', () => {",
+        "  pm.expect(pm.response.json().errores.codigo).to.eql('El código no es correcto.');",
+        '});',
+      ],
+    }),
+    pedido('Login con la contraseña de siempre (409): no cambió', 'POST', url('baseUsuarios', ['login']), {
+      descripcion: 'Con una contraseña incorrecta el login responde 401; con la correcta, a una cuenta sin '
+        + 'verificar, 409. Que responda 409 con la de siempre muestra que el reinicio rechazado no la cambió.',
+      cabeceras: [JSON_CT],
+      cuerpo: { email: '{{emailOlvide}}', password: 'Clave1234' },
+      tests: problema(409, 'conflicto'),
+    }),
+  ]);
+
+// ---------------------------------------------------------------------------------------------
 
 const variable = (key, value, description) => ({ key, value, type: 'string', description });
 
@@ -1578,7 +1954,7 @@ const coleccion = {
   info: {
     name: 'Palco API',
     description: 'API de Palco, la plataforma de venta de entradas con reventa oficial (Desarrollo de Aplicaciones II, '
-      + 'UADE). Se corre entera, en orden, con el Runner o con Newman, contra el backend local: las carpetas 1 a 7 '
+      + 'UADE). Se corre entera, en orden, con el Runner o con Newman, contra el backend local: las carpetas 1 a 8 '
       + 'son automáticas y se pueden repetir sin reiniciar el servidor. La subcarpeta "Pasos manuales" queda fuera '
       + 'de la corrida. La guía está en docs/api/GUIA_POSTMAN.md.',
     schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
@@ -1638,8 +2014,20 @@ const coleccion = {
     variable('tokenNone', '', 'Seguridad: un JWT con alg=none, sin firma. Se arma solo (SEC-W05b).'),
     variable('emailIntentos', '', 'Seguridad: email propio de SEC-W04, nuevo en cada corrida.'),
     variable('codigosPrevios', '', 'Seguridad: los códigos de los cinco intentos previos de SEC-W04, en JSON.'),
+    variable('tokenOtroOrganizador', '', 'Carpeta 8: token de otro.organizador@palco.test, para lo ajeno.'),
+    variable('eventoPropioId', '', 'Carpeta 8: id del evento que se edita y se cancela. Sale de la respuesta.'),
+    variable('sectorPropioId', '', 'Carpeta 8: id del sector de ese evento. Sale de la respuesta.'),
+    variable('slugPropio', '', 'Carpeta 8: slug de ese evento, para pedir su detalle.'),
+    variable('ventaPropiaId', '', 'Carpeta 8: la compra que se anula al cancelar el evento.'),
+    variable('montoPropio', '', 'Carpeta 8: el total de esa compra, que se reembolsa.'),
+    variable('pagoPropioId', '', 'Carpeta 8: el pago de esa compra.'),
+    variable('intentosAnulacion', '0', 'Contador interno de la espera de la anulación.'),
+    variable('emailOlvide', '', 'Carpeta 8: email de la cuenta que pide recuperar la contraseña, nuevo en cada corrida.'),
+    variable('dniOlvide', '', 'Carpeta 8: DNI de esa cuenta, nuevo en cada corrida.'),
+    variable('emailSinCuenta', '', 'Carpeta 8: email que no existe, nuevo en cada corrida.'),
+    variable('respuestaOlvide', '', 'Carpeta 8: la respuesta a la cuenta que existe, para compararla con la del email que no existe.'),
   ],
-  item: [usuarios, eventos, ventas, seguridad, validacion, reventa, facturacion],
+  item: [usuarios, eventos, ventas, seguridad, validacion, reventa, facturacion, operacionesDel3010],
 };
 
 fs.writeFileSync(salida, JSON.stringify(coleccion, null, 2) + '\n', 'utf8');
