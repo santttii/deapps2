@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Palco API
-  version: 1.2.0
+  version: 1.3.0
   description: >
     API REST de Palco, plataforma de venta de entradas con reventa oficial (tope +10%).
     Montos en pesos enteros. Fechas ISO 8601: las de Ventas en UTC (`2026-10-14T18:53:50Z`); la fecha del evento,
@@ -12,15 +12,18 @@ info:
 
 
     Cada servicio es un WAR con su propia raíz: Usuarios en `/api/usuarios`, Eventos en `/api/eventos`, Ventas en
-    `/api/v1` (recursos `ventas` y `entradas`) y Pagos en `/api/v1/pagos`. Usuarios y Eventos todavía no pasaron a
-    `/api/v1`, Validación en `/api/v1/validacion`, Reventa en `/api/v1/reventas` y Facturación en `/api/v1/facturas`.
+    `/api/v1` (recursos `ventas`, `entradas` y `resumenes`, y los internos de `operaciones-de-reventa`), Pagos en
+    `/api/v1/pagos`, Validación en `/api/v1/validacion`, Reventa en `/api/v1/reventas` y Facturación en
+    `/api/v1/facturas`. Usuarios y Eventos todavía no pasaron a `/api/v1`.
     Las rutas de abajo son relativas a `/api`. Cada servicio responde además `GET <su raíz>/health`.
-    ARCA (simulado) es un servicio SOAP aparte, en `/legado/arca` (WSDL en `/legado/arca?wsdl`), que solo llama
-    Facturación: no forma parte de esta API REST.
+    ARCA (simulado) es un servicio SOAP aparte, en `/legado/arca` (WSDL en `/legado/arca?wsdl`, copiado tal cual en
+    `docs/api/arca.wsdl`), que solo llama Facturación: no forma parte de esta API REST. Los mensajes JMS tampoco:
+    sus contratos están en `docs/api/mensajeria-pago-confirmado.md` y `docs/api/mensajeria-cancelacion-de-eventos.md`.
 
 
     Las operaciones de la etiqueta `interno` y las de `pagos` son de uso entre servicios: requieren un token de rol
-    `servicio` y el frontend nunca las llama.
+    `servicio` y el frontend nunca las llama. Lo mismo `GET /usuarios/{usuarioId}`, `GET /eventos/{eventoId}/organizador`
+    y `POST /eventos/{eventoId}/sectores/{sectorId}/cupo`, que van con la etiqueta de su servicio.
     Notificaciones expone operaciones internas de desarrollo (`/api/notificaciones/pruebas/*`, `auditoria`) que no
     forman parte de este contrato.
 servers:
@@ -110,6 +113,61 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
 
+  /usuarios/password/olvide:
+    post:
+      tags: [usuarios]
+      summary: Pedir un código por email para poner una contraseña nueva
+      description: >
+        Responde 204 exista o no la cuenta, para no revelar qué emails están registrados. Solo una cuenta con el email
+        verificado recibe el código: 6 dígitos que vencen en 15 minutos, en una tabla aparte del de verificación, así
+        uno no sirve para lo otro. Pedirlo de nuevo antes de 30 segundos no manda otro y también responde 204: un 409
+        como el de `/verificacion/reenvio` diría que la cuenta existe.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Olvide' }
+      responses:
+        '204':
+          description: Pedido recibido. Si la cuenta existe y está verificada, el código sale por email
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+
+  /usuarios/password/reinicio:
+    post:
+      tags: [usuarios]
+      summary: Cambiar la contraseña con el código que llegó por email
+      description: >
+        No devuelve sesión: después se inicia con `POST /usuarios/login` y la contraseña nueva. Al cambiarla, el código
+        se borra (no sirve dos veces) y se olvidan los inicios de sesión fallidos de ese email, así una cuenta que quedó
+        con 429 puede entrar enseguida. Un código incorrecto suma un intento aunque la respuesta sea un error.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Reinicio' }
+      responses:
+        '204':
+          description: Contraseña cambiada
+        '400':
+          description: >
+            Campos inválidos (`/problemas/datos-invalidos`, con `errores` por campo), o un código que no sirve, con
+            `errores.codigo`: incorrecto ("El código no es correcto.", también para un email sin cuenta verificada),
+            vencido o sin pedir ("El código venció. Pedí uno nuevo.") o con 5 intentos fallidos ("Demasiados intentos.
+            Pedí un código nuevo.")
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: /problemas/datos-invalidos
+                title: Datos inválidos
+                status: 400
+                detail: El código no es correcto.
+                instance: /api/usuarios/password/reinicio
+                errores:
+                  codigo: El código no es correcto.
+
   /usuarios/login:
     post:
       tags: [usuarios]
@@ -196,6 +254,29 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
 
+  /usuarios/{usuarioId}:
+    get:
+      tags: [usuarios]
+      summary: Un usuario por su id (uso interno)
+      description: >
+        Requiere rol `servicio`. La llama Notificaciones: el mensaje de la compra o de la anulación trae el
+        `compradorId` y no su email. Convive con las rutas fijas (`yo`, `jwks`, `login`…) porque JAX-RS prefiere la
+        literal, y ningún id choca con ellas: todos tienen la forma `user-…`.
+      parameters:
+        - name: usuarioId
+          in: path
+          required: true
+          schema: { type: string, example: user-titular }
+      responses:
+        '200':
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usuario' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
   /usuarios/jwks:
     get:
       tags: [usuarios]
@@ -218,6 +299,9 @@ paths:
     get:
       tags: [eventos]
       summary: Catálogo de eventos
+      description: >
+        Ordenado por fecha. No incluye los eventos cancelados: a esos no se les puede comprar nada. Su detalle sigue
+        respondiendo en `GET /eventos/{evento}`.
       security: []                       # catálogo público
       parameters:
         - name: categoria
@@ -275,9 +359,10 @@ paths:
       tags: [eventos]
       summary: Eventos del organizador autenticado
       description: >
-        Requiere rol `organizer`. Los eventos que creó el dueño del token, ordenados por fecha. Los seis eventos de
-        prueba son de `organizador@palco.test`. Es una ruta fija y le gana a `/eventos/{slug}`: ningún evento recibe
-        el slug `mios`. Desde el 23/10 (limitación L18).
+        Requiere rol `organizer`. Los eventos que creó el dueño del token, ordenados por fecha, también los cancelados
+        (con `cancelado` en true): su panel los sigue mostrando. Los seis eventos de prueba son de
+        `organizador@palco.test`. Es una ruta fija y le gana a `/eventos/{evento}`: ningún evento recibe el slug
+        `mios`. Desde el 23/10 (limitación L18).
       responses:
         '200':
           description: Eventos del organizador (lista vacía si no creó ninguno)
@@ -288,6 +373,61 @@ paths:
                 items: { $ref: '#/components/schemas/Evento' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /eventos/imagenes:
+    post:
+      tags: [eventos]
+      summary: Subir la foto de un evento
+      description: >
+        Requiere rol `organizer`. El cuerpo es la imagen cruda, con su tipo en `Content-Type`, y no un
+        `multipart/form-data`: el único campo es el archivo. Devuelve la URL pública, que después se manda como
+        `imagenUrl` al crear o editar el evento. El nombre del archivo lo pone Eventos con un UUID y la extensión sale
+        del tipo. Se guarda en Supabase Storage (`PALCO_SUPABASE_URL`, `PALCO_SUPABASE_BUCKET` y
+        `PALCO_SUPABASE_CLAVE`); sin esa configuración responde 504 y el evento se puede crear igual, con la foto de
+        su categoría. Es una ruta fija y le gana a `/eventos/{evento}`: ningún evento recibe el slug `imagenes`.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+          image/webp:
+            schema: { type: string, format: binary }
+      responses:
+        '200':
+          description: Imagen guardada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImagenSubida' }
+        '400':
+          description: >
+            La imagen llegó vacía o pasa de 2 MB (`/problemas/datos-invalidos`, `errores.imagen`). Con el almacén sin
+            configurar, este control no llega a correr y responde 504
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '415':
+          description: >
+            El `Content-Type` no es `image/jpeg`, `image/png` ni `image/webp` (por ejemplo un SVG, que puede traer
+            scripts). Problem Details con `type` `about:blank`, como cualquier error que es solo el código HTTP
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: about:blank
+                title: Unsupported Media Type
+                status: 415
+                instance: /api/eventos/imagenes
+        '504':
+          description: >
+            No hay almacén configurado ("Todavía no se pueden subir imágenes: falta configurar el almacenamiento.") o
+            Supabase Storage no respondió (`/problemas/sin-respuesta`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
 
   /eventos/{eventoId}/organizador:
     get:
@@ -319,18 +459,23 @@ paths:
         '403': { $ref: '#/components/responses/SinPermiso' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
 
-  /eventos/{slug}:
+  # GET /eventos/{slug} y PUT /eventos/{eventoId} son la misma ruta para OpenAPI (dos plantillas en la misma
+  # posición se consideran iguales), así que van juntas, con un parámetro de nombre neutro. Lo que va en la ruta
+  # cambia según la operación: el catálogo navega por slug y el panel tiene a mano el id.
+  /eventos/{evento}:
     get:
       tags: [eventos]
-      summary: Detalle de un evento con sus sectores y cupo disponible
+      summary: Detalle de un evento con sus sectores y cupo disponible (`GET /eventos/{slug}`)
       description: >
-        La respuesta todavía no lleva `ETag` ni atiende `If-None-Match` (304). Diseñado, pendiente: no implementado
-        al 14/10.
+        Responde también un evento cancelado, con `cancelado` en true y el motivo: un enlace guardado tiene que poder
+        decir qué pasó. La respuesta todavía no lleva `ETag` ni atiende `If-None-Match` (304). Diseñado, pendiente:
+        no implementado al 14/10.
       security: []                       # catálogo público
       parameters:
-        - name: slug
+        - name: evento
           in: path
           required: true
+          description: El slug del evento
           schema: { type: string, example: atletico-norte-racing-sur }
       responses:
         '200':
@@ -340,6 +485,122 @@ paths:
               schema: { $ref: '#/components/schemas/Evento' }
         '404':
           description: Evento inexistente
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+    put:
+      tags: [eventos]
+      summary: Editar un evento propio (`PUT /eventos/{eventoId}`)
+      description: >
+        Requiere rol `organizer` y ser el dueño: un evento de otro organizador responde 404, igual que uno que no
+        existe. Reemplaza el evento completo: lo que no viene se borra. El slug y el dueño no cambian. Los sectores
+        quedan exactamente como la lista: con `id` se cambia ese sector, sin `id` se agrega uno nuevo y los que no
+        aparecen se quitan, en el orden en que llegan. Un sector con entradas vendidas no se puede quitar, ni bajarle
+        el cupo por debajo de las vendidas, ni cambiarle el precio, porque el tope de la reventa se calcula sobre lo
+        que pagó cada comprador.
+      parameters:
+        - name: evento
+          in: path
+          required: true
+          description: El id del evento, no el slug
+          schema: { type: string, maxLength: 40, example: ev-1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditarEvento' }
+      responses:
+        '200':
+          description: Evento editado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Evento' }
+        '400':
+          description: >
+            Cuerpo ausente o mal formado, o campos inválidos (`/problemas/datos-invalidos`, con `errores` por campo).
+            Una `fechaISO` que no es futura responde con `errores.fechaISO`; un sector con un `id` que no es de este
+            evento, con `errores.sectores`; una categoría que no existe, con `errores.categoria`
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404':
+          description: El evento no existe o es de otro organizador ("No existe ese evento entre los tuyos.")
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '409':
+          description: >
+            El evento está cancelado (`/problemas/evento-cancelado`), ya empezó (`/problemas/evento-finalizado`) o el
+            cambio choca con entradas vendidas: quitar un sector que las tiene, bajarle el cupo por debajo de ellas o
+            cambiarle el precio (`/problemas/sector-con-ventas`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: /problemas/sector-con-ventas
+                title: Conflicto
+                status: 409
+                detail: 'No se puede cambiar el precio de Platea A: ya tiene entradas vendidas.'
+                instance: /api/eventos/ev-1
+
+  /eventos/{eventoId}/cancelacion:
+    post:
+      tags: [eventos]
+      summary: Cancelar un evento propio
+      description: >
+        Requiere rol `organizer` y ser el dueño: uno ajeno responde 404. Es un POST a un sub-recurso y no un `DELETE`
+        porque no se borra nada: el evento queda marcado (`cancelado`, `cancelacionMotivo`), sale del catálogo y su
+        detalle sigue respondiendo. En la misma transacción en que lo marca, Eventos publica `EVENTO_CANCELADO` en el
+        tópico `topico.eventos-cancelados`; Ventas lo consume, anula las compras pagadas, pide los reembolsos a Pagos y
+        publica un `COMPRA_ANULADA` por compra, que avisa al comprador y queda en la auditoría
+        (`docs/api/mensajeria-cancelacion-de-eventos.md`). Por eso la respuesta llega antes de que las compras queden
+        anuladas. El cuerpo es un JSON con `motivo` opcional: sin motivo se manda `{}`. Un pedido sin cuerpo responde
+        400 (con `Content-Type: application/json`) o 415 (sin él).
+      parameters:
+        - name: eventoId
+          in: path
+          required: true
+          schema: { type: string, maxLength: 40, example: ev-1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Cancelacion' }
+      responses:
+        '200':
+          description: Evento cancelado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Evento' }
+        '400':
+          description: Sin cuerpo o con un motivo de más de 500 caracteres (`/problemas/datos-invalidos`, `errores.motivo`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404':
+          description: El evento no existe o es de otro organizador ("No existe ese evento entre los tuyos.")
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '409':
+          description: >
+            El evento ya estaba cancelado (`/problemas/evento-cancelado`): así una segunda cancelación no publica otro
+            mensaje. O ya empezó (`/problemas/evento-finalizado`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: /problemas/evento-cancelado
+                title: Conflicto
+                status: 409
+                detail: El evento ya está cancelado.
+                instance: /api/eventos/ev-1/cancelacion
+        '415':
+          description: 'Sin `Content-Type: application/json` (`about:blank`)'
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
@@ -570,6 +831,50 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /v1/resumenes:
+    get:
+      tags: [ventas]
+      summary: Ventas por día y liquidación de un evento propio
+      description: >
+        Requiere rol `organizer` y ser el dueño del evento: Ventas le pregunta a Eventos de quién es
+        (`GET /eventos/{eventoId}/organizador`) y, para otro organizador, responde 404 igual que para un evento que
+        no existe. Cuenta solo las compras pagadas y vigentes (`CONFIRMADA` y `EMITIDA`): una compra anulada por la
+        cancelación del evento se reembolsa y no se liquida. Las compras en la reventa oficial son ventas nuevas y
+        entran como cualquier otra. Los días van del más viejo al más nuevo, por la fecha de confirmación del pago en
+        UTC. Es un recurso aparte de `ventas` porque lo pide otro rol: ahí todo es del comprador de cada venta.
+      parameters:
+        - name: eventoId
+          in: query
+          required: true
+          schema: { type: string, maxLength: 40, example: ev-1 }
+      responses:
+        '200':
+          description: Resumen del evento (sin ventas pagadas, `porDia` vacío y la liquidación en 0)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResumenDeVentas' }
+        '400':
+          description: >
+            Falta `eventoId` ("Indicá el evento con ?eventoId=.") o pasa de 40 caracteres
+            (`/problemas/datos-invalidos`, sin `errores`: el parámetro va en la consulta, no en un cuerpo)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: /problemas/datos-invalidos
+                title: Datos inválidos
+                status: 400
+                detail: Indicá el evento con ?eventoId=.
+                instance: /api/v1/resumenes
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404':
+          description: El evento no existe o es de otro organizador ("No existe ese evento entre los tuyos.")
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '504': { $ref: '#/components/responses/SinRespuesta' }
 
   /v1/pagos:
     post:
@@ -1338,6 +1643,20 @@ components:
       properties:
         email: { type: string }
 
+    Olvide:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, example: titular@palco.test }
+
+    Reinicio:
+      type: object
+      required: [email, codigo, password]
+      properties:
+        email: { type: string }
+        codigo: { type: string, pattern: '^\d{6}$', description: El que llegó por email, example: '123456' }
+        password: { type: string, minLength: 8, description: 'La nueva. Al menos 8 caracteres, con letras y números' }
+
     Login:
       type: object
       required: [email, password]
@@ -1396,6 +1715,15 @@ components:
         descripcion: { type: string }
         destacado: { type: boolean }
         imagenUrl: { type: [string, 'null'] }
+        cancelado:
+          type: boolean
+          description: >
+            Un evento cancelado no sale en el catálogo ni vende más entradas, pero su detalle sigue respondiendo y
+            `GET /eventos/mios` lo sigue listando
+        cancelacionMotivo:
+          type: [string, 'null']
+          description: Lo que escribió el organizador al cancelarlo; null si no está cancelado o no dio motivo
+          example: Suspendido por lluvia.
         sectores:
           type: array
           items: { $ref: '#/components/schemas/Sector' }
@@ -1422,6 +1750,63 @@ components:
           type: array
           minItems: 1
           items: { $ref: '#/components/schemas/NuevoSector' }
+
+    SectorEditado:
+      type: object
+      required: [nombre, precio, cupo]
+      properties:
+        id:
+          type: string
+          maxLength: 40
+          description: Con `id`, un sector que ya es del evento y se cambia; sin `id`, uno nuevo que se agrega
+          example: sec-1-1
+        nombre: { type: string, maxLength: 120 }
+        precio:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Con entradas vendidas no se puede cambiar
+        cupo:
+          type: integer
+          minimum: 1
+          description: Con entradas vendidas no puede quedar por debajo de ellas
+
+    EditarEvento:
+      type: object
+      description: Reemplazo completo del evento. No lleva slug ni dueño, que no cambian
+      required: [titulo, categoria, venue, fechaISO, descripcion, sectores]
+      properties:
+        titulo: { type: string, maxLength: 200 }
+        categoria: { type: string, description: Una de las categorías del catálogo, example: Música }
+        venue: { type: string, maxLength: 200 }
+        fechaISO: { type: string, description: 'Fecha y hora local, sin zona; tiene que ser futura', example: '2026-12-26T21:00:00' }
+        descripcion: { type: string, maxLength: 2000 }
+        imagenUrl:
+          type: string
+          maxLength: 1000
+          description: La URL que devolvió `POST /eventos/imagenes`. Si no viene, el evento queda sin imagen propia
+        sectores:
+          type: array
+          minItems: 1
+          description: Cómo queda el evento. Los sectores que no aparecen se quitan
+          items: { $ref: '#/components/schemas/SectorEditado' }
+
+    ImagenSubida:
+      type: object
+      properties:
+        imagenUrl:
+          type: string
+          description: URL pública en Supabase Storage
+          example: https://proyecto.supabase.co/storage/v1/object/public/eventos/3f9a1c2b-7d4e-4b8a-9c1f-2e6d5a0b7c43.jpg
+
+    Cancelacion:
+      type: object
+      properties:
+        motivo:
+          type: string
+          maxLength: 500
+          description: Opcional. Viaja en `EVENTO_CANCELADO` y es lo que se le cuenta al comprador en el aviso
+          example: Suspendido por lluvia.
 
     CambioCupo:
       type: object
@@ -1535,6 +1920,42 @@ components:
           description: Vacía hasta que el pago se aprueba
           items: { $ref: '#/components/schemas/EntradaDeVenta' }
         _links: { $ref: '#/components/schemas/Enlaces' }
+
+    DiaDeVentas:
+      type: object
+      properties:
+        fecha: { type: string, format: date, description: Día de confirmación del pago, en UTC, example: '2026-11-04' }
+        ventas: { type: integer, example: 15 }
+        entradas: { type: integer, example: 33 }
+        subtotal:
+          type: integer
+          format: int64
+          description: Precio de lista, sin el cargo de servicio
+          example: 944000
+        cargoServicio: { type: integer, format: int64, description: El cargo de servicio de Palco de ese día, example: 94400 }
+        total: { type: integer, format: int64, description: Lo que pagaron los compradores (subtotal + cargo), example: 1038400 }
+
+    Liquidacion:
+      type: object
+      properties:
+        ventas: { type: integer, example: 15 }
+        entradas: { type: integer, example: 33 }
+        recaudadoDeLosCompradores: { type: integer, format: int64, example: 1038400 }
+        cargoDePalco: { type: integer, format: int64, example: 94400 }
+        aLiquidarAlOrganizador:
+          type: integer
+          format: int64
+          description: '`recaudadoDeLosCompradores` menos `cargoDePalco`'
+          example: 944000
+
+    ResumenDeVentas:
+      type: object
+      properties:
+        eventoId: { type: string, example: ev-1 }
+        porDia:
+          type: array
+          items: { $ref: '#/components/schemas/DiaDeVentas' }
+        liquidacion: { $ref: '#/components/schemas/Liquidacion' }
 
     NuevoCobro:
       type: object

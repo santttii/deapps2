@@ -1,0 +1,70 @@
+<?xml version='1.0' encoding='UTF-8'?><wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="urn:palco:legado:arca:wsfe" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="ArcaSimulado" targetNamespace="urn:palco:legado:arca:wsfe">
+  <wsdl:types>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:palco:legado:arca:wsfe" elementFormDefault="unqualified" targetNamespace="urn:palco:legado:arca:wsfe" version="1.0">
+
+  <xs:element name="FECAESolicitar" type="tns:FECAESolicitar"/>
+
+  <xs:element name="FECAESolicitarResponse" type="tns:FECAESolicitarResponse"/>
+
+  <xs:complexType name="FECAESolicitar">
+    <xs:sequence>
+      <xs:element name="CbteTipo" type="xs:int"/>
+      <xs:element name="PtoVta" type="xs:int"/>
+      <xs:element name="ImpTotal" type="xs:long"/>
+      <xs:element minOccurs="0" name="CbteFch" type="xs:string"/>
+      <xs:element minOccurs="0" name="IdVenta" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="FECAESolicitarResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="FECAESolicitarResult" type="tns:RespuestaCae"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="RespuestaCae">
+    <xs:sequence>
+      <xs:element name="Resultado" type="xs:string"/>
+      <xs:element name="CbteNro" type="xs:long"/>
+      <xs:element minOccurs="0" name="CAE" type="xs:string"/>
+      <xs:element minOccurs="0" name="CAEFchVto" type="xs:string"/>
+      <xs:element minOccurs="0" name="Obs" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>
+  </wsdl:types>
+  <wsdl:message name="FECAESolicitarResponse">
+    <wsdl:part element="tns:FECAESolicitarResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="FECAESolicitar">
+    <wsdl:part element="tns:FECAESolicitar" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="ServicioFacturaElectronica">
+    <wsdl:operation name="FECAESolicitar">
+      <wsdl:input message="tns:FECAESolicitar" name="FECAESolicitar">
+    </wsdl:input>
+      <wsdl:output message="tns:FECAESolicitarResponse" name="FECAESolicitarResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="ArcaSimuladoSoapBinding" type="tns:ServicioFacturaElectronica">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="FECAESolicitar">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="FECAESolicitar">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="FECAESolicitarResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="ArcaSimulado">
+    <wsdl:port binding="tns:ArcaSimuladoSoapBinding" name="ArcaSimuladoPort">
+      <soap:address location="http://localhost:8080/legado/arca"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>
