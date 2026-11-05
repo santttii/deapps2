@@ -1,6 +1,6 @@
 import { pedir } from '../lib/api';
 import { soloDigitosDNI } from '../lib/validate';
-import type { Asistente, EstadoPublicacion, Publicacion } from '../types';
+import { HORAS_LIMITE_REVENTA, type Asistente, type EstadoPublicacion, type Publicacion } from '../types';
 import type { DatosDePago } from './ventas';
 
 // Una función por operación de Reventa (/api/v1/reventas). El listado de un evento es público;
@@ -9,6 +9,20 @@ import type { DatosDePago } from './ventas';
 // El rango de precio (50% a 110% de lo pagado) y el cierre 3 horas antes del evento los valida el
 // backend con ReglasDeNegocio. La pantalla los controla antes solo para avisar sin ir al servidor:
 // la respuesta que vale es la del backend.
+
+// La fecha de un evento llega como hora de Argentina sin zona, y el backend mide el cierre en
+// America/Argentina/Buenos_Aires. Leída sin zona, el navegador la tomaría como hora local y el
+// aviso cambiaría según dónde esté la persona. Argentina no tiene horario de verano: es -03:00
+// todo el año.
+const ZONA_DE_LOS_EVENTOS = '-03:00';
+
+// true si la reventa del evento ya cerró: cierra HORAS_LIMITE_REVENTA horas antes de que empiece.
+export function reventaCerrada(fechaISO: string): boolean {
+  const empieza = new Date(`${fechaISO}${ZONA_DE_LOS_EVENTOS}`).getTime();
+  return empieza - Date.now() <= HORAS_LIMITE_REVENTA * 60 * 60 * 1000;
+}
+
+export const AVISO_REVENTA_CERRADA = `La reventa de este evento cerró: termina ${HORAS_LIMITE_REVENTA} horas antes de que empiece.`;
 
 // Así llega una publicación. "estado" solo viene en /mias: el listado de un evento trae solo activas.
 interface PublicacionDelServidor {

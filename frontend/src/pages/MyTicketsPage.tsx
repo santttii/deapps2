@@ -5,8 +5,8 @@ import { useToast } from '../components/ToastProvider';
 import { calcularMinimoReventa, calcularTope, fecha, fechaHora, formatearDNI, money } from '../lib/format';
 import { mensajeDeError } from '../lib/api';
 import { listarCompras } from '../servicios/ventas';
-import { listarMisPublicaciones, publicarEntrada, retirarPublicacion } from '../servicios/reventa';
-import { HORAS_LIMITE_REVENTA, type EstadoOrden, type Orden, type Publicacion } from '../types';
+import { listarMisPublicaciones, publicarEntrada, reventaCerrada, retirarPublicacion } from '../servicios/reventa';
+import type { EstadoOrden, Orden, Publicacion } from '../types';
 import QRCode from '../components/QRCode';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -22,6 +22,12 @@ function hora(iso: string): string {
   return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 }
 
+// Una venta paga solo pasa a cancelada cuando se cancela su evento: Ventas la anula y pide el
+// reembolso. Las entradas nacen con el pago, así que una venta cancelada sin pagar no tiene.
+function anuladaPorElEvento(o: Orden): boolean {
+  return o.estado === 'cancelada' && o.entradas.length > 0;
+}
+
 // Cómo se muestra cada compra que no tiene entradas emitidas.
 const ESTADO_DE_COMPRA: Record<Exclude<EstadoOrden, 'emitida'>, { etiqueta: string; texto: (o: Orden) => string }> = {
   en_checkout: {
@@ -32,7 +38,14 @@ const ESTADO_DE_COMPRA: Record<Exclude<EstadoOrden, 'emitida'>, { etiqueta: stri
         : 'Venció el plazo para pagar. Si quedó un pago sin resultado, los lugares siguen reservados hasta que se confirme.',
   },
   confirmada: { etiqueta: 'Pagada', texto: () => 'El pago se aprobó y las entradas se están emitiendo.' },
-  cancelada: { etiqueta: 'Cancelada', texto: () => 'La compra se canceló sin pagar.' },
+  // Ventas no informa si el reembolso ya se hizo: eso lo dice el correo de la cancelación.
+  cancelada: {
+    etiqueta: 'Cancelada',
+    texto: (o) =>
+      anuladaPorElEvento(o)
+        ? `Se canceló el evento: la compra quedó anulada y sus entradas ya no sirven. Se devuelven los ${money(o.total)} que pagaste; el detalle te llega por correo.`
+        : 'La compra se canceló sin pagar.',
+  },
   vencida: { etiqueta: 'Vencida', texto: () => 'La reserva venció sin pago.' },
 };
 
@@ -145,12 +158,15 @@ export default function MyTicketsPage() {
       <ul className="mt-4 flex flex-col gap-2">
         {otrasCompras.map((o) => {
           const estado = ESTADO_DE_COMPRA[o.estado as Exclude<EstadoOrden, 'emitida'>];
-          const evento = state.eventos.find((ev) => ev.id === o.eventoId);
+          // El catálogo no lista los eventos cancelados, y la venta trae solo el id del evento.
+          const titulo =
+            state.eventos.find((ev) => ev.id === o.eventoId)?.titulo ??
+            (anuladaPorElEvento(o) ? 'Evento cancelado' : 'Evento que ya no está en el catálogo');
           return (
             <li key={o.id} data-compra={o.id} className="border border-wire px-4 py-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-ink">
-                  {evento?.titulo ?? o.eventoId} · orden #{o.id} · {money(o.total)}
+                  {titulo} · orden #{o.id} · {money(o.total)}
                 </span>
                 <span className="font-mono-label text-[10px] text-accent">{estado.etiqueta}</span>
               </div>
@@ -184,8 +200,7 @@ export default function MyTicketsPage() {
 
   const tope = calcularTope(entrada.precioPagado);
   const minimo = calcularMinimoReventa(entrada.precioPagado);
-  const horasParaEvento = evento ? (new Date(evento.fechaISO).getTime() - Date.now()) / 36e5 : Infinity;
-  const cierraPorHorario = horasParaEvento < HORAS_LIMITE_REVENTA;
+  const cierraPorHorario = evento ? reventaCerrada(evento.fechaISO) : false;
 
   const precioNumerico = Number(precioReventa || 0);
   const porcentajeTope = tope > 0 ? (precioNumerico / tope) * 100 : 0;
@@ -201,6 +216,10 @@ export default function MyTicketsPage() {
     }
     if (!precioReventa || precioNumerico <= 0) {
       setErrorPrecio('Ingresá un precio.');
+      return false;
+    }
+    if (!Number.isInteger(precioNumerico)) {
+      setErrorPrecio('El precio va en pesos enteros, sin centavos.');
       return false;
     }
     if (precioNumerico > tope) {
@@ -246,21 +265,35 @@ export default function MyTicketsPage() {
     }
   }
 
+  // Reventa no informa cuándo se vendió una publicación: la reventa vendida va con la fecha en que
+  // se publicó, y lo dice.
   const historial = [
     ...compras
       .filter((o) => o.estado === 'emitida')
-      .map((o) => ({ texto: `Compra · orden #${o.id} · ${money(o.total)}`, fechaISO: o.creadaISO })),
+      .map((o) => ({ texto: `Compra · orden #${o.id} · ${money(o.total)}`, fechaISO: o.creadaISO, antesDeLaFecha: '' })),
     ...misEntradas
       .filter((e) => e.estado === 'usada')
-      .map((e) => ({ texto: `Entrada usada · ${e.id}`, fechaISO: e.emitidaISO })),
+      .map((e) => ({ texto: `Entrada usada · ${e.id}`, fechaISO: e.emitidaISO, antesDeLaFecha: '' })),
     ...publicaciones
       .filter((p) => p.estado === 'vendida')
-      .map((p) => ({ texto: `Reventa vendida · ${money(p.precio)}`, fechaISO: p.publicadaISO })),
+      .map((p) => {
+        const ev = state.eventos.find((x) => x.id === p.eventoId);
+        const sectorVendido = ev?.sectores.find((s) => s.id === p.sectorId)?.nombre;
+        const partes = [
+          'Reventa vendida',
+          ev?.titulo ?? 'evento que ya no está en el catálogo',
+          sectorVendido,
+          `entrada ${p.entradaId}`,
+          money(p.precio),
+        ];
+        return { texto: partes.filter(Boolean).join(' · '), fechaISO: p.publicadaISO, antesDeLaFecha: 'publicada ' };
+      }),
   ].sort((a, b) => new Date(b.fechaISO).getTime() - new Date(a.fechaISO).getTime());
 
   return (
     <PageTransition>
       <div className="mx-auto max-w-[1240px] px-7 py-10">
+        <h1 className="mb-6 text-2xl font-semibold tracking-tight text-ink">Mis entradas</h1>
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
           <div>
             {misEntradas.length > 1 && (
@@ -290,7 +323,7 @@ export default function MyTicketsPage() {
               <motion.div
                 key={entrada.id}
                 initial={{ opacity: 0 }}
-                animate={{ opacity: entrada.estado === 'publicada' ? 0.55 : 1 }}
+                animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className="border border-wire p-6"
@@ -305,8 +338,8 @@ export default function MyTicketsPage() {
                 </p>
 
                 <div className="mt-5">
-                  {/* El código lo genera Ventas al emitir; una entrada comprada en la reventa trae uno nuevo. */}
-                  <QRCode id={entrada.codigoQr ?? entrada.id} />
+                  {/* Si la entrada no sirve para entrar (publicada, usada), en lugar del QR dice por qué. */}
+                  <QRCode entrada={entrada} />
                 </div>
 
                 <div className="mt-5 grid grid-cols-2 gap-3 border-t border-dashed border-edge pt-4 text-sm sm:grid-cols-3">
@@ -324,48 +357,80 @@ export default function MyTicketsPage() {
                   </div>
                 </div>
 
-                {entrada.estado === 'publicada' && publicacion && (
-                  <Button variant="secondary" className="mt-5 w-full" loading={enviando} onClick={retirar}>
-                    Retirar de reventa
-                  </Button>
-                )}
               </motion.div>
             </AnimatePresence>
           </div>
 
           <div>
-            <h2 className="text-xl font-semibold tracking-tight text-ink">Publicar en reventa oficial</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-ink">
+              {entrada.estado === 'publicada' ? 'Publicada en la reventa oficial' : 'Publicar en reventa oficial'}
+            </h2>
             <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
               <div className="border border-wire p-3">
                 <p className="font-mono-label text-[10px] text-muted">pagaste</p>
                 <p className="font-semibold">{money(entrada.precioPagado)}</p>
               </div>
               <div className="border border-wire p-3">
-                <p className="font-mono-label text-[10px] text-muted">tope +10%</p>
-                <p className="font-semibold">{money(tope)}</p>
+                <p className="font-mono-label text-[10px] text-muted">mínimo 50%</p>
+                <p className="font-semibold">{money(minimo)}</p>
               </div>
-              <Input
-                label="Precio"
-                hideLabel
-                type="number"
-                value={precioReventa}
-                onChange={(e) => setPrecioReventa(e.target.value)}
-                onBlur={validarPrecio}
-                error={errorPrecio}
-                disabled={entrada.estado !== 'valida' || !!errorReventa}
-              />
+              <div className="border border-wire p-3">
+                <p className="font-mono-label text-[10px] text-muted">tope +10%</p>
+                <p className="font-semibold">{money(publicacion?.precioMaximo ?? tope)}</p>
+              </div>
             </div>
-            <div className="mt-4">
-              <ProgressBar porcentaje={porcentajeTope} />
-            </div>
-            <Button
-              className="mt-4"
-              loading={enviando}
-              disabled={entrada.estado !== 'valida' || cierraPorHorario || !!errorReventa}
-              onClick={publicar}
-            >
-              Publicar
-            </Button>
+
+            {entrada.estado === 'publicada' ? (
+              <div className="mt-4">
+                {publicacion ? (
+                  <>
+                    <p className="border border-accent p-3 text-sm text-ink">
+                      Publicada a <span className="font-semibold">{money(publicacion.precio)}</span> desde el{' '}
+                      {fechaHora(publicacion.publicadaISO)}. Mientras siga publicada, la entrada no sirve para
+                      entrar.
+                    </p>
+                    <Button variant="secondary" className="mt-4" loading={enviando} onClick={retirar}>
+                      Retirar de reventa
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-sm text-graphite">
+                    La entrada está publicada, pero no pudimos traer la publicación para mostrar el precio ni
+                    retirarla.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="mt-4">
+                  <Input
+                    label="Precio de venta"
+                    type="number"
+                    inputMode="numeric"
+                    min={minimo}
+                    max={tope}
+                    step={1}
+                    value={precioReventa}
+                    onChange={(e) => setPrecioReventa(e.target.value)}
+                    onBlur={validarPrecio}
+                    error={errorPrecio}
+                    hint={`Entre ${money(minimo)} y ${money(tope)}, en pesos enteros.`}
+                    disabled={entrada.estado !== 'valida' || !!errorReventa}
+                  />
+                </div>
+                <div className="mt-4">
+                  <ProgressBar porcentaje={porcentajeTope} />
+                </div>
+                <Button
+                  className="mt-4"
+                  loading={enviando}
+                  disabled={entrada.estado !== 'valida' || cierraPorHorario || !!errorReventa}
+                  onClick={publicar}
+                >
+                  Publicar
+                </Button>
+              </>
+            )}
             {errorReventa && (
               <p role="alert" className="mt-2 text-xs text-muted">
                 La reventa no está disponible ahora: {errorReventa}
@@ -374,14 +439,23 @@ export default function MyTicketsPage() {
             {cierraPorHorario && entrada.estado === 'valida' && (
               <p className="mt-2 text-xs text-muted">La reventa cierra 3 horas antes del evento.</p>
             )}
+            {cierraPorHorario && entrada.estado === 'publicada' && (
+              <p className="mt-2 text-xs text-muted">La reventa cerró: retirala para poder usar la entrada.</p>
+            )}
 
             <h2 className="mt-10 text-xl font-semibold tracking-tight text-ink">Historial</h2>
             <div className="mt-4 flex flex-col gap-2">
               {historial.length === 0 && <p className="text-sm text-muted">Sin movimientos todavía.</p>}
               {historial.map((h, i) => (
-                <div key={i} className="flex items-center justify-between border border-wire px-4 py-3 text-sm">
-                  <span>{h.texto}</span>
-                  <span className="font-mono-label text-[10px] text-muted">{fecha(h.fechaISO)}</span>
+                <div
+                  key={i}
+                  className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border border-wire px-4 py-3 text-sm"
+                >
+                  <span className="min-w-0 break-words">{h.texto}</span>
+                  <span className="font-mono-label shrink-0 whitespace-nowrap text-[10px] text-muted">
+                    {h.antesDeLaFecha}
+                    {fecha(h.fechaISO)}
+                  </span>
                 </div>
               ))}
             </div>

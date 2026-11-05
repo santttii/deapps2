@@ -22,6 +22,9 @@ export class ErrorApi extends Error {
   // Último tramo del "type" del backend ('cupo-agotado', 'pago-rechazado'); '' si no vino.
   // Las páginas deciden qué hacer por este tipo, no por el texto del mensaje.
   tipo: string;
+  // Cuántos segundos pide esperar el servidor antes de reintentar (cabecera Retry-After, la manda
+  // el login con el 429). null si no vino o si el servidor no la expone por CORS.
+  segundosDeEspera: number | null = null;
 
   constructor(estado: number, mensaje: string, campos: Record<string, string> = {}, tipo = '') {
     super(mensaje);
@@ -184,7 +187,11 @@ export async function pedir<T>(ruta: string, opciones: OpcionesPedido = {}): Pro
 
   // El login no va con conSesion, así que su 401 (contraseña incorrecta) no cierra ninguna sesión.
   if (respuesta.status === 401 && token) perderSesion(token);
-  throw errorDeRespuesta(respuesta.status, datos as CuerpoDeError | null);
+  const error = errorDeRespuesta(respuesta.status, datos as CuerpoDeError | null);
+  // El backend manda Retry-After en segundos. Sin la cabecera, Number(null) da 0 y queda en null.
+  const espera = Number(respuesta.headers.get('Retry-After'));
+  if (Number.isFinite(espera) && espera > 0) error.segundosDeEspera = espera;
+  throw error;
 }
 
 export function mensajeDeError(error: unknown): string {

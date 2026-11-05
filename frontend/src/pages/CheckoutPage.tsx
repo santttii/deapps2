@@ -4,10 +4,11 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useApp } from '../store/AppContext';
 import type { Carrito } from '../store/actions';
 import { ErrorApi, mensajeDeError } from '../lib/api';
-import { calcularServicio, money } from '../lib/format';
+import { calcularServicio, formatearVencimiento, hora, money } from '../lib/format';
 import {
   cancelarCompra,
   iniciarCompra,
+  listarCompras,
   nuevaClave,
   obtenerOrden,
   pagarCompra,
@@ -23,7 +24,15 @@ import {
   formatearNumeroTarjeta,
   soloDigitosDNI,
 } from '../lib/validate';
-import { MINUTOS_RESERVA, type EstadoOrden, type Evento, type MedioPago, type Orden, type Usuario } from '../types';
+import {
+  MINUTOS_RESERVA,
+  TASA_SERVICIO,
+  type EstadoOrden,
+  type Evento,
+  type MedioPago,
+  type Orden,
+  type Usuario,
+} from '../types';
 import Stepper from '../components/Stepper';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -93,6 +102,42 @@ function filasIniciales(carrito: Carrito | null, evento: Evento | undefined, com
   return filas;
 }
 
+// Lo tipeado en los titulares se guarda en esta pestaña (sessionStorage) para que recargar no lo
+// borre. Va marcado con la cuenta, el evento y las entradas: el borrador de otro carrito no se usa.
+const CLAVE_BORRADOR = 'palco.checkout.titulares';
+
+function marcaDelBorrador(carrito: Carrito | null, comprador: Usuario | null): string {
+  return JSON.stringify([comprador?.id ?? null, carrito?.eventoId ?? null, carrito?.items ?? []]);
+}
+
+function conBorrador(filas: FilaTitular[], marca: string): FilaTitular[] {
+  try {
+    const borrador = JSON.parse(sessionStorage.getItem(CLAVE_BORRADOR) ?? 'null');
+    if (borrador?.marca !== marca || borrador.filas?.length !== filas.length) return filas;
+    // La primera fila es la de quien compra: sale siempre de la cuenta.
+    return filas.map((fila, i) => {
+      if (i === 0) return fila;
+      const { nombre = '', apellido = '', dni = '' } = borrador.filas[i] ?? {};
+      return { ...fila, nombre: String(nombre), apellido: String(apellido), dni: String(dni) };
+    });
+  } catch {
+    return filas;
+  }
+}
+
+function guardarBorrador(filas: FilaTitular[] | null, marca: string) {
+  try {
+    if (filas) {
+      const datos = filas.map(({ nombre, apellido, dni }) => ({ nombre, apellido, dni }));
+      sessionStorage.setItem(CLAVE_BORRADOR, JSON.stringify({ marca, filas: datos }));
+    } else {
+      sessionStorage.removeItem(CLAVE_BORRADOR);
+    }
+  } catch {
+    // Sin almacenamiento, recargar borra lo tipeado: es lo único que se pierde.
+  }
+}
+
 // Una diferencia de pocos segundos entre los relojes no es un reloj mal puesto: es lo que tardó
 // el pedido más el redondeo a segundos del vencimiento. Por debajo de esto no se corrige nada.
 const TOLERANCIA_RELOJ_MS = 5_000;
@@ -147,7 +192,15 @@ export default function CheckoutPage() {
 
   // Las filas se arman una sola vez, al entrar: ProtectedRoute y RequireCatalog garantizan que
   // el usuario y el evento ya están. Así un refresco del evento no borra lo que se tipeó.
-  const [titulares, setTitulares] = useState<FilaTitular[]>(() => filasIniciales(carrito, evento, usuarioActual));
+  const marcaBorrador = marcaDelBorrador(carrito, usuarioActual);
+  const [titulares, setTitulares] = useState<FilaTitular[]>(() =>
+    conBorrador(filasIniciales(carrito, evento, usuarioActual), marcaBorrador),
+  );
+  // Mientras no hay reserva los titulares se pueden editar, y cada cambio va al borrador.
+  const sinReservaPropia = !carrito?.ordenId;
+  useEffect(() => {
+    if (sinReservaPropia) guardarBorrador(titulares, marcaBorrador);
+  }, [titulares, marcaBorrador, sinReservaPropia]);
   const [erroresTitulares, setErroresTitulares] = useState<Record<number, { nombre?: string; apellido?: string; dni?: string }>>({});
   const [reservando, setReservando] = useState(false);
   const [errorReserva, setErrorReserva] = useState('');
@@ -164,6 +217,34 @@ export default function CheckoutPage() {
   // El último pago no tuvo resultado: se guarda en el carrito para que sobreviva a recargar.
   const pagoSinResultado = carrito?.pagoSinResultado ?? null;
   const sinResultado = !!pagoSinResultado || abiertaFueraDePlazo;
+
+  // Otra compra de esta cuenta que sigue reservada en Ventas: la de otra pestaña, o una que se dejó
+  // en el pago para volver a elegir entradas. Mientras esté no se reserva otra, para no dejar
+  // lugares tomados sin que nadie los pague: se ofrece retomarla o cancelarla.
+  const [otraCompra, setOtraCompra] = useState<Orden | null>(null);
+  const [revisarOtraCompra, setRevisarOtraCompra] = useState(0);
+  const [cancelandoOtra, setCancelandoOtra] = useState(false);
+  const [errorOtraCompra, setErrorOtraCompra] = useState('');
+
+  useEffect(() => {
+    if (!sinReservaPropia || !usuarioActual) return;
+    let vigente = true;
+    listarCompras()
+      .then((compras) => {
+        if (!vigente) return;
+        const abierta = compras.find(
+          (c) => c.estado === 'en_checkout' && segundosHasta(c.venceReservaISO, desfaseReloj) > 0,
+        );
+        setOtraCompra(abierta ?? null);
+      })
+      .catch(() => {
+        // Sin la lista se sigue como siempre: no es motivo para frenar esta compra.
+      });
+    return () => {
+      vigente = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sinReservaPropia, usuarioActual?.id, revisarOtraCompra]);
 
   // Pasa al paso de pago con la reserva que devolvió el backend. El desfase se recibe por
   // parámetro porque al reservar se acaba de medir y todavía no está en el carrito de este render.
@@ -334,7 +415,11 @@ export default function CheckoutPage() {
     if (medioPago !== 'tarjeta') return true;
     const errores: Record<string, string> = {};
     if (!esNumeroTarjetaValido(tarjeta.numero)) errores.numero = 'El número debe tener 16 dígitos.';
-    if (!esVencimientoValido(tarjeta.vencimiento)) errores.vencimiento = 'Formato MM/AA.';
+    // El campo se completa como MM/AA, así que con los cinco caracteres el formato ya está bien.
+    if (!esVencimientoValido(tarjeta.vencimiento)) {
+      errores.vencimiento =
+        tarjeta.vencimiento.length < 5 ? 'Formato MM/AA.' : 'Revisá el vencimiento: el mes no existe o la tarjeta ya venció.';
+    }
     if (!esCVVValido(tarjeta.cvv)) errores.cvv = 'El CVV debe tener 3 dígitos.';
     if (!esNombreValido(tarjeta.titular)) errores.titular = 'Ingresá el nombre del titular.';
     setErroresTarjeta(errores);
@@ -343,7 +428,7 @@ export default function CheckoutPage() {
 
   // "Continuar": inicia la compra en el backend, que reserva el cupo.
   async function reservar() {
-    if (!carrito || !evento || !usuarioActual || reservando || !validarTitulares()) return;
+    if (!carrito || !evento || !usuarioActual || reservando || otraCompra || !validarTitulares()) return;
     const datos: NuevaCompra = {
       eventoId: evento.id,
       items: carrito.items,
@@ -371,6 +456,8 @@ export default function CheckoutPage() {
       // La clave del pago nace con la reserva y se guarda en el carrito, igual que el desfase
       // entre los relojes: los dos sobreviven a recargar.
       const desfase = medirDesfaseReloj(reserva);
+      // Los titulares ya viajaron y no se pueden cambiar: el borrador no se necesita más.
+      guardarBorrador(null, marcaBorrador);
       dispatch({
         type: 'SET_CARRITO',
         payload: {
@@ -458,6 +545,45 @@ export default function CheckoutPage() {
     navigate(rutaDelEvento);
   }
 
+  // Pasa al pago de la otra compra. Su clave de pago y el desfase del reloj no están en este carrito:
+  // se usa una clave nueva, y Ventas igual no cobra dos veces la misma venta (si ya se pagó responde
+  // que está paga; con un pago en curso, que hay una operación en curso).
+  function retomarOtraCompra(otra: Orden) {
+    if (!usuarioActual) return;
+    dispatch({
+      type: 'SET_CARRITO',
+      payload: {
+        eventoId: otra.eventoId,
+        items: otra.items.map((it) => ({ sectorId: it.sectorId, cantidad: it.cantidad })),
+        usuarioId: usuarioActual.id,
+        ordenId: otra.id,
+        clavePago: nuevaClave(),
+        desfaseReloj: 0,
+      },
+    });
+    setOtraCompra(null);
+    mostrarPago(otra, 0);
+  }
+
+  async function cancelarOtraCompra(otra: Orden) {
+    setErrorOtraCompra('');
+    setCancelandoOtra(true);
+    try {
+      await cancelarCompra(otra.id);
+    } catch (error) {
+      // Si ya está paga o ya no existe, tampoco tiene lugares reservados: se vuelve a revisar.
+      const yaNoEstaAbierta = error instanceof ErrorApi && (error.tipo === 'venta-ya-paga' || error.estado === 404);
+      if (!yaNoEstaAbierta) {
+        setErrorOtraCompra(mensajeDeError(error));
+        setCancelandoOtra(false);
+        return;
+      }
+    }
+    setCancelandoOtra(false);
+    setOtraCompra(null);
+    setRevisarOtraCompra((n) => n + 1);
+  }
+
   return (
     <PageTransition>
       <div className="mx-auto max-w-[1240px] px-7 py-10">
@@ -479,6 +605,17 @@ export default function CheckoutPage() {
           <div>
             {paso === 0 && (
               <div className="flex flex-col gap-5">
+                {otraCompra && (
+                  <OtraCompraAbierta
+                    compra={otraCompra}
+                    evento={state.eventos.find((e) => e.id === otraCompra.eventoId)}
+                    cancelando={cancelandoOtra}
+                    error={errorOtraCompra}
+                    onRetomar={() => retomarOtraCompra(otraCompra)}
+                    onCancelar={() => cancelarOtraCompra(otraCompra)}
+                  />
+                )}
+
                 {titulares.map((t, i) => {
                   const err = erroresTitulares[i] ?? {};
                   const esComprador = i === 0;
@@ -487,7 +624,9 @@ export default function CheckoutPage() {
                       <p className="font-mono-label mb-3 text-[11px] text-muted">
                         Entrada {i + 1} · {t.sectorNombre} · {money(t.precio)}
                       </p>
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      {/* Entre md y lg la columna comparte el ancho con el resumen: tres campos
+                          por fila no dejan ver un DNI entero. */}
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-1 lg:grid-cols-3">
                         <Input
                           label="Nombre"
                           value={t.nombre}
@@ -526,7 +665,7 @@ export default function CheckoutPage() {
                 )}
 
                 <div className="flex flex-wrap gap-3">
-                  <Button loading={reservando} loadingText="Reservando…" onClick={reservar}>
+                  <Button loading={reservando} loadingText="Reservando…" disabled={!!otraCompra} onClick={reservar}>
                     Continuar
                   </Button>
                   {sinCupo && (
@@ -610,7 +749,11 @@ export default function CheckoutPage() {
                   empezá de nuevo.
                 </p>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div
+                  role="group"
+                  aria-label="Medio de pago"
+                  className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-1 lg:grid-cols-3"
+                >
                   {(
                     [
                       { id: 'pasarela', label: 'Pasarela externa' },
@@ -621,6 +764,7 @@ export default function CheckoutPage() {
                     <button
                       key={opcion.id}
                       type="button"
+                      aria-pressed={medioPago === opcion.id}
                       onClick={() => setMedioPago(opcion.id)}
                       className={`h-16 border px-4 text-left text-sm font-medium ${
                         medioPago === opcion.id ? 'border-2 border-accent' : 'border-edge'
@@ -630,6 +774,20 @@ export default function CheckoutPage() {
                     </button>
                   ))}
                 </div>
+
+                {/* Pagos cobra con una pasarela de prueba en los tres medios: se dice acá, para que
+                    nadie espere datos bancarios ni que lo lleven a otro sitio. */}
+                {medioPago === 'pasarela' && (
+                  <p className="text-xs text-muted">
+                    Pasarela de prueba: el cobro se simula sin salir de Palco y se aprueba al confirmar.
+                  </p>
+                )}
+                {medioPago === 'transferencia' && (
+                  <p className="text-xs text-muted">
+                    Transferencia de prueba: no hay una cuenta a la que transferir. La acreditación se
+                    simula y se aprueba al confirmar.
+                  </p>
+                )}
 
                 <AnimatePresence>
                   {medioPago === 'tarjeta' && (
@@ -647,22 +805,29 @@ export default function CheckoutPage() {
                           onChange={(e) => setTarjeta((p) => ({ ...p, numero: formatearNumeroTarjeta(e.target.value) }))}
                           error={erroresTarjeta.numero}
                           maxLength={19}
+                          inputMode="numeric"
+                          autoComplete="cc-number"
                         />
                         <Input
                           label="Titular"
                           value={tarjeta.titular}
                           onChange={(e) => setTarjeta((p) => ({ ...p, titular: e.target.value }))}
                           error={erroresTarjeta.titular}
+                          autoComplete="cc-name"
                         />
                         <Input
                           label="Vencimiento (MM/AA)"
                           value={tarjeta.vencimiento}
-                          onChange={(e) => setTarjeta((p) => ({ ...p, vencimiento: e.target.value }))}
+                          onChange={(e) => setTarjeta((p) => ({ ...p, vencimiento: formatearVencimiento(e.target.value) }))}
                           error={erroresTarjeta.vencimiento}
                           maxLength={5}
+                          inputMode="numeric"
+                          autoComplete="cc-exp"
                         />
                         <Input
                           label="CVV"
+                          inputMode="numeric"
+                          autoComplete="cc-csc"
                           value={tarjeta.cvv}
                           onChange={(e) => setTarjeta((p) => ({ ...p, cvv: e.target.value.replace(/\D/g, '').slice(0, 3) }))}
                           error={erroresTarjeta.cvv}
@@ -725,7 +890,7 @@ export default function CheckoutPage() {
               <span>{money(subtotal)}</span>
             </div>
             <div className="mt-2 flex justify-between text-sm text-muted">
-              <span>Cargo por servicio (10%)</span>
+              <span>Cargo por servicio ({Math.round(TASA_SERVICIO * 100)}%)</span>
               <span>{money(servicio)}</span>
             </div>
             <div className="mt-3 flex justify-between border-t border-line pt-3 text-lg font-semibold">
@@ -747,5 +912,49 @@ export default function CheckoutPage() {
         </Button>
       </Modal>
     </PageTransition>
+  );
+}
+
+interface OtraCompraAbiertaProps {
+  compra: Orden;
+  // undefined si el evento ya no está en el catálogo: entonces solo se puede cancelar.
+  evento: Evento | undefined;
+  cancelando: boolean;
+  error: string;
+  onRetomar: () => void;
+  onCancelar: () => void;
+}
+
+// El aviso de otra compra con lugares reservados, con lo que se puede hacer con ella.
+function OtraCompraAbierta({ compra, evento, cancelando, error, onRetomar, onCancelar }: OtraCompraAbiertaProps) {
+  const entradas = compra.items
+    .map((it) => `${it.cantidad} × ${evento?.sectores.find((s) => s.id === it.sectorId)?.nombre ?? it.sectorId}`)
+    .join(', ');
+  return (
+    <div role="status" className="border border-accent p-5" data-estado="otra-compra-abierta">
+      <p className="text-lg font-medium text-ink">Ya tenés una compra con lugares reservados</p>
+      <p className="mt-2 text-sm text-graphite">
+        {entradas}
+        {evento ? ` para ${evento.titulo}` : ''}, reservadas hasta las {hora(compra.venceReservaISO)}. Puede
+        estar abierta en otra pestaña. Retomala para pagarla, o cancelala para liberar esos lugares y
+        seguir con esta.
+      </p>
+      <p className="font-mono-label mt-3 text-[11px] text-muted">Orden #{compra.id}</p>
+      {error && (
+        <p role="alert" className="mt-3 border-l-2 border-accent pl-2 text-xs text-ink">
+          {error}
+        </p>
+      )}
+      <div className="mt-4 flex flex-wrap gap-3">
+        {evento && (
+          <Button disabled={cancelando} onClick={onRetomar}>
+            Retomar esa compra
+          </Button>
+        )}
+        <Button variant="secondary" loading={cancelando} loadingText="Cancelando…" onClick={onCancelar}>
+          Cancelarla y seguir con esta
+        </Button>
+      </div>
+    </div>
   );
 }

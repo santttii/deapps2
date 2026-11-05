@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../store/AppContext';
 import { ErrorApi } from '../lib/api';
 import { fecha, formatearDNI, money } from '../lib/format';
 import { obtenerOrden } from '../servicios/ventas';
-import type { Entrada, Orden } from '../types';
+import type { Entrada, Evento, Orden } from '../types';
 import QRCode from '../components/QRCode';
-import Button from '../components/Button';
+import Button, { ButtonLink } from '../components/Button';
 import StatusMessage from '../components/StatusMessage';
 import PageTransition from '../components/PageTransition';
 
@@ -23,6 +23,59 @@ const MAX_CONSULTAS = 30;
 // 'demorada': se agotaron las consultas.
 // 'no_disponible': el usuario no tiene una compra paga con ese id.
 type Fase = 'esperando' | 'lista' | 'demorada' | 'no_disponible';
+
+// "2026-10-08T23:30:00.000Z" → "20261008T233000Z", el formato de fecha de iCalendar.
+function enUtcIcs(instante: Date): string {
+  return instante.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+}
+
+// En un texto de iCalendar la coma, el punto y coma y la barra invertida van escapados.
+function textoIcs(texto: string): string {
+  return texto.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\r?\n/g, '\\n');
+}
+
+// iCalendar corta las líneas a 75 octetos; la continuación empieza con un espacio.
+function plegar(linea: string): string {
+  const codificador = new TextEncoder();
+  let resultado = '';
+  let octetos = 0;
+  for (const caracter of linea) {
+    const largo = codificador.encode(caracter).length;
+    if (octetos + largo > 75) {
+      resultado += '\r\n ';
+      octetos = 1;
+    }
+    resultado += caracter;
+    octetos += largo;
+  }
+  return resultado;
+}
+
+// Descarga un .ics con el título, el lugar y el inicio del evento; el fin no se conoce. La fecha
+// llega como hora de Argentina sin zona (el backend la mide en America/Argentina/Buenos_Aires), y
+// Argentina está en -03:00 todo el año: se pasa a UTC y el archivo no necesita definir la zona.
+function descargarCalendario(evento: Evento, ordenId: string) {
+  const lineas = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Palco//Entradas//ES',
+    'BEGIN:VEVENT',
+    `UID:${ordenId}@palco`,
+    `DTSTAMP:${enUtcIcs(new Date())}`,
+    `DTSTART:${enUtcIcs(new Date(`${evento.fechaISO}-03:00`))}`,
+    `SUMMARY:${textoIcs(evento.titulo)}`,
+    `LOCATION:${textoIcs(evento.venue)}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ];
+  const archivo = new Blob([lineas.map(plegar).join('\r\n') + '\r\n'], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(archivo);
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = `${evento.slug}.ics`;
+  enlace.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 
 export default function ConfirmationPage() {
   const { ordenId } = useParams();
@@ -145,9 +198,9 @@ export default function ConfirmationPage() {
                 </p>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <Button onClick={volverAConsultar}>Volver a consultar</Button>
-                  <Link to="/mis-entradas">
-                    <Button variant="secondary">Ir a Mis entradas</Button>
-                  </Link>
+                  <ButtonLink to="/mis-entradas" variant="secondary">
+                    Ir a Mis entradas
+                  </ButtonLink>
                 </div>
               </div>
             )}
@@ -166,7 +219,7 @@ export default function ConfirmationPage() {
                       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                       className="flex flex-col items-start gap-5 border-t border-line py-5 sm:flex-row"
                     >
-                      <QRCode id={entrada.codigoQr ?? entrada.id} size={160} />
+                      <QRCode entrada={entrada} size={160} />
                       <div className="grid grid-cols-2 gap-4 text-sm text-ink">
                         <div>
                           <p className="font-mono-label text-[10px] text-muted">Entrada</p>
@@ -198,13 +251,15 @@ export default function ConfirmationPage() {
                 </ul>
 
                 <div className="mt-8 flex flex-wrap gap-3">
-                  <Link to="/mis-entradas">
-                    <Button>Ver en mis entradas</Button>
-                  </Link>
+                  <ButtonLink to="/mis-entradas">Ver en mis entradas</ButtonLink>
                   <Button variant="secondary" onClick={() => window.print()}>
                     Descargar PDF
                   </Button>
-                  <Button variant="secondary">Agregar al calendario</Button>
+                  {evento && (
+                    <Button variant="secondary" onClick={() => descargarCalendario(evento, orden.id)}>
+                      Agregar al calendario
+                    </Button>
+                  )}
                 </div>
               </>
             )}

@@ -35,10 +35,15 @@ export interface Escaneo {
   escaneado: string;
 }
 
+// El largo máximo de un código que acepta Validación (el de la columna en su base).
+export const LARGO_MAXIMO_CODIGO = 200;
+
+// Ventas genera los códigos como UUID en minúsculas y sin espacios, y la búsqueda distingue
+// mayúsculas: así un código tipeado con espacios, o leído con Bloq Mayús, vale igual.
 export async function escanear(codigoQr: string, eventoId: string): Promise<ResultadoDeEscaneo> {
   return pedir<ResultadoDeEscaneo>('/api/v1/validacion/escaneos', {
     metodo: 'POST',
-    cuerpo: { codigoQr: codigoQr.trim(), eventoId },
+    cuerpo: { codigoQr: codigoQr.replace(/\s+/g, '').toLowerCase(), eventoId },
     conSesion: true,
   });
 }

@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom';
 import type { Evento, Publicacion, Sector } from '../types';
 import { money } from '../lib/format';
-import Button from './Button';
+import { AVISO_REVENTA_CERRADA, reventaCerrada } from '../servicios/reventa';
+import Button, { ButtonLink } from './Button';
 import ProgressBar from './ProgressBar';
 
 interface ListingCardProps {
@@ -25,14 +25,16 @@ export default function ListingCard({ publicacion, evento, sector, onComprar, hr
       <p className="mt-3 text-2xl font-semibold tracking-tight">{money(publicacion.precio)}</p>
       <p className="font-mono-label mt-1 text-[10px] text-onDark">tope {money(tope)}</p>
       <div className="mt-3">
-        <ProgressBar porcentaje={porcentaje} sobreOscuro />
+        <ProgressBar porcentaje={porcentaje} sobreOscuro etiqueta="Precio sobre el tope" />
       </div>
-      {href ? (
-        <Link to={href}>
-          <Button variant="ghost" className="mt-4 w-full">
-            Comprar
-          </Button>
-        </Link>
+      {/* El listado de Reventa trae también las de un evento con la reventa cerrada; comprarlas
+          da error, así que no se ofrecen. */}
+      {reventaCerrada(evento.fechaISO) ? (
+        <p className="mt-4 text-sm text-onDark">{AVISO_REVENTA_CERRADA}</p>
+      ) : href ? (
+        <ButtonLink to={href} variant="ghost" className="mt-4 w-full">
+          Comprar
+        </ButtonLink>
       ) : (
         <Button variant="ghost" className="mt-4 w-full" onClick={onComprar}>
           Comprar

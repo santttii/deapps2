@@ -2,23 +2,21 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSesion } from '../store/SesionContext';
 import { ErrorApi, mensajeDeError } from '../lib/api';
-import { esEmailValido, esPasswordValida } from '../lib/validate';
+import { esEmailValido, esPasswordValida, esRutaInterna } from '../lib/validate';
 import Input from '../components/Input';
-import Button from '../components/Button';
+import Button, { ButtonLink } from '../components/Button';
 import PageTransition from '../components/PageTransition';
 
 const CREDENCIALES_INCORRECTAS = 'Revisá el email y la contraseña.';
-
-// El parámetro next solo se acepta si es una ruta interna simple (/checkout, /confirmacion/A-12345).
-// Así un enlace armado por otra persona no puede mandar a otro sitio después de ingresar.
-const RUTA_INTERNA = /^(\/[A-Za-z0-9_-]+)+$/;
 
 export default function LoginPage() {
   const { ingresar } = useSesion();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = params.get('next');
-  const destino = next !== null && RUTA_INTERNA.test(next) ? next : '/';
+  const destino = esRutaInterna(next) ? next : '/';
+  // El registro recibe el mismo next: quien crea la cuenta en medio de una compra vuelve a ella.
+  const consultaNext = destino === '/' ? '' : `?next=${encodeURIComponent(destino)}`;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -57,6 +55,16 @@ export default function LoginPage() {
       dispararSacudida();
       return;
     }
+    // 429: demasiados intentos. Si el servidor dice cuánto falta, se dice en minutos; si no, queda
+    // su mensaje, que no da un número.
+    const espera = err instanceof ErrorApi ? err.segundosDeEspera : null;
+    if (estado === 429 && espera) {
+      const minutos = Math.ceil(espera / 60);
+      setError(
+        `Hubo demasiados intentos fallidos. Probá de nuevo en ${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}.`,
+      );
+      return;
+    }
     // 409: la cuenta existe pero falta confirmar el código que se mandó al email.
     if (estado === 409) setEmailSinVerificar(email.trim());
     setError(mensajeDeError(err));
@@ -90,51 +98,48 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
+                className="pr-24"
               />
+              {/* Va pegado al borde de abajo del campo, que es lo último del bloque. */}
               <button
                 type="button"
                 onClick={() => setVerPassword((v) => !v)}
-                className="font-mono-label absolute right-3 top-9 text-[10px] text-muted"
+                aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                className="font-mono-label absolute bottom-1 right-1 h-9 px-3 text-[10px] text-muted hover:text-ink"
               >
-                {verPassword ? 'ocultar' : 'ver'}
+                {verPassword ? 'ocultar' : 'mostrar'}
               </button>
             </div>
             {error && (
               <p role="alert" aria-live="polite" className="border-l-2 border-accent pl-2 text-xs text-ink">
                 {error}{' '}
                 {emailSinVerificar && (
-                  <Link to="/registro" state={{ emailSinVerificar }} className="text-accent underline">
+                  <Link
+                    to={`/registro${consultaNext}`}
+                    state={{ emailSinVerificar }}
+                    className="text-accent underline"
+                  >
                     Verificar mi email
                   </Link>
                 )}
               </p>
             )}
-            <label className="flex items-center gap-2 text-sm text-muted">
-              <input type="checkbox" /> mantenerme conectado
-            </label>
-            <button type="button" className="text-left text-sm text-accent underline">
-              olvidé mi contraseña
-            </button>
             <Button type="submit" loading={ingresando} loadingText="Ingresando…">
               Ingresar
             </Button>
-            <div className="my-2 flex items-center gap-3 text-xs text-faint">
-              <span className="h-px flex-1 bg-line" /> o <span className="h-px flex-1 bg-line" />
-            </div>
-            <Button type="button" variant="secondary">
-              Continuar con Google
-            </Button>
-            <Button type="button" variant="secondary">
-              Continuar con Apple
-            </Button>
           </form>
 
-          <div className="font-mono-label mt-10 max-w-sm border border-edge p-4 text-[11px] leading-relaxed text-muted">
-            <p className="mb-2 text-ink">Usuarios de prueba</p>
-            <p>titular@palco.test / palco1234 — user</p>
-            <p>organizador@palco.test / palco1234 — organizer</p>
-            <p>puerta@palco.test / palco1234 — staff</p>
-          </div>
+          {import.meta.env.DEV && (
+            <div className="mt-10 max-w-sm border border-edge p-4 text-[11px] leading-relaxed text-muted">
+              <p className="font-mono-label mb-2 text-ink">Usuarios de prueba</p>
+              {/* Sin mayúsculas: la contraseña se tipea así. */}
+              <div className="font-mono">
+                <p>titular@palco.test / palco1234 — user</p>
+                <p>organizador@palco.test / palco1234 — organizer</p>
+                <p>puerta@palco.test / palco1234 — staff</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-[#FBFAF8] p-8 md:p-14">
@@ -143,9 +148,9 @@ export default function LoginPage() {
             Registrate para comprar entradas nominativas y publicar en el canal de
             reventa oficial.
           </p>
-          <Link to="/registro" className="mt-6 inline-block">
-            <Button variant="secondary">Crear cuenta</Button>
-          </Link>
+          <ButtonLink to={`/registro${consultaNext}`} variant="secondary" className="mt-6">
+            Crear cuenta
+          </ButtonLink>
         </div>
       </div>
     </PageTransition>

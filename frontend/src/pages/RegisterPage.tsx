@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSesion } from '../store/SesionContext';
 import { useToast } from '../components/ToastProvider';
 import { ErrorApi, mensajeDeError } from '../lib/api';
@@ -10,6 +10,8 @@ import {
   esMayorDeEdad,
   esNombreValido,
   esPasswordFuerte,
+  esRutaInterna,
+  esTelefonoValido,
   fuerzaPassword,
   soloDigitosDNI,
 } from '../lib/validate';
@@ -53,6 +55,12 @@ export default function RegisterPage() {
     typeof estadoDeRuta?.emailSinVerificar === 'string' ? estadoDeRuta.emailSinVerificar : '';
   const paso = emailSinVerificar ? 1 : 0;
 
+  // El mismo next que usa el ingreso: quien se registra en medio de una compra vuelve a ella.
+  const [params] = useSearchParams();
+  const next = params.get('next');
+  const destino = esRutaInterna(next) ? next : '/';
+  const consultaNext = destino === '/' ? '' : `?next=${encodeURIComponent(destino)}`;
+
   const [datos, setDatos] = useState<Datos>({
     nombre: '',
     apellido: '',
@@ -88,9 +96,10 @@ export default function RegisterPage() {
     if (!esNombreValido(datos.apellido)) e.apellido = 'Ingresá un apellido válido.';
     if (!esDNIValido(datos.dni)) e.dni = 'El DNI debe tener 7 u 8 dígitos.';
     if (!datos.fechaNacimiento || !esMayorDeEdad(datos.fechaNacimiento)) {
-      e.fechaNacimiento = 'Tenés que ser mayor de 16 años.';
+      e.fechaNacimiento = 'Tenés que tener al menos 16 años.';
     }
     if (!esEmailValido(datos.email)) e.email = 'Ingresá un email válido.';
+    if (!esTelefonoValido(datos.telefono)) e.telefono = 'Solo números, espacios y guiones, con un + adelante si hace falta.';
     if (!esPasswordFuerte(datos.password)) e.password = 'Mínimo 8 caracteres, con letras y números.';
     if (datos.password !== datos.repetirPassword) e.repetirPassword = 'Las contraseñas no coinciden.';
     setErrores(e);
@@ -125,11 +134,11 @@ export default function RegisterPage() {
     setErrorCodigo('');
     setYaVerificada(false);
     setReenviarSegundos(SEGUNDOS_ENTRE_REENVIOS);
-    navigate('/registro', { replace: true, state: { emailSinVerificar: emailRegistrado } });
+    navigate(`/registro${consultaNext}`, { replace: true, state: { emailSinVerificar: emailRegistrado } });
   }
 
   function volverADatos() {
-    navigate('/registro', { replace: true, state: null });
+    navigate(`/registro${consultaNext}`, { replace: true, state: null });
   }
 
   function onCambiarCodigo(index: number, valor: string) {
@@ -184,7 +193,7 @@ export default function RegisterPage() {
     } finally {
       setVerificando(false);
     }
-    navigate('/', { replace: true });
+    navigate(destino, { replace: true });
   }
 
   async function reenviar() {
@@ -210,6 +219,7 @@ export default function RegisterPage() {
   return (
     <PageTransition>
       <div className="mx-auto max-w-[1240px] px-7 py-10">
+        <h1 className="mb-6 text-2xl font-semibold tracking-tight text-ink">Crear cuenta</h1>
         <Stepper pasos={['Datos', 'Verificar email']} activo={paso} onVolver={volverADatos} />
 
         <div className="mt-8 grid grid-cols-1 gap-10 md:grid-cols-[1fr_300px]">
@@ -221,7 +231,7 @@ export default function RegisterPage() {
                 <Input label="DNI" value={datos.dni} onChange={(e) => cambiar('dni', soloDigitosDNI(e.target.value))} error={errores.dni} />
                 <Input label="Fecha de nacimiento" type="date" value={datos.fechaNacimiento} onChange={(e) => cambiar('fechaNacimiento', e.target.value)} error={errores.fechaNacimiento} />
                 <Input label="Email" type="email" value={datos.email} onChange={(e) => cambiar('email', e.target.value)} error={errores.email} maxLength={200} />
-                <Input label="Teléfono" value={datos.telefono} onChange={(e) => cambiar('telefono', e.target.value)} error={errores.telefono} maxLength={30} />
+                <Input label="Teléfono (opcional)" type="tel" autoComplete="tel" value={datos.telefono} onChange={(e) => cambiar('telefono', e.target.value)} error={errores.telefono} maxLength={30} />
                 <div>
                   <Input label="Contraseña" type="password" value={datos.password} onChange={(e) => cambiar('password', e.target.value)} error={errores.password} />
                   <div className="mt-2 flex gap-1">
@@ -288,7 +298,7 @@ export default function RegisterPage() {
                       inputMode="numeric"
                       maxLength={1}
                       aria-label={`Dígito ${i + 1} del código`}
-                      className="h-14 w-12 border border-edge text-center text-xl focus:border-accent"
+                      className="h-14 w-12 min-w-0 border border-edge text-center text-xl focus:border-accent"
                     />
                   ))}
                 </div>
@@ -296,7 +306,7 @@ export default function RegisterPage() {
                   <p role="alert" aria-live="polite" className="border-l-2 border-accent pl-2 text-xs text-ink">
                     {errorCodigo}{' '}
                     {yaVerificada && (
-                      <Link to="/ingresar" className="text-accent underline">
+                      <Link to={`/ingresar${consultaNext}`} className="text-accent underline">
                         Ingresar
                       </Link>
                     )}

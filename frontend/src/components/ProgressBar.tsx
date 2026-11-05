@@ -2,9 +2,12 @@ interface ProgressBarProps {
   porcentaje: number;
   altura?: number;
   sobreOscuro?: boolean;
+  // Nombre accesible de la barra: un lector de pantalla dice "Ocupación de Campo, 40 %" y no
+  // solo el número. Conviene pasarlo siempre que la pantalla tenga más de una barra.
+  etiqueta?: string;
 }
 
-export default function ProgressBar({ porcentaje, altura = 6, sobreOscuro = false }: ProgressBarProps) {
+export default function ProgressBar({ porcentaje, altura = 6, sobreOscuro = false, etiqueta = 'Progreso' }: ProgressBarProps) {
   const clamped = Math.max(0, Math.min(100, porcentaje));
   const excedido = porcentaje > 100;
   return (
@@ -12,6 +15,7 @@ export default function ProgressBar({ porcentaje, altura = 6, sobreOscuro = fals
       className={`w-full overflow-hidden ${sobreOscuro ? 'bg-darkLine' : 'bg-fill'}`}
       style={{ height: altura }}
       role="progressbar"
+      aria-label={etiqueta}
       aria-valuenow={Math.round(clamped)}
       aria-valuemin={0}
       aria-valuemax={100}

@@ -28,6 +28,8 @@ const CUPO_MAXIMO = 1_000_000;
 
 // Errores de sector que el servidor manda sin decir a qué fila corresponden.
 const CAMPOS_DE_SECTOR = ['sectores', 'nombre', 'precio', 'cupo'];
+// Los campos que tienen dónde mostrar su error. Uno que no esté acá va al aviso general.
+const CAMPOS_DEL_FORMULARIO = ['titulo', 'categoria', 'venue', 'fechaISO', 'descripcion', ...CAMPOS_DE_SECTOR];
 
 const AVISO_EN_LINEA = 'border-l-2 border-accent pl-2 text-xs text-ink';
 
@@ -67,7 +69,7 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
     setErrorGeneral('');
   }
 
-  function cerrar() {
+  function vaciar() {
     setTitulo('');
     setCategoria('Fútbol');
     setVenue('');
@@ -75,6 +77,17 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
     setDescripcion('');
     setSectores([sectorVacio()]);
     limpiarErrores();
+  }
+
+  const hayAlgoEscrito =
+    [titulo, venue, fecha, descripcion].some((v) => v.trim() !== '') ||
+    sectores.some((s) => s.nombre.trim() !== '' || s.precio !== '' || s.cupo !== '');
+
+  // Escape y el clic afuera solo ocultan el modal: lo escrito sigue ahí al volver a abrirlo. Lo
+  // que descarta el formulario es Cancelar, y pregunta antes si hay algo cargado.
+  function cancelar() {
+    if (hayAlgoEscrito && !window.confirm('¿Descartar el evento que estabas cargando?')) return;
+    vaciar();
     onCerrar();
   }
 
@@ -141,9 +154,15 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
         })),
       });
     } catch (error) {
-      // El modal queda abierto con lo escrito. Los errores por campo van a su input.
-      if (error instanceof ErrorApi) setErrores(error.campos);
-      setErrorGeneral(mensajeDeError(error));
+      // El modal queda abierto con lo escrito. Los errores por campo van a su input, y el aviso
+      // general no los repite: el detalle del backend suele ser el mismo texto que el del campo.
+      const campos = error instanceof ErrorApi ? error.campos : {};
+      setErrores(campos);
+      const sinLugar = Object.entries(campos)
+        .filter(([campo]) => !CAMPOS_DEL_FORMULARIO.includes(campo))
+        .map(([, mensaje]) => mensaje);
+      if (Object.keys(campos).length === 0) setErrorGeneral(mensajeDeError(error));
+      else setErrorGeneral(sinLugar.length > 0 ? sinLugar.join(' ') : 'Revisá los campos marcados.');
       return;
     } finally {
       setCreando(false);
@@ -151,14 +170,18 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
     // El evento ya existe en el servidor: se suma al catálogo en memoria sin volver a pedirlo.
     dispatch({ type: 'EVENTO_RECIBIDO', payload: creado });
     mostrarToast('Evento creado. Ya está publicado en el catálogo.');
-    cerrar();
+    vaciar();
+    onCerrar();
   }
 
   const erroresDeSectorDelServidor = CAMPOS_DE_SECTOR.map((campo) => errores[campo]).filter(Boolean);
 
   return (
-    <Modal abierto={abierto} onCerrar={cerrar} titulo="Crear evento">
-      <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+    <Modal abierto={abierto} onCerrar={onCerrar} titulo="Crear evento">
+      {/* Los botones van fuera de la parte que se desplaza, así siempre están a la vista. Lo que
+          se le resta a la altura es lo que ocupan los márgenes del modal, el título y los botones.
+          dvh y no vh: en el celular, vh no descuenta la barra del navegador. */}
+      <div className="flex max-h-[calc(100dvh-16rem)] flex-col gap-4 overflow-y-auto pr-1 sm:max-h-[calc(100dvh-13rem)]">
         <div>
           <div className="h-32 overflow-hidden border border-edge">
             <img
@@ -178,7 +201,7 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
           value={titulo}
           onChange={(e) => setTitulo(e.target.value)}
           error={errores.titulo}
-          maxLength={150}
+          maxLength={200}
         />
 
         <div className="flex flex-col gap-1.5">
@@ -243,50 +266,50 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
         <div className="flex flex-col gap-3">
           <p className="font-mono-label text-[11px] text-muted">Sectores</p>
           {sectores.map((s, i) => (
-            <div key={i} className="flex flex-wrap items-end gap-2 border border-wire p-3">
-              <Input
-                label="Nombre"
-                hideLabel
-                value={s.nombre}
-                onChange={(e) => actualizarSector(i, 'nombre', e.target.value)}
-                placeholder="Sector"
-                className="flex-1"
-                maxLength={120}
-              />
-              <Input
-                label="Precio"
-                hideLabel
-                type="number"
-                min={1}
-                step={1}
-                value={s.precio}
-                onChange={(e) => actualizarSector(i, 'precio', e.target.value)}
-                placeholder="Precio"
-                className="w-28"
-              />
-              <Input
-                label="Cupo"
-                hideLabel
-                type="number"
-                min={1}
-                step={1}
-                value={s.cupo}
-                onChange={(e) => actualizarSector(i, 'cupo', e.target.value)}
-                placeholder="Cupo"
-                className="w-24"
-              />
-              {sectores.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => quitarSector(i)}
-                  className="font-mono-label px-2 py-2 text-[11px] text-muted"
-                  aria-label="Quitar sector"
-                >
-                  quitar
-                </button>
-              )}
+            <div key={i} role="group" aria-label={`Sector ${i + 1}`} className="flex flex-col gap-2 border border-wire p-3">
+              <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <Input
+                    label="Nombre del sector"
+                    value={s.nombre}
+                    onChange={(e) => actualizarSector(i, 'nombre', e.target.value)}
+                    className="w-full min-w-0"
+                    maxLength={120}
+                  />
+                </div>
+                {sectores.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => quitarSector(i)}
+                    className="font-mono-label min-h-[44px] px-2 text-[11px] text-muted"
+                    aria-label={`Quitar el sector ${i + 1}`}
+                  >
+                    quitar
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  label="Precio ($)"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={s.precio}
+                  onChange={(e) => actualizarSector(i, 'precio', e.target.value)}
+                  className="w-full min-w-0"
+                />
+                <Input
+                  label="Cupo"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={s.cupo}
+                  onChange={(e) => actualizarSector(i, 'cupo', e.target.value)}
+                  className="w-full min-w-0"
+                />
+              </div>
               {erroresDeFila[i] && (
-                <p role="alert" className={`w-full ${AVISO_EN_LINEA}`}>
+                <p role="alert" className={AVISO_EN_LINEA}>
                   {erroresDeFila[i].join(' ')}
                 </p>
               )}
@@ -307,9 +330,14 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
             {errorGeneral}
           </p>
         )}
+      </div>
 
-        <Button onClick={enviar} loading={creando} loadingText="Creando evento…">
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row-reverse">
+        <Button onClick={enviar} loading={creando} loadingText="Creando evento…" className="sm:flex-1">
           Crear evento
+        </Button>
+        <Button variant="secondary" type="button" onClick={cancelar} disabled={creando} className="sm:flex-1">
+          Cancelar
         </Button>
       </div>
     </Modal>

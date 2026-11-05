@@ -10,7 +10,8 @@ import {
   type Orden,
 } from '../types';
 
-// Una función por operación de ServicioDeVentas (/api/v1). Todas piden sesión con rol user.
+// Una función por operación de ServicioDeVentas (/api/v1). Todas piden sesión con rol user, menos
+// el resumen de un evento, que es del organizador dueño.
 //
 // La compra tiene dos pedidos que cambian algo: iniciar (reserva el cupo 10 minutos) y pagar.
 // Los dos viajan con una clave de idempotencia: si el mismo pedido llega dos veces con la misma
@@ -152,6 +153,26 @@ export async function cancelarCompra(ordenId: string): Promise<void> {
 // nada: la reserva vence sola a los 10 minutos.
 export function soltarReserva(ordenId: string): void {
   cancelarCompra(ordenId).catch(() => {});
+}
+
+// Los totales de las ventas pagadas (CONFIRMADA o EMITIDA) de un evento. Una compra que todavía
+// está en checkout no cuenta.
+export interface LiquidacionDeEvento {
+  ventas: number;
+  entradas: number;
+  recaudadoDeLosCompradores: number; // subtotal + cargo de servicio
+  cargoDePalco: number;
+  aLiquidarAlOrganizador: number; // el subtotal, a precio de lista
+}
+
+// GET /api/v1/resumenes?eventoId= (rol organizer). El backend también manda el detalle por día;
+// el panel por ahora usa solo la liquidación. Un evento ajeno responde 404.
+export async function liquidacionDelEvento(eventoId: string): Promise<LiquidacionDeEvento> {
+  const resumen = await pedir<{ liquidacion: LiquidacionDeEvento }>('/api/v1/resumenes', {
+    consulta: { eventoId },
+    conSesion: true,
+  });
+  return resumen.liquidacion;
 }
 
 // Simula el SDK de la pasarela de pagos, que en un sistema real convierte los datos de la tarjeta

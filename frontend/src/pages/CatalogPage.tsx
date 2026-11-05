@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { mensajeDeError } from '../lib/api';
-import { money } from '../lib/format';
+import { money, precioDesde } from '../lib/format';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
 import { useReventas } from '../lib/useReventas';
 import { listarEventos } from '../servicios/eventos';
 import EventCard from '../components/EventCard';
 import ImagePlaceholder from '../components/ImagePlaceholder';
 import ListingCard from '../components/ListingCard';
-import Button from '../components/Button';
+import { ButtonLink } from '../components/Button';
 import Skeleton from '../components/Skeleton';
 import StatusMessage from '../components/StatusMessage';
 import PageTransition from '../components/PageTransition';
@@ -120,18 +119,17 @@ export default function CatalogPage() {
               </h1>
               <p className="max-w-md text-[15px] text-graphite">{eventoDestacado.descripcion}</p>
               <p className="text-lg font-semibold text-ink">
-                Desde {money(Math.min(...eventoDestacado.sectores.map((s) => s.precio)))}
+                Desde {money(precioDesde(eventoDestacado.sectores))}
               </p>
               <div>
-                <Link to={`/evento/${eventoDestacado.slug}`}>
-                  <Button>Ver entradas</Button>
-                </Link>
+                <ButtonLink to={`/evento/${eventoDestacado.slug}`}>Ver entradas</ButtonLink>
               </div>
             </div>
             <ImagePlaceholder
               etiqueta="foto del evento"
               className="min-h-[420px] w-full"
               src={eventoDestacado.imagenUrl}
+              prioritaria
             />
           </section>
         )}
@@ -148,11 +146,13 @@ export default function CatalogPage() {
             onChange={(e) => setBusqueda(e.target.value)}
             className="min-h-[44px] w-full max-w-md border border-edge bg-paper px-4 py-2.5 text-[15px] placeholder:text-faint focus:border-accent"
           />
-          <div className="flex gap-2 overflow-x-auto">
+          {/* El p-1 deja lugar al contorno de foco, que overflow-x-auto recortaría; el -m-1 lo compensa. */}
+          <div className="-m-1 flex gap-2 overflow-x-auto p-1">
             {CATEGORIAS.map((c) => (
               <button
                 key={c.value}
                 type="button"
+                aria-pressed={categoria === c.value}
                 onClick={() => setCategoria(c.value)}
                 className={`font-mono-label whitespace-nowrap px-4 py-2.5 text-[11px] ${
                   categoria === c.value ? 'bg-ink text-paper' : 'border border-edge text-graphite'

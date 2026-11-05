@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import type { Evento } from '../types';
-import { fecha, money } from '../lib/format';
+import { fecha, money, precioDesde } from '../lib/format';
 import ImagePlaceholder from './ImagePlaceholder';
 import Badge from './Badge';
 
@@ -15,7 +15,7 @@ export default function EventCard({ evento, tieneReventa, index = 0 }: EventCard
   const cupoTotal = evento.sectores.reduce((acc, s) => acc + s.cupo, 0);
   const vendidasTotal = evento.sectores.reduce((acc, s) => acc + s.vendidas, 0);
   const restantes = cupoTotal - vendidasTotal;
-  const desde = Math.min(...evento.sectores.map((s) => s.precio));
+  const desde = precioDesde(evento.sectores);
 
   let stockLabel = 'disponible';
   let stockClass = 'text-muted';

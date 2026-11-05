@@ -9,7 +9,8 @@ export default {
         ink: '#1A1917',
         graphite: '#4A473F',
         muted: '#6B675E',
-        faint: '#9A968C',
+        // Lo más claro que se usa para texto: 4,57:1 sobre paper, el mínimo de WCAG AA es 4,5:1.
+        faint: '#75726A',
         line: '#E3E0D9',
         edge: '#D9D5CC',
         wire: '#C9C6BF',

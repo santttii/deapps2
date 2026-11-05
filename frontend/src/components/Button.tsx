@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { Link, type LinkProps } from 'react-router-dom';
 
 type Variant = 'primary' | 'secondary' | 'ghost';
 
@@ -42,4 +43,14 @@ export default function Button({
       {loading ? loadingText : children}
     </button>
   );
+}
+
+interface ButtonLinkProps extends LinkProps {
+  variant?: Variant;
+}
+
+// Un enlace con el aspecto del botón, para lo que navega: un <Button> dentro de un <Link> es un
+// control dentro de otro, y el teclado lo recorre como dos.
+export function ButtonLink({ variant = 'primary', className = '', ...rest }: ButtonLinkProps) {
+  return <Link className={`${base} ${variants[variant]} ${className}`} {...rest} />;
 }

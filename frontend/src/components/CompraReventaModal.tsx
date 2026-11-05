@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ErrorApi, mensajeDeError } from '../lib/api';
-import { calcularServicio, money } from '../lib/format';
+import { calcularServicio, money, nombreDelRol } from '../lib/format';
 import { esDNIValido, esNombreValido, esNumeroTarjetaValido, formatearNumeroTarjeta, soloDigitosDNI } from '../lib/validate';
 import { comprarReventa } from '../servicios/reventa';
 import { nuevaClave, tokenDePrueba } from '../servicios/ventas';
@@ -34,11 +34,26 @@ const TIPOS_QUE_VENCEN_EL_LISTADO = ['publicacion-no-activa', 'reventa-cerrada',
 // /api/v1/reventas/{id}/compra. La entrada nueva se emite a nombre del titular con un QR nuevo y
 // aparece en "Mis entradas" porque Reventa la registra como una venta del comprador.
 export default function CompraReventaModal({ publicacion, evento, onCerrar, onListadoVencido }: Props) {
+  const { usuarioActual } = useApp();
+  // Solo el rol user compra (el backend rechaza a los demás con 403): a una cuenta de organizador o
+  // de puerta no se le arma una compra que no puede terminar.
+  const rolSinCompra = usuarioActual && usuarioActual.rol !== 'user' ? usuarioActual.rol : null;
+
   // El modal se monta de nuevo con cada publicación (key), así el formulario y la clave
   // de idempotencia empiezan limpios.
   return (
     <Modal abierto={!!publicacion} onCerrar={onCerrar} titulo="Comprar en la reventa oficial">
-      {publicacion && (
+      {publicacion && rolSinCompra && (
+        <div className="flex flex-col gap-4 text-sm text-graphite">
+          <p>
+            Las compras se hacen con una cuenta de comprador. Ingresaste como {nombreDelRol(rolSinCompra)}.
+          </p>
+          <Button variant="secondary" onClick={onCerrar}>
+            Cerrar
+          </Button>
+        </div>
+      )}
+      {publicacion && !rolSinCompra && (
         <Formulario
           key={publicacion.id}
           publicacion={publicacion}
@@ -65,6 +80,8 @@ function Formulario({ publicacion, evento, onCerrar, onListadoVencido }: Props &
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [errorCompra, setErrorCompra] = useState('');
   const [comprando, setComprando] = useState(false);
+  // Después de un error que saca a la publicación de la venta, volver a confirmar no tiene sentido.
+  const [vencida, setVencida] = useState(false);
   // Una clave por intento de compra. Si el pedido termina sin resultado (504 o sin conexión) se
   // repite con la misma clave: el backend no cobra dos veces. Después de un rechazo se usa otra.
   const [clave, setClave] = useState(nuevaClave);
@@ -95,13 +112,18 @@ function Formulario({ publicacion, evento, onCerrar, onListadoVencido }: Props &
       setErrorCompra(mensajeDeError(error));
       const sinResultado = error instanceof ErrorApi && (error.estado === 504 || error.estado === 0);
       if (!sinResultado) setClave(nuevaClave());
-      if (error instanceof ErrorApi && TIPOS_QUE_VENCEN_EL_LISTADO.includes(error.tipo)) onListadoVencido();
+      if (error instanceof ErrorApi && TIPOS_QUE_VENCEN_EL_LISTADO.includes(error.tipo)) {
+        setVencida(true);
+        onListadoVencido();
+      }
       setComprando(false);
     }
   }
 
+  // En un teléfono el formulario es más alto que la pantalla: se desplaza dentro del diálogo, como
+  // en CreateEventModal, para que "Confirmar compra" siempre se alcance.
   return (
-    <div className="flex flex-col gap-4 text-sm text-graphite">
+    <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1 text-sm text-graphite">
       <p>
         {evento?.titulo ?? publicacion.eventoId} · {sector?.nombre ?? publicacion.sectorId}
       </p>
@@ -146,11 +168,12 @@ function Formulario({ publicacion, evento, onCerrar, onListadoVencido }: Props &
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div role="group" aria-label="Medio de pago" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {MEDIOS.map((m) => (
           <button
             key={m.id}
             type="button"
+            aria-pressed={medioPago === m.id}
             onClick={() => setMedioPago(m.id)}
             className={`h-12 border px-3 text-left text-sm font-medium ${
               medioPago === m.id ? 'border-2 border-accent' : 'border-edge'
@@ -163,6 +186,8 @@ function Formulario({ publicacion, evento, onCerrar, onListadoVencido }: Props &
       {medioPago === 'tarjeta' && (
         <Input
           label="Número de tarjeta"
+          autoComplete="cc-number"
+          inputMode="numeric"
           value={tarjeta}
           onChange={(e) => setTarjeta(formatearNumeroTarjeta(e.target.value))}
           error={errores.tarjeta}
@@ -177,7 +202,7 @@ function Formulario({ publicacion, evento, onCerrar, onListadoVencido }: Props &
         </p>
       )}
 
-      <Button loading={comprando} loadingText="Procesando pago…" onClick={confirmar}>
+      <Button loading={comprando} loadingText="Procesando pago…" disabled={vencida} onClick={confirmar}>
         Confirmar compra
       </Button>
     </div>

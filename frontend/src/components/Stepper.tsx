@@ -11,12 +11,13 @@ export default function Stepper({ pasos, activo, onVolver }: StepperProps) {
         const estado = i < activo ? 'completo' : i === activo ? 'activo' : 'pendiente';
         const clickeable = estado === 'completo' && onVolver;
         return (
-          <li key={paso} className="flex-1">
+          <li key={paso} className="flex flex-1">
+            {/* Con h-full, si el nombre de un paso se parte en dos líneas los demás quedan del mismo alto. */}
             <button
               type="button"
               disabled={!clickeable}
               onClick={() => clickeable && onVolver?.(i)}
-              className={`font-mono-label w-full border border-l-0 first:border-l px-3 py-3 text-center text-[11px] ${
+              className={`font-mono-label h-full w-full border border-l-0 first:border-l px-3 py-3 text-center text-[11px] ${
                 estado === 'activo'
                   ? 'bg-accent text-white'
                   : estado === 'completo'
