@@ -50,8 +50,9 @@ public class CorsFilter implements ContainerResponseFilter {
         // las compras y la etiqueta de versión para no volver a descargar una respuesta.
         h.put("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, If-None-Match");
         // Cabeceras de la respuesta que el navegador deja leer al frontend: sin esto no ve
-        // dónde quedó el recurso creado (Location) ni su versión (ETag).
-        h.put("Access-Control-Expose-Headers", "Location, ETag");
+        // dónde quedó el recurso creado (Location), su versión (ETag) ni cuánto esperar
+        // después de un 429 por demasiados intentos de ingreso (Retry-After).
+        h.put("Access-Control-Expose-Headers", "Location, ETag, Retry-After");
         h.put("Vary", "Origin");
         return h;
     }
