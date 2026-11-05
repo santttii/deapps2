@@ -320,8 +320,9 @@ async function cuentaNueva() {
       email, password: 'palco1234' },
   });
   if (registro.estado !== 201) throw new Error(`registro: ${registro.estado} ${registro.texto}`);
-  const linea = await hasta(() => lineasCon(marca, 'Código de verificación para', email)[0]);
-  const codigo = linea.match(/: (\d{6})\s*$/)[1];
+  // El código llega en el email de verificación; sin SMTP, CorreoAlLog escribe ese email en el log.
+  const linea = await hasta(() => lineasCon(marca, `Email para ${email}`, 'Tu código de Palco')[0]);
+  const codigo = linea.match(/el email es (\d{6})\./)[1];
   const sesion = await http('POST', '/api/usuarios/verificacion', { cuerpo: { email, codigo } });
   if (sesion.estado !== 200) throw new Error(`verificación del email: ${sesion.estado} ${sesion.texto}`);
   return { email, token: sesion.json.token, usuario: sesion.json.usuario };
@@ -746,10 +747,11 @@ async function escenario7() {
       && fila.montoTotal === 60500 && fila.mensajeId.startsWith('ID:'), JSON.stringify(fila));
   const publicacion = lineasCon(marca, `Compra ${v.id} confirmada`, 'PAGO_CONFIRMADO publicado en la misma transacción');
   informe.igual('Ventas dejó en el log una sola publicación, dentro de la transacción del pago', publicacion.length, 1);
-  const aviso = lineasCon(marca, 'Aviso al comprador user-titular', v.id)[0] ?? '';
-  informe.ok('el aviso nombra el sector y a los dos titulares, que viajan en entradas[] del cuerpo',
-    aviso.includes('2 entradas: Platea B (Prueba Integracion 1), Platea B (Prueba Integracion 2)') && aviso.includes('$60500'),
-    aviso.slice(aviso.indexOf('Aviso')));
+  const aviso = lineasCon(marca, 'Email para titular@palco.test', 'Tu compra en Palco está confirmada', v.id)[0] ?? '';
+  informe.ok('el email de aviso nombra el sector y a los dos titulares, que viajan en entradas[] del cuerpo',
+    aviso.includes('Entradas (2)') && aviso.includes('Platea B (Prueba Integracion 1)')
+      && aviso.includes('Platea B (Prueba Integracion 2)') && aviso.includes('$60500'),
+    aviso.slice(aviso.indexOf('Email para')));
   informe.ok('y las entradas emitidas son las que nombraba el mensaje', final?.entradas.length === 2, final?.entradas.map((e) => e.id).join(' '));
 }
 
@@ -816,10 +818,10 @@ async function escenario9() {
   const total = (await http('GET', '/api/notificaciones/auditoria', { token: S })).json.length;
   informe.ok('el listado sumó al menos una fila (o ya estaba en su tope de 50)', total >= filasAntes + 1 || total === 50, `${filasAntes} -> ${total}`);
   await esperar(500);
-  const aviso = lineasCon(marca, 'ServicioDeNotificaciones', 'Aviso al comprador', v.id);
+  const aviso = lineasCon(marca, 'Email para', 'Tu compra en Palco está confirmada', v.id);
   const avisoMdb = lineasCon(marca, 'AvisoDeCompraMDB', 'aviso por la venta', v.id);
   const auditoriaMdb = lineasCon(marca, 'AuditoriaDeComprasMDB', 'procesado el mensaje de la venta', v.id);
-  informe.igual('aviso: una línea con el texto para el comprador', aviso.length, 1);
+  informe.igual('aviso: un email para el comprador', aviso.length, 1);
   informe.igual('aviso: una línea del MDB AvisoDeCompra', avisoMdb.length, 1);
   informe.igual('auditoría: una línea del MDB AuditoriaDeCompras', auditoriaMdb.length, 1);
   for (const l of [...aviso, ...avisoMdb, ...auditoriaMdb]) informe.dato(l.slice(0, 260));
@@ -976,7 +978,7 @@ async function escenario13() {
   mensajes('suscripción durable', despues.auditoriaAgregados - antes.auditoriaAgregados, 0, deOtros);
   informe.igual('DLQ', despues.dlq - antes.dlq, 0);
   informe.igual('ninguna línea nueva de los tres consumidores (salvo las de ventas ajenas)',
-    logDesde(marca).filter((l) => /EmisionDeEntradas|AvisoDeCompra|AuditoriaDeCompras|Aviso al comprador/.test(l))
+    logDesde(marca).filter((l) => /EmisionDeEntradas|AvisoDeCompra|AuditoriaDeCompras|Aviso al comprador|Tu compra en Palco está confirmada/.test(l))
       .filter((l) => !deOtros.some((id) => l.includes(id))).length, 0);
   const filasDespues = (await http('GET', '/api/notificaciones/auditoria', { token: S })).json;
   informe.igual('ninguna fila nueva en auditoría (salvo las de ventas ajenas)',

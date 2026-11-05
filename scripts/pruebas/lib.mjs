@@ -122,10 +122,13 @@ export function cli(comandos) {
   fs.writeFileSync(archivo, lista.join('\n') + '\n');
   try {
     // En Windows el .bat se corre con cmd.exe, con las comillas tal cual (la ruta del repo puede tener espacios).
-    const r = WINDOWS
-      ? spawnSync('cmd.exe', ['/d', '/s', '/c', `""${CLI}" --connect "--file=${archivo}""`],
-        { encoding: 'utf8', windowsVerbatimArguments: true, env })
-      : spawnSync(CLI, ['--connect', `--file=${archivo}`], { encoding: 'utf8', env });
+    // Un guion .sh (el de scripts/qa para el compose) va con bash: cmd.exe no lo sabe correr.
+    const r = WINDOWS && CLI.endsWith('.sh')
+      ? spawnSync('bash', [CLI, '--connect', `--file=${archivo}`], { encoding: 'utf8', env })
+      : WINDOWS
+        ? spawnSync('cmd.exe', ['/d', '/s', '/c', `""${CLI}" --connect "--file=${archivo}""`],
+          { encoding: 'utf8', windowsVerbatimArguments: true, env })
+        : spawnSync(CLI, ['--connect', `--file=${archivo}`], { encoding: 'utf8', env });
     const salida = (r.stdout ?? '') + (r.stderr ?? '');
     if (r.status !== 0) throw new Error(`jboss-cli falló (${r.status}) con: ${lista.join(' ; ')}\n${salida}`);
     return salida;
