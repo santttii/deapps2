@@ -62,6 +62,9 @@
                         <!-- SOAP (Jakarta XML Web Services, JBossWS con Apache CXF): publica el WSDL del
                              ARCA simulado y le da a Facturación el cliente con el que lo llama -->
                         <layer>webservices</layer>
+                        <!-- Jakarta Mail: CorreoSmtp manda los emails con esta API. Sin la capa, la clase no
+                             carga y ningún servicio despliega, aunque el envío vaya al log -->
+                        <layer>mail</layer>
                         <!-- Drivers de base: H2 en desarrollo, PostgreSQL para Supabase -->
                         <layer>h2-driver</layer>
                         <layer>postgresql-driver</layer>

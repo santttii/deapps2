@@ -1,0 +1,7 @@
+# Lo que corre en Linux (los guiones, lo que se copia a las imágenes de Docker y lo que lee WildFly) va siempre
+# con LF. Git para Windows viene con core.autocrlf=true y, sin estas reglas, deja CRLF en la copia de trabajo:
+# Docker copia los guiones así y el contenedor no arranca ("env: 'bash\r': No such file or directory").
+*.sh        text eol=lf
+*.cli       text eol=lf
+*.conf      text eol=lf
+Dockerfile  text eol=lf

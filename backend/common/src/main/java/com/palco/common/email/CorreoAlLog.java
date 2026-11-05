@@ -3,6 +3,7 @@ package com.palco.common.email;
 import java.util.logging.Logger;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 
 import com.palco.common.Textos;
 
@@ -16,8 +17,11 @@ import com.palco.common.Textos;
  * y con un salto de línea adentro aparecería un renglón falso en el log.
  *
  * {@code @ApplicationScoped}: no guarda nada, una instancia para todo el servicio.
+ * {@code @Typed} hace que solo se pueda inyectar por su clase y no como
+ * {@link Correos}: ese lo entrega {@link FabricaDeCorreos}.
  */
 @ApplicationScoped
+@Typed(CorreoAlLog.class)
 public class CorreoAlLog implements Correos {
 
     /** El valor de {@code PALCO_CORREO} que elige esta implementación. */

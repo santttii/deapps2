@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
@@ -43,9 +44,12 @@ import com.palco.common.Textos;
  * con un {@code ../}) ni dos subidas se pisan.
  *
  * {@code @ApplicationScoped}: la configuración se lee una vez y un solo
- * cliente HTTP para todo el servicio.
+ * cliente HTTP para todo el servicio. {@code @Typed} hace que solo se pueda
+ * inyectar por su clase y no como {@link AlmacenDeImagenes}: ese lo entrega
+ * {@link FabricaDeAlmacen}.
  */
 @ApplicationScoped
+@Typed(AlmacenEnSupabase.class)
 public class AlmacenEnSupabase implements AlmacenDeImagenes {
 
     /** El valor de {@code PALCO_IMAGENES} que elige esta implementación. */

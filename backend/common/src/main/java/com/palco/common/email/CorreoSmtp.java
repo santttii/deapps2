@@ -5,6 +5,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 import jakarta.mail.Authenticator;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
@@ -18,8 +19,9 @@ import com.palco.common.Textos;
 
 /**
  * Manda el email por SMTP con Jakarta Mail. La API viene en la plataforma
- * (Jakarta EE 11) y la implementación la trae WildFly, así que no hay que
- * agregar ninguna dependencia.
+ * (Jakarta EE 11) y la implementación la trae WildFly con la capa {@code mail}
+ * (en {@code backend/servidor/pom.xml}), así que no hay que agregar ninguna
+ * dependencia.
  *
  * No está atado a ningún proveedor: se configura por variables de entorno, así
  * que sirve igual con Mailtrap (que atrapa los emails en una bandeja web y es
@@ -43,8 +45,11 @@ import com.palco.common.Textos;
  *
  * {@code @ApplicationScoped}: la configuración se lee una vez y la sesión SMTP
  * no guarda nada de cada pedido, así que alcanza una instancia por servicio.
+ * {@code @Typed} hace que solo se pueda inyectar por su clase y no como
+ * {@link Correos}: ese lo entrega {@link FabricaDeCorreos}.
  */
 @ApplicationScoped
+@Typed(CorreoSmtp.class)
 public class CorreoSmtp implements Correos {
 
     /** El valor de {@code PALCO_CORREO} que elige esta implementación. */

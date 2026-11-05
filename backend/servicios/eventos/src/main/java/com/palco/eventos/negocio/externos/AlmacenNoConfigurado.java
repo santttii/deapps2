@@ -3,6 +3,7 @@ package com.palco.eventos.negocio.externos;
 import java.util.logging.Logger;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 
 import com.palco.common.ErroresDeNegocio;
 
@@ -14,8 +15,12 @@ import com.palco.common.ErroresDeNegocio;
  * que se pierde al redesplegar deja eventos con la foto rota, y eso es peor
  * que no dejar subirla. El alta del evento sigue funcionando: sin imagen usa
  * la foto de la categoría, que es lo que hacía antes de que existiera la subida.
+ *
+ * {@code @Typed} hace que solo se pueda inyectar por su clase y no como
+ * {@link AlmacenDeImagenes}: ese lo entrega {@link FabricaDeAlmacen}.
  */
 @ApplicationScoped
+@Typed(AlmacenNoConfigurado.class)
 public class AlmacenNoConfigurado implements AlmacenDeImagenes {
 
     /** El valor de {@code PALCO_IMAGENES} que elige esta implementación. */
