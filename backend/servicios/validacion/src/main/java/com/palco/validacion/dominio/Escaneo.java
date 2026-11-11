@@ -48,6 +48,14 @@ public class Escaneo {
     @Column(nullable = false)
     private LocalDateTime escaneado;
 
+    /**
+     * Número que pone la base en cada INSERT (identity): sube siempre y nunca
+     * empata. Ordena el registro aunque dos escaneos caigan en el mismo
+     * segundo (DEF-04). El código no lo escribe nunca.
+     */
+    @Column(insertable = false, updatable = false)
+    private Long orden;
+
     protected Escaneo() {
         // JPA
     }
@@ -71,4 +79,5 @@ public class Escaneo {
     public String getEntradaId() { return entradaId; }
     public String getEscaneadoPor() { return escaneadoPor; }
     public LocalDateTime getEscaneado() { return escaneado; }
+    public Long getOrden() { return orden; }
 }

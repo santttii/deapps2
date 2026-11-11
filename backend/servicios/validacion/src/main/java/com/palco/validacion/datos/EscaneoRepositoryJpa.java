@@ -41,10 +41,12 @@ public class EscaneoRepositoryJpa implements EscaneoRepository {
 
     @Override
     public List<Escaneo> listarPorEvento(String eventoId, int maximo) {
-        // El id desempata los escaneos del mismo segundo, así el orden es siempre el mismo.
+        // La hora no tiene fracción de segundo: dos escaneos del mismo segundo los desempata el orden,
+        // que numera la base en cada INSERT y respeta el orden en que se guardaron (DEF-04). Antes
+        // desempataba el id, que es un UUID al azar, y el orden salía cambiado.
         return em.createQuery("""
                         select e from Escaneo e where e.eventoId = :evento
-                        order by e.escaneado desc, e.id desc""", Escaneo.class)
+                        order by e.escaneado desc, e.orden desc""", Escaneo.class)
                 .setParameter("evento", eventoId)
                 .setMaxResults(maximo)
                 .getResultList();
@@ -54,7 +56,7 @@ public class EscaneoRepositoryJpa implements EscaneoRepository {
     public Optional<Escaneo> ultimoDelCodigo(String codigoQr, ResultadoEscaneo resultado) {
         return em.createQuery("""
                         select e from Escaneo e where e.codigoQr = :codigo and e.resultado = :resultado
-                        order by e.escaneado desc, e.id desc""", Escaneo.class)
+                        order by e.escaneado desc, e.orden desc""", Escaneo.class)
                 .setParameter("codigo", codigoQr)
                 .setParameter("resultado", resultado)
                 .setMaxResults(1)

@@ -85,6 +85,33 @@ class RegistroEnH2Test {
     }
 
     @Test
+    void dosEscaneosDelMismoSegundoQuedanEnElOrdenEnQueSeGuardaron() {
+        // DEF-04: la hora no tiene fracción de segundo, así que estos dos empatan. Los ids van al revés
+        // del orden en que se guardan, para que un desempate por id dé el orden equivocado.
+        guardar("ESC-zzzzzzzz", "qr-1", "ev-1", ResultadoEscaneo.VALIDA, 0);
+        guardar("ESC-aaaaaaaa", "qr-1", "ev-1", ResultadoEscaneo.YA_USADA, 0);
+        em.clear();
+
+        List<String> ids = registro.listarPorEvento("ev-1", 10).stream().map(Escaneo::getId).toList();
+
+        assertEquals(List.of("ESC-aaaaaaaa", "ESC-zzzzzzzz"), ids);
+        assertEquals("ESC-aaaaaaaa",
+                registro.ultimoDelCodigo("qr-1", ResultadoEscaneo.YA_USADA).orElseThrow().getId());
+    }
+
+    @Test
+    void elOrdenLoPoneLaBaseYSubeConCadaEscaneo() {
+        guardar("ESC-00000001", "qr-1", "ev-1", ResultadoEscaneo.VALIDA, 0);
+        guardar("ESC-00000002", "qr-1", "ev-1", ResultadoEscaneo.YA_USADA, 0);
+        em.clear();
+
+        long primero = registro.buscarPorId("ESC-00000001").orElseThrow().getOrden();
+        long segundo = registro.buscarPorId("ESC-00000002").orElseThrow().getOrden();
+
+        assertTrue(segundo > primero, primero + " " + segundo);
+    }
+
+    @Test
     void lasColumnasVuelvenComoSeGuardaron() {
         guardar("ESC-00000001", "qr-1", "ev-1", ResultadoEscaneo.VALIDA, 1);
         em.clear();
