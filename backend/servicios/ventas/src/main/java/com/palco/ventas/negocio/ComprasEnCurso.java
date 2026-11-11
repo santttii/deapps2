@@ -27,6 +27,7 @@ import com.palco.ventas.api.Dtos.VentaDto;
 import com.palco.ventas.datos.EntradaRepository;
 import com.palco.ventas.datos.VentaRepository;
 import com.palco.ventas.dominio.EstadoVenta;
+import com.palco.ventas.dominio.estado.EstadoDeVenta;
 import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.dominio.VentaItem;
 import com.palco.ventas.negocio.externos.ClienteDeEventos;
@@ -277,25 +278,24 @@ public class ComprasEnCurso {
      */
     public void cancelar(String compradorId, String ventaId) {
         Venta venta = delComprador(compradorId, ventaId);
-        if (venta.getEstado() == EstadoVenta.EN_CHECKOUT) {
-            if (cerrarLaCompra(ventaId)) {
-                // Este pedido fue el que canceló la venta: le toca devolver el cupo, y recién ahora,
-                // con la cancelación ya confirmada en la base.
-                LOG.info("Venta " + ventaId + " cancelada por su comprador: se devuelve el cupo a Eventos.");
-                devolverCupo(venta);
-                return;
-            }
-            // No la canceló este pedido: se la vuelve a leer para saber por qué.
-            venta = delComprador(compradorId, ventaId);
+        // Patrón State: si está paga, cancelar() lanza 409; si ya estaba cerrada, devuelve false.
+        if (!EstadoDeVenta.de(venta.getEstado()).cancelar()) {
+            // Ya estaba cancelada o vencida. El cupo lo devuelve quien la cerró, no este pedido.
+            return;
         }
-        if (venta.estaPaga()) {
-            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.VENTA_YA_PAGA,
-                    "La compra ya está paga: no se puede cancelar.");
+        if (cerrarLaCompra(ventaId)) {
+            // Este pedido fue el que canceló la venta: le toca devolver el cupo, y recién ahora,
+            // con la cancelación ya confirmada en la base.
+            LOG.info("Venta " + ventaId + " cancelada por su comprador: se devuelve el cupo a Eventos.");
+            devolverCupo(venta);
+            return;
         }
-        if (venta.getEstado() == EstadoVenta.EN_CHECKOUT) {
+        // No la canceló este pedido: se la vuelve a leer y se le pregunta de nuevo a su estado.
+        venta = delComprador(compradorId, ventaId);
+        if (EstadoDeVenta.de(venta.getEstado()).cancelar()) {
+            // Sigue en checkout: lo que frenó el UPDATE es un pago en curso.
             throw new ErroresDeNegocio.Conflicto(TiposDeProblema.OPERACION_EN_CURSO, HAY_UN_PAGO_EN_CURSO);
         }
-        // Ya estaba cancelada o vencida. El cupo lo devuelve quien la cerró, no este pedido.
     }
 
     /**
