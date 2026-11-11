@@ -41,6 +41,7 @@ import com.palco.ventas.datos.EntradaRepository;
 import com.palco.ventas.datos.VentaRepository;
 import com.palco.ventas.dominio.Entrada;
 import com.palco.ventas.dominio.EstadoVenta;
+import com.palco.ventas.dominio.estado.EstadoDeVenta;
 import com.palco.ventas.dominio.TitularDeVenta;
 import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.dominio.VentaItem;
@@ -510,12 +511,8 @@ public class ServicioDeVentas implements IVentas {
      * el intento de pago.
      */
     static void exigirQueSePuedaPagar(Venta venta, LocalDateTime ahora) {
-        if (venta.estaPaga()) {
-            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.VENTA_YA_PAGA, "La compra ya está paga.");
-        }
-        if (venta.getEstado() != EstadoVenta.EN_CHECKOUT || venta.reservaVencida(ahora)) {
-            throw reservaVencida();
-        }
+        // Patrón State: el estado de la venta decide si se puede pagar; si no, lanza 409.
+        EstadoDeVenta.de(venta.getEstado()).pagar(venta, ahora);
     }
 
     /**
