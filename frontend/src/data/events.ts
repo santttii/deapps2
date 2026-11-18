@@ -1,4 +1,5 @@
 import type { Categoria, Evento } from '../types';
+import { urlDeLaApi } from '../lib/api';
 
 // Los eventos vienen del backend (servicios/eventos.ts). Acá quedan solo las fotos, que están
 // en public/eventos (dominio público, ver CREDITOS.md en esa carpeta).
@@ -26,6 +27,8 @@ export function imagenPorCategoria(categoria: Categoria): string {
 // El backend todavía devuelve imágenes de relleno de picsum.photos, que cambian al azar: se
 // reemplazan por la foto local del evento o, si no tiene, por la de su categoría.
 export function imagenDeEvento(ev: Pick<Evento, 'id' | 'categoria' | 'imagenUrl'>): string {
+  // Una foto subida a la base llega como ruta de la API, sin la dirección del servidor.
+  if (ev.imagenUrl?.startsWith('/api/')) return urlDeLaApi(ev.imagenUrl);
   if (ev.imagenUrl && !ev.imagenUrl.includes('picsum.photos')) return ev.imagenUrl;
   return FOTO_POR_EVENTO[ev.id] ?? imagenPorCategoria(ev.categoria);
 }

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { useApp } from '../store/AppContext';
 import { useToast } from './ToastProvider';
 import { ErrorApi, mensajeDeError } from '../lib/api';
-import { crearEvento, editarEvento } from '../servicios/eventos';
+import { crearEvento, editarEvento, FOTO_MAXIMO_BYTES, subirImagen, TIPOS_DE_FOTO } from '../servicios/eventos';
 import { imagenPorCategoria } from '../data/events';
 import type { Categoria, Evento } from '../types';
 import Modal from './Modal';
@@ -36,7 +36,7 @@ const CUPO_MAXIMO = 1_000_000;
 // Errores de sector que el servidor manda sin decir a qué fila corresponden.
 const CAMPOS_DE_SECTOR = ['sectores', 'nombre', 'precio', 'cupo'];
 // Los campos que tienen dónde mostrar su error. Uno que no esté acá va al aviso general.
-const CAMPOS_DEL_FORMULARIO = ['titulo', 'categoria', 'venue', 'fechaISO', 'descripcion', ...CAMPOS_DE_SECTOR];
+const CAMPOS_DEL_FORMULARIO = ['titulo', 'categoria', 'venue', 'fechaISO', 'descripcion', 'imagen', ...CAMPOS_DE_SECTOR];
 
 const AVISO_EN_LINEA = 'border-l-2 border-accent pl-2 text-xs text-ink';
 
@@ -93,6 +93,46 @@ export default function CreateEventModal({ abierto, onCerrar, evento }: CreateEv
   const [erroresDeFila, setErroresDeFila] = useState<Record<number, string[]>>({});
   const [errorGeneral, setErrorGeneral] = useState('');
   const [creando, setCreando] = useState(false);
+  // La foto elegida y su vista previa (una URL local del navegador). Se sube recién al guardar.
+  const [foto, setFoto] = useState<File | null>(null);
+  const [vistaPrevia, setVistaPrevia] = useState<string | null>(null);
+  // Al editar: quitar la foto que tiene el evento y volver a la de su categoría.
+  const [sinFoto, setSinFoto] = useState(false);
+
+  // La vista previa ocupa memoria hasta que se libera: al cambiarla o al cerrar el formulario.
+  useEffect(() => {
+    return () => {
+      if (vistaPrevia) URL.revokeObjectURL(vistaPrevia);
+    };
+  }, [vistaPrevia]);
+
+  function elegirFoto(e: ChangeEvent<HTMLInputElement>) {
+    const elegida = e.target.files?.[0];
+    e.target.value = ''; // así elegir el mismo archivo otra vez también avisa
+    if (!elegida) return;
+    if (!TIPOS_DE_FOTO.includes(elegida.type)) {
+      setErrores((prev) => ({ ...prev, imagen: 'La imagen tiene que ser JPG, PNG o WEBP.' }));
+      return;
+    }
+    if (elegida.size > FOTO_MAXIMO_BYTES) {
+      setErrores((prev) => ({ ...prev, imagen: 'La imagen no puede pasar de 2 MB.' }));
+      return;
+    }
+    setErrores((prev) => ({ ...prev, imagen: '' }));
+    setFoto(elegida);
+    setVistaPrevia(URL.createObjectURL(elegida));
+    setSinFoto(false);
+  }
+
+  function quitarFoto() {
+    setFoto(null);
+    setVistaPrevia(null);
+    if (editando) setSinFoto(true);
+  }
+
+  // Lo que se ve arriba del formulario: la foto elegida, la que ya tiene el evento o la de la categoría.
+  const fotoVisible = vistaPrevia ?? (evento && !sinFoto ? evento.imagenUrl : undefined) ?? imagenPorCategoria(categoria);
+  const tieneFotoPropia = foto !== null || (editando && !sinFoto && !!evento?.imagenDelServidor);
 
   function limpiarErrores() {
     setErrores({});
@@ -107,14 +147,19 @@ export default function CreateEventModal({ abierto, onCerrar, evento }: CreateEv
     setFecha('');
     setDescripcion('');
     setSectores([sectorVacio()]);
+    setFoto(null);
+    setVistaPrevia(null);
+    setSinFoto(false);
     limpiarErrores();
   }
 
-  const hayAlgoEscrito = inicial
-    ? JSON.stringify(inicial) !==
-      JSON.stringify({ titulo, categoria, venue, fecha, descripcion, sectores })
-    : [titulo, venue, fecha, descripcion].some((v) => v.trim() !== '') ||
-      sectores.some((s) => s.nombre.trim() !== '' || s.precio !== '' || s.cupo !== '');
+  const hayAlgoEscrito =
+    foto !== null ||
+    sinFoto ||
+    (inicial
+      ? JSON.stringify(inicial) !== JSON.stringify({ titulo, categoria, venue, fecha, descripcion, sectores })
+      : [titulo, venue, fecha, descripcion].some((v) => v.trim() !== '') ||
+        sectores.some((s) => s.nombre.trim() !== '' || s.precio !== '' || s.cupo !== ''));
 
   // Escape y el clic afuera solo ocultan el modal: lo escrito sigue ahí al volver a abrirlo. Lo
   // que descarta el formulario es Cancelar, y pregunta antes si hay algo cargado.
@@ -189,10 +234,17 @@ export default function CreateEventModal({ abierto, onCerrar, evento }: CreateEv
       })),
     };
     try {
+      // La foto se sube primero: el evento se guarda con la URL que devuelve. Si después falla el
+      // evento, la foto queda guardada sin usar, que no molesta a nadie.
+      // Al editar sin tocar la foto se manda la que tiene guardada el servidor: PUT reemplaza todo.
+      const imagenUrl = foto
+        ? await subirImagen(foto)
+        : evento && !sinFoto
+          ? (evento.imagenDelServidor ?? null)
+          : null;
       creado = evento
-        ? // PUT reemplaza todo: la foto se manda como la tiene guardada el servidor, para no perderla.
-          await editarEvento(evento.id, { ...datos, imagenUrl: evento.imagenDelServidor ?? null })
-        : await crearEvento({ ...datos, sectores: datos.sectores.map(({ id: _id, ...resto }) => resto) });
+        ? await editarEvento(evento.id, { ...datos, imagenUrl })
+        : await crearEvento({ ...datos, imagenUrl, sectores: datos.sectores.map(({ id: _id, ...resto }) => resto) });
     } catch (error) {
       // El modal queda abierto con lo escrito. Los errores por campo van a su input, y el aviso
       // general no los repite: el detalle del backend suele ser el mismo texto que el del campo.
@@ -225,16 +277,38 @@ export default function CreateEventModal({ abierto, onCerrar, evento }: CreateEv
         <div>
           <div className="h-32 overflow-hidden border border-edge">
             <img
-              src={evento?.imagenUrl ?? imagenPorCategoria(categoria)}
-              alt={evento ? `Foto de ${evento.titulo}` : `Foto de la categoría ${categoria}`}
+              src={fotoVisible}
+              alt={tieneFotoPropia ? 'Foto del evento' : `Foto de la categoría ${categoria}`}
               className="h-full w-full object-cover"
             />
           </div>
-          <p className="mt-1.5 text-xs text-muted">
-            {editando
-              ? 'La foto del evento no cambia: la subida de imágenes todavía no está disponible.'
-              : 'El evento se publica con la foto de su categoría: la subida de imágenes todavía no está disponible.'}
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <label className="font-mono-label inline-flex min-h-[44px] cursor-pointer items-center border border-edge px-3 text-[11px] text-ink focus-within:outline focus-within:outline-2 focus-within:outline-accent">
+              {tieneFotoPropia ? 'Cambiar foto' : 'Subir foto'}
+              <input
+                type="file"
+                accept={TIPOS_DE_FOTO.join(',')}
+                onChange={elegirFoto}
+                className="sr-only"
+                aria-describedby="ayuda-foto"
+              />
+            </label>
+            {tieneFotoPropia && (
+              <button type="button" onClick={quitarFoto} className="font-mono-label min-h-[44px] px-2 text-[11px] text-muted">
+                quitar foto
+              </button>
+            )}
+          </div>
+          <p id="ayuda-foto" className="mt-1.5 text-xs text-muted">
+            {foto
+              ? `${foto.name} · se sube al guardar.`
+              : 'JPG, PNG o WEBP, hasta 2 MB. Sin foto propia se usa la de la categoría.'}
           </p>
+          {errores.imagen && (
+            <p role="alert" className={AVISO_EN_LINEA}>
+              {errores.imagen}
+            </p>
+          )}
         </div>
 
         <Input

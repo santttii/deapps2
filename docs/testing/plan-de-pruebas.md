@@ -31,7 +31,7 @@ con el emulador del navegador).
 | Seguridad | Los 10 criterios SEC-xx (Dado / Cuando / Entonces) | Postman (carpeta 4) + tests | Notion, etiqueta "seguridad" | A mano y con los tests |
 | Patrón State | Transiciones válidas e inválidas (409) de la venta | JUnit + Node | `EstadoDeVentaTest`, `scripts/pruebas/patron-state.mjs` | `mvn verify` y a mano |
 | Frontend | Lint y compilación (tipos) | oxlint + tsc + Vite | `frontend/` | En el CI |
-| Interfaz | Factura, editar y cancelar evento, recorridos en el navegador contra el servidor | Playwright | `evidencia/checkpoint-3/pantallas.txt` | A mano antes de cada entrega |
+| Interfaz | Factura, editar y cancelar evento, subida de fotos: recorridos en el navegador contra el servidor | Playwright | `evidencia/checkpoint-3/pantallas.txt` y `fotos.txt` | A mano antes de cada entrega |
 | Secretos | Que no haya credenciales en el historial | gitleaks | CI, job "Secretos" | En cada push |
 
 ## 3. Entornos
@@ -105,14 +105,15 @@ Corrida del 18/11/2026 sobre el código del checkpoint, con WildFly 41, Java 25 
 
 | Prueba | Resultado |
 |---|---|
-| Tests unitarios y de integración con base | 794 tests, 0 fallas |
-| Cobertura | 78,0 % de líneas, 73,6 % de ramas |
+| Tests unitarios y de integración con base | 800 tests, 0 fallas |
+| Cobertura | 78,1 % de líneas, 73,7 % de ramas |
 | Set de evaluación de la IA | 20 de 20; adversariales 5 de 5 |
 | Asistente en vivo | 11 de 11 |
 | Broker apagado | 10 de 10; no se perdió ningún mensaje |
 | ETag | 6 de 6 |
 | Escenarios de integración | 21 de 21; 311 de 311 comprobaciones |
 | Pantallas nuevas en el navegador (factura, editar y cancelar evento) | 20 de 20 |
+| Subida de fotos de eventos en el navegador (crear, cambiar y quitar la foto) | 13 de 13 |
 | Matriz de trazabilidad | 22 de 61 criterios con caso automático, todos en verde |
 
 La salida completa de cada corrida está en `docs/testing/evidencia/checkpoint-3/` y la matriz en

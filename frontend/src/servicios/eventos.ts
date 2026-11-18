@@ -15,6 +15,8 @@ export interface NuevoEvento {
   venue: string;
   fechaISO: string; // fecha y hora local sin zona, como la entrega el input datetime-local
   descripcion: string;
+  // La URL que devolvió subirImagen; sin foto, el evento usa la de su categoría.
+  imagenUrl?: string | null;
   sectores: { nombre: string; precio: number; cupo: number }[];
 }
 
@@ -88,4 +90,19 @@ export async function cancelarEvento(eventoId: string, motivo: string): Promise<
     conSesion: true,
   });
   return aEvento(cancelado);
+}
+
+// Tipos y tamaño que acepta el backend (TiposDeImagen): se controlan acá antes de subir.
+export const TIPOS_DE_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
+export const FOTO_MAXIMO_BYTES = 2 * 1024 * 1024;
+
+// POST /api/eventos/imagenes con la imagen cruda: devuelve la URL que se manda como imagenUrl al
+// crear o editar el evento. Solo rol organizer.
+export async function subirImagen(foto: File): Promise<string> {
+  const subida = await pedir<{ imagenUrl: string }>('/api/eventos/imagenes', {
+    metodo: 'POST',
+    archivo: foto,
+    conSesion: true,
+  });
+  return subida.imagenUrl;
 }

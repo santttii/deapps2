@@ -169,7 +169,8 @@ resumen. "Rol" es lo que pide el token: `user`, `organizer`, `staff` o
 | Eventos | `POST /api/eventos` | `organizer` | Crear evento con sectores |
 | Eventos | `PUT /api/eventos/{eventoId}` | `organizer` | Editar un evento propio (reemplazo completo; un sector con ventas no cambia de precio ni se quita) |
 | Eventos | `POST /api/eventos/{eventoId}/cancelacion` | `organizer` | Cancelar un evento propio con `{"motivo"}` opcional: publica `EVENTO_CANCELADO`, y Ventas anula y reembolsa sus compras |
-| Eventos | `POST /api/eventos/imagenes` | `organizer` | Sube la foto (JPG, PNG o WEBP, hasta 2 MB) a Supabase Storage y devuelve su URL; sin almacén configurado, 504 |
+| Eventos | `POST /api/eventos/imagenes` | `organizer` | Sube la foto (JPG, PNG o WEBP, hasta 2 MB) y devuelve su URL: a Supabase Storage si está configurado y, si no, a la base de Palco (`PALCO_IMAGENES`: `supabase`, `base` o `ninguno`) |
+| Eventos | `GET /api/eventos/imagenes/{id}` | público | La foto de un evento guardada en la base, con caché de un año |
 | Eventos | `GET /api/eventos/{eventoId}/organizador` | `servicio` | El dueño de un evento (lo usan Ventas y Validación) |
 | Eventos | `POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo` | `servicio` | Sumar (`{"cantidad": 2}`) o liberar (`-2`) entradas vendidas, sin pasarse del cupo |
 | Ventas | `POST /api/v1/ventas` | `user` | Abre una compra y reserva el cupo por 10 minutos: 201, venta `EN_CHECKOUT`. Pide la cabecera `Idempotency-Key` (un UUID) |
@@ -509,7 +510,8 @@ src/
   dueño del evento) y a Pagos (cobro y reembolso); Reventa, a Ventas, a Pagos y
   a Eventos; Validación, a Ventas (usar la entrada) y a Eventos (dueño del
   evento); Notificaciones, a Usuarios (el email del comprador), y Eventos sube
-  las fotos a Supabase Storage. Por SOAP, Facturación le pide el CAE al ARCA
+  las fotos a Supabase Storage cuando está configurado (si no, las guarda en su
+  esquema de la base). Por SOAP, Facturación le pide el CAE al ARCA
   simulado. Por JMS van la cola `cola.emision-entradas` y los tópicos
   `topico.compra-confirmada` y `topico.eventos-cancelados` (ver
   [API disponible](#api-disponible)).
@@ -545,9 +547,9 @@ src/
   público guardadas en `frontend/public/eventos/` (una por evento, más una
   genérica por categoría; fuentes en `CREDITOS.md` de esa carpeta). Para los
   eventos de prueba el backend devuelve URLs de relleno, así que
-  `imagenDeEvento()` las reemplaza por la foto local. Los eventos creados desde
-  el panel usan la foto de su categoría: el backend ya sube imágenes
-  (`POST /api/eventos/imagenes`), pero el alta del frontend todavía no la usa.
+  `imagenDeEvento()` las reemplaza por la foto local. Al crear o editar un evento
+  desde el panel se puede subir su foto (`POST /api/eventos/imagenes`); sin
+  foto propia, el evento usa la de su categoría.
 - **Crear evento**: el modal "+ Crear evento" en `/organizador` manda el evento
   a `POST /api/eventos` (el id, el slug y los ids de sector los genera el
   servidor) y agrega la respuesta al catálogo en memoria. Por eso aparece de
@@ -574,8 +576,9 @@ El plan de trabajo está en [`TODO.md`](TODO.md).
   tarjeta no manda sus datos, solo un token de prueba).
 - **Emails sin proveedor configurado**: sin `PALCO_SMTP_HOST` los emails quedan
   en el log del servidor (ver "Emails" en [API disponible](#api-disponible)).
-- **Fotos sin almacén**: sin `PALCO_SUPABASE_URL` y `PALCO_SUPABASE_CLAVE`,
-  `POST /api/eventos/imagenes` responde 504 y los eventos usan la foto de su
-  categoría.
+- **Fotos en la base**: sin `PALCO_SUPABASE_URL` y `PALCO_SUPABASE_CLAVE`, las
+  fotos de los eventos se guardan en la base de Palco (tabla `eventos.imagen`,
+  hasta 2 MB cada una). Alcanza para el volumen del proyecto; con muchas fotos
+  conviene Supabase Storage, que se usa solo con configurar esas variables.
 - **Sin tests en el frontend**: los tests automatizados son del backend (ver
   [Tests](#tests)).

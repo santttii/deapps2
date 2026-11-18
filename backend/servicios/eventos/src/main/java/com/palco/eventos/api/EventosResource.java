@@ -24,6 +24,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
+import com.palco.common.ErroresDeNegocio;
 import com.palco.common.rest.ConEtag;
 import com.palco.common.seguridad.Sesion;
 import com.palco.eventos.api.Dtos.CambioCupoDto;
@@ -34,8 +35,10 @@ import com.palco.eventos.api.Dtos.ImagenSubidaDto;
 import com.palco.eventos.api.Dtos.NuevoEventoDto;
 import com.palco.eventos.api.Dtos.OrganizadorDto;
 import com.palco.eventos.api.Dtos.SectorDto;
+import com.palco.eventos.dominio.Imagen;
 import com.palco.eventos.negocio.IEventos;
 import com.palco.eventos.negocio.externos.AlmacenDeImagenes;
+import com.palco.eventos.negocio.externos.AlmacenEnBaseDeDatos;
 
 /**
  * API REST de ServicioDeEventos, en {@code /api/eventos}. El catálogo es
@@ -54,6 +57,9 @@ public class EventosResource {
 
     @Inject
     AlmacenDeImagenes imagenes;
+
+    @Inject
+    AlmacenEnBaseDeDatos imagenesEnLaBase;
 
     /** {@code GET /api/eventos?categoria=Música&q=kiroshi} */
     @GET
@@ -140,6 +146,24 @@ public class EventosResource {
     public ImagenSubidaDto subirImagen(byte[] contenido,
             @HeaderParam(HttpHeaders.CONTENT_TYPE) String tipo) {
         return new ImagenSubidaDto(imagenes.guardar(contenido, tipo, null));
+    }
+
+    /**
+     * {@code GET /api/eventos/imagenes/3f9a….jpg}: la foto de un evento guardada
+     * en la base (ver {@link AlmacenEnBaseDeDatos}). Pública, como el catálogo.
+     * El contenido de un id no cambia nunca, así que el navegador la puede
+     * guardar por un año sin volver a pedirla. 404 si no existe.
+     */
+    @GET
+    @PermitAll
+    @Path("imagenes/{id}")
+    @Produces({ "image/jpeg", "image/png", "image/webp" })
+    public Response imagen(@PathParam("id") String id) {
+        Imagen imagen = imagenesEnLaBase.leer(id)
+                .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe esa imagen."));
+        return Response.ok(imagen.getContenido(), imagen.getTipo())
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
+                .build();
     }
 
     /**
