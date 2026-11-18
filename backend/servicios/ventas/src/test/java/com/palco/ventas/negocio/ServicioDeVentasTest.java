@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -135,6 +136,65 @@ class ServicioDeVentasTest {
         }).when(entradas).guardar(any());
     }
 
+    // ---- Las reglas entre compras: tope por evento y un DNI por evento ----
+
+    @Test
+    void conLasDeOtrasComprasNoSePuedePasarDeSeisEntradasPorEvento() {
+        when(ventas.entradasDelCompradorParaElEvento(eq(COMPRADOR), eq("ev-1"), any())).thenReturn(5L);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.iniciarCompra(COMPRADOR, pedido(List.of(item("sec-1-4", 2)), ANA, LUIS), CLAVE));
+
+        assertEquals("tope-por-evento", error.tipo());
+        assertTrue(error.getMessage().contains("Ya tenés 5: podés comprar 1 más."), error.getMessage());
+        verifyNoInteractions(eventos);
+    }
+
+    @Test
+    void conElTopeJustoLaCompraSeAbre() {
+        when(ventas.entradasDelCompradorParaElEvento(eq(COMPRADOR), eq("ev-1"), any())).thenReturn(4L);
+        eventosVende("sec-1-4", "Platea B", 27_500);
+
+        assertEquals("EN_CHECKOUT",
+                servicio.iniciarCompra(COMPRADOR, pedido(List.of(item("sec-1-4", 2)), ANA, LUIS), CLAVE).estado());
+    }
+
+    @Test
+    void conSeisEntradasYaNoPuedeComprarMasParaEseEvento() {
+        when(ventas.entradasDelCompradorParaElEvento(eq(COMPRADOR), eq("ev-1"), any())).thenReturn(6L);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.iniciarCompra(COMPRADOR, pedido(List.of(item("sec-1-4", 1)), ANA), CLAVE));
+
+        assertTrue(error.getMessage().contains("no podés comprar más para este evento"), error.getMessage());
+    }
+
+    @Test
+    void unDniQueYaTieneEntradaParaElEventoNoPuedeSerTitularDeOtra() {
+        when(ventas.dnisConEntradaParaElEvento(eq("ev-1"), any(), isNull())).thenReturn(List.of(ANA.dni()));
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.iniciarCompra(COMPRADOR, pedido(List.of(item("sec-1-4", 2)), ANA, LUIS), CLAVE));
+
+        assertEquals("dni-con-entrada", error.tipo());
+        assertTrue(error.getMessage().contains("El DNI 30123456 ya tiene una entrada para este evento"), error.getMessage());
+        verifyNoInteractions(eventos);
+    }
+
+    @Test
+    void antesDeCobrarSeVuelveAMirarElDniYSiOtraCompraLoUsoNoSeCobra() {
+        String ventaId = compraAbierta();
+        // Mientras esta compra estaba abierta, otra del mismo evento se pagó con el DNI de Luis.
+        when(ventas.dnisConEntradaParaElEvento(eq("ev-1"), any(), eq(ventaId))).thenReturn(List.of(LUIS.dni()));
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
+
+        assertEquals("dni-con-entrada", error.tipo());
+        verifyNoInteractions(cobros);
+        verify(ventas, never()).respaldarTitulares(anyString(), any());
+    }
+
     // ---- Abrir la compra ----
 
     @Test
@@ -160,6 +220,7 @@ class ServicioDeVentasTest {
         InOrder orden = inOrder(eventos, ventas);
         orden.verify(eventos).reservarCupo("ev-1", "sec-1-4", 2);
         orden.verify(ventas).guardar(guardada.capture());
+        verificarLasReglasEntreCompras(1);
         verifyNoMoreInteractions(ventas);
         assertEquals(venta.id(), guardada.getValue().getId());
         assertEquals(COMPRADOR, guardada.getValue().getCompradorId());
@@ -174,8 +235,10 @@ class ServicioDeVentasTest {
     void mientrasSeEsperaAEventosTodaviaNoSeTocoLaBase() {
         // Si la venta se guardara antes de reservar, la compra esperaría a Eventos con una conexión de la
         // base tomada. El pool es uno solo para todos los servicios: diez compras así lo dejan sin conexiones.
+        // Las dos reglas entre compras leen la base antes, cada una en su transacción corta, que ya terminó.
         when(eventos.reservarCupo(eq("ev-1"), anyString(), anyInt())).thenAnswer(llamada -> {
-            verifyNoInteractions(ventas);
+            verificarLasReglasEntreCompras(1);
+            verifyNoMoreInteractions(ventas);
             return new Sector(llamada.getArgument(1), "Platea B", 27_500, 2000, 1442);
         });
 
@@ -361,7 +424,8 @@ class ServicioDeVentasTest {
         // El sector que falló no se devuelve: no llegó a reservarse.
         verify(eventos, never()).liberarCupo(anyString(), anyString(), eq("sec-1-3"), anyInt());
         // Y de la venta no se guardó nada: no hay nada que deshacer en la base.
-        verifyNoInteractions(ventas);
+        verificarLasReglasEntreCompras(1);
+        verifyNoMoreInteractions(ventas);
     }
 
     @Test
@@ -375,7 +439,8 @@ class ServicioDeVentasTest {
 
         verify(eventos, times(1)).liberarCupo(anyString(), anyString(), anyString(), anyInt());
         verify(eventos).liberarCupo(anyString(), eq("ev-1"), eq("sec-1-4"), eq(2));
-        verifyNoInteractions(ventas);
+        verificarLasReglasEntreCompras(1);
+        verifyNoMoreInteractions(ventas);
     }
 
     @Test
@@ -553,8 +618,10 @@ class ServicioDeVentasTest {
         when(cobros.cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO)).thenAnswer(llamada -> {
             // Hasta acá, a la base se le pidió guardar la venta, al abrir la compra, y copiar los titulares,
             // en una transacción propia que ya terminó (REQUIRES_NEW): ninguna conexión queda tomada.
+            // y mirar el DNI de los titulares otra vez, también en una transacción propia (REQUIRES_NEW).
             verify(ventas).guardar(any());
             verify(ventas).respaldarTitulares(eq(ventaId), any());
+            verificarLasReglasEntreCompras(2);
             verifyNoMoreInteractions(ventas);
             return APROBADO;
         });
@@ -1012,6 +1079,12 @@ class ServicioDeVentasTest {
     }
 
     /** Abre una compra de dos entradas en Platea B y devuelve el id de la venta. */
+    /** Las consultas de las reglas entre compras: el tope al abrir, y el DNI al abrir y antes de cada cobro. */
+    private void verificarLasReglasEntreCompras(int miradasDelDni) {
+        verify(ventas).entradasDelCompradorParaElEvento(eq(COMPRADOR), eq("ev-1"), any());
+        verify(ventas, times(miradasDelDni)).dnisConEntradaParaElEvento(eq("ev-1"), any(), any());
+    }
+
     private String compraAbierta() {
         eventosVende("sec-1-4", "Platea B", 27_500);
         return servicio.iniciarCompra(COMPRADOR, pedido(List.of(item("sec-1-4", 2)), ANA, LUIS), CLAVE).id();

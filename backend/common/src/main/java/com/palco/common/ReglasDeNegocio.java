@@ -21,6 +21,15 @@ public final class ReglasDeNegocio {
     /** Máximo de entradas por compra, sumando todos los sectores. */
     public static final int MAX_ENTRADAS_POR_ORDEN = 6;
 
+    /**
+     * Máximo de entradas que un mismo comprador puede tener para un evento,
+     * sumando todas sus compras. Sin este tope, el de cada compra se esquivaba
+     * haciendo varias compras seguidas. Cuentan las compras pagadas y las que
+     * están en curso; no cuentan las canceladas, las vencidas ni las entradas
+     * que ya revendió.
+     */
+    public static final int MAX_ENTRADAS_POR_EVENTO = 6;
+
     /** La reventa de un evento cierra estas horas antes de que empiece. */
     public static final int HORAS_LIMITE_REVENTA = 3;
 

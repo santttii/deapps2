@@ -559,9 +559,8 @@ export default function OrganizerPage() {
                 <h3 className="mt-8 text-sm font-semibold text-ink">Equipo de puerta</h3>
                 <div className="mt-3 border border-wire p-5">
                   <p className="text-xs text-muted">
-                    Cuentas asignadas a la puerta de este evento. Pueden escanear entradas y ver el registro
-                    solo si son cuentas de personal de puerta: al asignar no se comprueba que el email
-                    exista ni qué rol tiene.
+                    Cuentas asignadas a la puerta de este evento: pueden escanear entradas y ver el registro.
+                    Solo se pueden asignar cuentas de personal de puerta.
                   </p>
                   {equipo.fase === 'cargando' && (
                     <p role="status" className="mt-3 text-sm text-muted">

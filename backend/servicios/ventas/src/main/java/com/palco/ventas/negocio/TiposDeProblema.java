@@ -22,6 +22,10 @@ public final class TiposDeProblema {
 
     /** 422: dos entradas de la misma compra tienen el mismo DNI. */
     public static final String DNI_REPETIDO = "dni-repetido";
+    /** 409: ese DNI ya es titular de una entrada para el mismo evento (en otra compra). */
+    public static final String DNI_CON_ENTRADA = "dni-con-entrada";
+    /** 409: el comprador llegaría a más de 6 entradas para el evento sumando sus compras. */
+    public static final String TOPE_POR_EVENTO = "tope-por-evento";
 
     /** 422: Eventos no conoce ese sector en ese evento. */
     public static final String SECTOR_INEXISTENTE = "sector-inexistente";
@@ -31,6 +35,8 @@ public final class TiposDeProblema {
 
     /** 409: el evento ya empezó o terminó; Eventos no reserva más lugares. */
     public static final String EVENTO_FINALIZADO = "evento-finalizado";
+    /** 409: el evento se canceló y no vende más entradas. */
+    public static final String EVENTO_CANCELADO = "evento-cancelado";
 
     /**
      * 409: la clave de idempotencia ya abrió otra compra, con otro evento u

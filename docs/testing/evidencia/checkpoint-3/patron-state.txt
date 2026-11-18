@@ -1,0 +1,14 @@
+A. Venta pagada (CONFIRMADA / EMITIDA)
+ok   abrir la compra (EN_CHECKOUT)                              → 201  estado=EN_CHECKOUT
+ok   pagarla (EN_CHECKOUT → CONFIRMADA)                         → 201  estado=CONFIRMADA
+ok   ver la venta (la cola la emitió)                           → 200  estado=EMITIDA
+ok   pagarla otra vez, con otra clave (transición inválida)     → 409  type=/problemas/venta-ya-paga
+ok   cancelarla estando paga (transición inválida)              → 409  type=/problemas/venta-ya-paga
+B. Venta cancelada (CANCELADA)
+ok   abrir otra compra (EN_CHECKOUT)                            → 201  estado=EN_CHECKOUT
+ok   cancelarla (EN_CHECKOUT → CANCELADA)                       → 204
+ok   pagarla cancelada (transición inválida)                    → 409  type=/problemas/reserva-vencida
+ok   cancelarla de nuevo (no es error: no hace nada)            → 204
+ok   ver la venta                                               → 200  estado=CANCELADA
+
+10 de 10 respuestas como se esperaba

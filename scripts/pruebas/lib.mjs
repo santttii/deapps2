@@ -107,6 +107,30 @@ export async function sector(sectorId) {
 }
 export const vendidas = async (sectorId) => (await sector(sectorId)).vendidas;
 
+/**
+ * Un evento propio para una prueba, creado por la cuenta organizadora, con dos sectores y la puerta
+ * asignada a puerta@palco.test. Cada prueba compra en el suyo: el tope de 6 entradas por comprador y
+ * evento (MAX_ENTRADAS_POR_EVENTO) hace que no se pueda comprar una y otra vez en los de prueba.
+ */
+export async function eventoPropio(titulo) {
+  const O = await login('organizador@palco.test');
+  const r = await http('POST', '/api/eventos', {
+    token: O,
+    cuerpo: {
+      titulo: `${titulo} ${Date.now()}`, categoria: 'Teatro', venue: 'Sala de prueba', fechaISO: '2027-12-31T20:00:00',
+      descripcion: 'Evento creado por una prueba automática.',
+      sectores: [{ nombre: 'Platea', precio: 27500, cupo: 500 }, { nombre: 'Pullman', precio: 15000, cupo: 100 }],
+    },
+  });
+  if (r.estado !== 201) throw new Error(`No se pudo crear el evento de prueba: ${r.estado} ${r.texto}`);
+  const puerta = await http('PUT', `/api/v1/validacion/puertas/${r.json.id}/puerta@palco.test`, { token: O });
+  if (puerta.estado !== 200) throw new Error(`No se pudo asignar la puerta: ${puerta.estado} ${puerta.texto}`);
+  return r.json;
+}
+
+/** Un DNI al azar de 8 dígitos para un titular de prueba: cada persona tiene una entrada por evento. */
+export const dniAlAzar = () => String(20000000 + Math.floor(Math.random() * 70000000));
+
 // ------------------------------------------------------------------------------------- jboss-cli
 
 /**

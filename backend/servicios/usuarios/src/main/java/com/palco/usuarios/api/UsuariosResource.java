@@ -13,6 +13,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -20,6 +21,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
 import com.palco.common.seguridad.Sesion;
+import com.palco.usuarios.api.Dtos.CuentaDto;
 import com.palco.usuarios.api.Dtos.LoginDto;
 import com.palco.usuarios.api.Dtos.OlvideDto;
 import com.palco.usuarios.api.Dtos.ReenvioDto;
@@ -147,6 +149,20 @@ public class UsuariosResource {
      * además ningún id puede chocar con ellas: todos tienen la forma
      * {@code user-3f9a1c2b}.
      */
+    /**
+     * {@code GET /api/usuarios/cuentas?email=...}: el rol de una cuenta
+     * verificada, para otros servicios (rol {@code servicio}). Devuelve solo
+     * el email y el rol, nada más de la cuenta. 404 si no hay una cuenta
+     * verificada con ese email. Es una ruta literal: gana sobre {usuarioId}.
+     */
+    @GET
+    @Path("cuentas")
+    @RolesAllowed("servicio")
+    public CuentaDto cuenta(@QueryParam("email") String email) {
+        return new CuentaDto(email == null ? null : email.strip().toLowerCase(java.util.Locale.ROOT),
+                usuarios.rolDeLaCuenta(email));
+    }
+
     @GET
     @Path("{usuarioId}")
     @RolesAllowed("servicio")

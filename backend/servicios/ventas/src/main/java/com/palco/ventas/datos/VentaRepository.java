@@ -1,6 +1,7 @@
 package com.palco.ventas.datos;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -155,6 +156,26 @@ public interface VentaRepository {
 
     /** La copia de los titulares de la venta, en el orden del pedido; vacía si nunca se intentó pagar. */
     List<TitularDeVenta> buscarTitulares(String ventaId);
+
+    // ---- Las reglas entre compras: un DNI por evento y el tope por comprador ----
+
+    /**
+     * Cuántas entradas tiene el comprador para el evento, sumando todas sus
+     * compras: las pagadas ({@code CONFIRMADA} y {@code EMITIDA}) y las que
+     * están en curso con la reserva vigente. No cuentan las canceladas, las
+     * vencidas ni las entradas que ya se revendieron o se anularon.
+     */
+    long entradasDelCompradorParaElEvento(String compradorId, String eventoId, LocalDateTime ahora);
+
+    /**
+     * Cuáles de esos DNI ya son titulares de una entrada que sigue en pie para
+     * el evento (pendiente de emisión, válida, usada o publicada en la
+     * reventa), o de una compra de ese evento que se está cobrando ahora. No
+     * mira la venta {@code excepto}: es la que se está comprando. Corre en una
+     * transacción propia y corta, para que quien la llama no quede con una
+     * conexión tomada mientras cobra.
+     */
+    List<String> dnisConEntradaParaElEvento(String eventoId, Collection<String> dnis, String excepto);
 
     /**
      * Las ventas con un intento de pago sin resultado que ya se pueden

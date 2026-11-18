@@ -19,6 +19,10 @@ public final class Dtos {
     }
 
     /** Nunca incluye la contraseña ni el hash. */
+    /** Lo que ve otro servicio de una cuenta por su email: solo el rol. */
+    public record CuentaDto(String email, String rol) {
+    }
+
     public record UsuarioDto(
             String id,
             String nombre,

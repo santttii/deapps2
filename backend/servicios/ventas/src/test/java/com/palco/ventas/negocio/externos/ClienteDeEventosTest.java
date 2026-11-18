@@ -153,6 +153,19 @@ class ClienteDeEventosTest {
     }
 
     @Test
+    void unEventoCanceladoEsUnConflictoDeEventoCanceladoYNoDeCupoAgotado() {
+        eventos.responde(409, """
+                {"type":"/problemas/evento-cancelado","title":"Conflicto","status":409,
+                 "detail":"El evento está cancelado: no se venden más entradas."}""");
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> eventos.reservarCupo("ev-1", "sec-1-4", 2));
+
+        assertEquals("evento-cancelado", error.tipo());
+        assertEquals("Ese evento se canceló: no se venden más entradas.", error.getMessage());
+    }
+
+    @Test
     void unConflictoDeCupoConCuerpoSigueSiendoCupoAgotado() {
         eventos.responde(409, """
                 {"type":"/problemas/cupo-agotado","title":"Conflicto","status":409,"detail":"Sin lugar."}""");

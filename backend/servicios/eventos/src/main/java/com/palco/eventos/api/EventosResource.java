@@ -64,6 +64,7 @@ public class EventosResource {
     /** {@code GET /api/eventos?categoria=Música&q=kiroshi} */
     @GET
     @PermitAll
+    @ConEtag
     public List<EventoDto> listar(@QueryParam("categoria") String categoria, @QueryParam("q") String busqueda) {
         return eventos.listarEventos(categoria, busqueda);
     }
@@ -76,6 +77,7 @@ public class EventosResource {
     @GET
     @RolesAllowed("organizer")
     @Path(IEventos.RUTA_MIOS)
+    @ConEtag
     public List<EventoDto> mios(@Context SecurityContext seguridad) {
         return eventos.listarDelOrganizador(Sesion.usuarioId(seguridad));
     }

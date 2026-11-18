@@ -311,6 +311,7 @@ Las constantes viven en [`frontend/src/types/index.ts`](frontend/src/types/index
 | `TOPE_REVENTA` | `0.10` | Una entrada se puede revender como máximo a lo pagado +10% (redondeado hacia abajo). El mínimo es el 50% de lo pagado. |
 | `TASA_SERVICIO` | `0.10` | Cargo de servicio sobre el subtotal en el checkout. |
 | `MAX_ENTRADAS_POR_ORDEN` | `6` | Máximo de entradas por compra, sumando todos los sectores. Tampoco se puede superar el cupo disponible de un sector. |
+| `MAX_ENTRADAS_POR_EVENTO` | `6` | Máximo de entradas de un mismo comprador para un evento, sumando todas sus compras (pagadas y en curso; no cuentan las canceladas, vencidas ni revendidas). 409 `tope-por-evento`. |
 | `HORAS_LIMITE_REVENTA` | `3` | La reventa de un evento cierra 3 horas antes de que empiece. |
 | `MINUTOS_RESERVA` | `10` | Tiempo de reserva de los lugares durante el checkout. Al vencer, se liberan. |
 
@@ -318,6 +319,9 @@ Otras reglas:
 
 - **Entradas nominativas**: cada entrada lleva nombre, apellido y DNI del titular.
 - **DNI único por orden**: dos entradas de una misma compra no pueden tener el mismo DNI.
+- **Un DNI, una entrada por evento**: un DNI que ya es titular de una entrada en pie para el evento (en otra compra,
+  de cualquier cuenta) no puede ser titular de otra: 409 `dni-con-entrada`. Se mira al abrir la compra y otra vez
+  antes de cobrar, por si otra compra abierta con el mismo DNI se pagó primero; en ese caso no se cobra.
 - **DNI**: 7 u 8 dígitos. Tarjeta: 16 dígitos, vencimiento `MM/AA`, CVV de 3 dígitos.
 - **Reventa**: al comprar una publicación, la entrada original pasa a `vendida` y
   se emite una entrada nueva para el comprador (origen `reventa`). Una publicación

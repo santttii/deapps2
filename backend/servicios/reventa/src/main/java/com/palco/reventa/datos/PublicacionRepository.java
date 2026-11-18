@@ -78,4 +78,13 @@ public interface PublicacionRepository {
 
     /** {@code ACTIVA} → {@code RETIRADA}, si es de ese vendedor y no tiene una toma. */
     boolean retirar(String id, String vendedorId, LocalDateTime ahora);
+
+    /**
+     * Se canceló el evento: todas sus publicaciones {@code ACTIVA} sin una
+     * toma pasan a {@code RETIRADA}, en un solo UPDATE. Una que alguien está
+     * pagando justo ahora no se toca: Ventas ya anuló la entrada, así que la
+     * transferencia va a fallar y la conciliación la anula y devuelve el cobro
+     * (el mismo camino que L2). Devuelve cuántas retiró; repetirlo da 0.
+     */
+    int retirarPorCancelacionDelEvento(String eventoId, LocalDateTime ahora);
 }

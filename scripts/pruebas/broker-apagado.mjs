@@ -7,7 +7,7 @@
 //
 // Necesita el servidor levantado (./dev.sh o docker compose) y jboss-cli, igual que escenarios.mjs.
 // Uso: node scripts/pruebas/broker-apagado.mjs
-import { BASE, COLA, MDB_EMISION, cli, contadores, esperar, hasta, http, login, uuid, verContadores } from './lib.mjs';
+import { BASE, COLA, MDB_EMISION, cli, contadores, dniAlAzar, esperar, eventoPropio, hasta, http, login, uuid, verContadores } from './lib.mjs';
 
 let bien = 0, total = 0;
 function comprobar(texto, ok, detalle = '') {
@@ -26,8 +26,9 @@ const vivo = async () => {
 
 console.log(`Prueba: apagar el broker con un mensaje pendiente. Servidor: ${BASE}. ${new Date().toISOString()}\n`);
 let T = await login('titular@palco.test');
-const pedido = { eventoId: 'ev-1', items: [{ sectorId: 'sec-1-4', cantidad: 1 }],
-  titulares: [{ nombre: 'Prueba Broker', dni: String(42000000 + Math.floor(Math.random() * 999999)) }] };
+const evento = await eventoPropio('Prueba broker apagado');
+const pedido = { eventoId: evento.id, items: [{ sectorId: evento.sectores[0].id, cantidad: 1 }],
+  titulares: [{ nombre: 'Prueba Broker', dni: dniAlAzar() }] };
 
 // 1. El consumidor de la cola, detenido: el mensaje se queda en la cola.
 comprobar('1. stop-delivery del consumidor de la cola (EmisionDeEntradas)', cli(`${MDB_EMISION}:stop-delivery`).includes('success'));

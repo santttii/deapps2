@@ -129,6 +129,72 @@ class ConciliacionEnH2Test {
         });
     }
 
+    // ---- Las reglas entre compras: tope por evento y un DNI por evento ----
+
+    @Test
+    void lasEntradasDelCompradorCuentanLasEnCursoVigentesYLasPagadasMenosLasRevendidas() {
+        compraConPagoSinResultado();
+
+        // En curso y con la reserva vigente: cuenta. Con la reserva vencida, no.
+        assertEquals(2, enTransaccion(() -> ventas.entradasDelCompradorParaElEvento("U-comprador", "E-evento", AL_PAGAR)));
+        assertEquals(0, enTransaccion(() -> ventas.entradasDelCompradorParaElEvento("U-comprador", "E-evento",
+                ABIERTA.plusMinutes(11))));
+        // Otro comprador u otro evento: no cuenta.
+        assertEquals(0, enTransaccion(() -> ventas.entradasDelCompradorParaElEvento("U-otro", "E-evento", AL_PAGAR)));
+        assertEquals(0, enTransaccion(() -> ventas.entradasDelCompradorParaElEvento("U-comprador", "E-otro", AL_PAGAR)));
+
+        // Pagada, con sus entradas: cuenta aunque haya pasado la reserva.
+        enTransaccion(() -> {
+            Venta leida = ventas.buscarPorId(VENTA_ID).orElseThrow();
+            ventas.confirmar(VENTA_ID, PAGO_ID, AL_PAGAR);
+            VentaItem item = leida.getItems().get(0);
+            entradas.guardar(List.of(new Entrada("T-00000001", item, "Ana Gómez", "30111222", 1),
+                    new Entrada("T-00000002", item, "Luis Pérez", "30333444", 2)));
+            return null;
+        });
+        assertEquals(2, enTransaccion(() -> ventas.entradasDelCompradorParaElEvento("U-comprador", "E-evento",
+                ABIERTA.plusDays(1))));
+
+        // Una que revendió ya no es suya.
+        enTransaccion(() -> em.createNativeQuery("update ventas.entrada set estado = 'VENDIDA' where id = 'T-00000001'")
+                .executeUpdate());
+        assertEquals(1, enTransaccion(() -> ventas.entradasDelCompradorParaElEvento("U-comprador", "E-evento",
+                ABIERTA.plusDays(1))));
+    }
+
+    @Test
+    void unDniTieneEntradaSiEsTitularDeUnaEnPieOEstaEnUnaCompraQueSeEstaCobrando() {
+        compraConPagoSinResultado();
+        titularesCopiados();
+
+        // Mientras se cobra, los titulares están en la copia: otra compra del evento los ve.
+        assertEquals(List.of("30111222"), enTransaccion(() -> ventas.dnisConEntradaParaElEvento("E-evento",
+                List.of("30111222", "40999888"), "V-otra0000")));
+        // La misma compra no se cuenta a sí misma, y otro evento no tiene nada que ver.
+        assertTrue(enTransaccion(() -> ventas.dnisConEntradaParaElEvento("E-evento", List.of("30111222"), VENTA_ID))
+                .isEmpty());
+        assertTrue(enTransaccion(() -> ventas.dnisConEntradaParaElEvento("E-otro", List.of("30111222"), null))
+                .isEmpty());
+
+        // Pagada: lo que cuenta son sus entradas en pie.
+        enTransaccion(() -> {
+            Venta leida = ventas.buscarPorId(VENTA_ID).orElseThrow();
+            ventas.confirmar(VENTA_ID, PAGO_ID, AL_PAGAR);
+            VentaItem item = leida.getItems().get(0);
+            entradas.guardar(List.of(new Entrada("T-00000001", item, "Ana Gómez", "30111222", 1),
+                    new Entrada("T-00000002", item, "Luis Pérez", "30333444", 2)));
+            return null;
+        });
+        assertEquals(List.of("30111222", "30333444"), enTransaccion(() -> ventas.dnisConEntradaParaElEvento("E-evento",
+                List.of("30333444", "30111222"), null)));
+
+        // Una entrada anulada (evento cancelado) o revendida libera el DNI.
+        enTransaccion(() -> em.createNativeQuery("update ventas.entrada set estado = 'ANULADA' where id = 'T-00000001'")
+                .executeUpdate());
+        assertEquals(List.of("30333444"), enTransaccion(() -> ventas.dnisConEntradaParaElEvento("E-evento",
+                List.of("30333444", "30111222"), null)));
+    }
+
     // ---- La marca del intento y la copia de los titulares ----
 
     @Test

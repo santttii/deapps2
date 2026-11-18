@@ -14,7 +14,10 @@ public enum EstadoPublicacion {
     ACTIVA,
     /** Se vendió: la entrada pasó al comprador. */
     VENDIDA,
-    /** El vendedor la retiró y la entrada volvió a ser suya, VALIDA. */
+    /**
+     * El vendedor la retiró y la entrada volvió a ser suya, VALIDA. También
+     * queda así si se cancela el evento: la entrada la anula Ventas.
+     */
     RETIRADA,
     /**
      * Alguien la pagó y Ventas no transfirió la entrada: ya no estaba

@@ -54,6 +54,13 @@ public interface IUsuarios {
     UsuarioDto obtener(String usuarioId);
 
     /**
+     * El rol de la cuenta verificada con ese email, para otros servicios: lo
+     * usa Validación antes de asignar una cuenta a la puerta de un evento.
+     * {@code NoEncontrado} si no hay una cuenta verificada con ese email.
+     */
+    String rolDeLaCuenta(String email);
+
+    /**
      * Credenciales de cliente: si el secreto es el que comparten los servicios,
      * devuelve un token corto de rol {@code servicio} para que se llamen entre sí.
      */

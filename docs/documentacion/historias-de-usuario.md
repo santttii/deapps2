@@ -232,6 +232,14 @@ Escenario: CA-05.9 Mensajería: emisión una sola vez
   Entonces sale 1 mensaje PAGO_CONFIRMADO a la cola y 1 al tópico
   Y si el mensaje llega dos veces, las entradas se emiten una sola vez
   Y un mensaje inválido se reintenta 5 veces y termina en la DLQ sin trabar a los demás
+
+Escenario: CA-05.10 Reglas entre compras: tope por evento y un DNI por evento
+  Dado que ya tengo 4 entradas pagadas para un evento
+  Cuando abro otra compra de 3 entradas para el mismo evento
+  Entonces la respuesta es 409 con type "/problemas/tope-por-evento" y el detalle dice cuántas puedo comprar
+  Cuando otra cuenta abre una compra con el DNI de uno de mis titulares
+  Entonces la respuesta es 409 con type "/problemas/dni-con-entrada"
+  Y si dos compras abiertas tienen el mismo DNI, la segunda que paga recibe 409 y no se cobra
 ```
 
 ## HU-06 Recibir la factura de mi compra · Should
@@ -482,13 +490,55 @@ partida de la matriz; los criterios que no están en esta tabla todavía necesit
 | CA-05.2 | 3 |
 | CA-05.3 | 4 |
 | CA-02.4, CA-07.3, CA-10.3 | 5 (seguridad: sin token, token de otro usuario, otro rol) |
+| CA-02.1 | 5, 24 |
 | CA-05.7 | 6 |
 | CA-05.9 | 7, 8, 9, 10, 11, 12, 13 |
 | CA-05.5 | 14 |
 | CA-06.1, CA-06.2 | 15 |
-| CA-13.1, CA-13.2 | 16 |
-| CA-08.1, CA-09.1 | 17 |
+| CA-13.1, CA-13.2, CA-13.3 | 16 |
+| CA-08.1, CA-08.2, CA-08.3, CA-08.5, CA-09.1, CA-09.2, CA-09.3 | 17 |
 | CA-05.6 | 18 |
 | CA-09.4 | 19 |
 | CA-09.5 | 20 |
-| CA-10.4, CA-13.5, CA-14.1 | 21 |
+| CA-10.4, CA-13.5, CA-14.1, CA-14.2, CA-14.3 | 21 |
+| CA-11.1, CA-11.2, CA-11.3 | 22 |
+| CA-05.10 | 23 |
+| CA-01.1, CA-01.2, CA-01.3, CA-01.4, CA-01.5, CA-02.2, CA-02.3, CA-02.5, CA-03.1, CA-03.2, CA-03.3 | 24 (cuenta) |
+| CA-04.1, CA-04.2, CA-04.3, CA-04.4, CA-07.1, CA-07.2, CA-10.1, CA-10.2, CA-12.1, CA-12.2, CA-12.3 | 24 (catálogo, alta y resumen) |
+
+## Cobertura por los tests unitarios
+
+Los tests de JUnit que comprueban cada criterio (clase y método). `scripts/qa/matriz.mjs` busca su resultado en los
+reportes de Surefire de `mvn verify`: un test que no aparece en los reportes cuenta como falla, así un nombre mal
+escrito acá no pasa desapercibido.
+
+| Criterio | Tests |
+|---|---|
+| CA-01.1 | RegistroYVerificacionTest#registrarseGuardaLaCuentaYSuCodigoConElEmailNormalizadoYElDniSoloConDigitos, RegistroCompletoTest#unaCuentaQueCompletaElRegistroSaleConLaIdentidadVerificada |
+| CA-01.2 | RegistroYVerificacionTest#unEmailYaVerificadoEsUnDatoInvalidoDelCampoEmail, RegistroYVerificacionTest#unDniYaVerificadoEsUnDatoInvalidoDelCampoDni |
+| CA-01.3 | RegistroYVerificacionTest#unDniDeSeisDigitosSeRechazaSinTocarLaBase, RegistroYVerificacionTest#unMenorDeDieciseisSeRechaza |
+| CA-01.4 | RegistroYVerificacionTest#unCodigoIncorrectoSumaElIntentoYLoGuardaEnElMomento, RegistroYVerificacionTest#conCincoIntentosFallidosElCodigoYaNoSirve |
+| CA-02.1 | TokensTest#laFirmaSeVerificaConLaClavePublicaReconstruidaDesdeElJwks |
+| CA-02.2 | ContrasenasTest#laContrasenaCorrectaVerificaYLaIncorrectaNo |
+| CA-02.3 | LimiteDeIntentosDeLoginTest#cincoFallidosYElSextoConLaClaveBuenaRecibe429, LimiteDeIntentosDeLoginTest#laVentanaEsDeQuinceMinutos |
+| CA-02.4 | TokensTest#unTokenModificadoNoVerifica |
+| CA-03.1 | ReinicioDePasswordTest#pedirloConUnaCuentaVerificadaGuardaElCodigoYMandaElEmail, ReinicioDePasswordTest#conElCodigoCorrectoCambiaLaContrasenaYBorraElCodigo |
+| CA-03.2 | ReinicioDePasswordTest#unEmailQueNoExisteNoMandaNadaYTampocoEsUnError |
+| CA-03.3 | ReinicioDePasswordTest#unCodigoIncorrectoSumaUnIntentoYNoCambiaNada |
+| CA-04.1 | ServicioDeEventosTest#elDetalleDevuelveElEventoConSusSectores, CupoEnH2Test#elListadoFiltraPorCategoriaYOrdenaPorFecha |
+| CA-04.3 | ServicioDeEventosTest#unSlugQueNoExisteEsNoEncontrado |
+| CA-05.8 | ComprasEnCursoTest#sinLaIdentidadVerificadaNoSeAbreLaCompra |
+| CA-05.10 | ServicioDeVentasTest#conLasDeOtrasComprasNoSePuedePasarDeSeisEntradasPorEvento, ServicioDeVentasTest#unDniQueYaTieneEntradaParaElEventoNoPuedeSerTitularDeOtra, ServicioDeVentasTest#antesDeCobrarSeVuelveAMirarElDniYSiOtraCompraLoUsoNoSeCobra, ComprasEnCursoTest#siOtraCompraUsoElDniDeUnTitularNoSeCobraYSeQuitaLaMarca, ConciliacionEnH2Test#lasEntradasDelCompradorCuentanLasEnCursoVigentesYLasPagadasMenosLasRevendidas, ConciliacionEnH2Test#unDniTieneEntradaSiEsTitularDeUnaEnPieOEstaEnUnaCompraQueSeEstaCobrando |
+| CA-06.3 | ServicioDeFacturacionTest#siArcaNoRespondeLaFallaSaleYNoSeGuardaNada, ServicioDeFacturacionTest#siArcaRechazaElComprobanteLaFallaSaleYNoSeGuardaNada, FacturacionDeComprasMDBTest#conArcaCaidoElMensajeVuelveAlBrokerYLaReentregaFactura, ArcaSoapTest#siArcaTardaMasQueElTiempoDeLecturaFallaSinEsperarlo |
+| CA-06.4 | FacturasResourceTest#otroUsuarioNoVeUnaFacturaAjenaYRecibeElMismo404QueSiNoExistiera, ServicioDeFacturacionTest#unaFacturaAjenaRespondeLoMismoQueUnaQueNoExiste |
+| CA-08.2 | ServicioDeReventaTest#losBordesDelRangoSeAceptanYUnPesoAfueraNo |
+| CA-08.4 | ServicioDeReventaTest#retirarUnaAjenaEsNoEncontradaYUnaPropiaLaDevuelveAValida, ServicioDeReventaTest#noSeRetiraUnaQueNoEstaActiva |
+| CA-09.3 | ServicioDeReventaTest#nadieCompraSuPropiaPublicacion |
+| CA-10.1 | ServicioDeEventosTest#crearUnEventoParaMasTardeSeGuarda |
+| CA-10.2 | ServicioDeEventosTest#crearUnEventoConFechaPasadaEsUnDatoInvalidoDelCampoFechaISO, ServicioDeEventosTest#crearUnEventoConUnaCategoriaQueNoExisteEsUnDatoInvalidoDelCampoCategoria, NuevoEventoDtoTest#cadaSectorSeValidaConSuPrecioYSuCupo |
+| CA-11.1 | ServicioDeEventosTest#cancelarMarcaElEventoYPublicaElMensajeConSuMotivo, CancelacionDeEventosTest#anulaCadaCompraPagadaPideSuReembolsoYPublicaSuAviso, PublicacionesEnH2Test#alCancelarseElEventoSeRetiranSusActivasSalvoLaQueSeEstaPagando |
+| CA-11.2 | ServicioDeEventosTest#unEventoAjenoNoSePuedeCancelar |
+| CA-11.3 | ServicioDeEventosTest#unEventoCanceladoNoVendeMasEntradasPeroSiguePudiendoDevolverCupo, ClienteDeEventosTest#unEventoCanceladoEsUnConflictoDeEventoCanceladoYNoDeCupoAgotado |
+| CA-12.1 | ResumenDeVentasTest#laLiquidacionEsElSubtotalYElCargoQuedaParaPalco |
+| CA-13.4 | ServicioDeValidacionTest#siVentasNoRespondeSeRegistraElIntentoYSeAvisaConUn504 |
+| CA-14.3 | ServicioDeValidacionTest#unaCuentaQueNoEsDePuertaNoSeAsignaYNoQuedaNada, ClienteDeUsuariosTest#conUn200DevuelveElRolDeLaCuenta |

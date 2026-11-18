@@ -11,6 +11,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.SecurityContext;
 
+import com.palco.common.rest.ConEtag;
 import com.palco.common.seguridad.Sesion;
 import com.palco.facturacion.api.Dtos.FacturaDto;
 import com.palco.facturacion.negocio.IFacturacion;
@@ -42,6 +43,7 @@ public class FacturasResource {
     @GET
     @RolesAllowed({ "user", ROL_SERVICIO })
     @Path("{ventaId}")
+    @ConEtag
     public FacturaDto obtener(@PathParam("ventaId") String ventaId, @Context SecurityContext seguridad) {
         if (seguridad.isUserInRole(ROL_SERVICIO)) {
             return facturacion.consultarFactura(ventaId);
