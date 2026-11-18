@@ -24,6 +24,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
+import com.palco.common.rest.ConEtag;
 import com.palco.common.seguridad.Sesion;
 import com.palco.eventos.api.Dtos.CambioCupoDto;
 import com.palco.eventos.api.Dtos.CancelacionDto;
@@ -88,6 +89,7 @@ public class EventosResource {
     @GET
     @PermitAll
     @Path("{slug}")
+    @ConEtag
     public EventoDto detalle(@PathParam("slug") String slug) {
         return eventos.obtenerDetalle(slug);
     }

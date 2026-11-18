@@ -16,6 +16,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
 
+import com.palco.common.rest.ConEtag;
 import com.palco.common.seguridad.Sesion;
 import com.palco.ventas.api.Dtos.EntradaDto;
 import com.palco.ventas.api.Dtos.UsoDeEntradaDto;
@@ -55,6 +56,7 @@ public class EntradasResource {
     @GET
     @Path("{entradaId}")
     @RolesAllowed("user")
+    @ConEtag
     public EntradaDto obtener(@PathParam("entradaId") String entradaId,
             @Context SecurityContext seguridad, @Context UriInfo pedido) {
         EntradaDto entrada = compras.obtenerEntrada(Sesion.usuarioId(seguridad), entradaId);
