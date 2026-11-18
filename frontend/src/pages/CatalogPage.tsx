@@ -31,13 +31,16 @@ interface ResultadoFiltrado {
 
 export default function CatalogPage() {
   const { state, recargarCatalogo } = useApp();
+  // El servidor no lista los cancelados, pero uno abierto por su enlace queda en el estado (la
+  // página del evento lo guarda para mostrar que se canceló): el catálogo no lo muestra.
+  const disponibles = state.eventos.filter((e) => !e.cancelado);
   const [categoria, setCategoria] = useState<Categoria | 'Todos'>('Todos');
   const [busqueda, setBusqueda] = useState('');
   const [resultado, setResultado] = useState<ResultadoFiltrado | null>(null);
   const [reintentos, setReintentos] = useState(0);
   // Reventa lista por evento: se piden las publicaciones activas de cada evento del catálogo. Si
   // Reventa no responde, la franja y las marcas de reventa no se muestran y el catálogo sigue.
-  const { publicaciones: publicacionesActivas } = useReventas(state.eventos.map((e) => e.id));
+  const { publicaciones: publicacionesActivas } = useReventas(disponibles.map((e) => e.id));
   const eventosConReventa = new Set(publicacionesActivas.map((p) => p.eventoId));
 
   const termino = busqueda.trim();
@@ -70,7 +73,7 @@ export default function CatalogPage() {
   // actuales. Una respuesta de otros filtros no sirve: mientras llega la nueva, está cargando.
   let grilla: { estado: 'cargando' | 'listo' | 'error'; eventos: Evento[]; error: string };
   if (!hayFiltros) {
-    grilla = { estado: state.catalogo.estado, eventos: state.eventos, error: state.catalogo.error };
+    grilla = { estado: state.catalogo.estado, eventos: disponibles, error: state.catalogo.error };
   } else if (!resultado || resultado.filtros !== filtros) {
     grilla = { estado: 'cargando', eventos: [], error: '' };
   } else {
@@ -91,10 +94,10 @@ export default function CatalogPage() {
 
   // El destacado y la franja de reventa salen del catálogo completo, no de la grilla filtrada:
   // así no desaparecen al elegir una categoría.
-  const eventoDestacado = state.eventos.find((e) => e.destacado);
+  const eventoDestacado = disponibles.find((e) => e.destacado);
   const franjaReventa = publicacionesActivas
     .flatMap((publicacion) => {
-      const evento = state.eventos.find((e) => e.id === publicacion.eventoId);
+      const evento = disponibles.find((e) => e.id === publicacion.eventoId);
       const sector = evento?.sectores.find((s) => s.id === publicacion.sectorId);
       return evento && sector ? [{ publicacion, evento, sector }] : [];
     })

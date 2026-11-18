@@ -11,7 +11,7 @@ import { useReventas } from '../lib/useReventas';
 import { AVISO_REVENTA_CERRADA, reventaCerrada } from '../servicios/reventa';
 import { useToast } from '../components/ToastProvider';
 import CompraReventaModal from '../components/CompraReventaModal';
-import type { Publicacion } from '../types';
+import type { Evento, Publicacion } from '../types';
 import ImagePlaceholder from '../components/ImagePlaceholder';
 import Button from '../components/Button';
 import Skeleton from '../components/Skeleton';
@@ -29,7 +29,10 @@ export default function EventPage() {
   const { slug } = useParams();
   const { state, dispatch, usuarioActual } = useApp();
   const navigate = useNavigate();
-  const evento = state.eventos.find((e) => e.slug === slug);
+  // El detalle que respondió el servidor. Se usa si el evento no está en el catálogo: un evento
+  // cancelado no se lista, y al llegar el catálogo reemplaza el estado y se lo llevaría.
+  const [recibido, setRecibido] = useState<Evento | null>(null);
+  const evento = state.eventos.find((e) => e.slug === slug) ?? (recibido?.slug === slug ? recibido : undefined);
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
   const [fallo, setFallo] = useState<FalloDeCarga | null>(null);
   const [reintentos, setReintentos] = useState(0);
@@ -43,7 +46,9 @@ export default function EventPage() {
     let vigente = true;
     obtenerEvento(slug)
       .then((recibido) => {
-        if (vigente) dispatch({ type: 'EVENTO_RECIBIDO', payload: recibido });
+        if (!vigente) return;
+        setRecibido(recibido);
+        dispatch({ type: 'EVENTO_RECIBIDO', payload: recibido });
       })
       .catch((error: unknown) => {
         if (!vigente) return;
@@ -68,9 +73,14 @@ export default function EventPage() {
 
   // Solo una cuenta de comprador puede comprar: Ventas y Reventa piden el rol user. Sin sesión se
   // deja elegir, porque el checkout pide ingresar.
-  const puedeComprar = !usuarioActual || usuarioActual.rol === 'user';
-  const avisoDeRol =
-    usuarioActual && !puedeComprar
+  // Un evento cancelado no sale en el catálogo, pero su enlace sigue abriendo: se muestra con el
+  // aviso y sin poder comprar (el servidor igual respondería 409).
+  const cancelado = evento?.cancelado === true;
+  const esComprador = !usuarioActual || usuarioActual.rol === 'user';
+  const puedeComprar = esComprador && !cancelado;
+  const avisoDeRol = cancelado
+    ? `Este evento se canceló${evento?.cancelacionMotivo ? `: ${evento.cancelacionMotivo.trim().replace(/\.+$/, '')}` : ''}. Ya no se venden entradas y a quienes compraron se les devuelve el pago.`
+    : usuarioActual && !esComprador
       ? `Las compras se hacen con una cuenta de comprador. Ingresaste como ${nombreDelRol(usuarioActual.rol)}.`
       : '';
 

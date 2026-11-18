@@ -31,6 +31,7 @@ con el emulador del navegador).
 | Seguridad | Los 10 criterios SEC-xx (Dado / Cuando / Entonces) | Postman (carpeta 4) + tests | Notion, etiqueta "seguridad" | A mano y con los tests |
 | Patrón State | Transiciones válidas e inválidas (409) de la venta | JUnit + Node | `EstadoDeVentaTest`, `scripts/pruebas/patron-state.mjs` | `mvn verify` y a mano |
 | Frontend | Lint y compilación (tipos) | oxlint + tsc + Vite | `frontend/` | En el CI |
+| Interfaz | Factura, editar y cancelar evento, recorridos en el navegador contra el servidor | Playwright | `evidencia/checkpoint-3/pantallas.txt` | A mano antes de cada entrega |
 | Secretos | Que no haya credenciales en el historial | gitleaks | CI, job "Secretos" | En cada push |
 
 ## 3. Entornos
@@ -111,6 +112,7 @@ Corrida del 18/11/2026 sobre el código del checkpoint, con WildFly 41, Java 25 
 | Broker apagado | 10 de 10; no se perdió ningún mensaje |
 | ETag | 6 de 6 |
 | Escenarios de integración | 21 de 21; 311 de 311 comprobaciones |
+| Pantallas nuevas en el navegador (factura, editar y cancelar evento) | 20 de 20 |
 | Matriz de trazabilidad | 22 de 61 criterios con caso automático, todos en verde |
 
 La salida completa de cada corrida está en `docs/testing/evidencia/checkpoint-3/` y la matriz en
@@ -118,9 +120,10 @@ La salida completa de cada corrida está en `docs/testing/evidencia/checkpoint-3
 
 ## 9. Riesgos y pendientes
 
-- No hay pruebas de punta a punta en el navegador automatizadas (Playwright): el recorrido de la
-  interfaz se prueba a mano con el manual de usuario.
-- La cancelación de eventos no tiene escenario contra el servidor: solo tests unitarios.
+- Las pruebas en el navegador cubren por ahora solo las pantallas nuevas (factura, editar y cancelar
+  evento) y no corren en el CI: el resto de la interfaz se prueba a mano con el manual de usuario.
+- La cancelación de eventos ya se prueba contra el servidor desde el navegador (la compra queda
+  anulada), pero todavía no tiene su escenario en `escenarios.mjs`, que es el que corre en el CI.
 - No hay pruebas de carga.
 - Los 61 criterios de aceptación no tienen todavía un caso automático cada uno: la matriz de
   trazabilidad marca cuáles faltan.

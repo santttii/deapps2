@@ -1,0 +1,25 @@
+Prueba de las pantallas nuevas (factura, editar y cancelar evento) en el navegador, con Playwright,
+contra WildFly 41 + PostgreSQL 17. 2026-11-18T14:21:43Z
+
+ok   evento de prueba creado, con el slug prueba-pantallas-4182
+ok   compra de 2 entradas pagada: V-b7f58c6e
+ok   factura: muestra Factura B, comprobante y CAE de 14 dígitos: Factura de la compra × Factura B N.º 00001-00000004 FECHA 18 de nov de 2026 ORDEN #V-b7f58c6e CAE 52326991543382 VENCIMIENTO DEL CAE 28 de n
+ok   factura desde el historial: la de la compra de prueba ($44.000): Factura de la compra × Factura B N.º 00001-00000004 FECHA 18 de nov de 2026 ORDEN #V-b7f58c6e CAE 52326991543382 VENCIMI
+ok   editar: abre con el título actual
+ok   editar: el sector con ventas tiene el precio bloqueado
+ok   editar: el sector con ventas no se puede quitar
+ok   editar: no deja bajar el cupo por debajo de lo vendido
+ok   editar: el servidor guardó título, cupo y precio: Prueba pantallas 4182 (editado) · 120/20000 50/35000
+ok   editar: la tabla del panel muestra el título nuevo
+ok   cancelar: el modal dice que anula las 2 entradas y no se puede deshacer
+ok   cancelar: el servidor lo marcó cancelado con el motivo
+ok   cancelar: el panel lo marca cancelado y saca los botones
+ok   cancelar: sale del catálogo
+ok   comprador: su compra quedó CANCELADA (anulada por el evento): CANCELADA
+ok   página del evento: aviso de cancelado con el motivo
+ok   página del evento: no deja comprar
+ok   catálogo del navegador: no lo muestra aunque se haya abierto
+ok   mis entradas: la compra anulada con el aviso de devolución
+ok   sin errores en la consola
+
+20 de 20 comprobaciones

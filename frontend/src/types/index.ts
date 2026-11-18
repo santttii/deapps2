@@ -20,6 +20,12 @@ export interface Evento {
   sectores: Sector[];
   destacado?: boolean;
   imagenUrl?: string;
+  // La URL de la foto tal como la guarda Eventos (null si no tiene). imagenUrl es la que se
+  // muestra, con la foto local de reemplazo; al editar se manda esta, para no pisarla.
+  imagenDelServidor?: string | null;
+  // Un evento cancelado sigue respondiendo en su detalle (no en el catálogo) y trae el motivo.
+  cancelado?: boolean;
+  cancelacionMotivo?: string | null;
 }
 
 export interface Asistente {
