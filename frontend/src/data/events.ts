@@ -4,7 +4,7 @@ import { urlDeLaApi } from '../lib/api';
 // Los eventos vienen del backend (servicios/eventos.ts). Acá quedan solo las fotos, que están
 // en public/eventos (dominio público, ver CREDITOS.md en esa carpeta).
 const IMAGEN_POR_CATEGORIA: Record<Categoria, string> = {
-  'Fútbol': '/eventos/categoria-futbol.jpg',
+  'Deportes': '/eventos/categoria-futbol.jpg',
   'Música': '/eventos/categoria-musica.jpg',
   'Fiesta': '/eventos/categoria-fiesta.jpg',
   'Teatro': '/eventos/categoria-teatro.jpg',

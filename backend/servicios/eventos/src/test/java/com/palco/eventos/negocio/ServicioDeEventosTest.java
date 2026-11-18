@@ -110,7 +110,7 @@ class ServicioDeEventosTest {
         ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
                 () -> servicio.crearEvento(nuevo, "org-1"));
 
-        assertEquals(Map.of("categoria", "La categoría tiene que ser Fútbol, Música, Fiesta o Teatro."),
+        assertEquals(Map.of("categoria", "La categoría tiene que ser Deportes, Música, Fiesta o Teatro."),
                 error.campos());
         verify(eventos, never()).guardar(any());
     }

@@ -27,7 +27,7 @@ interface SectorForm {
   cupo: string;
 }
 
-const CATEGORIAS: Categoria[] = ['Fútbol', 'Música', 'Fiesta', 'Teatro'];
+const CATEGORIAS: Categoria[] = ['Deportes', 'Música', 'Fiesta', 'Teatro'];
 
 // El servidor no rechaza decimales ni números fuera de rango: esos topes se controlan acá.
 const PRECIO_MAXIMO = 100_000_000;
@@ -82,7 +82,7 @@ export default function CreateEventModal({ abierto, onCerrar, evento }: CreateEv
   // recién al abrirlo, así cada vez que se abre toma los datos actuales.
   const [inicial] = useState(() => (evento ? formularioDe(evento) : null));
   const [titulo, setTitulo] = useState(inicial?.titulo ?? '');
-  const [categoria, setCategoria] = useState<Categoria>(inicial?.categoria ?? 'Fútbol');
+  const [categoria, setCategoria] = useState<Categoria>(inicial?.categoria ?? 'Deportes');
   const [venue, setVenue] = useState(inicial?.venue ?? '');
   const [fecha, setFecha] = useState(inicial?.fecha ?? '');
   const [descripcion, setDescripcion] = useState(inicial?.descripcion ?? '');
@@ -142,7 +142,7 @@ export default function CreateEventModal({ abierto, onCerrar, evento }: CreateEv
 
   function vaciar() {
     setTitulo('');
-    setCategoria('Fútbol');
+    setCategoria('Deportes');
     setVenue('');
     setFecha('');
     setDescripcion('');
