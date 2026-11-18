@@ -31,6 +31,7 @@
         <dependency><groupId>com.palco</groupId><artifactId>palco-reventa</artifactId><version>${project.version}</version><type>war</type></dependency>
         <dependency><groupId>com.palco</groupId><artifactId>palco-notificaciones</artifactId><version>${project.version}</version><type>war</type></dependency>
         <dependency><groupId>com.palco</groupId><artifactId>palco-facturacion</artifactId><version>${project.version}</version><type>war</type></dependency>
+        <dependency><groupId>com.palco</groupId><artifactId>palco-asistente</artifactId><version>${project.version}</version><type>war</type></dependency>
         <!-- No es un servicio de Palco: el ARCA simulado, en /legado/arca (ver servicios/arca) -->
         <dependency><groupId>com.palco</groupId><artifactId>palco-arca</artifactId><version>${project.version}</version><type>war</type></dependency>
     </dependencies>

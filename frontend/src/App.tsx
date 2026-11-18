@@ -14,6 +14,7 @@ import RegisterPage from './pages/RegisterPage';
 import ResalePage from './pages/ResalePage';
 import OrganizerPage from './pages/OrganizerPage';
 import GatePage from './pages/GatePage';
+import AssistantPage from './pages/AssistantPage';
 import { useApp } from './store/AppContext';
 import type { Evento } from './types';
 
@@ -95,6 +96,14 @@ export default function App() {
                 <RequireCatalog>
                   <MyTicketsPage />
                 </RequireCatalog>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/asistente"
+            element={
+              <ProtectedRoute>
+                <AssistantPage />
               </ProtectedRoute>
             }
           />
