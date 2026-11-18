@@ -46,7 +46,7 @@ import com.palco.reventa.negocio.externos.ClienteDeVentas;
  * </ul>
  *
  * El margen es para no preguntar mientras el cobro todavía puede estar en
- * camino (Pagos espera hasta 10 segundos y Ventas hasta 10 más por pedido):
+ * camino (Pagos espera hasta 5 segundos y Ventas hasta 5 más por pedido):
  * preguntar antes daría un "no hay pago" falso. Liberar exige que la toma siga
  * siendo la que se miró: si el comprador reintentó mientras tanto, la toma es
  * más nueva y no se toca.

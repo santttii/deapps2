@@ -110,11 +110,16 @@ public class ClienteRest {
         }
     }
 
+    /**
+     * 2 segundos para conectar y 5 para leer, el tiempo máximo de toda integración. Si el otro
+     * servicio no contesta, el pedido sale con {@code SinRespuesta} y la conciliación de reventas
+     * (el fallback) resuelve después lo que haya quedado a mitad de camino.
+     */
     @PostConstruct
     void abrirCliente() {
         cliente = ClientBuilder.newBuilder()
                 .connectTimeout(2, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(5, TimeUnit.SECONDS)
                 .build();
     }
 

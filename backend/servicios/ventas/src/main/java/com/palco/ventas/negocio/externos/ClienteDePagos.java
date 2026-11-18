@@ -378,12 +378,16 @@ public class ClienteDePagos implements Cobros {
         return new ResultadoDeCobro(null, ResultadoDeCobro.RECHAZADO, motivo);
     }
 
-    /** Un solo cliente HTTP para toda la vida del bean: 2 segundos para conectar y 10 para leer, porque Pagos espera a su pasarela. */
+    /**
+     * Un solo cliente HTTP para toda la vida del bean: 2 segundos para conectar y 5 para leer, el
+     * tiempo máximo de toda integración. Si Pagos no contesta a tiempo, el cobro queda sin resultado
+     * y lo resuelve la conciliación de pagos (el fallback): nunca se cobra dos veces.
+     */
     @PostConstruct
     void abrirCliente() {
         cliente = ClientBuilder.newBuilder()
                 .connectTimeout(2, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(5, TimeUnit.SECONDS)
                 .build();
     }
 
