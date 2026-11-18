@@ -38,6 +38,7 @@ export class ErrorApi extends Error {
 export interface OpcionesPedido {
   metodo?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   cuerpo?: unknown; // se manda como JSON
+  archivo?: Blob; // se manda tal cual, con su tipo en Content-Type (la foto de un evento)
   consulta?: Record<string, string | undefined>; // parámetros de la URL; los vacíos se omiten
   conSesion?: boolean; // manda Authorization: Bearer con el token guardado
   // Se manda en la cabecera Idempotency-Key: repetir un POST con la misma clave no lo hace dos veces.
@@ -130,10 +131,11 @@ function errorDeRespuesta(estado: number, cuerpo: CuerpoDeError | null): ErrorAp
 }
 
 export async function pedir<T>(ruta: string, opciones: OpcionesPedido = {}): Promise<T> {
-  const { metodo = 'GET', cuerpo, consulta, conSesion = false, claveIdempotencia } = opciones;
+  const { metodo = 'GET', cuerpo, archivo, consulta, conSesion = false, claveIdempotencia } = opciones;
 
   const cabeceras: Record<string, string> = {};
   if (cuerpo !== undefined) cabeceras['Content-Type'] = 'application/json';
+  if (archivo) cabeceras['Content-Type'] = archivo.type;
   if (claveIdempotencia) cabeceras['Idempotency-Key'] = claveIdempotencia;
 
   // El token va solo en los pedidos que lo necesitan: con un token viejo el servidor rechaza
@@ -153,7 +155,7 @@ export async function pedir<T>(ruta: string, opciones: OpcionesPedido = {}): Pro
     respuesta = await fetch(armarUrl(ruta, consulta), {
       method: metodo,
       headers: cabeceras,
-      body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+      body: archivo ?? (cuerpo === undefined ? undefined : JSON.stringify(cuerpo)),
     });
   } catch {
     if (token && (await tokenRechazado(token))) {
@@ -185,6 +187,9 @@ export async function pedir<T>(ruta: string, opciones: OpcionesPedido = {}): Pro
     return datos as T;
   }
 
+  // 413 lo responde nginx, antes de llegar al backend, cuando el cuerpo es demasiado grande.
+  if (respuesta.status === 413) throw new ErrorApi(413, 'El archivo es demasiado grande.');
+
   // El login no va con conSesion, así que su 401 (contraseña incorrecta) no cierra ninguna sesión.
   if (respuesta.status === 401 && token) perderSesion(token);
   const error = errorDeRespuesta(respuesta.status, datos as CuerpoDeError | null);
@@ -192,6 +197,12 @@ export async function pedir<T>(ruta: string, opciones: OpcionesPedido = {}): Pro
   const espera = Number(respuesta.headers.get('Retry-After'));
   if (Number.isFinite(espera) && espera > 0) error.segundosDeEspera = espera;
   throw error;
+}
+
+// La dirección completa de algo que sirve la API, como la foto de un evento guardada en la base
+// (/api/eventos/imagenes/…): la API no siempre está en la misma dirección que la web.
+export function urlDeLaApi(ruta: string): string {
+  return URL_BASE + ruta;
 }
 
 export function mensajeDeError(error: unknown): string {

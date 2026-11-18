@@ -142,23 +142,26 @@ class AlmacenEnSupabaseTest {
     // --- Qué implementación se elige ---
 
     @Test
-    void sinConfiguracionYSinSupabaseLaSubidaQuedaDeshabilitada() {
+    void sinConfiguracionYSinSupabaseSeGuardaEnLaBase() {
         AlmacenDeImagenes supabase = new SupabaseSinRed();
+        AlmacenDeImagenes base = new AlmacenEnBaseDeDatos();
         AlmacenDeImagenes ninguno = new AlmacenNoConfigurado();
 
-        assertSame(ninguno, FabricaDeAlmacen.elegir(null, false, supabase, ninguno));
-        assertSame(supabase, FabricaDeAlmacen.elegir(null, true, supabase, ninguno));
+        assertSame(base, FabricaDeAlmacen.elegir(null, false, supabase, base, ninguno));
+        assertSame(supabase, FabricaDeAlmacen.elegir(null, true, supabase, base, ninguno));
     }
 
     @Test
     void elValorElegidoSeRespetaYUnoDesconocidoDecidePorLaConfiguracion() {
         AlmacenDeImagenes supabase = new SupabaseSinRed();
+        AlmacenDeImagenes base = new AlmacenEnBaseDeDatos();
         AlmacenDeImagenes ninguno = new AlmacenNoConfigurado();
 
-        assertSame(supabase, FabricaDeAlmacen.elegir("supabase", false, supabase, ninguno));
-        assertSame(ninguno, FabricaDeAlmacen.elegir("ninguno", true, supabase, ninguno));
-        assertSame(supabase, FabricaDeAlmacen.elegir("  SUPABASE ", false, supabase, ninguno));
-        assertSame(supabase, FabricaDeAlmacen.elegir("s3", true, supabase, ninguno));
-        assertSame(ninguno, FabricaDeAlmacen.elegir("s3", false, supabase, ninguno));
+        assertSame(supabase, FabricaDeAlmacen.elegir("supabase", false, supabase, base, ninguno));
+        assertSame(ninguno, FabricaDeAlmacen.elegir("ninguno", true, supabase, base, ninguno));
+        assertSame(base, FabricaDeAlmacen.elegir("base", true, supabase, base, ninguno));
+        assertSame(supabase, FabricaDeAlmacen.elegir("  SUPABASE ", false, supabase, base, ninguno));
+        assertSame(supabase, FabricaDeAlmacen.elegir("s3", true, supabase, base, ninguno));
+        assertSame(base, FabricaDeAlmacen.elegir("s3", false, supabase, base, ninguno));
     }
 }

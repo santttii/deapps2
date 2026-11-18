@@ -28,6 +28,7 @@ import com.palco.common.datos.BaseDeDatos;
 import com.palco.eventos.dominio.Categoria;
 import com.palco.eventos.dominio.DevolucionDeCupo;
 import com.palco.eventos.dominio.Evento;
+import com.palco.eventos.dominio.Imagen;
 import com.palco.eventos.dominio.Sector;
 import com.palco.eventos.negocio.TiposDeProblema;
 
@@ -68,6 +69,7 @@ class CupoEnH2Test {
                 .managedClass(Evento.class)
                 .managedClass(Sector.class)
                 .managedClass(DevolucionDeCupo.class)
+                .managedClass(Imagen.class)
                 // El conversor guarda la etiqueta ("Música") y no el nombre del enumerado, como en el servidor.
                 .managedClass(Categoria.ConversorJpa.class)
                 .property(PersistenceConfiguration.JDBC_URL, url)
@@ -110,6 +112,27 @@ class CupoEnH2Test {
         assertTrue(eventos.listarDelOrganizador("user-otro-organizador").isEmpty());
         assertEquals("org-1", eventos.buscarPorId(EVENTO).orElseThrow().getOrganizadorId());
         assertTrue(eventos.buscarPorId("ev-9").isEmpty());
+    }
+
+    @Test
+    void unaImagenSeGuardaEnLaBaseYSeLeeIgual() {
+        ImagenRepositoryJpa imagenes = new ImagenRepositoryJpa();
+        imagenes.em = em;
+        byte[] contenido = new byte[300_000];
+        new java.util.Random(7).nextBytes(contenido);
+        String id = UUID.randomUUID() + ".jpg";
+
+        enTransaccion(() -> {
+            imagenes.guardar(new Imagen(id, "image/jpeg", contenido, AHORA));
+            return null;
+        });
+        em.clear();
+
+        Imagen leida = imagenes.buscar(id).orElseThrow();
+        assertEquals("image/jpeg", leida.getTipo());
+        assertEquals(300_000, leida.getTamano());
+        org.junit.jupiter.api.Assertions.assertArrayEquals(contenido, leida.getContenido());
+        assertTrue(imagenes.buscar("otra.jpg").isEmpty());
     }
 
     /** Corre el paso en una transacción propia, como lo haría el contenedor con cada pedido. */

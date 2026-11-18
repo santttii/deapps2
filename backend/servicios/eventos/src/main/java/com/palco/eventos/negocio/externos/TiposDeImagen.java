@@ -47,6 +47,20 @@ public final class TiposDeImagen {
         return extension;
     }
 
+    /**
+     * El media type que le corresponde a una extensión de las aceptadas
+     * ({@code jpg} → {@code image/jpeg}). Es el que se guarda y con el que se
+     * devuelve la imagen, normalizado: sin parámetros ni mayúsculas.
+     */
+    public static String tipoDe(String extension) {
+        return EXTENSIONES.entrySet().stream()
+                .filter(e -> e.getValue().equals(extension))
+                .map(java.util.Map.Entry::getKey)
+                .findFirst()
+                .orElseThrow(() -> new ErroresDeNegocio.DatosInvalidos("imagen",
+                        "La imagen tiene que ser JPG, PNG o WEBP."));
+    }
+
     /** Comprueba el tamaño. Lanza {@code DatosInvalidos} si está vacía o pasa el máximo. */
     public static void exigirTamanoValido(byte[] contenido) {
         if (contenido == null || contenido.length == 0) {

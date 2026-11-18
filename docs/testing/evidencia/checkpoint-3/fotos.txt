@@ -1,0 +1,19 @@
+Subida de fotos de eventos, en el navegador con Playwright, contra WildFly 41 + PostgreSQL 17. 2026-11-18T17:51:13Z
+
+ok   archivo que no es imagen: lo rechaza antes de subir
+ok   vista previa de la foto elegida: blob:http://localhost:5173/43f
+ok   dice que se sube al guardar
+ok   el evento quedó con la foto guardada en la base: /api/eventos/imagenes/f9f726c7-dbeb-432d-9e47-ee85ab62c3f9.png
+ok   la foto se sirve como PNG y es la misma que se subió
+ok   el catálogo muestra la foto subida
+ok   la página del evento también
+ok   al editar muestra la foto actual y deja cambiarla
+ok   editar: quedó la foto nueva (JPG): /api/eventos/imagenes/6dca79fd-3836-43b2-8a29-e3225b80dc7b.jpg
+ok   editar otra cosa no pierde la foto
+ok   quitar foto vuelve a la de la categoría
+ok   quitar foto: el evento queda sin foto propia: null
+ok   sin errores en la consola
+
+13 de 13 comprobaciones
+
+Por nginx (frontend/docker/nginx.conf) con una foto de 1,5 MB: con client_max_body_size 3m responde 200; con la configuración anterior, 413.

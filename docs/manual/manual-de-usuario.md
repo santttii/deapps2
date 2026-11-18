@@ -146,7 +146,7 @@ Al ingresar como organizador aparece **Organizador**. El panel muestra las entra
 recaudado, el cupo restante y las entradas en reventa, y la lista de sus eventos con fecha, ventas y
 ocupación.
 
-- **+ Crear evento:** nombre, fecha, lugar, sectores con precio y cupo.
+- **+ Crear evento:** foto, nombre, categoría, fecha, lugar, descripción y sectores con precio y cupo.
 - **Reventa:** las publicaciones de sus eventos.
 - **Accesos / staff:** asignar personal de puerta a cada evento.
 
@@ -154,10 +154,18 @@ Un organizador solo ve y modifica sus propios eventos.
 
 ![Panel del organizador](img/10-organizador.png)
 
+### La foto del evento
+
+Arriba del formulario de **Crear evento** está **Subir foto**: se elige una imagen JPG, PNG o WEBP de
+hasta 2 MB y se ve enseguida cómo queda. La foto se sube al tocar **Crear evento**. Sin foto propia,
+el evento usa la foto de su categoría. Con **quitar foto** se descarta la elegida.
+
+![Subir la foto de un evento](img/15-subir-foto.png)
+
 ### Editar un evento
 
 En **Detalle por evento** se elige el evento y se toca **Editar evento**. El formulario se abre con
-los datos actuales: se puede cambiar el título, la categoría, el lugar, la fecha, la descripción y
+los datos actuales: se puede cambiar la foto (o quitarla para volver a la de la categoría), el título, la categoría, el lugar, la fecha, la descripción y
 los sectores, y agregar sectores nuevos. Se toca **Guardar cambios**.
 
 Un sector que ya tiene entradas vendidas no se puede quitar ni cambiar de precio, y su cupo no puede
