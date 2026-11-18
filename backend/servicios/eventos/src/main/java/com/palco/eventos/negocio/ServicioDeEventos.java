@@ -327,7 +327,7 @@ public class ServicioDeEventos implements IEventos {
     private Categoria parsearCategoria(String etiqueta) {
         return Categoria.desdeEtiqueta(etiqueta)
                 .orElseThrow(() -> new ErroresDeNegocio.DatosInvalidos("categoria",
-                        "La categoría tiene que ser Fútbol, Música, Fiesta o Teatro."));
+                        "La categoría tiene que ser Deportes, Música, Fiesta o Teatro."));
     }
 
     private String slugUnico(String titulo) {

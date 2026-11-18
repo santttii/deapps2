@@ -14,7 +14,7 @@ página no dependa de un servicio externo.
 | `marea-baja-invitados.jpg` | Marea Baja + invitados | Paweł Bukowski | [StockSnap](https://stocksnap.io/photo/music-concert-L695JG265J) |
 | `subsuelo-noche-09.jpg` | Subsuelo · Noche 09 | sin dato | [rawpixel](https://www.rawpixel.com/image/3337274/free-photo-image-music-png-arcade-game-machine) |
 | `el-metodo-gronholm.jpg` | El método Grönholm | sin dato | [rawpixel](https://www.rawpixel.com/image/3297996/free-photo-image-stage-theatre-auditorium) |
-| `categoria-futbol.jpg` | Eventos de Fútbol sin foto propia | The African Union Mission in Somalia | [rawpixel](https://www.rawpixel.com/image/3372987/free-photo-image-soccer-play-field-activity) |
+| `categoria-futbol.jpg` | Eventos de Deportes sin foto propia | The African Union Mission in Somalia | [rawpixel](https://www.rawpixel.com/image/3372987/free-photo-image-soccer-play-field-activity) |
 | `categoria-musica.jpg` | Eventos de Música sin foto propia | Nainoa Shizuru | [StockSnap](https://stocksnap.io/photo/concert-show-5FGWJW4Z5D) |
 | `categoria-fiesta.jpg` | Eventos de Fiesta sin foto propia | sin dato | [rawpixel](https://www.rawpixel.com/image/11189733/crowded-people-night-pup-party) |
 | `categoria-teatro.jpg` | Eventos de Teatro sin foto propia | sin dato | [rawpixel](https://www.rawpixel.com/image/6038875/red-curtain-free-public-domain-cc0-photo) |

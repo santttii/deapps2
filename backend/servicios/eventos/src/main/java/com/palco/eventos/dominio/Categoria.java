@@ -8,7 +8,7 @@ import jakarta.persistence.Converter;
 
 /** Categorías del catálogo. La etiqueta es lo que se guarda y lo que ve el frontend. */
 public enum Categoria {
-    FUTBOL("Fútbol"),
+    DEPORTES("Deportes"),
     MUSICA("Música"),
     FIESTA("Fiesta"),
     TEATRO("Teatro");
@@ -27,7 +27,7 @@ public enum Categoria {
         return Arrays.stream(values()).filter(c -> c.etiqueta.equals(etiqueta)).findFirst();
     }
 
-    /** Guarda la etiqueta ("Fútbol") en la columna, no el nombre del enum. */
+    /** Guarda la etiqueta ("Deportes") en la columna, no el nombre del enum. */
     @Converter(autoApply = true)
     public static class ConversorJpa implements AttributeConverter<Categoria, String> {
         @Override

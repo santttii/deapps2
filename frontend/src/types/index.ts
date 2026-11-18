@@ -1,4 +1,4 @@
-export type Categoria = 'Fútbol' | 'Música' | 'Fiesta' | 'Teatro';
+export type Categoria = 'Deportes' | 'Música' | 'Fiesta' | 'Teatro';
 export type Rol = 'user' | 'organizer' | 'staff';
 
 export interface Sector {

@@ -16,7 +16,7 @@ import type { Categoria, Evento } from '../types';
 
 const CATEGORIAS: { label: string; value: Categoria | 'Todos' }[] = [
   { label: 'Todos', value: 'Todos' },
-  { label: 'Deportes', value: 'Fútbol' },
+  { label: 'Deportes', value: 'Deportes' },
   { label: 'Música', value: 'Música' },
   { label: 'Fiestas', value: 'Fiesta' },
   { label: 'Teatro', value: 'Teatro' },
