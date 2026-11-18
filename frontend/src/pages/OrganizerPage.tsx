@@ -21,6 +21,8 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import PageTransition from '../components/PageTransition';
 import CreateEventModal from '../components/CreateEventModal';
+import CancelarEventoModal from '../components/CancelarEventoModal';
+import { useToast } from '../components/ToastProvider';
 
 // Cada ítem lleva a su sección de esta misma página. Reventa y Accesos existen solo cuando hay
 // un evento elegido.
@@ -54,6 +56,8 @@ type Equipo = { fase: 'cargando' } | { fase: 'error'; mensaje: string } | { fase
 const ocupadas = (sectores: Sector[]) => sectores.reduce((acc, s) => acc + s.vendidas, 0);
 const cupoTotal = (sectores: Sector[]) => sectores.reduce((acc, s) => acc + s.cupo, 0);
 const numero = (n: number) => n.toLocaleString('es-AR');
+// Un evento que ya empezó no se puede editar ni cancelar: el servidor responde 409.
+const yaEmpezo = (ev: Evento) => new Date(ev.fechaISO).getTime() <= Date.now();
 
 // Panel del organizador. Todo lo que muestra sale del backend y es solo de sus eventos:
 // - lo vendido y lo recaudado, de Ventas (GET /api/v1/resumenes): solo compras pagadas;
@@ -64,8 +68,11 @@ const numero = (n: number) => n.toLocaleString('es-AR');
 // Lo que todavía no tiene pantalla (ventas por día, facturación) no se muestra en vez de
 // mostrarse con datos fijos.
 export default function OrganizerPage() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
+  const { mostrarToast } = useToast();
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
+  const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
+  const [aCancelar, setACancelar] = useState<Evento | null>(null);
   const [eventoElegido, setEventoElegido] = useState('');
   const [accesos, setAccesos] = useState<Accesos>({ fase: 'cargando' });
   const [vueltasAccesos, setVueltasAccesos] = useState(0);
@@ -189,6 +196,15 @@ export default function OrganizerPage() {
     setLiquidaciones({});
     setErrorVentas('');
     setVueltasVentas((n) => n + 1);
+  }
+
+  function eventoCancelado(cancelado: Evento) {
+    setACancelar(null);
+    // Pasa al estado como cancelado: el catálogo deja de mostrarlo y este panel vuelve a pedir sus
+    // eventos. Las compras se anulan en Ventas por mensajería, en los segundos siguientes.
+    dispatch({ type: 'EVENTO_RECIBIDO', payload: cancelado });
+    mostrarToast('Evento cancelado. Se están anulando las compras y devolviendo los pagos.');
+    setTimeout(reintentarVentas, 3000);
   }
 
   function abrirModalCrear() {
@@ -322,7 +338,12 @@ export default function OrganizerPage() {
                   <tbody>
                     {eventos.map((ev) => (
                       <tr key={ev.id} className="border-t border-wire">
-                        <td className="px-4 py-3">{ev.titulo}</td>
+                        <td className="px-4 py-3">
+                          {ev.titulo}
+                          {ev.cancelado && (
+                            <span className="font-mono-label ml-2 text-[10px] text-accent">cancelado</span>
+                          )}
+                        </td>
                         <td className="whitespace-nowrap px-4 py-3">{formatearFecha(ev.fechaISO)}</td>
                         <td className="px-4 py-3">{vendidasDeLaFila(ev.id)}</td>
                         <td className="whitespace-nowrap px-4 py-3">
@@ -355,10 +376,29 @@ export default function OrganizerPage() {
                   {eventos.map((ev) => (
                     <option key={ev.id} value={ev.id}>
                       {ev.titulo}
+                      {ev.cancelado ? ' (cancelado)' : ''}
                     </option>
                   ))}
                 </select>
               </div>
+
+              {evento.cancelado ? (
+                <p className="mt-4 border-l-2 border-accent pl-3 text-sm text-ink">
+                  Este evento está cancelado. Sus compras se anularon y los pagos se devolvieron.
+                  {evento.cancelacionMotivo && <> Motivo: {evento.cancelacionMotivo}</>}
+                </p>
+              ) : yaEmpezo(evento) ? (
+                <p className="mt-4 text-sm text-muted">El evento ya empezó: no se puede editar ni cancelar.</p>
+              ) : (
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Button variant="secondary" onClick={() => setModalEditarAbierto(true)}>
+                    Editar evento
+                  </Button>
+                  <Button variant="secondary" onClick={() => setACancelar(evento)}>
+                    Cancelar evento
+                  </Button>
+                </div>
+              )}
 
               <h3 className="mt-6 text-sm font-semibold text-ink">Ocupación por sector</h3>
               <div className="mt-3 flex flex-col gap-4 border border-wire p-5">
@@ -580,6 +620,15 @@ export default function OrganizerPage() {
       </div>
 
       <CreateEventModal abierto={modalCrearAbierto} onCerrar={() => setModalCrearAbierto(false)} />
+      {evento && modalEditarAbierto && (
+        <CreateEventModal abierto onCerrar={() => setModalEditarAbierto(false)} evento={evento} />
+      )}
+      <CancelarEventoModal
+        evento={aCancelar}
+        vendidas={aCancelar ? (liquidaciones[aCancelar.id]?.entradas ?? null) : null}
+        onCerrar={() => setACancelar(null)}
+        onCancelado={eventoCancelado}
+      />
     </PageTransition>
   );
 }

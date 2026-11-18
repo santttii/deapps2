@@ -13,6 +13,7 @@ import Input from '../components/Input';
 import ProgressBar from '../components/ProgressBar';
 import StatusMessage from '../components/StatusMessage';
 import PageTransition from '../components/PageTransition';
+import FacturaModal from '../components/FacturaModal';
 
 // Mientras una compra paga espera la emisión (unos segundos), el listado se vuelve a pedir.
 const PAUSA_EMISION_MS = 2000;
@@ -64,6 +65,8 @@ export default function MyTicketsPage() {
   const [carga, setCarga] = useState<Carga>({ fase: 'cargando' });
   const [vueltas, setVueltas] = useState(0); // sube con "Reintentar" y después de publicar o retirar
   const [enviando, setEnviando] = useState(false);
+  // La compra cuya factura se está mostrando; null con el modal cerrado.
+  const [facturaDe, setFacturaDe] = useState<string | null>(null);
 
   // Las compras salen de Ventas (GET /api/v1/ventas): las del usuario de la sesión, de la más
   // nueva a la más vieja y en todos los estados, con el estado actual de cada entrada (también
@@ -270,10 +273,15 @@ export default function MyTicketsPage() {
   const historial = [
     ...compras
       .filter((o) => o.estado === 'emitida')
-      .map((o) => ({ texto: `Compra · orden #${o.id} · ${money(o.total)}`, fechaISO: o.creadaISO, antesDeLaFecha: '' })),
+      .map((o) => ({
+        texto: `Compra · orden #${o.id} · ${money(o.total)}`,
+        fechaISO: o.creadaISO,
+        antesDeLaFecha: '',
+        ventaId: o.id,
+      })),
     ...misEntradas
       .filter((e) => e.estado === 'usada')
-      .map((e) => ({ texto: `Entrada usada · ${e.id}`, fechaISO: e.emitidaISO, antesDeLaFecha: '' })),
+      .map((e) => ({ texto: `Entrada usada · ${e.id}`, fechaISO: e.emitidaISO, antesDeLaFecha: '', ventaId: undefined })),
     ...publicaciones
       .filter((p) => p.estado === 'vendida')
       .map((p) => {
@@ -286,7 +294,12 @@ export default function MyTicketsPage() {
           `entrada ${p.entradaId}`,
           money(p.precio),
         ];
-        return { texto: partes.filter(Boolean).join(' · '), fechaISO: p.publicadaISO, antesDeLaFecha: 'publicada ' };
+        return {
+          texto: partes.filter(Boolean).join(' · '),
+          fechaISO: p.publicadaISO,
+          antesDeLaFecha: 'publicada ',
+          ventaId: undefined,
+        };
       }),
   ].sort((a, b) => new Date(b.fechaISO).getTime() - new Date(a.fechaISO).getTime());
 
@@ -355,6 +368,17 @@ export default function MyTicketsPage() {
                     <p className="font-mono-label text-[10px] text-muted">Sector</p>
                     <p>{sector?.nombre}</p>
                   </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-dashed border-edge pt-4">
+                  <p className="font-mono-label text-[10px] text-muted">Orden #{entrada.ordenId}</p>
+                  <button
+                    type="button"
+                    className="min-h-[44px] text-sm text-accent underline"
+                    onClick={() => setFacturaDe(entrada.ordenId)}
+                  >
+                    Ver factura
+                  </button>
                 </div>
 
               </motion.div>
@@ -452,9 +476,21 @@ export default function MyTicketsPage() {
                   className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border border-wire px-4 py-3 text-sm"
                 >
                   <span className="min-w-0 break-words">{h.texto}</span>
-                  <span className="font-mono-label shrink-0 whitespace-nowrap text-[10px] text-muted">
-                    {h.antesDeLaFecha}
-                    {fecha(h.fechaISO)}
+                  <span className="flex shrink-0 items-baseline gap-3">
+                    {h.ventaId && (
+                      <button
+                        type="button"
+                        className="text-xs text-accent underline"
+                        onClick={() => setFacturaDe(h.ventaId ?? null)}
+                        aria-label={`Ver la factura de la orden ${h.ventaId}`}
+                      >
+                        factura
+                      </button>
+                    )}
+                    <span className="font-mono-label whitespace-nowrap text-[10px] text-muted">
+                      {h.antesDeLaFecha}
+                      {fecha(h.fechaISO)}
+                    </span>
                   </span>
                 </div>
               ))}
@@ -463,6 +499,7 @@ export default function MyTicketsPage() {
         </div>
         {seccionOtrasCompras}
       </div>
+      <FacturaModal key={facturaDe ?? ''} ventaId={facturaDe} onCerrar={() => setFacturaDe(null)} />
     </PageTransition>
   );
 }

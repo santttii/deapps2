@@ -110,6 +110,13 @@ de servir.
 
 ![Mis entradas](img/07-mis-entradas.png)
 
+**La factura.** Cada entrada tiene abajo el botón **Ver factura**, y cada compra del historial, el
+enlace **factura**. Muestra la factura electrónica B con su número, la fecha, el **CAE** que dio
+ARCA, su vencimiento y el total. La factura se genera sola unos segundos después del pago: si todavía
+no está, Palco lo avisa y se puede volver a consultar.
+
+![Factura](img/12-factura.png)
+
 ## 10. Comprar en la reventa
 
 En **Reventa** se ven las entradas publicadas por otros compradores. Se pueden filtrar por evento y
@@ -146,6 +153,31 @@ ocupación.
 Un organizador solo ve y modifica sus propios eventos.
 
 ![Panel del organizador](img/10-organizador.png)
+
+### Editar un evento
+
+En **Detalle por evento** se elige el evento y se toca **Editar evento**. El formulario se abre con
+los datos actuales: se puede cambiar el título, la categoría, el lugar, la fecha, la descripción y
+los sectores, y agregar sectores nuevos. Se toca **Guardar cambios**.
+
+Un sector que ya tiene entradas vendidas no se puede quitar ni cambiar de precio, y su cupo no puede
+bajar de lo vendido: así el tope de la reventa sigue calculándose sobre lo que pagó cada comprador.
+Un evento que ya empezó o que está cancelado no se puede editar.
+
+![Editar evento](img/13-editar-evento.png)
+
+### Cancelar un evento
+
+En **Detalle por evento** se toca **Cancelar evento**. Palco avisa qué va a pasar: el evento sale del
+catálogo, se anulan las entradas vendidas, se le devuelve el pago a cada comprador y le llega un
+email. Se puede escribir un motivo, que es lo que ven los compradores. Se confirma con **Sí, cancelar
+el evento**. **No se puede deshacer.**
+
+Después, el panel muestra el evento como cancelado. El comprador ve su compra anulada en **Mis
+entradas**, con el aviso de la devolución, y si abre el enlace del evento ve que se canceló y no
+puede comprar.
+
+![Cancelar evento](img/14-cancelar-evento.png)
 
 ## 13. Validar entradas en la puerta
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { useToast } from './ToastProvider';
 import { ErrorApi, mensajeDeError } from '../lib/api';
-import { crearEvento } from '../servicios/eventos';
+import { crearEvento, editarEvento } from '../servicios/eventos';
 import { imagenPorCategoria } from '../data/events';
 import type { Categoria, Evento } from '../types';
 import Modal from './Modal';
@@ -12,9 +12,16 @@ import Button from './Button';
 interface CreateEventModalProps {
   abierto: boolean;
   onCerrar: () => void;
+  // Con un evento, el formulario lo edita: se abre con sus datos y guarda con PUT. Sin evento, crea.
+  evento?: Evento;
 }
 
 interface SectorForm {
+  // Solo los sectores que ya existen: con id se cambian, sin id se agregan.
+  id?: string;
+  // Entradas ya vendidas del sector (0 en uno nuevo). Con ventas no se puede quitar, ni cambiar el
+  // precio, ni bajar el cupo por debajo de lo vendido: el servidor responde 409.
+  vendidas: number;
   nombre: string;
   precio: string;
   cupo: string;
@@ -34,7 +41,27 @@ const CAMPOS_DEL_FORMULARIO = ['titulo', 'categoria', 'venue', 'fechaISO', 'desc
 const AVISO_EN_LINEA = 'border-l-2 border-accent pl-2 text-xs text-ink';
 
 function sectorVacio(): SectorForm {
-  return { nombre: '', precio: '', cupo: '' };
+  return { vendidas: 0, nombre: '', precio: '', cupo: '' };
+}
+
+// El input datetime-local muestra aaaa-mm-ddThh:mm; el servidor manda también los segundos.
+const paraElInput = (fechaISO: string) => fechaISO.slice(0, 16);
+
+function formularioDe(evento: Evento) {
+  return {
+    titulo: evento.titulo,
+    categoria: evento.categoria,
+    venue: evento.venue,
+    fecha: paraElInput(evento.fechaISO),
+    descripcion: evento.descripcion,
+    sectores: evento.sectores.map((s) => ({
+      id: s.id,
+      vendidas: s.vendidas,
+      nombre: s.nombre,
+      precio: String(s.precio),
+      cupo: String(s.cupo),
+    })),
+  };
 }
 
 // Precio y cupo tienen que ser enteros entre 1 y un máximo. Devuelve el mensaje, o null si está bien.
@@ -46,16 +73,20 @@ function errorDeNumero(valor: string, nombre: 'precio' | 'cupo', maximo: number)
   return null;
 }
 
-export default function CreateEventModal({ abierto, onCerrar }: CreateEventModalProps) {
+export default function CreateEventModal({ abierto, onCerrar, evento }: CreateEventModalProps) {
+  const editando = evento !== undefined;
   const { dispatch } = useApp();
   const { mostrarToast } = useToast();
 
-  const [titulo, setTitulo] = useState('');
-  const [categoria, setCategoria] = useState<Categoria>('Fútbol');
-  const [venue, setVenue] = useState('');
-  const [fecha, setFecha] = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [sectores, setSectores] = useState<SectorForm[]>([sectorVacio()]);
+  // Al editar, el formulario arranca con los datos del evento. El panel monta el modal de edición
+  // recién al abrirlo, así cada vez que se abre toma los datos actuales.
+  const [inicial] = useState(() => (evento ? formularioDe(evento) : null));
+  const [titulo, setTitulo] = useState(inicial?.titulo ?? '');
+  const [categoria, setCategoria] = useState<Categoria>(inicial?.categoria ?? 'Fútbol');
+  const [venue, setVenue] = useState(inicial?.venue ?? '');
+  const [fecha, setFecha] = useState(inicial?.fecha ?? '');
+  const [descripcion, setDescripcion] = useState(inicial?.descripcion ?? '');
+  const [sectores, setSectores] = useState<SectorForm[]>(inicial?.sectores ?? [sectorVacio()]);
   // Errores por campo, con las mismas claves que usa el backend (titulo, venue, fechaISO…).
   const [errores, setErrores] = useState<Record<string, string>>({});
   // Errores de la validación local de cada fila de sector, por índice de fila.
@@ -79,14 +110,17 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
     limpiarErrores();
   }
 
-  const hayAlgoEscrito =
-    [titulo, venue, fecha, descripcion].some((v) => v.trim() !== '') ||
-    sectores.some((s) => s.nombre.trim() !== '' || s.precio !== '' || s.cupo !== '');
+  const hayAlgoEscrito = inicial
+    ? JSON.stringify(inicial) !==
+      JSON.stringify({ titulo, categoria, venue, fecha, descripcion, sectores })
+    : [titulo, venue, fecha, descripcion].some((v) => v.trim() !== '') ||
+      sectores.some((s) => s.nombre.trim() !== '' || s.precio !== '' || s.cupo !== '');
 
   // Escape y el clic afuera solo ocultan el modal: lo escrito sigue ahí al volver a abrirlo. Lo
   // que descarta el formulario es Cancelar, y pregunta antes si hay algo cargado.
   function cancelar() {
-    if (hayAlgoEscrito && !window.confirm('¿Descartar el evento que estabas cargando?')) return;
+    const pregunta = editando ? '¿Descartar los cambios?' : '¿Descartar el evento que estabas cargando?';
+    if (hayAlgoEscrito && !window.confirm(pregunta)) return;
     vaciar();
     onCerrar();
   }
@@ -121,6 +155,7 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
         s.nombre.trim() ? null : 'Ingresá el nombre del sector.',
         errorDeNumero(s.precio, 'precio', PRECIO_MAXIMO),
         errorDeNumero(s.cupo, 'cupo', CUPO_MAXIMO),
+        Number(s.cupo) < s.vendidas ? `El cupo no puede ser menor que las ${s.vendidas} entradas vendidas.` : null,
       ].filter((m) => m !== null);
       if (mensajes.length > 0) porFila[i] = mensajes;
     });
@@ -138,21 +173,26 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
     }
     setCreando(true);
     let creado: Evento;
+    const datos = {
+      titulo: titulo.trim(),
+      categoria,
+      venue: venue.trim(),
+      // El valor del input datetime-local (2026-12-01T21:00) es hora local sin zona, que es lo
+      // que espera el backend. Convertirlo con toISOString() le agrega la "Z" y lo rechaza.
+      fechaISO: fecha,
+      descripcion: descripcion.trim(),
+      sectores: sectores.map((s) => ({
+        id: s.id,
+        nombre: s.nombre.trim(),
+        precio: Number(s.precio),
+        cupo: Number(s.cupo),
+      })),
+    };
     try {
-      creado = await crearEvento({
-        titulo: titulo.trim(),
-        categoria,
-        venue: venue.trim(),
-        // El valor del input datetime-local (2026-12-01T21:00) es hora local sin zona, que es lo
-        // que espera el backend. Convertirlo con toISOString() le agrega la "Z" y lo rechaza.
-        fechaISO: fecha,
-        descripcion: descripcion.trim(),
-        sectores: sectores.map((s) => ({
-          nombre: s.nombre.trim(),
-          precio: Number(s.precio),
-          cupo: Number(s.cupo),
-        })),
-      });
+      creado = evento
+        ? // PUT reemplaza todo: la foto se manda como la tiene guardada el servidor, para no perderla.
+          await editarEvento(evento.id, { ...datos, imagenUrl: evento.imagenDelServidor ?? null })
+        : await crearEvento({ ...datos, sectores: datos.sectores.map(({ id: _id, ...resto }) => resto) });
     } catch (error) {
       // El modal queda abierto con lo escrito. Los errores por campo van a su input, y el aviso
       // general no los repite: el detalle del backend suele ser el mismo texto que el del campo.
@@ -169,7 +209,7 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
     }
     // El evento ya existe en el servidor: se suma al catálogo en memoria sin volver a pedirlo.
     dispatch({ type: 'EVENTO_RECIBIDO', payload: creado });
-    mostrarToast('Evento creado. Ya está publicado en el catálogo.');
+    mostrarToast(editando ? 'Cambios guardados. El catálogo ya muestra el evento actualizado.' : 'Evento creado. Ya está publicado en el catálogo.');
     vaciar();
     onCerrar();
   }
@@ -177,7 +217,7 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
   const erroresDeSectorDelServidor = CAMPOS_DE_SECTOR.map((campo) => errores[campo]).filter(Boolean);
 
   return (
-    <Modal abierto={abierto} onCerrar={onCerrar} titulo="Crear evento">
+    <Modal abierto={abierto} onCerrar={onCerrar} titulo={editando ? 'Editar evento' : 'Crear evento'}>
       {/* Los botones van fuera de la parte que se desplaza, así siempre están a la vista. Lo que
           se le resta a la altura es lo que ocupan los márgenes del modal, el título y los botones.
           dvh y no vh: en el celular, vh no descuenta la barra del navegador. */}
@@ -185,14 +225,15 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
         <div>
           <div className="h-32 overflow-hidden border border-edge">
             <img
-              src={imagenPorCategoria(categoria)}
-              alt={`Foto de la categoría ${categoria}`}
+              src={evento?.imagenUrl ?? imagenPorCategoria(categoria)}
+              alt={evento ? `Foto de ${evento.titulo}` : `Foto de la categoría ${categoria}`}
               className="h-full w-full object-cover"
             />
           </div>
           <p className="mt-1.5 text-xs text-muted">
-            El evento se publica con la foto de su categoría: la subida de imágenes todavía no
-            está disponible.
+            {editando
+              ? 'La foto del evento no cambia: la subida de imágenes todavía no está disponible.'
+              : 'El evento se publica con la foto de su categoría: la subida de imágenes todavía no está disponible.'}
           </p>
         </div>
 
@@ -277,7 +318,7 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
                     maxLength={120}
                   />
                 </div>
-                {sectores.length > 1 && (
+                {sectores.length > 1 && s.vendidas === 0 && (
                   <button
                     type="button"
                     onClick={() => quitarSector(i)}
@@ -297,17 +338,24 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
                   value={s.precio}
                   onChange={(e) => actualizarSector(i, 'precio', e.target.value)}
                   className="w-full min-w-0"
+                  disabled={s.vendidas > 0}
                 />
                 <Input
                   label="Cupo"
                   type="number"
-                  min={1}
+                  min={Math.max(1, s.vendidas)}
                   step={1}
                   value={s.cupo}
                   onChange={(e) => actualizarSector(i, 'cupo', e.target.value)}
                   className="w-full min-w-0"
                 />
               </div>
+              {s.vendidas > 0 && (
+                <p className="text-xs text-muted">
+                  Ya tiene {s.vendidas.toLocaleString('es-AR')} {s.vendidas === 1 ? 'entrada vendida' : 'entradas vendidas'}: no
+                  se puede quitar ni cambiar su precio, y el cupo no puede bajar de ese número.
+                </p>
+              )}
               {erroresDeFila[i] && (
                 <p role="alert" className={AVISO_EN_LINEA}>
                   {erroresDeFila[i].join(' ')}
@@ -333,8 +381,13 @@ export default function CreateEventModal({ abierto, onCerrar }: CreateEventModal
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row-reverse">
-        <Button onClick={enviar} loading={creando} loadingText="Creando evento…" className="sm:flex-1">
-          Crear evento
+        <Button
+          onClick={enviar}
+          loading={creando}
+          loadingText={editando ? 'Guardando…' : 'Creando evento…'}
+          className="sm:flex-1"
+        >
+          {editando ? 'Guardar cambios' : 'Crear evento'}
         </Button>
         <Button variant="secondary" type="button" onClick={cancelar} disabled={creando} className="sm:flex-1">
           Cancelar

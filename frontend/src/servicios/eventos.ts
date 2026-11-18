@@ -18,13 +18,24 @@ export interface NuevoEvento {
   sectores: { nombre: string; precio: number; cupo: number }[];
 }
 
+// Los datos de un evento al editarlo. PUT reemplaza el evento completo: un sector con id es uno
+// que ya existe y se cambia, uno sin id se agrega, y los que no vengan se quitan.
+export interface EventoEditado extends Omit<NuevoEvento, 'sectores'> {
+  imagenUrl: string | null;
+  sectores: { id?: string; nombre: string; precio: number; cupo: number }[];
+}
+
 // El backend manda imagenUrl en null cuando el evento no tiene imagen.
 type EventoDelServidor = Omit<Evento, 'imagenUrl'> & { imagenUrl?: string | null };
 
 // Único lugar donde un evento del servidor pasa al tipo del frontend y recibe su foto local.
 function aEvento(ev: EventoDelServidor): Evento {
   const imagenUrl = ev.imagenUrl ?? undefined;
-  return { ...ev, imagenUrl: imagenDeEvento({ id: ev.id, categoria: ev.categoria, imagenUrl }) };
+  return {
+    ...ev,
+    imagenUrl: imagenDeEvento({ id: ev.id, categoria: ev.categoria, imagenUrl }),
+    imagenDelServidor: ev.imagenUrl ?? null,
+  };
 }
 
 // Sin filtros devuelve el catálogo completo, ordenado por fecha.
@@ -54,4 +65,27 @@ export async function crearEvento(datos: NuevoEvento): Promise<Evento> {
     conSesion: true,
   });
   return aEvento(creado);
+}
+
+// PUT /api/eventos/{id}: solo el organizador dueño. Responde 409 si el evento está cancelado o ya
+// empezó, si se quita un sector con ventas, si se baja su cupo por debajo de lo vendido o si se le
+// cambia el precio.
+export async function editarEvento(eventoId: string, datos: EventoEditado): Promise<Evento> {
+  const editado = await pedir<EventoDelServidor>(`/api/eventos/${encodeURIComponent(eventoId)}`, {
+    metodo: 'PUT',
+    cuerpo: datos,
+    conSesion: true,
+  });
+  return aEvento(editado);
+}
+
+// POST /api/eventos/{id}/cancelacion: no se puede deshacer. Ventas anula cada compra pagada, pide
+// el reembolso y Notificaciones le avisa a cada comprador. El motivo es opcional.
+export async function cancelarEvento(eventoId: string, motivo: string): Promise<Evento> {
+  const cancelado = await pedir<EventoDelServidor>(`/api/eventos/${encodeURIComponent(eventoId)}/cancelacion`, {
+    metodo: 'POST',
+    cuerpo: { motivo: motivo.trim() || null },
+    conSesion: true,
+  });
+  return aEvento(cancelado);
 }
