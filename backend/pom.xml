@@ -42,6 +42,7 @@
 
         <version.compiler.plugin>3.16.0</version.compiler.plugin>
         <version.surefire.plugin>3.6.0</version.surefire.plugin>
+        <version.jacoco.plugin>0.8.16</version.jacoco.plugin>
         <version.war.plugin>3.5.1</version.war.plugin>
         <version.dependency.plugin>3.11.0</version.dependency.plugin>
     </properties>
@@ -156,5 +157,30 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <!-- Cobertura de los tests (JaCoCo): el agente se engancha a surefire y en "verify" deja el
+                 reporte de cada módulo en target/site/jacoco (HTML, XML y CSV). El CI los sube como
+                 artefacto y scripts/qa/cobertura.mjs arma el resumen. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${version.jacoco.plugin}</version>
+                <executions>
+                    <execution>
+                        <id>agente</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>reporte</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 </project>
