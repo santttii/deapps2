@@ -1,0 +1,15 @@
+ETag en la API. 2026-11-18T13:12:32.338Z
+
+A. GET /api/eventos/{slug}
+ok   200 con ETag: 200 ETag "suq82LQDoXPt44mY8TmJyg"
+ok   con If-None-Match igual: 304 sin cuerpo: 304
+ok   con otro valor: 200 con el cuerpo: 200
+
+B. Si el recurso cambia, cambia el ETag (una compra cambia las vendidas del sector)
+ok   con el ETag viejo ya no es 304: 200 con ETag nuevo: 200 "suq82LQDoXPt44mY8TmJyg" → "uTzfP4Zp8AHwYu5WQCyypQ"
+
+C. GET /api/v1/entradas/{id} (con sesión)
+ok   200 con ETag: 200 ETag "6UI3VHAyxifqTY3xY49hZg"
+ok   con If-None-Match igual: 304: 304
+
+6 de 6 comprobaciones
