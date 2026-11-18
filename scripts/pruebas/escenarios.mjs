@@ -1,8 +1,9 @@
-// Prueba de integración del backend de Palco: 21 escenarios de compra, mensajería, conciliación de pagos,
-// facturación, validación en puerta (con el control de dueño), reventa (con su conciliación y sus reembolsos) y devolución de cupo con Eventos caído, de
+// Prueba de integración del backend de Palco: 24 escenarios de compra, mensajería, conciliación de pagos,
+// facturación, validación en puerta (con el control de dueño), reventa (con su conciliación y sus reembolsos), devolución de cupo con Eventos caído,
+// cancelación de eventos, las reglas entre compras (tope por evento y un DNI por evento) y cuenta y catálogo, de
 // punta a punta, por la API y por jboss-cli. Los 13 primeros son los que produjeron docs/entrega3/evidencia/integracion-13-escenarios.txt.
 //
-//   node scripts/pruebas/escenarios.mjs              corre los 21 escenarios
+//   node scripts/pruebas/escenarios.mjs              corre los 24 escenarios
 //   node scripts/pruebas/escenarios.mjs 1 2 7        corre solo esos
 //
 // Se corre desde cualquier carpeta: las rutas salen de la ubicación de este archivo. Necesita Node 18 o
@@ -37,7 +38,7 @@
 import {
   COLA, COLA_DE_AUDITORIA, COLA_DE_FACTURACION, DLQ, Informe, MDB_AUDITORIA, MDB_EMISION, SUSCRIPCION_DE_AUDITORIA, TOPICO, cli,
   contadores, diferencia, esProblema, esperar, hasta, hora, http, logDesde, login, marcaDelLog, numeros,
-  sector, tokenDeServicio, uuid, vendidas, verContadores,
+  BASE, sector, tokenDeServicio, uuid, vendidas, verContadores,
 } from './lib.mjs';
 
 // Las compras van sobre un evento que crea esta misma prueba (como organizador), con un sector igual a
@@ -671,6 +672,11 @@ async function escenario21() {
   esProblema(informe, await http('GET', `${P}?eventoId=${EVENTO}`, { token: OO }), 404, 'no-encontrado', P);
   const intruso = await http('PUT', `${P}/${EVENTO}/otra.puerta@palco.test`, { token: OO });
   informe.igual('el otro organizador no asigna staff en un evento ajeno (404)', intruso.estado, 404);
+  // CA-14.3: solo cuentas de personal de puerta. Una de comprador no podría escanear.
+  const deComprador = await http('PUT', `${P}/${EVENTO}/titular@palco.test`, { token: O });
+  esProblema(informe, deComprador, 422, 'no-es-de-puerta', `${P}/${EVENTO}/titular@palco.test`);
+  informe.ok('y no quedó asignada', !((await http('GET', `${P}?eventoId=${EVENTO}`, { token: O })).json ?? [])
+    .some((x) => x.staffEmail === 'titular@palco.test'));
 
   // La dueña la asigna: ahora escanea; repetirlo no duplica nada.
   const asignada = await http('PUT', `${P}/${EVENTO}/Otra.Puerta@palco.test`, { token: O });
@@ -1232,6 +1238,217 @@ async function escenario17() {
     lineasCon(marcaCompra, 'EmisionDeEntradas', c.ventaId).length, 0);
 }
 
+// ===================================================================================== cancelación y reglas
+
+async function escenario22() {
+  informe.escenario(22, 'Cancelación de un evento: anula las compras, devuelve los pagos, retira la reventa y avisa (CA-11.x)');
+  const OT = await login('otro.titular@palco.test');
+  const OO = await login('otro.organizador@palco.test');
+  // Una compra de dos entradas, emitida, y una de ellas publicada en la reventa.
+  const v = (await abrir(pedidoDe(2))).json;
+  const p = (await pagar(v.id)).json;
+  const emitidaV = await emitida(v.id);
+  informe.ok('la compra está EMITIDA con dos entradas', emitidaV?.entradas?.length === 2, emitidaV?.estado);
+  const publicada = await http('POST', '/api/v1/reventas', { token: T, cuerpo: { entradaId: emitidaV.entradas[0].id, precio: PRECIO } });
+  informe.igual('una de las entradas, publicada en la reventa', publicada.estado, 201);
+
+  const E = `/api/eventos/${EVENTO}/cancelacion`;
+  esProblema(informe, await http('POST', E, { token: OO, cuerpo: { motivo: 'No es mío' } }), 404, 'no-encontrado', E);
+  esProblema(informe, await http('POST', E, { token: T, cuerpo: { motivo: 'Soy comprador' } }), 403, 'sin-permiso', E);
+
+  const marca = marcaDelLog();
+  const cancelado = await http('POST', E, { token: O, cuerpo: { motivo: 'Prueba de integración' } });
+  informe.ok('la dueña lo cancela: 200 con cancelado y el motivo',
+    cancelado.estado === 200 && cancelado.json?.cancelado === true && cancelado.json?.cancelacionMotivo === 'Prueba de integración',
+    `${cancelado.estado} ${cancelado.texto.slice(0, 200)}`);
+  esProblema(informe, await http('POST', E, { token: O, cuerpo: {} }), 409, 'evento-cancelado', E);
+  informe.ok('sale del catálogo', !(await http('GET', '/api/eventos')).json.some((e) => e.id === EVENTO));
+  const detalle = (await http('GET', `/api/eventos/${cancelado.json.slug}`)).json;
+  informe.ok('su detalle sigue respondiendo, marcado como cancelado', detalle?.cancelado === true, JSON.stringify(detalle?.cancelado));
+
+  const anulada = await hasta(async () => {
+    const r = (await ver(v.id)).json;
+    return r?.estado === 'CANCELADA' ? r : null;
+  }, { maximoMs: 30000 });
+  informe.ok('por mensajería, la compra pasa a CANCELADA', anulada !== null, anulada?.estado);
+  informe.ok('y sus dos entradas, a ANULADA (también la que estaba publicada)',
+    anulada?.entradas?.every((e) => e.estado === 'ANULADA'), anulada?.entradas?.map((e) => e.estado).join(' '));
+  const pago = await hasta(async () => {
+    const r = (await http('GET', `/api/v1/pagos/${p.pagoId}`, { token: S })).json;
+    return r?.estado === 'REEMBOLSADO' ? r : null;
+  }, { maximoMs: 30000 });
+  informe.ok('Pagos devolvió el cobro: REEMBOLSADO', pago !== null, pago?.estado);
+  const retirada = await hasta(async () => {
+    const mias = (await http('GET', '/api/v1/reventas/mias', { token: T })).json ?? [];
+    return mias.find((x) => x.id === publicada.json.id && x.estado === 'RETIRADA') ?? null;
+  }, { maximoMs: 30000 });
+  informe.ok('Reventa retiró la publicación: RETIRADA', retirada !== null, retirada?.estado);
+  informe.igual('y ya no figura en la reventa del evento',
+    (await http('GET', `/api/v1/reventas?eventoId=${EVENTO}`)).json?.length, 0);
+  const aviso = await hasta(() => lineasCon(marca, 'Email para titular@palco.test', 'Se canceló')[0], { maximoMs: 30000 });
+  informe.ok('al comprador le llega el aviso con el motivo', aviso?.includes('Prueba de integración'), aviso?.slice(0, 160) ?? 'sin email');
+
+  esProblema(informe, await abrir(pedidoDe(1), uuid(), OT), 409, 'evento-cancelado', '/api/v1/ventas');
+}
+
+async function escenario23() {
+  informe.escenario(23, 'Reglas entre compras: hasta 6 entradas por comprador y evento, y un DNI con una sola entrada por evento');
+  const OT = await login('otro.titular@palco.test');
+  const V = '/api/v1/ventas';
+  // 1. Cuatro pagadas.
+  const cuatro = pedidoDe(4);
+  const a = (await abrir(cuatro)).json;
+  informe.igual('compra de 4 pagada', (await pagar(a.id)).estado, 201);
+  await emitida(a.id);
+
+  // 2. Tope por evento, sumando compras.
+  const tres = await abrir(pedidoDe(3));
+  esProblema(informe, tres, 409, 'tope-por-evento', V);
+  informe.ok('el mensaje dice cuántas puede comprar todavía', tres.json?.detail?.includes('Ya tenés 4: podés comprar 2 más.'), tres.json?.detail);
+  const dos = await abrir(pedidoDe(2));
+  informe.igual('2 más sí (llega a 6, contando la compra en curso)', dos.estado, 201);
+  const una = await abrir(pedidoDe(1));
+  esProblema(informe, una, 409, 'tope-por-evento', V);
+  informe.ok('con 6 ya no puede comprar más', una.json?.detail?.includes('no podés comprar más para este evento'), una.json?.detail);
+  informe.igual('cancelar la compra en curso libera el tope', (await cancelar(dos.json.id)).estado, 204);
+  const otraVez = await abrir(pedidoDe(1));
+  informe.igual('y vuelve a poder comprar', otraVez.estado, 201);
+  await cancelar(otraVez.json.id);
+
+  // 3. Un DNI, una entrada por evento, aunque compre otra persona.
+  const dniUsado = cuatro.titulares[0].dni;
+  const conDniUsado = await abrir({ eventoId: EVENTO, items: [{ sectorId: SECTOR, cantidad: 1 }],
+    titulares: [{ nombre: 'Otra Persona', dni: dniUsado }] }, uuid(), OT);
+  esProblema(informe, conDniUsado, 409, 'dni-con-entrada', V);
+  informe.ok('el mensaje nombra el DNI', conDniUsado.json?.detail?.includes(dniUsado), conDniUsado.json?.detail);
+  const conDniLibre = await abrir({ eventoId: EVENTO, items: [{ sectorId: SECTOR, cantidad: 1 }],
+    titulares: [{ nombre: 'Otra Persona', dni: String(dniSiguiente++) }] }, uuid(), OT);
+  informe.igual('con un DNI sin entrada, la otra cuenta compra', conDniLibre.estado, 201);
+  await cancelar(conDniLibre.json.id, OT);
+
+  // 4. Dos compras abiertas a la vez con el mismo DNI: gana la primera que paga, la otra no se cobra.
+  const compartido = String(dniSiguiente++);
+  const delTitular = (await abrir({ eventoId: EVENTO, items: [{ sectorId: SECTOR, cantidad: 1 }],
+    titulares: [{ nombre: 'Persona Compartida', dni: compartido }] })).json;
+  const delOtro = (await abrir({ eventoId: EVENTO, items: [{ sectorId: SECTOR, cantidad: 1 }],
+    titulares: [{ nombre: 'Persona Compartida', dni: compartido }] }, uuid(), OT)).json;
+  informe.ok('las dos se abren (los titulares todavía no están pagos)', Boolean(delTitular?.id && delOtro?.id));
+  informe.igual('la primera paga', (await pagar(delTitular.id)).estado, 201);
+  const marca = marcaDelLog();
+  const segunda = await pagar(delOtro.id, 'tok_test', uuid(), OT);
+  esProblema(informe, segunda, 409, 'dni-con-entrada', `${V}/${delOtro.id}/pagos`);
+  informe.igual('a la segunda no se la cobró: Pagos no recibió ningún pedido',
+    lineasCon(marca, 'ServicioDePagos', `de la venta ${delOtro.id}`).length, 0);
+  const sigue = (await ver(delOtro.id, OT)).json;
+  informe.ok('sigue EN_CHECKOUT y sin pago', sigue?.estado === 'EN_CHECKOUT' && sigue.pagoId === null, `${sigue?.estado} ${sigue?.pagoId}`);
+  informe.igual('y se puede cancelar', (await cancelar(delOtro.id, OT)).estado, 204);
+}
+
+async function escenario24() {
+  informe.escenario(24, 'Cuenta y catálogo: registro, login, contraseña olvidada, catálogo, búsqueda, alta de evento y resumen');
+  const U = '/api/usuarios';
+  // --- Registro (CA-01.x)
+  const email = `integracion.cuenta.${Date.now()}@palco.test`;
+  const dni = String(dniSiguiente++);
+  const datos = { nombre: 'Carla', apellido: 'Integracion', dni, fechaNacimiento: '1994-03-08', email, password: 'palco1234' };
+  esProblema(informe, await http('POST', `${U}/registro`, { cuerpo: { ...datos, email: 'titular@palco.test', dni: String(dniSiguiente++) } }),
+    400, 'datos-invalidos', `${U}/registro`);
+  const seis = await http('POST', `${U}/registro`, { cuerpo: { ...datos, dni: '123456' } });
+  esProblema(informe, seis, 400, 'datos-invalidos', `${U}/registro`);
+  informe.ok('DNI de 6 dígitos: el error dice el campo', Boolean(seis.json?.errores?.dni), JSON.stringify(seis.json?.errores));
+  const menor = await http('POST', `${U}/registro`, { cuerpo: { ...datos, fechaNacimiento: `${new Date().getFullYear() - 15}-01-01` } });
+  esProblema(informe, menor, 400, 'datos-invalidos', `${U}/registro`);
+  const marca = marcaDelLog();
+  const alta = await http('POST', `${U}/registro`, { cuerpo: { ...datos, rol: 'organizer' } });
+  informe.igual('registro correcto: 201', alta.estado, 201);
+  esProblema(informe, await http('POST', `${U}/login`, { cuerpo: { email, password: 'palco1234' } }), 409, 'conflicto', `${U}/login`);
+  const mal = await http('POST', `${U}/verificacion`, { cuerpo: { email, codigo: '000000' } });
+  esProblema(informe, mal, 400, 'datos-invalidos', `${U}/verificacion`);
+  const linea = await hasta(() => lineasCon(marca, `Email para ${email}`, 'Tu código de Palco')[0]);
+  const codigo = linea.match(/el email es (\d{6})\./)[1];
+  const sesion = await http('POST', `${U}/verificacion`, { cuerpo: { email, codigo } });
+  informe.igual('con el código del email, la cuenta queda verificada: 200 con su token', sesion.estado, 200);
+  const yo = (await http('GET', `${U}/yo`, { token: sesion.json.token })).json;
+  informe.ok('mandar "rol": "organizer" al registrarse no sirve: la cuenta es user', (yo?.rol ?? 'user') === 'user', yo?.rol);
+
+  // --- Login (CA-02.x)
+  const login1 = await http('POST', `${U}/login`, { cuerpo: { email, password: 'palco1234' } });
+  const grupos = JSON.parse(Buffer.from(login1.json.token.split('.')[1], 'base64url').toString()).groups;
+  informe.ok('login correcto: 200 con un JWT del grupo user', login1.estado === 200 && grupos?.includes('user'), JSON.stringify(grupos));
+  esProblema(informe, await http('POST', `${U}/login`, { cuerpo: { email, password: 'otra-cosa1' } }), 401, 'no-autenticado', `${U}/login`);
+
+  // --- Contraseña olvidada (CA-03.x)
+  const nadie = await http('POST', `${U}/password/olvide`, { cuerpo: { email: `nadie.${Date.now()}@palco.test` } });
+  informe.igual('olvidé con un email que no existe: 204, igual que con uno que sí', nadie.estado, 204);
+  const marcaReinicio = marcaDelLog();
+  informe.igual('olvidé con el email de la cuenta: 204', (await http('POST', `${U}/password/olvide`, { cuerpo: { email } })).estado, 204);
+  const lineaReinicio = await hasta(() => lineasCon(marcaReinicio, `Email para ${email}`, 'Volvé a poner tu contraseña')[0]);
+  const codigoReinicio = lineaReinicio.match(/contraseña nueva es (\d{6})/)[1];
+  const otroCodigo = codigoReinicio === '111111' ? '222222' : '111111';
+  esProblema(informe, await http('POST', `${U}/password/reinicio`, { cuerpo: { email, codigo: otroCodigo, password: 'nueva12345' } }),
+    400, 'datos-invalidos', `${U}/password/reinicio`);
+  informe.igual('con un código incorrecto la contraseña no cambió: la vieja sigue entrando',
+    (await http('POST', `${U}/login`, { cuerpo: { email, password: 'palco1234' } })).estado, 200);
+  informe.igual('con el código del email: 204', (await http('POST', `${U}/password/reinicio`,
+    { cuerpo: { email, codigo: codigoReinicio, password: 'nueva12345' } })).estado, 204);
+  informe.igual('la contraseña nueva entra', (await http('POST', `${U}/login`, { cuerpo: { email, password: 'nueva12345' } })).estado, 200);
+
+  // --- Fuerza bruta (CA-02.3), con esta cuenta para no bloquear las de prueba
+  for (let i = 0; i < 5; i++) await http('POST', `${U}/login`, { cuerpo: { email, password: 'mal-intento1' } });
+  const bloqueada = await fetch(`${BASE}${U}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: 'nueva12345' }) });
+  const cuerpoBloqueo = await bloqueada.json().catch(() => null);
+  informe.ok('después de 5 fallidos, aunque la contraseña sea la correcta: 429 con Retry-After',
+    bloqueada.status === 429 && cuerpoBloqueo?.type?.endsWith('demasiados-intentos') && Number(bloqueada.headers.get('retry-after')) > 0,
+    `${bloqueada.status} ${cuerpoBloqueo?.type} Retry-After ${bloqueada.headers.get('retry-after')}`);
+
+  // --- Mis compras (CA-07.x)
+  informe.igual('una cuenta que nunca compró: GET /api/v1/ventas es 200 con lista vacía',
+    JSON.stringify((await http('GET', '/api/v1/ventas', { token: sesion.json.token })).json), '[]');
+  const mias = (await http('GET', '/api/v1/ventas', { token: T })).json ?? [];
+  const ordenadas = mias.every((v, i) => i === 0 || Date.parse(mias[i - 1].creada) >= Date.parse(v.creada));
+  const conQr = mias.flatMap((v) => v.entradas ?? []).filter((e) => e.estado === 'VALIDA').every((e) => e.codigoQr);
+  informe.ok('mis compras: de la más nueva a la más vieja y cada entrada VALIDA con su código', mias.length > 0 && ordenadas && conQr,
+    `${mias.length} compras`);
+
+  // --- Alta de evento (CA-10.x)
+  const nuevo = { titulo: `Alta de prueba ${Date.now()}`, categoria: 'Música', venue: 'Club de prueba', fechaISO: '2027-11-30T21:00:00',
+    descripcion: 'Evento del escenario 24.', sectores: [{ nombre: 'Campo', precio: 10000, cupo: 100 }, { nombre: 'VIP', precio: 30000, cupo: 20 }] };
+  const creado = await http('POST', '/api/eventos', { token: O, cuerpo: nuevo });
+  informe.ok('alta de evento: 201 con Location y slug', creado.estado === 201 && creado.location?.endsWith(creado.json.slug) && creado.json.slug,
+    `${creado.estado} ${creado.location}`);
+  const enCatalogo = (await http('GET', '/api/eventos')).json.find((e) => e.id === creado.json.id);
+  informe.ok('aparece en el catálogo con vendidas en 0 en cada sector', enCatalogo?.sectores.every((x) => x.vendidas === 0));
+  for (const [nombre, cambio] of [['fecha pasada', { fechaISO: '2020-01-01T21:00:00' }], ['categoría que no existe', { categoria: 'Ópera' }],
+    ['sector con cupo 0', { sectores: [{ nombre: 'Campo', precio: 10000, cupo: 0 }] }]]) {
+    const r = await http('POST', '/api/eventos', { token: O, cuerpo: { ...nuevo, ...cambio } });
+    informe.ok(`alta con ${nombre}: 400 datos-invalidos con el campo`, r.estado === 400 && r.json?.type?.endsWith('datos-invalidos')
+      && Object.keys(r.json?.errores ?? {}).length > 0, `${r.estado} ${JSON.stringify(r.json?.errores)}`);
+  }
+
+  // --- Catálogo (CA-04.x)
+  const catalogo = await http('GET', '/api/eventos');
+  informe.ok('catálogo: 200 con sus eventos, cada uno con sectores, precio y cupo', catalogo.estado === 200
+    && catalogo.json.length > 0 && catalogo.json.every((e) => e.sectores.every((x) => x.precio > 0 && x.cupo > 0)));
+  const detalle = await http('GET', `/api/eventos/${creado.json.slug}`);
+  informe.ok('detalle: 200 con los sectores', detalle.estado === 200 && detalle.json.sectores.length === 2);
+  informe.igual('búsqueda sin resultados: lista vacía', JSON.stringify((await http('GET', '/api/eventos?q=zzzz-no-existe')).json), '[]');
+  esProblema(informe, await http('GET', '/api/eventos/no-existe'), 404, 'no-encontrado', '/api/eventos/no-existe');
+  for (const texto of ["' OR '1'='1", '<script>alert(1)</script>']) {
+    const r = await http('GET', `/api/eventos?q=${encodeURIComponent(texto)}`);
+    informe.ok(`búsqueda con ${JSON.stringify(texto)}: 200 o 400, nunca 500`, [200, 400].includes(r.estado), r.estado);
+  }
+
+  // --- Resumen de ventas (CA-12.x)
+  const R = '/api/v1/resumenes';
+  const propio = await http('GET', `${R}?eventoId=${EVENTO}`, { token: O });
+  informe.ok('la dueña ve el resumen de su evento: 200 con entradas y liquidación', propio.estado === 200
+    && propio.json?.liquidacion && typeof propio.json.liquidacion.entradas === 'number', `${propio.estado} ${propio.texto.slice(0, 160)}`);
+  const OO = await login('otro.organizador@palco.test');
+  esProblema(informe, await http('GET', `${R}?eventoId=${EVENTO}`, { token: OO }), 404, 'no-encontrado', R);
+  esProblema(informe, await http('GET', `${R}?eventoId=${EVENTO}`, { token: T }), 403, 'sin-permiso', R);
+}
+
 // ===================================================================================== corrida
 
 const servicios = ['api/usuarios', 'api/eventos', 'api/v1', 'api/v1/pagos', 'api/v1/validacion', 'api/v1/reventas',
@@ -1247,10 +1464,14 @@ ST = await login('puerta@palco.test');
 S = await tokenDeServicio();
 const inicial = contadores();
 console.log(`Broker al empezar:  ${verContadores(inicial)}`);
-const propio = await eventoDePrueba();
-EVENTO = propio.id;
-[{ id: SECTOR }, MINI, GRANDE] = propio.sectores;
-console.log(`Evento de la prueba: ${EVENTO} (${propio.titulo}). Sector de las compras: ${JSON.stringify(await sector(SECTOR))}`);
+async function eventoNuevo() {
+  const propio = await eventoDePrueba();
+  EVENTO = propio.id;
+  [{ id: SECTOR }, MINI, GRANDE] = propio.sectores;
+  return propio;
+}
+const primero = await eventoNuevo();
+console.log(`Evento de la prueba: ${EVENTO} (${primero.titulo}). Cada escenario crea el suyo.`);
 
 let compra = null;
 const pasos = [
@@ -1261,7 +1482,7 @@ const pasos = [
   [12, escenario12], [13, escenario13], [14, escenario14],
   [15, async () => { compra ??= await compraDeApoyo(); await escenario15(compra); }],
   [16, escenario16], [17, escenario17], [18, escenario18], [19, escenario19], [20, escenario20],
-  [21, escenario21],
+  [21, escenario21], [22, escenario22], [23, escenario23], [24, escenario24],
 ];
 
 /** Si el escenario 5 o el 15 corren solos, necesitan una venta emitida del titular. También la usan el 16 y el 17. */
@@ -1272,9 +1493,14 @@ async function compraDeApoyo() {
   return { ventaId: v.id, pagoId: p.pagoId, entradaId: final.entradas[0].id };
 }
 
+let yaCorrioUno = false;
 for (const [numero, paso] of pasos) {
   if (!corre(numero)) continue;
   try {
+    // Cada escenario compra en un evento nuevo: con el tope de 6 entradas por comprador y evento, todos sobre
+    // el mismo evento lo agotarían. También deja a cada uno con el cupo y la reventa limpios.
+    if (yaCorrioUno) await eventoNuevo();
+    yaCorrioUno = true;
     // El token de servicio dura 5 minutos y la corrida completa tarda más (el escenario 14 espera a la
     // conciliación): se pide uno nuevo antes de cada escenario.
     S = await tokenDeServicio();

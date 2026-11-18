@@ -8,6 +8,8 @@
 //   (convención del documento de HU): el CP dice a qué criterio pertenece.
 // - La salida de scripts/pruebas/escenarios.mjs aporta el resultado de cada escenario; qué criterios cubre cada
 //   uno sale de la tabla "Cobertura actual por la prueba de integración" del documento de HU.
+// - Los reportes de JUnit (--junit) aportan además los tests de la tabla "Cobertura por los tests unitarios" del
+//   documento de HU (Clase#método por criterio). Un test de la tabla que no está en los reportes cuenta como falla.
 //
 // Un criterio sin ningún caso queda "SIN CASO". Si hay criterios sin caso o casos que fallan, sale con código 1.
 // Solo usa módulos que trae Node.
@@ -31,11 +33,18 @@ const criterios = [...texto.matchAll(/Escenario: (CA-(\d+)\.\d+) (.+)$/gm)]
 const porId = new Map(criterios.map((c) => [c.id, c]));
 
 // Tabla "criterios | escenario" del documento.
-const tabla = texto.split('## Cobertura actual por la prueba de integración')[1] ?? '';
+const [tabla = '', tablaUnitarios = ''] = (texto.split('## Cobertura actual por la prueba de integración')[1] ?? '')
+  .split('## Cobertura por los tests unitarios');
 const escenariosDe = new Map(); // CA → [números de escenario]
 for (const [, cas, escenarios] of tabla.matchAll(/^\| (CA-[^|]+) \| ([^|]+) \|$/gm)) {
   const numeros = [...escenarios.matchAll(/\d+/g)].map(Number);
   for (const ca of cas.split(',').map((s) => s.trim())) escenariosDe.set(ca, numeros);
+}
+
+// Tabla "criterio | Clase#método, ..." de los tests unitarios.
+const unitariosDe = new Map(); // CA → ['Clase#método']
+for (const [, ca, tests] of tablaUnitarios.matchAll(/^\| (CA-[\d.]+) \| ([^|]+) \|$/gm)) {
+  unitariosDe.set(ca.trim(), tests.split(',').map((t) => t.trim()).filter((t) => t.includes('#')));
 }
 
 // ------------------------------------------------------------------- reportes
@@ -64,12 +73,27 @@ for (const archivo of valores('--escenarios')) {
 // JUnit XML: <testcase name="..." classname="..."> con <failure> o <error> adentro si falló.
 const xmls = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir, { recursive: true }) : [])
   .filter((f) => String(f).endsWith('.xml')).map((f) => path.join(dir, String(f)));
+const unitarios = new Map(); // 'Clase#método' → resultado, de todos los reportes JUnit
 for (const dir of valores('--junit')) {
   for (const archivo of xmls(dir)) {
     const xml = fs.readFileSync(archivo, 'utf8');
     for (const [, atributos, cuerpo = ''] of xml.matchAll(/<testcase([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g)) {
       const resultado = /<(failure|error)\b/.test(cuerpo) ? 'falla' : /<skipped\b/.test(cuerpo) ? 'omitido' : 'pasa';
       for (const [cp] of atributos.matchAll(CP)) agregar(cp, resultado, path.basename(archivo));
+      const nombre = atributos.match(/\bname="([^"]+)"/)?.[1];
+      const clase = atributos.match(/\bclassname="([^"]+)"/)?.[1]?.split('.').pop();
+      if (nombre && clase) {
+        const clave = `${clase}#${nombre.replace(/\(.*$/, '')}`;
+        // Un parametrizado tiene varias filas con el mismo método: si una falla, cuenta como falla.
+        if (unitarios.get(clave) !== 'falla') unitarios.set(clave, resultado);
+      }
+    }
+  }
+}
+if (valores('--junit').length > 0) {
+  for (const [ca, tests] of unitariosDe) {
+    for (const test of tests) {
+      porId.get(ca)?.casos.push({ id: test, resultado: unitarios.get(test) ?? 'falla (no está en los reportes)', fuente: 'JUnit' });
     }
   }
 }
@@ -98,7 +122,7 @@ for (const archivo of valores('--playwright')) {
 // ------------------------------------------------------------------- matriz
 const estado = (c) => {
   if (c.casos.length === 0) return 'SIN CASO';
-  if (c.casos.some((k) => k.resultado === 'falla')) return 'FALLA';
+  if (c.casos.some((k) => k.resultado.startsWith('falla'))) return 'FALLA';
   return 'PASA';
 };
 const lineas = [

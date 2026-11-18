@@ -24,12 +24,12 @@ con el emulador del navegador).
 |---|---|---|---|---|
 | Unitarias | La lógica de cada Session Bean, con los otros servicios como dobles | JUnit 5 + Mockito | `backend/**/src/test` | Cada `mvn verify` y en el CI |
 | Integración con base | Repositorios y migraciones contra una base real (H2 en modo PostgreSQL), incluida la concurrencia | JUnit 5 + H2 | Tests `*EnH2Test` | Cada `mvn verify` y en el CI |
-| Integración de sistema | Recorridos completos por la API contra WildFly, la base y el broker, sin dobles | Node (`escenarios.mjs`) + jboss-cli | `scripts/pruebas/escenarios.mjs` (21 escenarios) | A mano y en el CI (job "Integración") |
-| Resiliencia | Timeout de 5 s con fallback, caída del broker, ETag | Node | `scripts/pruebas/asistente.mjs`, `broker-apagado.mjs`, `etag.mjs` | A mano antes de cada entrega |
+| Integración de sistema | Recorridos completos por la API contra WildFly, la base y el broker, sin dobles | Node (`escenarios.mjs`) + jboss-cli | `scripts/pruebas/escenarios.mjs` (24 escenarios) | A mano y en el CI (job "Integración") |
+| Resiliencia | Timeout de 5 s con fallback, caída del broker, ETag | Node | `scripts/pruebas/asistente.mjs`, `broker-apagado.mjs`, `etag.mjs` | En el CI (job "Integración") y a mano |
 | IA | Set de evaluación de 20 casos (15 funcionales, 5 adversariales) | JUnit 5 | `EvaluacionDelAsistenteTest` | Cada `mvn verify` |
 | API | Cada endpoint: caso feliz, validaciones, 401, 403, 404, 409 | Postman / Newman | `docs/api/palco-api.postman_collection.json` | A mano |
 | Seguridad | Los 10 criterios SEC-xx (Dado / Cuando / Entonces) | Postman (carpeta 4) + tests | Notion, etiqueta "seguridad" | A mano y con los tests |
-| Patrón State | Transiciones válidas e inválidas (409) de la venta | JUnit + Node | `EstadoDeVentaTest`, `scripts/pruebas/patron-state.mjs` | `mvn verify` y a mano |
+| Patrón State | Transiciones válidas e inválidas (409) de la venta | JUnit + Node | `EstadoDeVentaTest`, `scripts/pruebas/patron-state.mjs` | `mvn verify` y en el CI |
 | Frontend | Lint y compilación (tipos) | oxlint + tsc + Vite | `frontend/` | En el CI |
 | Interfaz | Factura, editar y cancelar evento, subida de fotos: recorridos en el navegador contra el servidor | Playwright | `evidencia/checkpoint-3/pantallas.txt` y `fotos.txt` | A mano antes de cada entrega |
 | Secretos | Que no haya credenciales en el historial | gitleaks | CI, job "Secretos" | En cada push |
@@ -50,7 +50,8 @@ todos los `health` en 200.
 **De aprobación (salida):**
 
 - 0 tests unitarios fallando.
-- Los 21 escenarios de integración pasan completos.
+- Los 24 escenarios de integración pasan completos.
+- La matriz de trazabilidad sin criterios en falla ni sin caso.
 - Las pruebas de resiliencia pasan completas.
 - El set de evaluación de la IA: al menos 18 de 20 y los 5 adversariales sin falla.
 - El CI en verde sobre `master`.
@@ -70,8 +71,10 @@ corregirlo; las unitarias siguen.
 | Consumidor idempotente | Escenario 8 (mensaje repetido: una sola emisión) | `escenarios.mjs` | PASA |
 | DLQ | Escenario 12 (mensaje inválido: 5 reintentos y DLQ) | `escenarios.mjs` | PASA |
 | Broker apagado sin perder mensajes | Mensaje pendiente, reinicio del servidor, se emite al volver | `node scripts/pruebas/broker-apagado.mjs` | 10 de 10 |
+| Cancelación de un evento | Compras anuladas, pagos devueltos, reventa retirada y aviso | Escenario 22 | PASA |
+| Reglas entre compras | Tope de 6 por comprador y evento; un DNI por evento, también al pagar | Escenario 23 | PASA |
 | Idempotency-Key | Escenario 2 (misma clave no duplica) | `escenarios.mjs` | PASA |
-| ETag | 200 con ETag; 304 con `If-None-Match`; ETag nuevo si cambia | `node scripts/pruebas/etag.mjs` | 6 de 6 |
+| ETag | En los 10 GET principales: 200 con ETag; 304 con `If-None-Match`; ETag nuevo si cambia | `node scripts/pruebas/etag.mjs` | 13 de 13 |
 | Problem Details | Escenarios 4 y 5 (cada error con su `type`) | `escenarios.mjs` | PASA |
 | IA por su gateway | Guardrails, timeout, fallback y apagado en vivo | `asistente.mjs` | 11 de 11 |
 | IA: set de evaluación | 20 casos | `mvn -pl servicios/asistente -am test` | 20 de 20 |
@@ -105,26 +108,26 @@ Corrida del 18/11/2026 sobre el código del checkpoint, con WildFly 41, Java 25 
 
 | Prueba | Resultado |
 |---|---|
-| Tests unitarios y de integración con base | 800 tests, 0 fallas |
-| Cobertura | 78,1 % de líneas, 73,7 % de ramas |
+| Tests unitarios y de integración con base | 817 tests, 0 fallas |
+| Cobertura | 77,8 % de líneas, 73,6 % de ramas |
 | Set de evaluación de la IA | 20 de 20; adversariales 5 de 5 |
 | Asistente en vivo | 11 de 11 |
 | Broker apagado | 10 de 10; no se perdió ningún mensaje |
-| ETag | 6 de 6 |
-| Escenarios de integración | 21 de 21; 311 de 311 comprobaciones |
+| ETag | 13 de 13 |
+| Patrón State | 10 de 10 |
+| Escenarios de integración | 24 de 24; 379 de 379 comprobaciones |
 | Pantallas nuevas en el navegador (factura, editar y cancelar evento) | 20 de 20 |
 | Subida de fotos de eventos en el navegador (crear, cambiar y quitar la foto) | 13 de 13 |
-| Matriz de trazabilidad | 22 de 61 criterios con caso automático, todos en verde |
+| Matriz de trazabilidad | 62 de 62 criterios con caso, todos en verde |
 
 La salida completa de cada corrida está en `docs/testing/evidencia/checkpoint-3/` y la matriz en
-`docs/testing/evidencia/matriz-de-trazabilidad.md`.
+`docs/testing/evidencia/matriz-de-trazabilidad.md`. La matriz se arma con
+`node scripts/qa/matriz.mjs --escenarios <salida de escenarios.mjs> --junit <cada carpeta surefire-reports>`.
 
 ## 9. Riesgos y pendientes
 
-- Las pruebas en el navegador cubren por ahora solo las pantallas nuevas (factura, editar y cancelar
-  evento) y no corren en el CI: el resto de la interfaz se prueba a mano con el manual de usuario.
-- La cancelación de eventos ya se prueba contra el servidor desde el navegador (la compra queda
-  anulada), pero todavía no tiene su escenario en `escenarios.mjs`, que es el que corre en el CI.
+- Las pruebas en el navegador (Playwright) cubren las pantallas nuevas y no corren en el CI: el resto de la
+  interfaz se prueba a mano con el manual de usuario.
 - No hay pruebas de carga.
-- Los 61 criterios de aceptación no tienen todavía un caso automático cada uno: la matriz de
-  trazabilidad marca cuáles faltan.
+- El asistente usa un modelo simulado: el gateway, los guardrails, el timeout y el fallback son los reales, y
+  pasar a un modelo de lenguaje real es sumar una implementación de `ModeloDeLenguaje`.

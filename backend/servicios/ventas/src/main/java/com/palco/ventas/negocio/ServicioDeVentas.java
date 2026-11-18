@@ -165,6 +165,9 @@ public class ServicioDeVentas implements IVentas {
     /** La venta de esta compra; null hasta que {@link #iniciarCompra} termina bien. */
     private String ventaId;
 
+    /** El evento de la compra: antes de cobrar se vuelve a mirar el DNI de cada titular para ese evento. */
+    private String eventoId;
+
     /** A nombre de quién va cada entrada, en el orden del pedido. Todavía no están en la base. */
     private List<TitularDto> titulares = List.of();
 
@@ -227,6 +230,9 @@ public class ServicioDeVentas implements IVentas {
 
         // 1. Se valida todo antes de tocar la base o llamar a Eventos.
         validar(nueva);
+        // Y las reglas entre compras: el tope por evento y un DNI por evento.
+        exigirTopePorEvento(compradorId, nueva);
+        exigirDnisSinEntrada(nueva.eventoId(), nueva.titulares().stream().map(TitularDto::dni).toList(), null);
 
         // La venta se arma en memoria: todavía no se guarda nada.
         LocalDateTime ahora = ahora();
@@ -252,6 +258,7 @@ public class ServicioDeVentas implements IVentas {
 
         // Recién ahora la instancia queda atada a la compra.
         this.ventaId = venta.getId();
+        this.eventoId = venta.getEventoId();
         this.titulares = nueva.titulares().stream()
                 .map(titular -> new TitularDto(titular.nombre().strip(), titular.dni()))
                 .toList();
@@ -314,6 +321,13 @@ public class ServicioDeVentas implements IVentas {
         //    Antes se copian los titulares a la base, en una transacción propia que termina acá: desde el
         //    cobro la compra tiene que poder terminarse sin esta instancia (ver ConciliacionDePagos).
         //    Y se recuerda la clave: si el cobro queda sin resultado, repetirla vale aunque venza la reserva.
+        // Antes de cobrar se vuelve a mirar el DNI de cada titular: entre que se abrió esta compra y
+        // ahora, otra compra del mismo evento pudo haberse pagado con alguno de ellos. No se mira en
+        // un reintento del mismo cobro: ese cobro ya salió, y cortarlo dejaría el pago sin compra.
+        // La consulta corre en una transacción propia y corta: no deja una conexión tomada durante el cobro.
+        if (!claveIdempotencia.equals(claveDelUltimoCobro)) {
+            exigirDnisSinEntrada(eventoId, titulares.stream().map(TitularDto::dni).toList(), ventaId);
+        }
         respaldarTitulares();
         claveDelUltimoCobro = claveIdempotencia;
         ResultadoDeCobro cobro = cobros.cobrar(ventaId, montoTotal, pago.medioDePago(), pago.token(),
@@ -446,6 +460,39 @@ public class ServicioDeVentas implements IVentas {
                 throw new ErroresDeNegocio.ReglaIncumplida(TiposDeProblema.DNI_REPETIDO,
                         "Cada entrada va a nombre de una persona distinta: el DNI " + titular.dni() + " está repetido.");
             }
+        }
+    }
+
+    /**
+     * El tope de {@link ReglasDeNegocio#MAX_ENTRADAS_POR_EVENTO} entradas por
+     * comprador y evento, sumando las compras que ya tiene. El de cada compra
+     * lo mira {@link #validar}; este evita esquivarlo con varias compras.
+     */
+    private void exigirTopePorEvento(String compradorId, NuevaVentaDto nueva) {
+        long pedidas = nueva.items().stream().mapToLong(ItemPedidoDto::cantidad).sum();
+        long tiene = ventas.entradasDelCompradorParaElEvento(compradorId, nueva.eventoId(), ahora());
+        if (tiene + pedidas > ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO) {
+            long quedan = Math.max(0, ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO - tiene);
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.TOPE_POR_EVENTO,
+                    "Cada persona puede tener hasta " + ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO
+                            + " entradas por evento, sumando todas sus compras. Ya tenés " + tiene
+                            + (quedan == 0 ? ": no podés comprar más para este evento."
+                                    : ": podés comprar " + quedan + " más."));
+        }
+    }
+
+    /**
+     * Un DNI, una entrada por evento: ninguno de los titulares puede tener ya
+     * una entrada en pie para el mismo evento en otra compra. La regla de una
+     * misma compra (DNI repetido adentro) la mira {@link #validar}.
+     */
+    private void exigirDnisSinEntrada(String eventoId, List<String> dnis, String excepto) {
+        List<String> conEntrada = ventas.dnisConEntradaParaElEvento(eventoId, dnis, excepto);
+        if (!conEntrada.isEmpty()) {
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.DNI_CON_ENTRADA,
+                    (conEntrada.size() == 1 ? "El DNI " + conEntrada.get(0) + " ya tiene"
+                            : "Los DNI " + String.join(", ", conEntrada) + " ya tienen")
+                            + " una entrada para este evento. Cada persona puede tener una sola entrada por evento.");
         }
     }
 

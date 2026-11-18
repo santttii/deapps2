@@ -624,6 +624,23 @@ class ComprasEnCursoTest {
     }
 
     @Test
+    void siOtraCompraUsoElDniDeUnTitularNoSeCobraYSeQuitaLaMarca() {
+        when(ventas.buscarPorId(VENTA)).thenReturn(Optional.of(ventaEnCheckout(COMPRADOR)));
+        when(ventas.guardarClaveDePago(VENTA, CLAVE_DEL_PAGO, AL_PAGAR)).thenReturn(true);
+        when(instancia.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO)).thenThrow(new ErroresDeNegocio.Conflicto(
+                TiposDeProblema.DNI_CON_ENTRADA, "El DNI 30123456 ya tiene una entrada para este evento."));
+        compras.enCurso.put(VENTA, instancia);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> compras.pagar(COMPRADOR, VENTA, CON_TARJETA, CLAVE_DEL_PAGO));
+
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, error.tipo());
+        // La instancia lo frenó antes de cobrar: sin la marca, la compra se puede cancelar.
+        verify(ventas).borrarClaveDePago(VENTA, CLAVE_DEL_PAGO);
+        assertSame(instancia, compras.enCurso.get(VENTA));
+    }
+
+    @Test
     void unConflictoQueNoEsReservaVencidaTampocoQuitaLaMarca() {
         // Por ejemplo, la red de la base al guardar las entradas: salta después de cobrar.
         when(ventas.buscarPorId(VENTA)).thenReturn(Optional.of(ventaEnCheckout(COMPRADOR)));

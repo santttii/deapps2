@@ -168,6 +168,24 @@ public class PublicacionRepositoryJpa implements PublicacionRepository {
                 .setParameter("activa", EstadoPublicacion.ACTIVA));
     }
 
+    @Override
+    public int retirarPorCancelacionDelEvento(String eventoId, LocalDateTime ahora) {
+        em.flush();
+        int retiradas = em.createQuery("""
+                        update Publicacion p
+                        set p.estado = :retirada, p.cerrada = :ahora
+                        where p.eventoId = :evento
+                          and p.estado = :activa
+                          and p.claveCompra is null""")
+                .setParameter("evento", eventoId)
+                .setParameter("ahora", ahora)
+                .setParameter("retirada", EstadoPublicacion.RETIRADA)
+                .setParameter("activa", EstadoPublicacion.ACTIVA)
+                .executeUpdate();
+        em.clear();
+        return retiradas;
+    }
+
     /**
      * Corre un UPDATE condicional y dice si cambió una fila. La base decide en
      * una sola sentencia: no hay un "leo y después escribo" en el que se pueda

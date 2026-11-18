@@ -28,6 +28,7 @@ import com.palco.validacion.dominio.Escaneo;
 import com.palco.validacion.dominio.PuertaAsignada;
 import com.palco.validacion.dominio.ResultadoEscaneo;
 import com.palco.validacion.negocio.externos.ClienteDeEventos;
+import com.palco.validacion.negocio.externos.ClienteDeUsuarios;
 import com.palco.validacion.negocio.externos.ClienteDeVentas;
 
 /**
@@ -66,6 +67,9 @@ public class ServicioDeValidacion implements IValidacion {
     /** El {@code type} del 403 cuando el staff no trabaja en la puerta de ese evento. */
     static final String PUERTA_NO_ASIGNADA = "puerta-no-asignada";
 
+    /** El {@code type} del 422 cuando se asigna a la puerta una cuenta que no es de personal de puerta. */
+    static final String NO_ES_DE_PUERTA = "no-es-de-puerta";
+
     private static final Logger LOG = Logger.getLogger(ServicioDeValidacion.class.getName());
 
     @Inject
@@ -79,6 +83,9 @@ public class ServicioDeValidacion implements IValidacion {
 
     @Inject
     ClienteDeEventos eventos;
+
+    @Inject
+    ClienteDeUsuarios usuarios;
 
     /** De dónde sale el "ahora". No es estado: es fijo, y los tests lo reemplazan por un reloj detenido. */
     Clock reloj = Clock.systemUTC();
@@ -166,6 +173,13 @@ public class ServicioDeValidacion implements IValidacion {
         Optional<PuertaAsignada> existente = puertas.buscar(evento, email);
         if (existente.isPresent()) {
             return aDto(existente.get());
+        }
+        // Solo cuentas de personal de puerta (CA-14.3): una de comprador o de organizador no podría escanear.
+        String rol = usuarios.rolDe(email);
+        if (!"staff".equals(rol)) {
+            throw new ErroresDeNegocio.ReglaIncumplida(NO_ES_DE_PUERTA, rol == null
+                    ? "No hay una cuenta verificada con ese email."
+                    : "Esa cuenta no es de personal de puerta: no podría escanear. Asigná una cuenta de puerta.");
         }
         PuertaAsignada nueva = new PuertaAsignada(evento, email, organizador.id(), ahora());
         try {

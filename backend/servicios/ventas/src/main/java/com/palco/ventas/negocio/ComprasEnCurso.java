@@ -441,6 +441,12 @@ public class ComprasEnCurso {
             // Ya sin la marca de este intento, la venta se cierra como cuando no hay instancia.
             throw ventas.buscarPorId(ventaId).map(this::compraPerdida).orElseGet(ServicioDeVentas::reservaVencida);
         } catch (ErroresDeNegocio.Conflicto e) {
+            if (TiposDeProblema.DNI_CON_ENTRADA.equals(e.tipo())) {
+                // Otra compra del evento se pagó con el DNI de un titular mientras esta estaba abierta. La
+                // instancia lo frenó antes de cobrar: sin la marca, esta compra se puede cancelar.
+                quitarMarcaSinCobro(ventaId, clavePago, reintento);
+                throw e;
+            }
             if (TiposDeProblema.RESERVA_VENCIDA.equals(e.tipo())) {
                 // La reserva venció justo entre la marca y la revisión de la instancia, que es anterior al cobro.
                 quitarMarcaSinCobro(ventaId, clavePago, reintento);

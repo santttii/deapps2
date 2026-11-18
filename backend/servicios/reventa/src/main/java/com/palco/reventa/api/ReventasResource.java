@@ -23,6 +23,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
+import com.palco.common.rest.ConEtag;
 import com.palco.common.seguridad.Sesion;
 import com.palco.reventa.api.Dtos.CompraDto;
 import com.palco.reventa.api.Dtos.CompraHechaDto;
@@ -48,6 +49,7 @@ public class ReventasResource {
     /** {@code GET /api/v1/reventas?eventoId=ev-1}: las publicaciones activas del evento. Público, como el catálogo. */
     @GET
     @PermitAll
+    @ConEtag
     public List<PublicacionDto> listar(@QueryParam("eventoId") String eventoId) {
         return reventa.listarActivas(eventoId);
     }
@@ -56,6 +58,7 @@ public class ReventasResource {
     @GET
     @Path("mias")
     @RolesAllowed("user")
+    @ConEtag
     public List<PublicacionDto> mias(@Context SecurityContext seguridad) {
         return reventa.listarDelVendedor(Sesion.usuarioId(seguridad));
     }

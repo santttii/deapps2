@@ -38,6 +38,7 @@ import com.palco.validacion.dominio.Escaneo;
 import com.palco.validacion.dominio.PuertaAsignada;
 import com.palco.validacion.dominio.ResultadoEscaneo;
 import com.palco.validacion.negocio.externos.ClienteDeEventos;
+import com.palco.validacion.negocio.externos.ClienteDeUsuarios;
 import com.palco.validacion.negocio.externos.ClienteDeVentas;
 import com.palco.validacion.negocio.externos.ClienteDeVentas.Entrada;
 import com.palco.validacion.negocio.externos.ClienteDeVentas.Titular;
@@ -63,6 +64,7 @@ class ServicioDeValidacionTest {
     private final ClienteDeVentas ventas = mock(ClienteDeVentas.class);
     private final PuertaAsignadaRepository puertas = mock(PuertaAsignadaRepository.class);
     private final ClienteDeEventos eventos = mock(ClienteDeEventos.class);
+    private final ClienteDeUsuarios usuarios = mock(ClienteDeUsuarios.class);
     private final ServicioDeValidacion validacion = new ServicioDeValidacion();
 
     @BeforeEach
@@ -71,6 +73,8 @@ class ServicioDeValidacionTest {
         validacion.ventas = ventas;
         validacion.puertas = puertas;
         validacion.eventos = eventos;
+        validacion.usuarios = usuarios;
+        when(usuarios.rolDe("otra.puerta@palco.test")).thenReturn("staff");
         when(puertas.estaAsignada(EVENTO, "puerta@palco.test")).thenReturn(true);
         when(eventos.organizadorDe(EVENTO)).thenReturn("U-org");
         validacion.reloj = Clock.fixed(AHORA, ZoneOffset.UTC);
@@ -313,6 +317,32 @@ class ServicioDeValidacionTest {
         when(puertas.buscar(EVENTO, "otra.puerta@palco.test")).thenReturn(Optional.of(existente));
         assertEquals("2026-11-01T10:00:00Z", validacion.asignar(EVENTO, "otra.puerta@palco.test", DUENO).asignada());
         verify(puertas).guardar(any());
+    }
+
+    @Test
+    void unaCuentaQueNoEsDePuertaNoSeAsignaYNoQuedaNada() {
+        when(puertas.buscar(EVENTO, "titular@palco.test")).thenReturn(Optional.empty());
+        when(usuarios.rolDe("titular@palco.test")).thenReturn("user");
+        when(puertas.buscar(EVENTO, "nadie@palco.test")).thenReturn(Optional.empty());
+        when(usuarios.rolDe("nadie@palco.test")).thenReturn(null);
+
+        ErroresDeNegocio.ReglaIncumplida deComprador = assertThrows(ErroresDeNegocio.ReglaIncumplida.class,
+                () -> validacion.asignar(EVENTO, "titular@palco.test", DUENO));
+        ErroresDeNegocio.ReglaIncumplida sinCuenta = assertThrows(ErroresDeNegocio.ReglaIncumplida.class,
+                () -> validacion.asignar(EVENTO, "nadie@palco.test", DUENO));
+
+        assertEquals("no-es-de-puerta", deComprador.tipo());
+        assertEquals("no-es-de-puerta", sinCuenta.tipo());
+        verify(puertas, never()).guardar(any());
+    }
+
+    @Test
+    void siUsuariosNoRespondeNoSeAsignaYEsSinRespuesta() {
+        when(puertas.buscar(EVENTO, "otra.puerta@palco.test")).thenReturn(Optional.empty());
+        when(usuarios.rolDe("otra.puerta@palco.test")).thenThrow(new ErroresDeNegocio.SinRespuesta("Usuarios no responde"));
+
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> validacion.asignar(EVENTO, "otra.puerta@palco.test", DUENO));
+        verify(puertas, never()).guardar(any());
     }
 
     @Test

@@ -58,6 +58,9 @@ public class ClienteDeEventos {
     /** El {@code type} del 409 con el que Eventos dice que el evento ya empezó y no reserva más. */
     static final String TIPO_EVENTO_FINALIZADO = "/problemas/evento-finalizado";
 
+    /** El {@code type} del 409 con el que Eventos dice que el evento se canceló y no vende más. */
+    static final String TIPO_EVENTO_CANCELADO = "/problemas/evento-cancelado";
+
     /**
      * El {@code type} del 409 con el que Eventos dice que esa devolución ya la
      * aplicó otro pedido con la misma clave. Para quien devuelve es un éxito.
@@ -190,11 +193,16 @@ public class ClienteDeEventos {
             case 404 -> throw tipoDeProblema(respuesta.cuerpo()) != null
                     ? new ErroresDeNegocio.ReglaIncumplida(TiposDeProblema.SECTOR_INEXISTENTE, "El evento no tiene ese sector.")
                     : new ErroresDeNegocio.SinRespuesta("El servicio de eventos no responde. Probá de nuevo.");
-            case 409 -> throw TIPO_EVENTO_FINALIZADO.equals(tipoDeProblema(respuesta.cuerpo()))
-                    ? new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_FINALIZADO, "Ese evento ya empezó o terminó")
-                    : new ErroresDeNegocio.Conflicto(TiposDeProblema.CUPO_AGOTADO, cantidad > 0
-                    ? "No quedan suficientes entradas en ese sector."
-                    : "Eventos no aceptó la devolución: el sector no tiene tantas entradas vendidas.");
+            case 409 -> throw switch (String.valueOf(tipoDeProblema(respuesta.cuerpo()))) {
+                case TIPO_EVENTO_FINALIZADO ->
+                        new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_FINALIZADO, "Ese evento ya empezó o terminó");
+                // Antes se informaba como cupo agotado, y el comprador leía "no quedan entradas" de un evento cancelado.
+                case TIPO_EVENTO_CANCELADO ->
+                        new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_CANCELADO, "Ese evento se canceló: no se venden más entradas.");
+                default -> new ErroresDeNegocio.Conflicto(TiposDeProblema.CUPO_AGOTADO, cantidad > 0
+                        ? "No quedan suficientes entradas en ese sector."
+                        : "Eventos no aceptó la devolución: el sector no tiene tantas entradas vendidas.");
+            };
             default -> {
                 // Con el evento, el sector y la cantidad, el cupo se puede revisar a mano en Eventos.
                 LOG.warning("Eventos respondió " + respuesta.estado() + " al cambiar el cupo: evento "

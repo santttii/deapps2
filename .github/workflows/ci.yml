@@ -98,7 +98,7 @@ jobs:
   integracion:
     name: Integración (docker compose)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     env:
       PALCO_DIR_LOGS: ./logs
       PALCO_LOG: logs/server.log
@@ -135,6 +135,14 @@ jobs:
           done
       - name: Prueba de integración (scripts/pruebas/escenarios.mjs)
         run: node scripts/pruebas/escenarios.mjs
+      - name: ETag, patrón State y asistente con IA (timeout y fallback)
+        run: |
+          node scripts/pruebas/etag.mjs
+          node scripts/pruebas/patron-state.mjs
+          node scripts/pruebas/asistente.mjs
+      # Va última porque reinicia el servidor: apaga el broker con un mensaje pendiente y comprueba que no se pierde.
+      - name: Broker apagado sin perder mensajes (scripts/pruebas/broker-apagado.mjs)
+        run: node scripts/pruebas/broker-apagado.mjs
       - name: Control de logs (sin tokens ni DNI de prueba)
         if: always()
         run: |

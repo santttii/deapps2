@@ -1,8 +1,11 @@
 package com.palco.ventas.datos;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
@@ -14,6 +17,7 @@ import jakarta.persistence.Query;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.datos.BaseDeDatos;
+import com.palco.ventas.dominio.EstadoEntrada;
 import com.palco.ventas.dominio.EstadoVenta;
 import com.palco.ventas.dominio.TitularDeVenta;
 import com.palco.ventas.dominio.Venta;
@@ -241,6 +245,63 @@ public class VentaRepositoryJpa implements VentaRepository {
         }
         // Los INSERT salen acá, dentro de este método: la copia queda escrita antes de volver.
         em.flush();
+    }
+
+    @Override
+    public long entradasDelCompradorParaElEvento(String compradorId, String eventoId, LocalDateTime ahora) {
+        Long compradas = em.createQuery("""
+                        select coalesce(sum(i.cantidad), 0) from VentaItem i
+                        where i.venta.compradorId = :comprador and i.venta.eventoId = :evento
+                          and (i.venta.estado in :pagadas
+                               or (i.venta.estado = :enCheckout and i.venta.venceReserva > :ahora))""", Long.class)
+                .setParameter("comprador", compradorId)
+                .setParameter("evento", eventoId)
+                .setParameter("pagadas", List.of(EstadoVenta.CONFIRMADA, EstadoVenta.EMITIDA))
+                .setParameter("enCheckout", EstadoVenta.EN_CHECKOUT)
+                .setParameter("ahora", ahora)
+                .getSingleResult();
+        // De las pagadas, las que ya no son suyas: revendidas o anuladas.
+        Long yaNoSonSuyas = em.createQuery("""
+                        select count(e) from Entrada e
+                        where e.venta.compradorId = :comprador and e.venta.eventoId = :evento
+                          and e.venta.estado in :pagadas and e.estado in :fuera""", Long.class)
+                .setParameter("comprador", compradorId)
+                .setParameter("evento", eventoId)
+                .setParameter("pagadas", List.of(EstadoVenta.CONFIRMADA, EstadoVenta.EMITIDA))
+                .setParameter("fuera", List.of(EstadoEntrada.VENDIDA, EstadoEntrada.ANULADA))
+                .getSingleResult();
+        return compradas - yaNoSonSuyas;
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public List<String> dnisConEntradaParaElEvento(String eventoId, Collection<String> dnis, String excepto) {
+        if (dnis.isEmpty()) {
+            return List.of();
+        }
+        Set<String> encontrados = new TreeSet<>(em.createQuery("""
+                        select e.titularDni from Entrada e
+                        where e.venta.eventoId = :evento and e.venta.id <> :excepto
+                          and e.titularDni in :dnis and e.estado in :enPie""", String.class)
+                .setParameter("evento", eventoId)
+                .setParameter("excepto", excepto == null ? "" : excepto)
+                .setParameter("dnis", dnis)
+                .setParameter("enPie", List.of(EstadoEntrada.PENDIENTE_EMISION, EstadoEntrada.VALIDA,
+                        EstadoEntrada.USADA, EstadoEntrada.PUBLICADA))
+                .getResultList());
+        // Una compra que se está cobrando todavía no tiene entradas, pero sí la copia de sus titulares.
+        encontrados.addAll(em.createQuery("""
+                        select t.dni from TitularDeVenta t
+                        where t.dni in :dnis and t.ventaId <> :excepto
+                          and t.ventaId in (select v.id from Venta v
+                                            where v.eventoId = :evento and v.estado = :enCheckout
+                                              and v.clavePago is not null)""", String.class)
+                .setParameter("dnis", dnis)
+                .setParameter("excepto", excepto == null ? "" : excepto)
+                .setParameter("evento", eventoId)
+                .setParameter("enCheckout", EstadoVenta.EN_CHECKOUT)
+                .getResultList());
+        return List.copyOf(encontrados);
     }
 
     @Override

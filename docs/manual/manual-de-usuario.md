@@ -72,6 +72,13 @@ En el primero se completa el **nombre, apellido y DNI** de quien va a usar cada 
 **Continuar**, Palco reserva los lugares por **diez minutos**. Después de este paso los titulares no
 se pueden cambiar.
 
+Dos reglas para que nadie acapare entradas:
+
+- **Hasta 6 entradas por evento**, sumando todas las compras de la misma cuenta. Si ya tenés 4, Palco
+  avisa que podés comprar 2 más.
+- **Una entrada por persona y evento**: un DNI que ya tiene entrada para ese evento no puede ser
+  titular de otra, aunque la compre otra cuenta.
+
 ![Checkout, titulares](img/04-checkout-titulares.png)
 
 ## 7. Comprar: el pago
@@ -206,6 +213,7 @@ a la derecha los últimos escaneos, del más reciente al más antiguo.
 | Pregunta | Respuesta |
 |---|---|
 | ¿Puedo cambiar el titular después de comprar? | No. La entrada es nominativa; si no puede ir, se revende. |
+| ¿Puedo comprar más de una vez para el mismo evento? | Sí, hasta 6 entradas en total, y cada persona (DNI) con una sola entrada. |
 | ¿A cuánto puedo revender? | Hasta el 110 % de lo que pagó. |
 | ¿Qué pasa si se vence la reserva de diez minutos? | Los lugares se liberan y hay que empezar la compra de nuevo. |
 | ¿Qué llevo a la puerta? | El QR de la entrada y el DNI del titular. |

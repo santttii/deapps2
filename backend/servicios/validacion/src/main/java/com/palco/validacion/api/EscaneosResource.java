@@ -22,6 +22,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
 
+import com.palco.common.rest.ConEtag;
 import com.palco.common.seguridad.Sesion;
 import com.palco.validacion.api.Dtos.EscaneoDto;
 import com.palco.validacion.api.Dtos.NuevoEscaneoDto;
@@ -78,6 +79,7 @@ public class EscaneosResource {
      */
     @GET
     @RolesAllowed({ "staff", "organizer" })
+    @ConEtag
     public List<EscaneoDto> listar(
             @QueryParam("eventoId")
             @NotBlank(message = "Indicá el evento con ?eventoId=.")

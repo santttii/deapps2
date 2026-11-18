@@ -133,6 +133,8 @@ por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del ser
     `titulares-no-coinciden`. Dos titulares con el mismo DNI: 422 `dni-repetido`. Sector que no es del evento: 422
     `sector-inexistente`. Nombre vacío o DNI sin 7 u 8 dígitos: 400 `datos-invalidos`.
   - 2b. Identidad sin verificar: 403 `identidad-no-verificada`, antes de reservar.
+  - 2b'. Con sus otras compras del evento pasaría de 6 entradas: 409 `tope-por-evento`. Un titular cuyo DNI ya
+    tiene una entrada para el evento: 409 `dni-con-entrada` (también al pagar, y entonces no se cobra).
   - 2c. Sin cupo: 409 `cupo-agotado`; el evento ya empezó: 409 `evento-finalizado`. Se devuelve el cupo de los
     sectores ya reservados. Con el evento cancelado, Eventos no reserva (409 `evento-cancelado`) y Ventas lo
     responde como `cupo-agotado`.

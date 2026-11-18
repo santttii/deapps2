@@ -305,6 +305,14 @@ public class ServicioDeUsuarios implements IUsuarios {
     }
 
     @Override
+    public String rolDeLaCuenta(String email) {
+        return usuarios.buscarPorEmail(normalizarEmail(email == null ? "" : email))
+                .filter(Usuario::isEmailVerificado)
+                .map(u -> aDto(u).rol())
+                .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No hay una cuenta verificada con ese email."));
+    }
+
+    @Override
     public UsuarioDto obtener(String usuarioId) {
         return usuarios.buscarPorId(usuarioId)
                 .map(ServicioDeUsuarios::aDto)

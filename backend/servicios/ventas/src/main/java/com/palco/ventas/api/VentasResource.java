@@ -26,6 +26,7 @@ import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.core.UriInfo;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.rest.ConEtag;
 import com.palco.common.seguridad.Sesion;
 import com.palco.ventas.api.Dtos.NuevaVentaDto;
 import com.palco.ventas.api.Dtos.NuevoPagoDto;
@@ -97,6 +98,7 @@ public class VentasResource {
      */
     @GET
     @RolesAllowed("user")
+    @ConEtag
     public List<VentaDto> listar(@Context SecurityContext seguridad, @Context UriInfo pedido) {
         Enlaces enlaces = new Enlaces(pedido.getBaseUri());
         return compras.listar(Sesion.usuarioId(seguridad)).stream()
@@ -108,6 +110,7 @@ public class VentasResource {
     @GET
     @Path("{ventaId}")
     @RolesAllowed("user")
+    @ConEtag
     public VentaDto obtener(@PathParam("ventaId") String ventaId,
             @Context SecurityContext seguridad, @Context UriInfo pedido) {
         VentaDto venta = compras.obtener(Sesion.usuarioId(seguridad), ventaId);

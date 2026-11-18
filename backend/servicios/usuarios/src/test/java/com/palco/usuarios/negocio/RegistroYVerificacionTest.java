@@ -258,6 +258,20 @@ class RegistroYVerificacionTest {
         assertEquals(ServicioDeUsuarios.aDto(usuario), servicio.obtener(usuario.getId()));
     }
 
+    @Test
+    void otroServicioConoceElRolDeUnaCuentaVerificadaPorSuEmailYDeUnaSinVerificarNo() {
+        Usuario verificada = cuenta(EMAIL, DNI);
+        verificada.marcarEmailVerificado();
+        when(usuarios.buscarPorEmail(EMAIL)).thenReturn(Optional.of(verificada));
+
+        assertEquals("user", servicio.rolDeLaCuenta("  " + EMAIL.toUpperCase() + " "));
+
+        Usuario sinVerificar = cuenta("otra@palco.test", "29999999");
+        when(usuarios.buscarPorEmail("otra@palco.test")).thenReturn(Optional.of(sinVerificar));
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.rolDeLaCuenta("otra@palco.test"));
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.rolDeLaCuenta("nadie@palco.test"));
+    }
+
     // ---------------------------------------------------------------------------------------------
 
     private Usuario cuentaSinVerificar() {

@@ -1,9 +1,12 @@
 // Prueba del patrón State contra el servidor en marcha: cada transición inválida responde 409.
-import { http, login, uuid } from './lib.mjs';
+import { dniAlAzar, eventoPropio, http, login, uuid } from './lib.mjs';
 
 const T = await login('titular@palco.test');
-const pedido = () => ({ eventoId: 'ev-1', items: [{ sectorId: 'sec-1-4', cantidad: 1 }],
-  titulares: [{ nombre: 'Prueba State', dni: String(40000000 + Math.floor(Math.random() * 999999)) }] });
+// Un evento propio: con el tope de 6 entradas por comprador y evento, correrla varias veces sobre un
+// evento de prueba lo agotaría.
+const evento = await eventoPropio('Prueba State');
+const pedido = () => ({ eventoId: evento.id, items: [{ sectorId: evento.sectores[0].id, cantidad: 1 }],
+  titulares: [{ nombre: 'Prueba State', dni: dniAlAzar() }] });
 const abrir = () => http('POST', '/api/v1/ventas', { token: T, clave: uuid(), cuerpo: pedido() });
 const pagar = (id) => http('POST', `/api/v1/ventas/${id}/pagos`, { token: T, clave: uuid(),
   cuerpo: { medioDePago: 'tarjeta', token: 'tok_test' } });

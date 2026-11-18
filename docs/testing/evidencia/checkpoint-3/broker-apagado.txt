@@ -1,8 +1,8 @@
-Prueba: apagar el broker con un mensaje pendiente. Servidor: http://localhost:8080. 2026-11-18T13:12:39.813Z
+Prueba: apagar el broker con un mensaje pendiente. Servidor: http://localhost:8080. 2026-11-18T19:21:26.006Z
 
 ok   1. stop-delivery del consumidor de la cola (EmisionDeEntradas)
 ok   2. el pago responde 201: 201
-ok      el mensaje quedó pendiente en la cola: cola: agregados=1 pendientes=1 consumidores=0 | tópico: agregados=3 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=1 pendientes=0 | DLQ: pendientes=0
+ok      el mensaje quedó pendiente en la cola: cola: agregados=33 pendientes=1 consumidores=0 | tópico: agregados=90 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=30 pendientes=0 | DLQ: pendientes=6
 ok      y es persistente (JMSDeliveryMode = true)
 ok      la venta sigue CONFIRMADA, sin emitir: CONFIRMADA
 
@@ -11,6 +11,6 @@ ok      el servidor dejó de responder
 ok      el servidor volvió a arrancar
 ok   4. después del reinicio, la venta pasó a EMITIDA: EMITIDA
 ok      y su entrada está VALIDA con su código: VALIDA
-ok      la cola quedó sin pendientes y con consumidores: cola: agregados=1 pendientes=0 consumidores=15 | tópico: agregados=0 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=0 pendientes=0 | DLQ: pendientes=0
+ok      la cola quedó sin pendientes y con consumidores: cola: agregados=1 pendientes=0 consumidores=15 | tópico: agregados=0 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=0 pendientes=0 | DLQ: pendientes=6
 
 10 de 10 comprobaciones. NO SE PERDIÓ NINGÚN MENSAJE

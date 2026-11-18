@@ -102,6 +102,27 @@ class PublicacionesEnH2Test {
     }
 
     @Test
+    void alCancelarseElEventoSeRetiranSusActivasSalvoLaQueSeEstaPagando() {
+        // R-2 la está pagando alguien: no se toca, la cierra la conciliación cuando falle la transferencia.
+        assertTrue(enTransaccion(em, () -> repositorio.tomar("R-2", "U-a", "k1", "Ana Gómez", "30111222", AHORA)));
+        enTransaccion(em, () -> {
+            repositorio.guardar(new Publicacion("R-3", "T-3", "U-vendedor", "ev-2", "sec-2", "Campo", 50_000, 50_000,
+                    AHORA.minusDays(1)));
+            return null;
+        });
+
+        assertEquals(1, enTransaccion(em, () -> repositorio.retirarPorCancelacionDelEvento("ev-1", AHORA)));
+
+        assertEquals("RETIRADA", repositorio.buscarPorId("R-1").orElseThrow().getEstado().name());
+        assertEquals(AHORA, repositorio.buscarPorId("R-1").orElseThrow().getCerrada());
+        assertEquals("ACTIVA", repositorio.buscarPorId("R-2").orElseThrow().getEstado().name());
+        // Las de otro evento siguen a la venta.
+        assertEquals("ACTIVA", repositorio.buscarPorId("R-3").orElseThrow().getEstado().name());
+        // Un mensaje repetido no cambia nada.
+        assertEquals(0, enTransaccion(em, () -> repositorio.retirarPorCancelacionDelEvento("ev-1", AHORA)));
+    }
+
+    @Test
     void elVendedorNoTomaSuPropiaPublicacionYUnReintentoConLaMismaClavePasa() {
         assertFalse(enTransaccion(em, () -> repositorio.tomar("R-1", "U-vendedor", "k1", "Ana Gómez", "30111222", AHORA)));
         assertTrue(enTransaccion(em, () -> repositorio.tomar("R-1", "U-a", "k1", "Ana Gómez", "30111222", AHORA)));
