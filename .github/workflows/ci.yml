@@ -63,6 +63,10 @@ jobs:
           cache: maven
       - name: mvn verify
         run: mvn -B verify
+      - name: Resumen de cobertura (JaCoCo)
+        if: always()
+        working-directory: .
+        run: node scripts/qa/cobertura.mjs backend >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

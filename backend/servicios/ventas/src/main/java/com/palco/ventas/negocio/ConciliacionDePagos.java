@@ -85,8 +85,8 @@ public class ConciliacionDePagos {
 
     /**
      * Cuánto se espera desde el último intento de pago antes de preguntarle a
-     * Pagos. Un cobro de Ventas espera a Pagos como mucho unos 48 segundos (2
-     * de conexión y 10 de lectura por pedido, con hasta dos reintentos: el del
+     * Pagos. Un cobro de Ventas espera a Pagos como mucho unos 21 segundos (2
+     * de conexión y 5 de lectura por pedido, con hasta dos reintentos: el del
      * 401 y el del 409 {@code pago-duplicado}). Dos minutos lo cubren con
      * holgura. No es una regla de negocio sino un tiempo técnico, como los
      * timeouts de los clientes: por eso está acá y no en {@code ReglasDeNegocio}.

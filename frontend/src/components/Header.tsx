@@ -61,6 +61,9 @@ export default function Header() {
                     Puerta
                   </Link>
                 )}
+                <Link to="/asistente" className={ENLACE}>
+                  Asistente
+                </Link>
                 <button
                   type="button"
                   onClick={cerrarSesion}

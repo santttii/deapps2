@@ -1,6 +1,6 @@
 # Matriz de trazabilidad
 
-Generada por `scripts/qa/matriz.mjs` el 2026-10-30 13:08 UTC.
+Generada por `scripts/qa/matriz.mjs` el 2026-11-18 13:24 UTC.
 
 | HU | Prioridad | Criterio | Casos | Resultado |
 |---|---|---|---|---|
