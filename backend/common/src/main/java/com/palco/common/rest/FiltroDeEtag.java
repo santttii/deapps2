@@ -23,6 +23,12 @@ import jakarta.ws.rs.ext.Provider;
  * {@code 304 Not Modified} sin cuerpo: el cliente usa la copia que ya tenía y no viaja de nuevo.
  *
  * Es un ETag fuerte: dos respuestas con el mismo ETag son idénticas byte a byte en JSON.
+ *
+ * El otro lado es {@code If-Match}, en las ediciones: el cliente manda el ETag que leyó y el
+ * servidor edita solo si el recurso sigue igual. Lo compara el negocio dentro de su transacción,
+ * no este filtro, que corre después de la operación. Para que el valor comparado sea el mismo que
+ * entregó el GET hay una sola función que lo calcula, {@link #etagDeLaRepresentacion}, y la usan
+ * este filtro, el negocio y la respuesta de la edición.
  */
 @Provider
 @ConEtag
@@ -35,12 +41,21 @@ public class FiltroDeEtag implements ContainerResponseFilter {
         if (!HttpMethod.GET.equals(pedido.getMethod()) || respuesta.getStatus() != 200 || !respuesta.hasEntity()) {
             return;
         }
-        String etag = etagDe(JSON.toJson(respuesta.getEntity()));
+        String etag = etagDeLaRepresentacion(respuesta.getEntity());
         respuesta.getHeaders().putSingle(HttpHeaders.ETAG, etag);
         if (coincide(pedido.getHeaderString(HttpHeaders.IF_NONE_MATCH), etag)) {
             respuesta.setStatus(304);
             respuesta.setEntity(null);
         }
+    }
+
+    /**
+     * El ETag de lo que va en el cuerpo de una respuesta (un DTO): el hash de cómo queda en JSON.
+     * Es el que pone este filtro en los GET; quien compare un {@code If-Match} lo calcula con esta
+     * misma función para que el valor sea idéntico.
+     */
+    public static String etagDeLaRepresentacion(Object representacion) {
+        return etagDe(JSON.toJson(representacion));
     }
 
     /** El ETag de un cuerpo: {@code "<hash>"}, con las comillas que pide HTTP. */
@@ -53,7 +68,31 @@ public class FiltroDeEtag implements ContainerResponseFilter {
         }
     }
 
-    /** true si el {@code If-None-Match} del cliente nombra este ETag (o es {@code *}). */
+    /**
+     * true si el {@code If-Match} del cliente nombra este ETag (o es {@code *}), con la comparación
+     * fuerte que pide RFC 9110 (13.1.1) para {@code If-Match}: un valor débil ({@code W/"..."})
+     * nunca coincide, porque solo promete "equivalente" y para editar hace falta "idéntico". Los
+     * ETag de Palco son fuertes, así que el que entregó el GET coincide tal cual.
+     *
+     * {@code *} quiere decir "si existe": quien llama ya comprobó que el recurso existe.
+     */
+    public static boolean coincideFuerte(String ifMatch, String etag) {
+        if (ifMatch == null) {
+            return false;
+        }
+        for (String valor : ifMatch.split(",")) {
+            String v = valor.strip();
+            if (v.equals("*") || (!etag.startsWith("W/") && v.equals(etag))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * true si el {@code If-None-Match} del cliente nombra este ETag (o es {@code *}). Acá la
+     * comparación es débil (RFC 9110, 13.1.2): para no volver a descargar alcanza con "equivalente".
+     */
     static boolean coincide(String ifNoneMatch, String etag) {
         if (ifNoneMatch == null || ifNoneMatch.isBlank()) {
             return false;

@@ -149,6 +149,16 @@ public final class ManejadoresDeErrores {
         }
     }
 
+    /** La condición del pedido ({@code If-Match}) no se cumple: el recurso cambió desde que se leyó → 412. */
+    @Provider
+    public static class PrecondicionFallida extends Manejador
+            implements ExceptionMapper<ErroresDeNegocio.PrecondicionFallida> {
+        @Override
+        public Response toResponse(ErroresDeNegocio.PrecondicionFallida e) {
+            return responder(412, e.tipo(), "Precondición fallida", e.getMessage());
+        }
+    }
+
     /** Pedido bien formado que rompe una regla de negocio → 422. */
     @Provider
     public static class ReglaIncumplida extends Manejador implements ExceptionMapper<ErroresDeNegocio.ReglaIncumplida> {

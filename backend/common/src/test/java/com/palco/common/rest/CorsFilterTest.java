@@ -20,6 +20,9 @@ class CorsFilterTest {
         assertEquals("http://localhost:5173", h.get("Access-Control-Allow-Origin"));
         assertEquals("true", h.get("Access-Control-Allow-Credentials"));
         assertTrue(h.get("Access-Control-Allow-Headers").contains("Authorization"));
+        // Sin If-Match en la lista, el navegador no deja mandar una edición condicionada.
+        assertTrue(h.get("Access-Control-Allow-Headers").contains("If-Match"));
+        assertTrue(h.get("Access-Control-Expose-Headers").contains("ETag"));
         assertEquals("Origin", h.get("Vary"));
     }
 

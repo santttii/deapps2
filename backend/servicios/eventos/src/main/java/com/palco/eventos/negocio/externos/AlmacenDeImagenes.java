@@ -19,8 +19,9 @@ public interface AlmacenDeImagenes {
      * muestra. El nombre del archivo lo decide la implementación; quien llama
      * solo aporta el contenido y su tipo.
      *
-     * Lanza {@code ErroresDeNegocio.DatosInvalidos} si el tipo no se acepta o
-     * la imagen es demasiado grande, y {@code ErroresDeNegocio.SinRespuesta}
+     * Lanza {@code ErroresDeNegocio.DatosInvalidos} si el tipo no se acepta, el
+     * contenido no es de ese tipo o la imagen es demasiado grande (ver
+     * {@link TiposDeImagen#validar}), y {@code ErroresDeNegocio.SinRespuesta}
      * si el almacén no contesta: sin URL no se puede dar de alta el evento.
      *
      * @param contenido  los bytes de la imagen

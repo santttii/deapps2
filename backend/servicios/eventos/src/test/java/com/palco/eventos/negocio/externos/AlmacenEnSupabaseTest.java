@@ -18,7 +18,7 @@ import com.palco.common.ErroresDeNegocio;
  */
 class AlmacenEnSupabaseTest {
 
-    private static final byte[] UNA_IMAGEN = new byte[] { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 1, 2, 3 };
+    private static final byte[] UNA_IMAGEN = ImagenesDePrueba.JPG;
 
     /** Reemplaza la llamada HTTP: así el test no necesita un proyecto de Supabase. */
     private static final class SupabaseSinRed extends AlmacenEnSupabase {
@@ -54,12 +54,12 @@ class AlmacenEnSupabaseTest {
         // Si la ruta la decidiera el nombre que llegó, un "../" escribiría fuera del bucket.
         SupabaseSinRed almacen = new SupabaseSinRed();
 
-        String url = almacen.guardar(UNA_IMAGEN, "image/png", "../../otro-bucket/mio.png");
+        String url = almacen.guardar(ImagenesDePrueba.PNG, "image/png", "../../otro-bucket/mio.png");
 
         assertTrue(url.endsWith(".png"), url);
         assertTrue(!url.contains(".."), url);
         // Dos subidas no se pisan: cada una lleva su UUID.
-        String otra = almacen.guardar(UNA_IMAGEN, "image/png", "mio.png");
+        String otra = almacen.guardar(ImagenesDePrueba.PNG, "image/png", "mio.png");
         assertTrue(!url.equals(otra));
     }
 
@@ -67,7 +67,7 @@ class AlmacenEnSupabaseTest {
     void laExtensionSaleDelTipoYNoDelNombre() {
         SupabaseSinRed almacen = new SupabaseSinRed();
 
-        assertTrue(almacen.guardar(UNA_IMAGEN, "image/webp", "foto.jpg").endsWith(".webp"));
+        assertTrue(almacen.guardar(ImagenesDePrueba.WEBP, "image/webp", "foto.jpg").endsWith(".webp"));
     }
 
     @Test
@@ -90,6 +90,15 @@ class AlmacenEnSupabaseTest {
     }
 
     @Test
+    void unTextoDisfrazadoDeImagenEsUnDatoInvalidoYNoSeSube() {
+        SupabaseSinRed almacen = new SupabaseSinRed();
+
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> almacen.guardar(ImagenesDePrueba.TEXTO, "image/png", "notas.png"));
+        assertTrue(almacen.subidos.isEmpty());
+    }
+
+    @Test
     void unaImagenVaciaOMasGrandeQueElMaximoEsUnDatoInvalido() {
         SupabaseSinRed almacen = new SupabaseSinRed();
 
@@ -106,7 +115,8 @@ class AlmacenEnSupabaseTest {
     void justoEnElMaximoSeAcepta() {
         SupabaseSinRed almacen = new SupabaseSinRed();
 
-        assertTrue(almacen.guardar(new byte[TiposDeImagen.MAXIMO_BYTES], "image/jpeg", "x").endsWith(".jpg"));
+        assertTrue(almacen.guardar(ImagenesDePrueba.jpgDe(TiposDeImagen.MAXIMO_BYTES), "image/jpeg", "x")
+                .endsWith(".jpg"));
     }
 
     @Test

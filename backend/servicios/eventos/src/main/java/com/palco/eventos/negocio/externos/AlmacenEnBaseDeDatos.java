@@ -52,9 +52,9 @@ public class AlmacenEnBaseDeDatos implements AlmacenDeImagenes {
 
     @Override
     public String guardar(byte[] contenido, String tipo, String nombreOriginal) {
-        TiposDeImagen.exigirTamanoValido(contenido);
-        // La extensión sale del media type y no del nombre que llegó: el nombre lo escribió alguien.
-        String extension = TiposDeImagen.extensionDe(tipo);
+        // Tamaño, tipo y que el contenido sea de verdad de ese tipo. La extensión sale del media type
+        // y no del nombre que llegó: el nombre lo escribió alguien.
+        String extension = TiposDeImagen.validar(contenido, tipo);
         String id = UUID.randomUUID() + "." + extension;
         imagenes.guardar(new Imagen(id, TiposDeImagen.tipoDe(extension), contenido, LocalDateTime.now(reloj)));
         return RUTA_PUBLICA + id;

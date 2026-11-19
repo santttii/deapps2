@@ -23,7 +23,7 @@ import com.palco.eventos.dominio.Imagen;
 /** El almacén en la base, con el repositorio reemplazado por un mapa. */
 class AlmacenEnBaseDeDatosTest {
 
-    private static final byte[] UNA_IMAGEN = { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 1, 2, 3 };
+    private static final byte[] UNA_IMAGEN = ImagenesDePrueba.JPG;
 
     private final Map<String, Imagen> guardadas = new HashMap<>();
     private AlmacenEnBaseDeDatos almacen;
@@ -61,7 +61,7 @@ class AlmacenEnBaseDeDatosTest {
 
     @Test
     void elTipoSeGuardaNormalizado() {
-        String url = almacen.guardar(UNA_IMAGEN, "IMAGE/PNG; charset=binary", null);
+        String url = almacen.guardar(ImagenesDePrueba.PNG, "IMAGE/PNG; charset=binary", null);
 
         String id = url.substring(url.lastIndexOf('/') + 1);
         assertEquals("image/png", guardadas.get(id).getTipo());
@@ -69,10 +69,10 @@ class AlmacenEnBaseDeDatosTest {
 
     @Test
     void loGuardadoSeLeePorSuId() {
-        String url = almacen.guardar(UNA_IMAGEN, "image/webp", null);
+        String url = almacen.guardar(ImagenesDePrueba.WEBP, "image/webp", null);
         String id = url.substring(url.lastIndexOf('/') + 1);
 
-        assertArrayEquals(UNA_IMAGEN, almacen.leer(id).orElseThrow().getContenido());
+        assertArrayEquals(ImagenesDePrueba.WEBP, almacen.leer(id).orElseThrow().getContenido());
     }
 
     @Test
@@ -86,8 +86,10 @@ class AlmacenEnBaseDeDatosTest {
     }
 
     @Test
-    void rechazaTiposNoAceptadosYTamanosFueraDeRango() {
+    void rechazaTiposNoAceptadosContenidosDisfrazadosYTamanosFueraDeRango() {
         assertThrows(ErroresDeNegocio.DatosInvalidos.class, () -> almacen.guardar(UNA_IMAGEN, "image/svg+xml", null));
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> almacen.guardar(ImagenesDePrueba.TEXTO, "image/png", null));
         assertThrows(ErroresDeNegocio.DatosInvalidos.class, () -> almacen.guardar(new byte[0], "image/jpeg", null));
         assertThrows(ErroresDeNegocio.DatosInvalidos.class,
                 () -> almacen.guardar(new byte[TiposDeImagen.MAXIMO_BYTES + 1], "image/jpeg", null));

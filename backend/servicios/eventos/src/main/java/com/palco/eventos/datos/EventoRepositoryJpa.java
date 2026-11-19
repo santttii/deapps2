@@ -5,10 +5,12 @@ import java.util.Optional;
 
 import jakarta.ejb.Stateless;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 
 import com.palco.eventos.dominio.Categoria;
 import com.palco.eventos.dominio.Evento;
+import com.palco.eventos.dominio.Sector;
 
 /**
  * Stateless: no guarda nada entre llamadas; el {@code EntityManager} se lo da
@@ -50,6 +52,24 @@ public class EventoRepositoryJpa implements EventoRepository {
     @Override
     public Optional<Evento> buscarPorId(String id) {
         return Optional.ofNullable(em.find(Evento.class, id));
+    }
+
+    @Override
+    public Optional<Evento> buscarPorIdParaCambiar(String id) {
+        // SELECT ... FOR UPDATE de la fila del evento y, aparte, de las de sus sectores. Van en dos
+        // consultas sin join porque PostgreSQL no bloquea el lado opcional de un left join.
+        Evento evento = em.find(Evento.class, id, LockModeType.PESSIMISTIC_WRITE);
+        if (evento == null) {
+            return Optional.empty();
+        }
+        // Los sectores también: las vendidas son parte del evento que se muestra (y de su ETag), y
+        // sin el bloqueo una venta podría cambiarlas entre la comparación y el guardado. Quedan en
+        // el contexto de persistencia; la lista del evento se arma con estas mismas instancias.
+        em.createQuery("select s from Sector s where s.evento = :evento", Sector.class)
+                .setParameter("evento", evento)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .getResultList();
+        return Optional.of(evento);
     }
 
     @Override

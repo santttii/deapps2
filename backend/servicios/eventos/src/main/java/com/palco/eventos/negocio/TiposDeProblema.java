@@ -30,6 +30,12 @@ public final class TiposDeProblema {
     /** 409: el evento ya está cancelado, así que no se puede cambiar ni cancelar de nuevo. */
     public static final String EVENTO_CANCELADO = "evento-cancelado";
 
+    /**
+     * 412: la edición traía {@code If-Match} con el ETag que leyó el cliente y el evento ya no
+     * está así (otra edición o una venta lo cambió). No se guardó nada: hay que volver a leerlo.
+     */
+    public static final String EVENTO_MODIFICADO = "evento-modificado";
+
     private TiposDeProblema() {
     }
 }

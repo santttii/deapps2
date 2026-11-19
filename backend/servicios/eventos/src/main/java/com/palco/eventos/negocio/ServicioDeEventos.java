@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -16,6 +17,7 @@ import jakarta.inject.Inject;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.Textos;
+import com.palco.common.rest.FiltroDeEtag;
 import com.palco.common.mensajeria.EventoCanceladoMensaje;
 import com.palco.common.mensajeria.PublicadorDeCancelaciones;
 import com.palco.eventos.api.Dtos.EditarEventoDto;
@@ -40,6 +42,40 @@ import com.palco.eventos.dominio.Sector;
  * evento empezado) y deja el acceso a la base en los repositorios de
  * {@code datos/}. Cada operación corre en una transacción que abre el
  * contenedor al entrar; los repositorios se suman a ella.
+ *
+ * Editar solo si nadie cambió el evento ({@code If-Match}). El organizador
+ * lee el evento ({@code GET /api/eventos/{slug}}, que trae {@code ETag}) y lo
+ * edita después. Si entre las dos cosas otro lo editó (una segunda pestaña,
+ * otra persona de la misma cuenta), guardar a ciegas pisaría ese cambio; si
+ * hubo una venta, decidió mirando unas vendidas que ya no son. Con {@code If-Match} el cliente dice "editá solo
+ * si el evento sigue como lo leí" y, si no, recibe 412 {@code evento-modificado}
+ * sin que se guarde nada. Es control de concurrencia optimista visto desde el
+ * cliente: no retiene nada entre la lectura y la edición.
+ *
+ * <ul>
+ * <li><b>Qué se compara.</b> El ETag del estado actual, calculado con la misma
+ * función que usa el filtro del GET
+ * ({@link FiltroDeEtag#etagDeLaRepresentacion}) sobre el mismo DTO: el valor es
+ * idéntico por construcción. Es un ETag fuerte (sin {@code W/}) e
+ * {@code If-Match} usa la comparación fuerte de RFC 9110 (13.1.1): un valor
+ * débil nunca coincide. No hacía falta volverlos débiles: el hash es del JSON
+ * exacto, así que dos respuestas con el mismo ETag son idénticas, que es lo que
+ * promete uno fuerte.</li>
+ * <li><b>Sin ventana entre comparar y guardar.</b> La entidad no tiene
+ * {@code @Version} y no se le agrega: el ETag es el hash del evento con sus
+ * sectores, y las vendidas cambian con un UPDATE directo sobre {@code sector}
+ * ({@code sumarVendidas}) que no pasaría por la versión del evento; además el
+ * cliente no tiene un número de versión, tiene el ETag del GET. En su lugar, la
+ * edición lee el evento y sus sectores con {@code SELECT ... FOR UPDATE}
+ * ({@link EventoRepository#buscarPorIdParaCambiar}): desde que se compara hasta
+ * que la transacción termina, otra edición, una cancelación o una venta de ese
+ * evento esperan. Dos ediciones con el mismo ETag no pueden pasar las dos: la
+ * segunda lee lo que guardó la primera y recibe 412. El bloqueo dura lo que la
+ * transacción (milisegundos), y una venta toca un solo sector, así que no hay
+ * dos operaciones esperándose entre sí.</li>
+ * <li><b>Sin {@code If-Match}</b> se edita como siempre: el panel del
+ * organizador no lo manda y sigue andando igual.</li>
+ * </ul>
  */
 @Stateless
 public class ServicioDeEventos implements IEventos {
@@ -135,7 +171,8 @@ public class ServicioDeEventos implements IEventos {
     }
 
     @Override
-    public EventoDto editarEvento(String eventoId, EditarEventoDto cambios, String organizadorId) {
+    public EventoDto editarEvento(String eventoId, EditarEventoDto cambios, String organizadorId, String ifMatch) {
+        // Bloqueado desde acá hasta el final de la transacción (ver el comentario de la clase).
         Evento evento = propio(eventoId, organizadorId);
         if (evento.isCancelado()) {
             throw new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_CANCELADO,
@@ -145,6 +182,9 @@ public class ServicioDeEventos implements IEventos {
             throw new ErroresDeNegocio.Conflicto(TiposDeProblema.EVENTO_FINALIZADO,
                     "El evento ya empezó: no se puede editar.");
         }
+        // La condición se mira después del 404 y de los 409 y antes de leer los cambios, como pide
+        // RFC 9110 (13.2.1): lo que fallaría igual sin If-Match gana, porque dice qué pasó.
+        exigirQueNoHayaCambiado(evento, ifMatch);
         if (yaEmpezo(cambios.fechaISO())) {
             throw new ErroresDeNegocio.DatosInvalidos("fechaISO", "La fecha del evento tiene que ser futura.");
         }
@@ -158,6 +198,23 @@ public class ServicioDeEventos implements IEventos {
                 cambios.imagenUrl());
         aplicarSectores(evento, cambios.sectores());
         return aDto(evento);
+    }
+
+    /**
+     * Si vino {@code If-Match}, el evento tiene que seguir como lo leyó el
+     * cliente: su ETag actual, calculado igual que el del GET, tiene que estar
+     * en la lista, o ser {@code *} (que vale porque el evento existe). Si no,
+     * 412 {@code evento-modificado} y la transacción se deshace sin guardar.
+     * Sin {@code If-Match} no hay condición.
+     */
+    private static void exigirQueNoHayaCambiado(Evento evento, String ifMatch) {
+        if (ifMatch == null) {
+            return;
+        }
+        if (!FiltroDeEtag.coincideFuerte(ifMatch, FiltroDeEtag.etagDeLaRepresentacion(aDto(evento)))) {
+            throw new ErroresDeNegocio.PrecondicionFallida(TiposDeProblema.EVENTO_MODIFICADO,
+                    "El evento cambió desde que lo cargaste. Volvé a cargarlo y repetí el cambio.");
+        }
     }
 
     /**
@@ -220,9 +277,14 @@ public class ServicioDeEventos implements IEventos {
         sector.cambiarOrden(orden);
     }
 
-    /** El evento, si es de ese organizador. Si no existe o es de otro, 404: para él no existe. */
+    /**
+     * El evento, si es de ese organizador. Si no existe o es de otro, 404: para él no existe.
+     *
+     * Lo usan las dos operaciones del organizador que cambian el evento (editar y cancelar), y por
+     * eso lo lee bloqueado: así una cancelación no pisa una edición que se guarda a la vez, ni al revés.
+     */
     private Evento propio(String eventoId, String organizadorId) {
-        Evento evento = eventos.buscarPorId(eventoId).orElse(null);
+        Evento evento = eventos.buscarPorIdParaCambiar(eventoId).orElse(null);
         if (evento == null || evento.getOrganizadorId() == null
                 || !evento.getOrganizadorId().equals(organizadorId)) {
             throw new ErroresDeNegocio.NoEncontrado("No existe ese evento entre los tuyos.");
@@ -356,7 +418,13 @@ public class ServicioDeEventos implements IEventos {
                 e.getImagenUrl(),
                 e.isCancelado(),
                 e.getCancelacionMotivo(),
-                e.getSectores().stream().map(ServicioDeEventos::aDto).toList());
+                // Por orden, como los carga la base (@OrderBy). Después de una edición la lista en memoria
+                // puede estar en otro (los sectores nuevos quedan al final), y la respuesta del PUT tiene que
+                // ser igual a lo que dará el GET: mismo cuerpo, mismo ETag.
+                e.getSectores().stream()
+                        .sorted(Comparator.comparingInt(Sector::getOrden))
+                        .map(ServicioDeEventos::aDto)
+                        .toList());
     }
 
     static SectorDto aDto(Sector s) {

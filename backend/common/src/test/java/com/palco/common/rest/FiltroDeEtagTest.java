@@ -36,4 +36,38 @@ class FiltroDeEtagTest {
         assertFalse(FiltroDeEtag.coincide(" ", etag));
         assertFalse(FiltroDeEtag.coincide("\"otro\"", etag));
     }
+
+    /** Un DTO cualquiera. Público porque JSON-B solo lee los campos de un tipo público, como los DTO de la API. */
+    public record Sector(String id, int vendidas) {
+    }
+
+    /** Es lo que le permite al negocio comparar un If-Match con el mismo valor que entregó el GET. */
+    @Test
+    void elEtagDeUnaRepresentacionEsElDeSuJson() {
+        assertEquals(FiltroDeEtag.etagDe("{\"id\":\"sec-1\",\"vendidas\":2}"),
+                FiltroDeEtag.etagDeLaRepresentacion(new Sector("sec-1", 2)));
+        assertNotEquals(FiltroDeEtag.etagDeLaRepresentacion(new Sector("sec-1", 2)),
+                FiltroDeEtag.etagDeLaRepresentacion(new Sector("sec-1", 3)));
+    }
+
+    @Test
+    void ifMatchCoincideConElMismoEtagConUnaListaYConAsterisco() {
+        String etag = FiltroDeEtag.etagDe("x");
+
+        assertTrue(FiltroDeEtag.coincideFuerte(etag, etag));
+        assertTrue(FiltroDeEtag.coincideFuerte("\"otro\", " + etag, etag));
+        assertTrue(FiltroDeEtag.coincideFuerte("*", etag));
+    }
+
+    /** RFC 9110, 13.1.1: If-Match usa la comparación fuerte, así que un ETag débil nunca coincide. */
+    @Test
+    void ifMatchDebilVacioOConOtroValorNoCoincide() {
+        String etag = FiltroDeEtag.etagDe("x");
+
+        assertFalse(FiltroDeEtag.coincideFuerte("W/" + etag, etag));
+        assertFalse(FiltroDeEtag.coincideFuerte(etag, "W/" + etag));
+        assertFalse(FiltroDeEtag.coincideFuerte("\"otro\"", etag));
+        assertFalse(FiltroDeEtag.coincideFuerte("", etag));
+        assertFalse(FiltroDeEtag.coincideFuerte(null, etag));
+    }
 }

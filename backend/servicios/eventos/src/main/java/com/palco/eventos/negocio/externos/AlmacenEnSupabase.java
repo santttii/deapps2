@@ -76,9 +76,9 @@ public class AlmacenEnSupabase implements AlmacenDeImagenes {
 
     @Override
     public String guardar(byte[] contenido, String tipo, String nombreOriginal) {
-        TiposDeImagen.exigirTamanoValido(contenido);
-        // La extensión sale del media type y no del nombre que llegó: el nombre lo escribió alguien.
-        String archivo = UUID.randomUUID() + "." + TiposDeImagen.extensionDe(tipo);
+        // Tamaño, tipo y que el contenido sea de verdad de ese tipo. La extensión sale del media type
+        // y no del nombre que llegó: el nombre lo escribió alguien.
+        String archivo = UUID.randomUUID() + "." + TiposDeImagen.validar(contenido, tipo);
 
         int estado = subir(archivo, contenido, tipo);
         // Supabase responde 200 con el path al crear el objeto.

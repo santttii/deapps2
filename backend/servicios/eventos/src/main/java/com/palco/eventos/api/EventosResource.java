@@ -26,6 +26,7 @@ import jakarta.ws.rs.core.SecurityContext;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.rest.ConEtag;
+import com.palco.common.rest.FiltroDeEtag;
 import com.palco.common.seguridad.Sesion;
 import com.palco.eventos.api.Dtos.CambioCupoDto;
 import com.palco.eventos.api.Dtos.CancelacionDto;
@@ -116,14 +117,31 @@ public class EventosResource {
      * organizador dueño; para otro el evento no existe (404). La ruta lleva el
      * id y no el slug, porque el slug no cambia pero tampoco es lo que tiene
      * a mano el panel.
+     *
+     * Acepta {@code If-Match} con el ETag del GET del detalle: si el evento
+     * cambió desde entonces, 412 {@code evento-modificado}. La comparación la
+     * hace el negocio, dentro de la transacción de la edición (ver
+     * {@code ServicioDeEventos}); acá solo se pasa el valor. Sin la cabecera se
+     * edita como siempre. Un cuerpo inválido responde 400 antes de mirarla,
+     * porque {@code @Valid} corre antes de entrar al método.
+     *
+     * La respuesta lleva el {@code ETag} del evento que devuelve, calculado
+     * como el del GET: es el valor para el próximo {@code If-Match}, sin tener
+     * que volver a pedir el evento. El cuerpo es el evento guardado (no lo que
+     * mandó el cliente, que no trae ni id ni vendidas) y el ETag describe ese
+     * cuerpo, el mismo que dará el GET.
      */
     @PUT
     @RolesAllowed("organizer")
     @Path("{eventoId}")
-    public EventoDto editar(@PathParam("eventoId") String eventoId,
+    public Response editar(@PathParam("eventoId") String eventoId,
+            @HeaderParam(HttpHeaders.IF_MATCH) String ifMatch,
             @NotNull(message = "Falta el cuerpo de la solicitud.") @Valid EditarEventoDto cambios,
             @Context SecurityContext seguridad) {
-        return eventos.editarEvento(eventoId, cambios, Sesion.usuarioId(seguridad));
+        EventoDto editado = eventos.editarEvento(eventoId, cambios, Sesion.usuarioId(seguridad), ifMatch);
+        return Response.ok(editado)
+                .header(HttpHeaders.ETAG, FiltroDeEtag.etagDeLaRepresentacion(editado))
+                .build();
     }
 
     /**

@@ -21,6 +21,7 @@ class ErroresDeNegocioTest {
         assertEquals("sin-permiso", new ErroresDeNegocio.SinPermiso("x").tipo());
         assertEquals("no-encontrado", new ErroresDeNegocio.NoEncontrado("x").tipo());
         assertEquals("conflicto", new ErroresDeNegocio.Conflicto("x").tipo());
+        assertEquals("precondicion-fallida", new ErroresDeNegocio.PrecondicionFallida("x").tipo());
         assertEquals("regla-incumplida", new ErroresDeNegocio.ReglaIncumplida("x").tipo());
         assertEquals("sin-respuesta", new ErroresDeNegocio.SinRespuesta("x").tipo());
         assertEquals("demasiados-intentos", new ErroresDeNegocio.DemasiadosIntentos("x", 60).tipo());
@@ -41,6 +42,7 @@ class ErroresDeNegocioTest {
         assertEquals("identidad-no-verificada",
                 new ErroresDeNegocio.SinPermiso("identidad-no-verificada", "x").tipo());
         assertEquals("dni-repetido", new ErroresDeNegocio.ReglaIncumplida("dni-repetido", "x").tipo());
+        assertEquals("evento-modificado", new ErroresDeNegocio.PrecondicionFallida("evento-modificado", "x").tipo());
     }
 
     @Test
@@ -60,6 +62,7 @@ class ErroresDeNegocioTest {
                 ErroresDeNegocio.SinPermiso.class,
                 ErroresDeNegocio.NoEncontrado.class,
                 ErroresDeNegocio.Conflicto.class,
+                ErroresDeNegocio.PrecondicionFallida.class,
                 ErroresDeNegocio.ReglaIncumplida.class,
                 ErroresDeNegocio.SinRespuesta.class,
                 ErroresDeNegocio.DemasiadosIntentos.class);
