@@ -60,7 +60,8 @@ const numero = (n: number) => n.toLocaleString('es-AR');
 const yaEmpezo = (ev: Evento) => new Date(ev.fechaISO).getTime() <= Date.now();
 
 // Panel del organizador. Todo lo que muestra sale del backend y es solo de sus eventos:
-// - lo vendido y lo recaudado, de Ventas (GET /api/v1/resumenes): solo compras pagadas;
+// - lo vendido y lo recaudado, de Ventas (GET /api/v1/resumenes): solo compras pagadas, sin las
+//   de la reventa oficial;
 // - el cupo y la ocupación por sector, de Eventos (GET /api/eventos/mios). Eventos cuenta como
 //   ocupado también lo reservado por una compra en curso, por eso se rotula ocupación y no venta;
 // - las publicaciones activas de Reventa;
@@ -203,7 +204,15 @@ export default function OrganizerPage() {
     // Pasa al estado como cancelado: el catálogo deja de mostrarlo y este panel vuelve a pedir sus
     // eventos. Las compras se anulan en Ventas por mensajería, en los segundos siguientes.
     dispatch({ type: 'EVENTO_RECIBIDO', payload: cancelado });
-    mostrarToast('Evento cancelado. Se están anulando las compras y devolviendo los pagos.');
+    // Lo vendido es lo que tenía Ventas antes de cancelar, el mismo dato que mostró el modal.
+    const vendidasAlCancelar = liquidaciones[cancelado.id]?.entradas;
+    mostrarToast(
+      vendidasAlCancelar === 0
+        ? 'Evento cancelado. No tenía entradas vendidas: no hay pagos para devolver.'
+        : vendidasAlCancelar === undefined
+          ? 'Evento cancelado. Si tenía compras, se están anulando y devolviendo los pagos.'
+          : 'Evento cancelado. Se están anulando las compras y devolviendo los pagos.',
+    );
     setTimeout(reintentarVentas, 3000);
   }
 
@@ -220,7 +229,9 @@ export default function OrganizerPage() {
   const delPanel = eventos.map((e) => liquidaciones[e.id]).filter((l) => l !== undefined);
   const vendidas = ventasCompletas ? delPanel.reduce((acc, l) => acc + l.entradas, 0) : null;
   const recaudado = ventasCompletas ? delPanel.reduce((acc, l) => acc + l.aLiquidarAlOrganizador, 0) : null;
-  const sectores = eventos.flatMap((e) => e.sectores);
+  // Un evento cancelado ya no vende, así que su cupo no está disponible. Además, al anularse sus
+  // compras Ventas le devuelve el cupo a Eventos: sin este filtro contaría entero como restante.
+  const sectores = eventos.filter((e) => !e.cancelado).flatMap((e) => e.sectores);
   const cupoRestante = eventosListos ? cupoTotal(sectores) - ocupadas(sectores) : null;
   const enReventa = eventosListos && !reventas.cargando ? reventas.publicaciones.length : null;
 
@@ -240,7 +251,9 @@ export default function OrganizerPage() {
   const registroCortado = escaneos.length >= TOPE_DEL_REGISTRO;
   const ingresos = escaneos.filter((e) => e.resultado === 'VALIDA').length;
   const rechazos = escaneos.filter((e) => e.resultado !== 'VALIDA' && e.resultado !== 'SIN_RESPUESTA').length;
-  // Sin el registro completo o sin lo vendido según Ventas no hay cuenta que hacer.
+  // Sin el registro completo o sin lo vendido según Ventas no hay cuenta que hacer. Ventas cuenta
+  // cada lugar una vez (una entrada revendida no suma dos) y cada lugar da a lo sumo un ingreso
+  // válido: la resta es lo que falta entrar.
   const porIngresar =
     registroCortado || vendidasEvento === undefined ? null : Math.max(0, vendidasEvento - ingresos);
 
@@ -354,10 +367,11 @@ export default function OrganizerPage() {
                   </tbody>
                 </table>
               </div>
-              {/* Ventas no separa la reventa: la compra en la reventa oficial es una venta más del
-                  evento, así que una entrada revendida suma en las dos compras. */}
+              {/* Ventas deja afuera las compras en la reventa oficial: el lugar ya se cuenta, y se le
+                  liquida al organizador, en la compra original. */}
               <p className="mt-2 text-xs text-muted">
-                Vendidas: entradas de compras pagadas, contando también las compras en la reventa oficial.
+                Vendidas: entradas de compras pagadas. Una entrada revendida en la reventa oficial se cuenta
+                una sola vez, en su compra original.
                 Ocupación: lugares tomados sobre el cupo, contando las compras que todavía se están pagando.
               </p>
             </>
@@ -382,9 +396,13 @@ export default function OrganizerPage() {
                 </select>
               </div>
 
+              {/* De un evento cancelado, una vez anuladas sus compras, ya no quedan ventas en Ventas ni
+                  cupo ocupado en Eventos: la pantalla no puede saber si tuvo ventas, así que el aviso
+                  vale para los dos casos. */}
               {evento.cancelado ? (
                 <p className="mt-4 border-l-2 border-accent pl-3 text-sm text-ink">
-                  Este evento está cancelado. Sus compras se anularon y los pagos se devolvieron.
+                  Este evento está cancelado. Si tenía compras, se anulan y a cada comprador se le devuelve el
+                  pago.
                   {evento.cancelacionMotivo && <> Motivo: {evento.cancelacionMotivo}</>}
                 </p>
               ) : yaEmpezo(evento) ? (

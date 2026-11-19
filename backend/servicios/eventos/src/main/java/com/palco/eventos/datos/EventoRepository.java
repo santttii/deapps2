@@ -37,6 +37,13 @@ public interface EventoRepository {
     /** El evento con ese id, si existe. */
     Optional<Evento> buscarPorId(String id);
 
+    /**
+     * El evento con ese id, si existe, bloqueado hasta que termine la transacción junto con sus
+     * sectores. Es para cambiarlo: mientras tanto otra edición, una cancelación o una venta de
+     * ese evento esperan, así lo que se lee, se compara y se guarda es el mismo estado.
+     */
+    Optional<Evento> buscarPorIdParaCambiar(String id);
+
     /** El evento con ese slug, si existe. */
     Optional<Evento> buscarPorSlug(String slug);
 

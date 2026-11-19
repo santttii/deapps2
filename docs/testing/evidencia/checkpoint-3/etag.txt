@@ -1,24 +1,32 @@
-ETag en la API. Servidor: http://localhost:8080. 2026-11-18T19:21:01.229Z
+ETag en la API. Servidor: http://localhost:8080. 2026-11-19T17:26:03.273Z
 
 A. Cada endpoint
-ok   GET /api/eventos/{slug} (detalle de un evento): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "4Ig0hACD4-0zg7DmrQzcYA" → 304
-ok   GET /api/eventos (catálogo): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "5QvVpuCDNCdT_KKDH7iiyA" → 304
-ok   GET /api/eventos/mios (panel del organizador): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "CwjY0oLXotDQJAG36YzaNw" → 304
-ok   GET /api/v1/ventas (mis compras): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "h2eD5GqOs8lmXen5TI-COw" → 304
-ok   GET /api/v1/ventas/{id} (una compra): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "IsD8r9Y2Vw_CihVHMZbXog" → 304
-ok   GET /api/v1/entradas/{id} (una entrada): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "ywHDrH1I6zRqZCq8Oeufcg" → 304
-ok   GET /api/v1/facturas/{ventaId} (la factura): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "HEDm7QAvYl3hQ0071Dhc5g" → 304
+ok   GET /api/eventos/{slug} (detalle de un evento): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "yP8zpKUiebT9P3iEb4cQ0w" → 304
+ok   GET /api/eventos (catálogo): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "HCbhESj659_H0AGaLWf4Fw" → 304
+ok   GET /api/eventos/mios (panel del organizador): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "_Akgtl4AEwdUHji1E6IPlA" → 304
+ok   GET /api/v1/ventas (mis compras): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "uRkGFWHgASBQ4yvXM7CkZg" → 304
+ok   GET /api/v1/ventas/{id} (una compra): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "kjvjg65qYwul2twBGTT1Cg" → 304
+ok   GET /api/v1/entradas/{id} (una entrada): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "S23MpR3Bba4eckNu5KjTsg" → 304
+ok   GET /api/v1/facturas/{ventaId} (la factura): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "E44kcOTr-JVJRoqtYB69eQ" → 304
 ok   GET /api/v1/reventas?eventoId= (reventa del evento): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "T1PNoYwrqgwDVLtfmj7L5Q" → 304
-ok   GET /api/v1/reventas/mias (mis publicaciones): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "lmDaUQt7QkyMPtyvm6mkgg" → 304
+ok   GET /api/v1/reventas/mias (mis publicaciones): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "1be_dW1rMZ6ENqtGMPHedQ" → 304
 ok   GET /api/v1/validacion/escaneos?eventoId= (registro de la puerta): 200 con ETag y, con If-None-Match, 304 sin cuerpo: 200 "T1PNoYwrqgwDVLtfmj7L5Q" → 304
 
 B. Con otro valor en If-None-Match, 200 con el cuerpo
 ok   200 con el cuerpo: 200
 
 C. Si el recurso cambia, cambia el ETag (otra compra cambia las vendidas del sector)
-ok   con el ETag viejo ya no es 304: 200 con ETag nuevo: 200 "4Ig0hACD4-0zg7DmrQzcYA" → "GnDOLCHw2ijKs20qNXS_nQ"
+ok   con el ETag viejo ya no es 304: 200 con ETag nuevo: 200 "yP8zpKUiebT9P3iEb4cQ0w" → "0mGhDChM3ckqrLcYx_cdOw"
 
 D. Un POST no lleva ETag (solo los GET)
 ok   el POST que abre una compra no trae ETag: 201 ETag null
 
-13 de 13 comprobaciones
+E. If-Match en la edición de un evento (PUT /api/eventos/{id})
+ok   con el ETag del GET en If-Match: 200 con ETag nuevo: 200 "yP8zpKUiebT9P3iEb4cQ0w" → "n5rn7-mpWKsk3DN31WPCZw"
+ok   el ETag de la respuesta del PUT es el que da el GET siguiente: PUT "n5rn7-mpWKsk3DN31WPCZw" / GET "n5rn7-mpWKsk3DN31WPCZw"
+ok   con el ETag viejo: 412 evento-modificado en Problem Details: 412 application/problem+json {"type":"/problemas/evento-modificado","title":"Precondición fallida","status":412,"detail":"El evento cambió desde que lo cargaste. Volvé a cargarlo y repetí el cambio.","instance":"/api/eventos/ev-8946d1ab"}
+ok   el 412 no guardó nada: el evento quedó como la edición que pasó: Prueba ETag 1795109164925 (editado) "n5rn7-mpWKsk3DN31WPCZw"
+ok   If-Match compara fuerte: el ETag actual como W/"…" es 412: 412
+ok   sin If-Match edita como siempre: 200: 200 Prueba ETag 1795109164925
+
+19 de 19 comprobaciones

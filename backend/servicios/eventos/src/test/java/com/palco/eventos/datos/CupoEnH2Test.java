@@ -11,17 +11,22 @@ import java.sql.ResultSet;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceConfiguration;
+import jakarta.persistence.LockTimeoutException;
+import jakarta.persistence.PersistenceException;
+import jakarta.persistence.PessimisticLockException;
 import jakarta.persistence.PersistenceUnitTransactionType;
 
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.datos.BaseDeDatos;
@@ -41,6 +46,10 @@ import com.palco.eventos.negocio.TiposDeProblema;
  * consultas son las de los repositorios, con Hibernate; lo único que cambia
  * respecto del servidor es que la transacción la abre el test y no el
  * contenedor.
+ *
+ * También comprueba el bloqueo de la edición: mientras dura, ninguna otra
+ * transacción puede cambiar el evento ni sus sectores (ni siquiera una venta),
+ * que es lo que deja comparar el If-Match y guardar sin ventana en el medio.
  */
 class CupoEnH2Test {
 
@@ -241,6 +250,59 @@ class CupoEnH2Test {
 
         assertEquals(TiposDeProblema.DEVOLUCION_YA_APLICADA, error.tipo());
         assertEquals(1, vendidasEnLaBase());
+    }
+
+    @Test
+    void mientrasDuraLaEdicionNiUnaVentaNiOtraEdicionDelEventoPasan() {
+        // La edición (o la cancelación) lee el evento bloqueado y sigue abierta.
+        em.getTransaction().begin();
+        Evento enEdicion = eventos.buscarPorIdParaCambiar(EVENTO).orElseThrow();
+        assertEquals(1, enEdicion.getSectores().size());
+
+        // Una venta del mismo evento no puede tocar el sector: espera, y acá se cansa de esperar.
+        esperaElBloqueo(() -> enOtroPedido(otro -> {
+            SectorRepositoryJpa venta = new SectorRepositoryJpa();
+            venta.em = otro;
+            venta.sumarVendidas(venta.buscarPorId(SECTOR).orElseThrow(), 1);
+        }));
+        // Otra edición tampoco puede leerlo para cambiarlo: no compara contra un estado que está por cambiar.
+        esperaElBloqueo(() -> enOtroPedido(otro -> {
+            EventoRepositoryJpa otraEdicion = new EventoRepositoryJpa();
+            otraEdicion.em = otro;
+            otraEdicion.buscarPorIdParaCambiar(EVENTO);
+        }));
+        em.getTransaction().commit();
+
+        // Terminada la edición, la venta pasa.
+        assertTrue(sumar(1));
+        assertTrue(enTransaccion(() -> eventos.buscarPorIdParaCambiar("ev-9")).isEmpty());
+    }
+
+    /** El paso falla porque se cansó de esperar un bloqueo, y no por otra cosa (un SQL mal escrito, por ejemplo). */
+    private static void esperaElBloqueo(Executable paso) {
+        PersistenceException error = assertThrows(PersistenceException.class, paso);
+        assertTrue(error instanceof LockTimeoutException || error instanceof PessimisticLockException,
+                error.toString());
+    }
+
+    /**
+     * Corre el paso en otra transacción y otra conexión, como un pedido que llega
+     * mientras tanto. Espera un bloqueo 200 ms y no el segundo que espera H2, para
+     * que el test sea rápido.
+     */
+    private void enOtroPedido(Consumer<EntityManager> paso) {
+        EntityManager otro = fabrica.createEntityManager();
+        try {
+            otro.getTransaction().begin();
+            otro.createNativeQuery("SET LOCK_TIMEOUT 200").executeUpdate();
+            paso.accept(otro);
+            otro.getTransaction().commit();
+        } finally {
+            if (otro.getTransaction().isActive()) {
+                otro.getTransaction().rollback();
+            }
+            otro.close();
+        }
     }
 
     @Test

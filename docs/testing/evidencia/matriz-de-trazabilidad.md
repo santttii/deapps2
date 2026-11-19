@@ -1,6 +1,6 @@
 # Matriz de trazabilidad
 
-Generada por `scripts/qa/matriz.mjs` el 2026-11-18 19:21 UTC.
+Generada por `scripts/qa/matriz.mjs` el 2026-11-19 17:42 UTC.
 
 | HU | Prioridad | Criterio | Casos | Resultado |
 |---|---|---|---|---|
@@ -25,8 +25,8 @@ Generada por `scripts/qa/matriz.mjs` el 2026-11-18 19:21 UTC.
 | HU-05 Comprar entradas | Must | CA-05.2 Pago rechazado | escenario 3 (escenarios.mjs: pasa) | PASA |
 | HU-05 Comprar entradas | Must | CA-05.3 Reglas de la compra | escenario 4 (escenarios.mjs: pasa) | PASA |
 | HU-05 Comprar entradas | Must | CA-05.4 Idempotencia | escenario 2 (escenarios.mjs: pasa) | PASA |
-| HU-05 Comprar entradas | Must | CA-05.5 Falla externa: Pagos no responde | escenario 14 (escenarios.mjs: pasa) | PASA |
-| HU-05 Comprar entradas | Must | CA-05.6 Falla externa: Eventos no responde al reservar | escenario 18 (escenarios.mjs: pasa) | PASA |
+| HU-05 Comprar entradas | Must | CA-05.5 Falla externa: Pagos no responde | ClienteDePagosTest#siPagosNoRespondeEsSinRespuesta (JUnit: pasa)<br>ConciliacionDePagosTest#conUnPagoAprobadoConfirmaLaVentaConEsePagoYLosTitularesCopiados (JUnit: pasa)<br>ConciliacionDePagosTest#sinPagoConEsaClaveVenceLaVentaYRecienDespuesDevuelveElCupo (JUnit: pasa) | PASA |
+| HU-05 Comprar entradas | Must | CA-05.6 Falla externa: Eventos no responde al reservar | ClienteDeEventosTest#siEventosNoRespondeAlReservarEsSinRespuesta (JUnit: pasa)<br>ServicioDeVentasTest#unSectorQueNoRespondioNoSeDevuelvePorqueNoSeSabeSiSeReservo (JUnit: pasa) | PASA |
 | HU-05 Comprar entradas | Must | CA-05.7 Reserva vencida o cancelada | escenario 6 (escenarios.mjs: pasa) | PASA |
 | HU-05 Comprar entradas | Must | CA-05.8 Identidad sin verificar | ComprasEnCursoTest#sinLaIdentidadVerificadaNoSeAbreLaCompra (JUnit: pasa) | PASA |
 | HU-05 Comprar entradas | Must | CA-05.9 Mensajería: emisión una sola vez | escenario 7 (escenarios.mjs: pasa)<br>escenario 8 (escenarios.mjs: pasa)<br>escenario 9 (escenarios.mjs: pasa)<br>escenario 10 (escenarios.mjs: pasa)<br>escenario 11 (escenarios.mjs: pasa)<br>escenario 12 (escenarios.mjs: pasa)<br>escenario 13 (escenarios.mjs: pasa) | PASA |
@@ -50,7 +50,7 @@ Generada por `scripts/qa/matriz.mjs` el 2026-11-18 19:21 UTC.
 | HU-09 Comprar en la reventa | Must | CA-09.5 Cobrado y sin entrada | escenario 20 (escenarios.mjs: pasa) | PASA |
 | HU-10 Crear y editar un evento | Must | CA-10.1 Alta de evento | escenario 24 (escenarios.mjs: pasa)<br>ServicioDeEventosTest#crearUnEventoParaMasTardeSeGuarda (JUnit: pasa) | PASA |
 | HU-10 Crear y editar un evento | Must | CA-10.2 Datos inválidos | escenario 24 (escenarios.mjs: pasa)<br>ServicioDeEventosTest#crearUnEventoConFechaPasadaEsUnDatoInvalidoDelCampoFechaISO (JUnit: pasa)<br>ServicioDeEventosTest#crearUnEventoConUnaCategoriaQueNoExisteEsUnDatoInvalidoDelCampoCategoria (JUnit: pasa)<br>NuevoEventoDtoTest#cadaSectorSeValidaConSuPrecioYSuCupo (JUnit: pasa) | PASA |
-| HU-10 Crear y editar un evento | Must | CA-10.3 Permisos (BFLA y BOLA) | escenario 5 (escenarios.mjs: pasa) | PASA |
+| HU-10 Crear y editar un evento | Must | CA-10.3 Permisos (BFLA y BOLA) | escenario 5 (escenarios.mjs: pasa)<br>ServicioDeEventosTest#unEventoAjenoNoSePuedeEditarYParaElOrganizadorNoExiste (JUnit: pasa) | PASA |
 | HU-10 Crear y editar un evento | Must | CA-10.4 Panel con mis eventos | escenario 21 (escenarios.mjs: pasa) | PASA |
 | HU-11 Cancelar un evento | Should | CA-11.1 Cancelación con reembolso | escenario 22 (escenarios.mjs: pasa)<br>ServicioDeEventosTest#cancelarMarcaElEventoYPublicaElMensajeConSuMotivo (JUnit: pasa)<br>CancelacionDeEventosTest#anulaCadaCompraPagadaPideSuReembolsoYPublicaSuAviso (JUnit: pasa)<br>PublicacionesEnH2Test#alCancelarseElEventoSeRetiranSusActivasSalvoLaQueSeEstaPagando (JUnit: pasa) | PASA |
 | HU-11 Cancelar un evento | Should | CA-11.2 Evento de otro organizador | escenario 22 (escenarios.mjs: pasa)<br>ServicioDeEventosTest#unEventoAjenoNoSePuedeCancelar (JUnit: pasa) | PASA |

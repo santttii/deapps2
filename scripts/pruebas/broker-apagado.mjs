@@ -5,7 +5,9 @@
 // que, al volver, el mensaje sigue ahí y la entrada se emite. Funciona porque el mensaje es
 // persistente (JMSDeliveryMode) y Artemis lo guarda en su journal en disco antes de confirmar.
 //
-// Necesita el servidor levantado (./dev.sh o docker compose) y jboss-cli, igual que escenarios.mjs.
+// Necesita el servidor levantado y jboss-cli, igual que escenarios.mjs, con una base que sobreviva al
+// reinicio: docker compose (PostgreSQL) o ./dev.sh con PALCO_DB_URL a un H2 en archivo (ver scripts/LEEME.md).
+// Con el H2 en memoria de ./dev.sh la base vuelve vacía y la venta de la prueba ya no existe.
 // Uso: node scripts/pruebas/broker-apagado.mjs
 import { BASE, COLA, MDB_EMISION, cli, contadores, dniAlAzar, esperar, eventoPropio, hasta, http, login, uuid, verContadores } from './lib.mjs';
 

@@ -1,0 +1,164 @@
+Asistente de Palco con un proveedor de IA por HTTP (ModeloCompatibleOpenAI). Servidor: http://localhost:8080. 2026-11-19T17:34:24.692Z
+
+dato proveedor: levantado por este script en http://127.0.0.1:8089/v1 (se baja al terminar)
+       [proveedor] Proveedor de prueba con la API de chat de OpenAI en http://127.0.0.1:8089/v1 (modo normal).
+       [proveedor] En el servidor: PALCO_ASISTENTE_MODELO=openai PALCO_ASISTENTE_OPENAI_URL=http://127.0.0.1:8089/v1
+       [proveedor] Modos: normal, lento, 401, 500, json-roto, con-dni, con-email. Para cambiarlo: curl -X POST http://127.0.0.1:8089/control/modo/lento
+dato servidor: palco.asistente.modelo=openai, palco.asistente.openai.url=http://127.0.0.1:8089/v1 y el asistente redesplegado
+       [proveedor] [14:34:25] modo normal
+
+A. La respuesta del proveedor llega al usuario por el gateway
+       [proveedor] [14:35:13] #1 POST /v1/chat/completions, modo normal
+       [proveedor]    cabeceras: accept=application/json, content-type=application/json, content-length=1380, host=127.0.0.1:8089, connection=Keep-Alive, user-agent=Apache-HttpClient/4.5.14 (Java/25.0.4.1), authorization=(no vino)
+       [proveedor]    model=gpt-4o-mini, temperature=0.2, max_tokens=300
+       [proveedor]    mensaje 1 de 2, role=system (1183 caracteres):
+       [proveedor]    │ Sos el asistente de Palco, una plataforma de entradas nominativas con reventa oficial.
+       [proveedor]    │ Respondé en español, en una o dos oraciones, solo sobre compras, entradas, reventa y la puerta.
+       [proveedor]    │ No tenés acceso a datos de otros usuarios y no podés comprar, publicar ni cancelar.
+       [proveedor]    │ Si no sabés algo, decilo y sugerí hablar con soporte.
+       [proveedor]    │ 
+       [proveedor]    │ Datos de Palco que podés usar (no inventes otros):
+       [proveedor]    │ - Se compran hasta 6 entradas por compra y hasta 6 por persona y evento.
+       [proveedor]    │ - Al comprar, los lugares quedan reservados 10 minutos para pagar.
+       [proveedor]    │ - El cargo de servicio es el 10 % del subtotal.
+       [proveedor]    │ - Cada entrada es nominativa: en la puerta se muestra el QR y el DNI del titular.
+       [proveedor]    │ - La reventa oficial permite publicar una entrada entre el 50 % del precio original de la entrada (el de lista de su sector) y ese precio más un 10 %, hasta 3 horas antes del evento. Se publica y se retira desde Mis entradas; cuando se vende, el QR anterior deja de servir.
+       [proveedor]    │ - Si se cancela un evento, la compra se anula, se devuelve el dinero y se avisa por email.
+       [proveedor]    │ - La factura se emite sola después de pagar y se ve con su número y CAE en el detalle de la compra.
+       [proveedor]    │ - Las compras y las entradas, con su estado y su QR, están en Mis entradas.
+       [proveedor]    mensaje 2 de 2, role=user: "¿Hasta cuándo puedo revender mi entrada?"
+       [proveedor]    respondió 200 a los 8 ms: Según los datos que me pasó Palco: «La reventa oficial permite publicar una entrada entre el 50 % del precio original de la entrada (el de lista de su sector) y ese precio más un 10 %, hasta 3 horas antes del evento. Se publica y se retira desde Mis entradas; cuando se vende, el QR anterior deja de servir.»
+dato el servidor mandó model=gpt-4o-mini; Authorization no vino (sin clave configurada)
+ok   el gateway le pasó la pregunta al proveedor por POST /v1/chat/completions
+       → POST /v1/chat/completions
+ok   van dos mensajes: las instrucciones en el system y la pregunta, sola, en el user
+       → system: "Sos el asistente de Palco, una plataforma de entradas nomina…" | user: "¿Hasta cuándo puedo revender mi entrada?"
+ok   el system trae las instrucciones del gateway y los datos de Palco, y no trae la pregunta
+       → 1183 caracteres
+ok   los datos salen de ReglasDeNegocio: reventa hasta 3 horas antes, tope del precio de lista más un 10 %, hasta 6 entradas por compra
+ok   responde el modelo (origen MODELO) con el texto del proveedor tal cual, tildes incluidas
+       → 200 MODELO 492 ms: Según los datos que me pasó Palco: «La reventa oficial permite publicar una entrada entre el 50 % del precio original de la entrada (el de lista de su sector) y ese precio más un 10 %, hasta 3 horas antes del evento. Se publica y se retira desde Mis entradas; cuando se vende, el QR anterior deja de servir.»
+ok   la respuesta cita el dato que llegó en el system
+ok   el registro del servidor dice qué modelo respondió: openai-compatible/gpt-4o-mini
+       → Asistente: usuario=titular@palco.test modelo=openai-compatible/gpt-4o-mini origen=MODELO motivo=null ms=492 pregunta="¿Hasta cuándo puedo revender mi entrada?"
+       [proveedor] [14:35:13] #2 POST /v1/chat/completions, modo normal
+       [proveedor]    cabeceras: accept=application/json, content-type=application/json, content-length=1372, host=127.0.0.1:8089, connection=Keep-Alive, user-agent=Apache-HttpClient/4.5.14 (Java/25.0.4.1), authorization=(no vino)
+       [proveedor]    model=gpt-4o-mini, temperature=0.2, max_tokens=300
+       [proveedor]    mensaje 1 de 2, role=system: el mismo del pedido #1 (1183 caracteres)
+       [proveedor]    mensaje 2 de 2, role=user: "¿Cuántas entradas puedo comprar?"
+       [proveedor]    respondió 200 a los 2 ms: Según los datos que me pasó Palco: «Se compran hasta 6 entradas por compra y hasta 6 por persona y evento.»
+ok   otra pregunta, otro dato: hasta 6 entradas por compra
+       → 200 MODELO 12 ms: Según los datos que me pasó Palco: «Se compran hasta 6 entradas por compra y hasta 6 por persona y evento.»
+
+B. Datos personales: se enmascaran antes de salir y una respuesta que los trae no se muestra
+       [proveedor] [14:35:14] #3 POST /v1/chat/completions, modo normal
+       [proveedor]    cabeceras: accept=application/json, content-type=application/json, content-length=1454, host=127.0.0.1:8089, connection=Keep-Alive, user-agent=Apache-HttpClient/4.5.14 (Java/25.0.4.1), authorization=(no vino)
+       [proveedor]    model=gpt-4o-mini, temperature=0.2, max_tokens=300
+       [proveedor]    mensaje 1 de 2, role=system: el mismo del pedido #1 (1183 caracteres)
+       [proveedor]    mensaje 2 de 2, role=user: "Soy Ana, DNI [dni oculto], mail [email oculto], tarjeta [tarjeta oculta]: ¿hasta cuándo puedo revender mi entrada?"
+       [proveedor]    respondió 200 a los 3 ms: Según los datos que me pasó Palco: «La reventa oficial permite publicar una entrada entre el 50 % del precio original de la entrada (el de lista de su sector) y ese precio más un 10 %, hasta 3 horas antes del evento. Se publica y se retira desde Mis entradas; cuando se vende, el QR anterior deja de servir.»
+ok   al proveedor le llegan [dni oculto], [email oculto] y [tarjeta oculta], no los datos
+       → user: "Soy Ana, DNI [dni oculto], mail [email oculto], tarjeta [tarjeta oculta]: ¿hasta cuándo puedo revender mi entrada?"
+ok   la pregunta se responde igual (origen MODELO)
+       → 200 MODELO 12 ms: Según los datos que me pasó Palco: «La reventa oficial permite publicar una entrada entre el 50 % del precio original de la entrada (el de lista de su sector) y ese precio más un 10 %, hasta 3 horas antes del evento. Se publica y se retira desde Mis entradas; cuando se vende, el QR anterior deja de servir.»
+ok   el registro del servidor guarda la pregunta enmascarada
+       → pregunta="Soy Ana, DNI [dni oculto], mail [email oculto], tarjeta [tarjeta oculta]: ¿hasta cuándo puedo revender mi entrada?"
+       [proveedor] [14:35:14] modo con-dni
+       [proveedor] [14:35:14] #4 POST /v1/chat/completions, modo con-dni
+       [proveedor]    cabeceras: accept=application/json, content-type=application/json, content-length=1383, host=127.0.0.1:8089, connection=Keep-Alive, user-agent=Apache-HttpClient/4.5.14 (Java/25.0.4.1), authorization=(no vino)
+       [proveedor]    model=gpt-4o-mini, temperature=0.2, max_tokens=300
+       [proveedor]    mensaje 1 de 2, role=system: el mismo del pedido #1 (1183 caracteres)
+       [proveedor]    mensaje 2 de 2, role=user: "¿A nombre de quién está la entrada E-1042?"
+       [proveedor]    respondió 200 a los 2 ms: La entrada E-1042 está a nombre de Juan Pérez, DNI 30.123.456.
+ok   con-dni: el proveedor contestó con un dato personal
+       → el proveedor: La entrada E-1042 está a nombre de Juan Pérez, DNI 30.123.456.
+ok   con-dni: el guardrail de salida no la muestra (BLOQUEADA, salida-con-datos-personales) y deriva a soporte
+       → 200 BLOQUEADA (salida-con-datos-personales) 8 ms: No puedo ayudarte con eso. Puedo responder dudas sobre compras, entradas, reventa y la puerta.
+       [proveedor] [14:35:14] modo con-email
+       [proveedor] [14:35:14] #5 POST /v1/chat/completions, modo con-email
+       [proveedor]    cabeceras: accept=application/json, content-type=application/json, content-length=1394, host=127.0.0.1:8089, connection=Keep-Alive, user-agent=Apache-HttpClient/4.5.14 (Java/25.0.4.1), authorization=(no vino)
+       [proveedor]    model=gpt-4o-mini, temperature=0.2, max_tokens=300
+       [proveedor]    mensaje 1 de 2, role=system: el mismo del pedido #1 (1183 caracteres)
+       [proveedor]    mensaje 2 de 2, role=user: "¿Cómo me comunico con el titular de la entrada E-1042?"
+       [proveedor]    respondió 200 a los 2 ms: Podés escribirle al titular de esa entrada a juan.perez@ejemplo.com.
+ok   con-email: el proveedor contestó con un dato personal
+       → el proveedor: Podés escribirle al titular de esa entrada a juan.perez@ejemplo.com.
+ok   con-email: el guardrail de salida no la muestra (BLOQUEADA, salida-con-datos-personales) y deriva a soporte
+       → 200 BLOQUEADA (salida-con-datos-personales) 11 ms: No puedo ayudarte con eso. Puedo responder dudas sobre compras, entradas, reventa y la puerta.
+
+C. Guardrail de entrada: lo que corta no llega al proveedor
+       [proveedor] [14:35:14] modo normal
+ok   inyeccion: BLOQUEADA y el proveedor no recibió nada
+       → 200 BLOQUEADA (inyeccion) 0 ms: No puedo ayudarte con eso. Puedo responder dudas sobre compras, entradas, reventa y la puerta. | pedidos al proveedor: 0
+ok   datos-personales: BLOQUEADA y el proveedor no recibió nada
+       → 200 BLOQUEADA (datos-personales) 0 ms: No puedo ayudarte con eso. Puedo responder dudas sobre compras, entradas, reventa y la puerta. | pedidos al proveedor: 0
+ok   demasiado-larga: BLOQUEADA y el proveedor no recibió nada
+       → 200 BLOQUEADA (demasiado-larga) 0 ms: No puedo ayudarte con eso. Puedo responder dudas sobre compras, entradas, reventa y la puerta. | pedidos al proveedor: 0
+
+D. Proveedor lento: a los 5 segundos, el fallback (el proveedor tarda 8)
+       [proveedor] [14:35:15] modo lento (8000 ms)
+       [proveedor] [14:35:15] #6 POST /v1/chat/completions, modo lento
+       [proveedor]    cabeceras: accept=application/json, content-type=application/json, content-length=1380, host=127.0.0.1:8089, connection=Keep-Alive, user-agent=Apache-HttpClient/4.5.14 (Java/25.0.4.1), authorization=(no vino)
+       [proveedor]    model=gpt-4o-mini, temperature=0.2, max_tokens=300
+       [proveedor]    mensaje 1 de 2, role=system: el mismo del pedido #1 (1183 caracteres)
+       [proveedor]    mensaje 2 de 2, role=user: "¿Hasta cuándo puedo revender mi entrada?"
+       [proveedor]    espera 8000 ms antes de responder
+ok   el pedido llegó al proveedor
+       → #6, modo lento
+ok   responde el fallback por timeout, sin esperar los 8 s del proveedor
+       → 200 FALLBACK (timeout) 5011 ms: La reventa oficial permite publicar una entrada entre el 50 % del precio original de la entrada y ese precio más un 10 %, hasta 3 horas antes del evento. (pedido completo: 5029 ms)
+ok   el fallback es la respuesta frecuente de la reventa, no la del proveedor
+       [proveedor]    #6: el cliente cortó la conexión a los 6005 ms, sin esperar la respuesta
+ok   el adaptador no deja la conexión abierta: la corta antes de que el proveedor conteste
+       → cortada a los 6005 ms
+
+E. Proveedor con error: el fallback
+       [proveedor] [14:35:21] modo 401
+       [proveedor] [14:35:21] #7 POST /v1/chat/completions, modo 401
+       [proveedor]    cabeceras: accept=application/json, content-type=application/json, content-length=1372, host=127.0.0.1:8089, connection=Keep-Alive, user-agent=Apache-HttpClient/4.5.14 (Java/25.0.4.1), authorization=(no vino)
+       [proveedor]    model=gpt-4o-mini, temperature=0.2, max_tokens=300
+       [proveedor]    mensaje 1 de 2, role=system: el mismo del pedido #1 (1183 caracteres)
+       [proveedor]    mensaje 2 de 2, role=user: "¿Cuántas entradas puedo comprar?"
+       [proveedor]    respondió 401 a los 2 ms: {"error":{"message":"Incorrect API key provided: sk-prueb****. You can find your API key at https://platform.openai.com/account/api-keys.","type":"invalid_request_error","param":null,"code":"invalid_api_key"}}
+ok   401: el proveedor respondió 401 y el usuario recibe el fallback (error-del-modelo), con la respuesta frecuente
+       → 200 FALLBACK (error-del-modelo) 16 ms: Podés comprar hasta 6 entradas por compra.
+ok   el registro del servidor dice que el proveedor respondió 401, sin el cuerpo del error
+       → Asistente: el proveedor de IA respondió 401.
+       [proveedor] [14:35:21] modo 500
+       [proveedor] [14:35:21] #8 POST /v1/chat/completions, modo 500
+       [proveedor]    cabeceras: accept=application/json, content-type=application/json, content-length=1378, host=127.0.0.1:8089, connection=Keep-Alive, user-agent=Apache-HttpClient/4.5.14 (Java/25.0.4.1), authorization=(no vino)
+       [proveedor]    model=gpt-4o-mini, temperature=0.2, max_tokens=300
+       [proveedor]    mensaje 1 de 2, role=system: el mismo del pedido #1 (1183 caracteres)
+       [proveedor]    mensaje 2 de 2, role=user: "¿Hay estacionamiento cerca del estadio?"
+       [proveedor]    respondió 500 a los 1 ms: {"error":{"message":"The server had an error while processing your request. Sorry about that!","type":"server_error","param":null,"code":null}}
+ok   500: el proveedor respondió 500 y el usuario recibe el fallback (error-del-modelo), sin respuesta frecuente: soporte
+       → 200 FALLBACK (error-del-modelo) 7 ms: No pude responder eso ahora. Podés revisar las preguntas frecuentes o escribirle a soporte.
+       [proveedor] [14:35:21] modo json-roto
+       [proveedor] [14:35:21] #9 POST /v1/chat/completions, modo json-roto
+       [proveedor]    cabeceras: accept=application/json, content-type=application/json, content-length=1372, host=127.0.0.1:8089, connection=Keep-Alive, user-agent=Apache-HttpClient/4.5.14 (Java/25.0.4.1), authorization=(no vino)
+       [proveedor]    model=gpt-4o-mini, temperature=0.2, max_tokens=300
+       [proveedor]    mensaje 1 de 2, role=system: el mismo del pedido #1 (1183 caracteres)
+       [proveedor]    mensaje 2 de 2, role=user: "¿Cuánto es el cargo de servicio?"
+       [proveedor]    respondió 200 a los 3 ms: {"id":"chatcmpl-local-9","object":"chat.completion","created":1795109721,"model":"gpt-4o-mini","choices":[{"index":0,"message":{"role":"assistant","content":"Según los da
+ok   json-roto: el proveedor respondió 200 con el JSON cortado y el usuario recibe el fallback (error-del-modelo), con la respuesta frecuente
+       → 200 FALLBACK (error-del-modelo) 28 ms: El cargo de servicio es el 10 % del subtotal.
+
+F. Plan de apagado: el gateway no llama al proveedor (sin redesplegar)
+       [proveedor] [14:35:21] modo normal
+ok   apagado: responde el fallback y el proveedor no recibió nada
+       → 200 FALLBACK (apagado) 0 ms: Podés comprar hasta 6 entradas por compra. | pedidos al proveedor: 0
+       [proveedor] [14:35:48] #10 POST /v1/chat/completions, modo normal
+       [proveedor]    cabeceras: accept=application/json, content-type=application/json, content-length=1372, host=127.0.0.1:8089, connection=Keep-Alive, user-agent=Apache-HttpClient/4.5.14 (Java/25.0.4.1), authorization=(no vino)
+       [proveedor]    model=gpt-4o-mini, temperature=0.2, max_tokens=300
+       [proveedor]    mensaje 1 de 2, role=system: el mismo del pedido #1 (1183 caracteres)
+       [proveedor]    mensaje 2 de 2, role=user: "¿Cuántas entradas puedo comprar?"
+       [proveedor]    respondió 200 a los 3 ms: Según los datos que me pasó Palco: «Se compran hasta 6 entradas por compra y hasta 6 por persona y evento.»
+ok   encendido otra vez: responde el proveedor
+       → 200 MODELO 12 ms: Según los datos que me pasó Palco: «Se compran hasta 6 entradas por compra y hasta 6 por persona y evento.»
+
+G. Seguridad
+ok   sin token: 401 y el proveedor no recibió nada
+       → 401 | pedidos al proveedor: 0
+
+29 de 29 comprobaciones
+dato servidor: propiedades como estaban (palco.asistente.modelo=(sin definir), palco.asistente.openai.url=(sin definir)) y el asistente redesplegado

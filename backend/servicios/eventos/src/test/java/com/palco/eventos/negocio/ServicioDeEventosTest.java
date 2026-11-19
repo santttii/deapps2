@@ -2,6 +2,7 @@ package com.palco.eventos.negocio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,6 +22,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerResponseContext;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MultivaluedHashMap;
+import jakarta.ws.rs.core.MultivaluedMap;
+
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -28,6 +35,7 @@ import com.palco.common.ErroresDeNegocio;
 import com.palco.common.mensajeria.CompraAnuladaMensaje;
 import com.palco.common.mensajeria.EventoCanceladoMensaje;
 import com.palco.common.mensajeria.PublicadorDeCancelaciones;
+import com.palco.common.rest.FiltroDeEtag;
 import com.palco.eventos.api.Dtos.EditarEventoDto;
 import com.palco.eventos.api.Dtos.EventoDto;
 import com.palco.eventos.api.Dtos.NuevoEventoDto;
@@ -526,7 +534,7 @@ class ServicioDeEventosTest {
         Evento evento = conUnSector(0);
         // El slug sigue siendo el viejo aunque el título cambie: lo lleva la URL del frontend.
         EventoDto editado = servicio.editarEvento(EVENTO, editar("Show nuevo", "Teatro",
-                List.of(new SectorEditadoDto(SECTOR, "Campo VIP", 60_000, 150))), "org-1");
+                List.of(new SectorEditadoDto(SECTOR, "Campo VIP", 60_000, 150))), "org-1", null);
 
         assertEquals("show", editado.slug());
         assertEquals("Show nuevo", editado.titulo());
@@ -542,7 +550,7 @@ class ServicioDeEventosTest {
         Evento evento = conUnSector(0);
 
         EventoDto editado = servicio.editarEvento(EVENTO, editar("Show", "Música",
-                List.of(new SectorEditadoDto(null, "Platea", 80_000, 50))), "org-1");
+                List.of(new SectorEditadoDto(null, "Platea", 80_000, 50))), "org-1", null);
 
         // El que estaba no vino en la lista y no tenía ventas: se fue.
         assertEquals(1, editado.sectores().size());
@@ -556,7 +564,7 @@ class ServicioDeEventosTest {
 
         ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
                 () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
-                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 29))), "org-1"));
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 29))), "org-1", null));
 
         assertEquals(TiposDeProblema.SECTOR_CON_VENTAS, error.tipo());
     }
@@ -566,7 +574,7 @@ class ServicioDeEventosTest {
         conUnSector(30);
 
         EventoDto editado = servicio.editarEvento(EVENTO, editar("Show", "Música",
-                List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 30))), "org-1");
+                List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 30))), "org-1", null);
 
         assertEquals(30, editado.sectores().get(0).cupo());
     }
@@ -578,7 +586,7 @@ class ServicioDeEventosTest {
 
         ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
                 () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
-                        List.of(new SectorEditadoDto(SECTOR, "Campo", 60_000, 100))), "org-1"));
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 60_000, 100))), "org-1", null));
 
         assertEquals(TiposDeProblema.SECTOR_CON_VENTAS, error.tipo());
     }
@@ -588,7 +596,7 @@ class ServicioDeEventosTest {
         conUnSector(1);
 
         EventoDto editado = servicio.editarEvento(EVENTO, editar("Show", "Música",
-                List.of(new SectorEditadoDto(SECTOR, "Campo renombrado", 50_000, 100))), "org-1");
+                List.of(new SectorEditadoDto(SECTOR, "Campo renombrado", 50_000, 100))), "org-1", null);
 
         assertEquals("Campo renombrado", editado.sectores().get(0).nombre());
     }
@@ -599,7 +607,7 @@ class ServicioDeEventosTest {
 
         ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
                 () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
-                        List.of(new SectorEditadoDto(null, "Otro", 10_000, 10))), "org-1"));
+                        List.of(new SectorEditadoDto(null, "Otro", 10_000, 10))), "org-1", null));
 
         assertEquals(TiposDeProblema.SECTOR_CON_VENTAS, error.tipo());
     }
@@ -610,18 +618,18 @@ class ServicioDeEventosTest {
 
         assertThrows(ErroresDeNegocio.NoEncontrado.class,
                 () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
-                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-2"));
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-2", null));
     }
 
     @Test
     void unEventoQueYaEmpezoNoSeEdita() {
         Evento empezado = evento(EVENTO, "show", "Show", Categoria.MUSICA, "Estadio", AHORA_LOCAL.minusHours(1));
         empezado.agregarSector(new Sector(SECTOR, empezado, "Campo", 50_000, 100, 1));
-        when(eventos.buscarPorId(EVENTO)).thenReturn(Optional.of(empezado));
+        when(eventos.buscarPorIdParaCambiar(EVENTO)).thenReturn(Optional.of(empezado));
 
         ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
                 () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
-                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1"));
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", null));
 
         assertEquals(TiposDeProblema.EVENTO_FINALIZADO, error.tipo());
     }
@@ -633,7 +641,7 @@ class ServicioDeEventosTest {
         assertThrows(ErroresDeNegocio.DatosInvalidos.class,
                 () -> servicio.editarEvento(EVENTO, new EditarEventoDto("Show", "Música", "Estadio",
                         AHORA_LOCAL.minusDays(1), "Descripción", null,
-                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1"));
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", null));
     }
 
     @Test
@@ -642,7 +650,141 @@ class ServicioDeEventosTest {
 
         assertThrows(ErroresDeNegocio.DatosInvalidos.class,
                 () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
-                        List.of(new SectorEditadoDto("sec-de-otro", "Campo", 50_000, 100))), "org-1"));
+                        List.of(new SectorEditadoDto("sec-de-otro", "Campo", 50_000, 100))), "org-1", null));
+    }
+
+    // --- Editar con If-Match: solo si el evento sigue como lo leyó el cliente ---
+
+    @Test
+    void sinIfMatchSeEditaComoAntes() {
+        conUnSector(0);
+
+        EventoDto editado = servicio.editarEvento(EVENTO, editar("Show nuevo", "Música",
+                List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", null);
+
+        assertEquals("Show nuevo", editado.titulo());
+    }
+
+    @Test
+    void conElEtagDelGetSeEditaYElEtagNuevoEsElQueDaraElGet() {
+        conUnSector(0);
+        // El ETag tal como lo pone el filtro en la respuesta del GET: es el mismo valor que se compara.
+        String leido = etagDelGet();
+
+        EventoDto editado = servicio.editarEvento(EVENTO, editar("Show nuevo", "Música",
+                List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", leido);
+
+        assertEquals("Show nuevo", editado.titulo());
+        // Lo que pone el recurso en la respuesta del PUT: distinto del leído e igual al del GET siguiente,
+        // así sirve para encadenar otra edición sin volver a pedir el evento.
+        String nuevo = FiltroDeEtag.etagDeLaRepresentacion(editado);
+        assertNotEquals(leido, nuevo);
+        assertEquals(nuevo, etagDelGet());
+        assertEquals("Otro título", servicio.editarEvento(EVENTO, editar("Otro título", "Música",
+                List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", nuevo).titulo());
+    }
+
+    @Test
+    void conUnEtagViejoEsPrecondicionFallidaYNoSeCambiaNada() {
+        Evento evento = conUnSector(0);
+        String leido = etagDelGet();
+        // Otra pestaña edita primero, con el mismo ETag.
+        servicio.editarEvento(EVENTO, editar("Primera edición", "Música",
+                List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", leido);
+
+        ErroresDeNegocio.PrecondicionFallida error = assertThrows(ErroresDeNegocio.PrecondicionFallida.class,
+                () -> servicio.editarEvento(EVENTO, editar("Segunda edición", "Teatro",
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 200))), "org-1", leido));
+
+        // PrecondicionFallida responde 412 con "type": "/problemas/evento-modificado".
+        assertEquals(TiposDeProblema.EVENTO_MODIFICADO, error.tipo());
+        assertEquals("Primera edición", evento.getTitulo());
+        assertEquals(Categoria.MUSICA, evento.getCategoria());
+        assertEquals(100, evento.getSectores().get(0).getCupo());
+    }
+
+    @Test
+    void unaVentaTambienCambiaElEventoQueLeyoElCliente() {
+        Evento evento = conUnSector(0);
+        String leido = etagDelGet();
+        // Las vendidas son parte del evento que vio el organizador: decidió mirando otras.
+        vender(evento.getSectores().get(0), 1);
+
+        ErroresDeNegocio.PrecondicionFallida error = assertThrows(ErroresDeNegocio.PrecondicionFallida.class,
+                () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", leido));
+
+        assertEquals(TiposDeProblema.EVENTO_MODIFICADO, error.tipo());
+    }
+
+    @Test
+    void conAsteriscoSeEditaSiElEventoExisteYSiNoEsNoEncontrado() {
+        conUnSector(0);
+        when(eventos.buscarPorIdParaCambiar("ev-9")).thenReturn(Optional.empty());
+
+        assertEquals("Show nuevo", servicio.editarEvento(EVENTO, editar("Show nuevo", "Música",
+                List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", "*").titulo());
+        // "*" es "si existe": uno que no existe sigue siendo 404, no 412.
+        assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> servicio.editarEvento("ev-9", editar("Show", "Música",
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", "*"));
+    }
+
+    @Test
+    void unEtagDebilNoAlcanzaParaEditar() {
+        conUnSector(0);
+
+        // RFC 9110: If-Match usa la comparación fuerte, así que W/"..." no coincide aunque el valor sea el mismo.
+        assertThrows(ErroresDeNegocio.PrecondicionFallida.class,
+                () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", "W/" + etagDelGet()));
+    }
+
+    @Test
+    void unEventoCanceladoEsConflictoAunqueElEtagSeaViejo() {
+        conUnSector(0);
+        String leido = etagDelGet();
+        servicio.cancelarEvento(EVENTO, null, "org-1");
+
+        // Lo que fallaría igual sin If-Match gana (RFC 9110, 13.2.1): el 409 dice qué pasó, el 412 no.
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", leido));
+
+        assertEquals(TiposDeProblema.EVENTO_CANCELADO, error.tipo());
+    }
+
+    @Test
+    void laRespuestaDeLaEdicionTraeLosSectoresEnElOrdenQueLlegaronComoElGet() {
+        conUnSector(0);
+
+        // El sector nuevo va primero: en memoria queda al final de la lista, pero con orden 1.
+        EventoDto editado = servicio.editarEvento(EVENTO, editar("Show", "Música", List.of(
+                new SectorEditadoDto(null, "Platea", 80_000, 50),
+                new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", null);
+
+        assertEquals(List.of("Platea", "Campo"), editado.sectores().stream().map(SectorDto::nombre).toList());
+        assertEquals(editado, servicio.obtenerDetalle("show"));
+    }
+
+    /**
+     * El ETag que pone {@link FiltroDeEtag} en la respuesta de {@code GET /api/eventos/show}: se
+     * corre el filtro de verdad sobre el detalle, con el pedido y la respuesta como dobles.
+     */
+    private String etagDelGet() {
+        EventoDto detalle = servicio.obtenerDetalle("show");
+        ContainerRequestContext pedido = mock(ContainerRequestContext.class);
+        when(pedido.getMethod()).thenReturn("GET");
+        ContainerResponseContext respuesta = mock(ContainerResponseContext.class);
+        MultivaluedMap<String, Object> cabeceras = new MultivaluedHashMap<>();
+        when(respuesta.getStatus()).thenReturn(200);
+        when(respuesta.hasEntity()).thenReturn(true);
+        when(respuesta.getEntity()).thenReturn(detalle);
+        when(respuesta.getHeaders()).thenReturn(cabeceras);
+
+        new FiltroDeEtag().filter(pedido, respuesta);
+
+        return (String) cabeceras.getFirst(HttpHeaders.ETAG);
     }
 
     // --- Cancelar un evento ---
@@ -702,7 +844,7 @@ class ServicioDeEventosTest {
     void unEventoQueYaEmpezoNoSeCancela() {
         // Reembolsar entradas que ya se usaron no corresponde.
         Evento empezado = evento(EVENTO, "show", "Show", Categoria.MUSICA, "Estadio", AHORA_LOCAL.minusHours(1));
-        when(eventos.buscarPorId(EVENTO)).thenReturn(Optional.of(empezado));
+        when(eventos.buscarPorIdParaCambiar(EVENTO)).thenReturn(Optional.of(empezado));
 
         ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
                 () -> servicio.cancelarEvento(EVENTO, null, "org-1"));
@@ -732,7 +874,7 @@ class ServicioDeEventosTest {
 
         ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
                 () -> servicio.editarEvento(EVENTO, editar("Show", "Música",
-                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1"));
+                        List.of(new SectorEditadoDto(SECTOR, "Campo", 50_000, 100))), "org-1", null));
 
         assertEquals(TiposDeProblema.EVENTO_CANCELADO, error.tipo());
     }
@@ -750,6 +892,9 @@ class ServicioDeEventosTest {
         }
         evento.agregarSector(campo);
         when(eventos.buscarPorId(EVENTO)).thenReturn(Optional.of(evento));
+        // Editar y cancelar lo leen bloqueado; el detalle, por su slug.
+        when(eventos.buscarPorIdParaCambiar(EVENTO)).thenReturn(Optional.of(evento));
+        when(eventos.buscarPorSlug("show")).thenReturn(Optional.of(evento));
         return evento;
     }
 

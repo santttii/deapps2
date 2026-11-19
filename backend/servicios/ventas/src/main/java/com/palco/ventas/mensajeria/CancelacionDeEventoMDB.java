@@ -42,8 +42,8 @@ import com.palco.ventas.negocio.CancelacionDeEventos;
  *
  * {@code REQUIRED} en {@code onMessage}: recibir el mensaje queda en una
  * transacción, pero cada compra se anula en la suya ({@code REQUIRES_NEW} en
- * {@link CancelacionDeEventos#anular}), así un fallo en la última no deshace
- * las anteriores.
+ * {@link com.palco.ventas.negocio.AnulacionDeCompras#anular}), así un fallo en
+ * la última no deshace las anteriores.
  */
 @MessageDriven(name = "CancelacionDeEvento", activationConfig = {
         @ActivationConfigProperty(propertyName = "destinationLookup", propertyValue = DestinosJms.TOPICO_CANCELACIONES),

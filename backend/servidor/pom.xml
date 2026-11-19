@@ -15,7 +15,7 @@
     <name>Palco — servidor</name>
     <description>
         Arma un WildFly con todo lo que necesitan los servicios (base de datos, broker JMS)
-        y despliega los 8 WAR. Resultado en target/server, listo para correr o hostear.
+        y despliega los 9 WAR de Palco. Resultado en target/server, listo para correr o hostear.
     </description>
 
     <properties>
@@ -91,7 +91,7 @@
                 </executions>
             </plugin>
             <plugin>
-                <!-- 2. Copia los 8 WAR y el del ARCA simulado a deployments/ (WildFly los despliega al arrancar) -->
+                <!-- 2. Copia los 9 WAR y el del ARCA simulado a deployments/ (WildFly los despliega al arrancar) -->
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>

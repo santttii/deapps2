@@ -15,9 +15,12 @@ import com.palco.common.ReglasDeNegocio;
  * Una entrada puesta en la reventa oficial, con su precio.
  *
  * La entrada es de ServicioDeVentas: acá se guarda su id y una copia del
- * evento, el sector y lo que pagó el vendedor, que es la base del tope. El
- * tope ({@code precioMaximo}) se calcula una vez, al publicar, con
- * {@code ReglasDeNegocio}.
+ * evento, el sector y lo que pagó el vendedor. El tope
+ * ({@code precioMaximo}) se calcula una vez, al publicar, con
+ * {@code ReglasDeNegocio} sobre el precio de lista del sector y no sobre lo
+ * pagado: una entrada comprada en la reventa se pudo pagar hasta un 10% más
+ * que su precio de lista, y si el tope saliera de ahí, cada reventa lo
+ * subiría otro 10%.
  *
  * Desde el código solo se crea. El estado y los datos de la compra no tienen
  * "set": los cambia {@code PublicacionRepository} con UPDATE condicionales, y
@@ -97,9 +100,13 @@ public class Publicacion {
         // JPA
     }
 
-    /** Una publicación nueva, {@code ACTIVA}, con su tope calculado por {@code ReglasDeNegocio}. */
+    /**
+     * Una publicación nueva, {@code ACTIVA}, con su tope calculado por
+     * {@code ReglasDeNegocio} sobre {@code precioDeLista}, el precio del sector
+     * en Eventos.
+     */
     public Publicacion(String id, String entradaId, String vendedorId, String eventoId, String sectorId,
-            String sector, long precioPagado, long precio, LocalDateTime ahora) {
+            String sector, long precioPagado, long precioDeLista, long precio, LocalDateTime ahora) {
         this.id = id;
         this.entradaId = entradaId;
         this.vendedorId = vendedorId;
@@ -108,7 +115,7 @@ public class Publicacion {
         this.sector = sector;
         this.precioPagado = precioPagado;
         this.precio = precio;
-        this.precioMaximo = ReglasDeNegocio.topeReventa(precioPagado);
+        this.precioMaximo = ReglasDeNegocio.topeReventa(precioDeLista);
         this.estado = EstadoPublicacion.ACTIVA;
         this.publicada = ahora;
     }

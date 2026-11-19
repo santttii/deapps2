@@ -1,10 +1,10 @@
-Asistente de Palco por su gateway. 2026-11-18T19:21:05.129Z
+Asistente de Palco por su gateway. 2026-11-19T17:26:06.244Z
 
 A. Respuestas del modelo
 ok   una pregunta normal la responde el modelo
-       → 200 MODELO 13 ms: Podés revender hasta 3 horas antes del evento.
+       → 200 MODELO 58 ms: Podés revender hasta 3 horas antes del evento.
 ok   otra pregunta normal
-       → 200 MODELO 1 ms: Hasta 6 entradas por compra.
+       → 200 MODELO 2 ms: Hasta 6 entradas por compra.
 
 B. Guardrails
 ok   una inyección de prompt se bloquea
@@ -12,21 +12,21 @@ ok   una inyección de prompt se bloquea
 ok   un pedido de datos de terceros se bloquea
        → 200 BLOQUEADA (datos-personales) 0 ms: No puedo ayudarte con eso. Puedo responder dudas sobre compras, entradas, reventa y la puerta.
 ok   el asistente no hace acciones: solo lee
-       → 200 MODELO 3 ms: Soy un asistente de solo lectura: no puedo comprar, publicar ni cancelar. Eso lo hacés vos desde la app, en el evento o en Mis entradas.
+       → 200 MODELO 1 ms: Soy un asistente de solo lectura: no puedo comprar, publicar ni cancelar. Eso lo hacés vos desde la app, en el evento o en Mis entradas.
 ok   una tarjeta no se repite (se enmascara antes del modelo)
-       → 200 MODELO 0 ms: Por seguridad no proceso datos de tarjetas ni documentos: no los compartas en el chat.
+       → 200 MODELO 1 ms: Por seguridad no proceso datos de tarjetas ni documentos: no los compartas en el chat.
 
 C. Timeout de 5 segundos con fallback (el modelo simulado tarda 8 s)
 ok   responde el fallback por timeout, sin esperar los 8 s del modelo
-       → 200 FALLBACK (timeout) 5003 ms: La reventa oficial permite publicar una entrada entre el 50 % y lo pagado más un 10 %, hasta 3 horas antes del evento. (pedido completo: 5010 ms)
+       → 200 FALLBACK (timeout) 5007 ms: La reventa oficial permite publicar una entrada entre el 50 % del precio original de la entrada y ese precio más un 10 %, hasta 3 horas antes del evento. (pedido completo: 5020 ms)
 ok   sin respuesta frecuente, ofrece soporte
-       → 200 FALLBACK (timeout) 5001 ms: No pude responder eso ahora. Podés revisar las preguntas frecuentes o escribirle a soporte.
+       → 200 FALLBACK (timeout) 5002 ms: No pude responder eso ahora. Podés revisar las preguntas frecuentes o escribirle a soporte.
 
 D. Plan de apagado (sin redesplegar)
 ok   apagado, responde el fallback sin llamar al modelo
        → 200 FALLBACK (apagado) 0 ms: Podés comprar hasta 6 entradas por compra.
 ok   al volver a encenderlo, responde otra vez el modelo
-       → 200 MODELO 1 ms: Hasta 6 entradas por compra.
+       → 200 MODELO 2 ms: Hasta 6 entradas por compra.
 
 E. Seguridad
 ok   sin token: 401

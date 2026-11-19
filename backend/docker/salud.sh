@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Healthcheck del contenedor: los 8 servicios tienen que contestar 200 en su /health.
+# Healthcheck del contenedor: los 9 servicios tienen que contestar 200 en su /health.
 # La imagen no trae curl: el pedido HTTP se hace con /dev/tcp de bash.
 set -u
 
@@ -12,6 +12,7 @@ rutas=(
   /api/v1/reventas/health
   /api/notificaciones/health
   /api/v1/facturas/health
+  /api/v1/asistente/health
 )
 
 for ruta in "${rutas[@]}"; do

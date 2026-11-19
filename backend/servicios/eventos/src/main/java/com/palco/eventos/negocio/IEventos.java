@@ -61,8 +61,14 @@ public interface IEventos {
      * un sector por debajo de lo que ya se vendió, cambiarle el precio si
      * tiene ventas o quitarlo si tiene entradas vendidas. El slug no cambia
      * aunque cambie el título: lo lleva la URL del frontend.
+     *
+     * Con {@code ifMatch} (el valor de la cabecera {@code If-Match}) edita solo
+     * si el evento sigue como lo leyó el cliente: el ETag actual, el mismo que
+     * daría el GET del detalle, tiene que estar en la lista, o ser {@code *}. Si
+     * no, 412 {@code evento-modificado} y no se guarda nada. Null es "sin
+     * condición" y edita como siempre.
      */
-    EventoDto editarEvento(String eventoId, EditarEventoDto cambios, String organizadorId);
+    EventoDto editarEvento(String eventoId, EditarEventoDto cambios, String organizadorId, String ifMatch);
 
     /**
      * Cancela un evento: lo marca como cancelado y publica

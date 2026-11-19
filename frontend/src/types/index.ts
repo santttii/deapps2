@@ -57,7 +57,7 @@ export interface Entrada {
 export type EstadoPublicacion = 'activa' | 'vendida' | 'retirada';
 
 // Una publicación de la reventa oficial, como la devuelve Reventa (/api/v1/reventas). El backend
-// calcula precioMaximo (lo pagado + 10%); el frontend no lo recalcula para mostrarlo.
+// calcula precioMaximo (el precio de lista del sector + 10%); el frontend no lo recalcula para mostrarlo.
 export interface Publicacion {
   id: string;
   entradaId: string;
@@ -106,7 +106,7 @@ export interface Orden {
   sePuedePagar: boolean;
 }
 
-// Copia de common/ReglasDeNegocio: la reventa va del 50% al 110% de lo pagado.
+// Copia de common/ReglasDeNegocio: la reventa va del 50% al 110% del precio de lista del sector.
 export const TOPE_REVENTA = 0.1;
 export const MINIMO_REVENTA = 0.5;
 export const TASA_SERVICIO = 0.1;

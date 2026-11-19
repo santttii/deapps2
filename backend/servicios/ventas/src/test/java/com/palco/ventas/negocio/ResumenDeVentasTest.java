@@ -1,6 +1,7 @@
 package com.palco.ventas.negocio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDateTime;
@@ -101,7 +102,39 @@ class ResumenDeVentasTest {
         assertEquals(1, resumen.liquidacion().ventas());
     }
 
+    @Test
+    void laCompraEnLaReventaNoSeLiquidaAlOrganizadorNiSeCuentaEntreLasVendidas() {
+        // V-1 compró dos entradas de 50.000 del catálogo y revendió una a 55.000: esa es V-2. El lugar ya se
+        // liquidó en V-1, que sigue pagada; los 55.000 son del vendedor.
+        ResumenDeVentasDto resumen = ResumenDeVentas.resumir(EVENTO, List.of(
+                venta("V-1", "2026-10-28T10:00:00", 50_000, 2),
+                compraEnLaReventa("V-2", "2026-10-30T09:00:00", 55_000)));
+
+        LiquidacionDto liquidacion = resumen.liquidacion();
+        assertEquals(1, liquidacion.ventas());
+        assertEquals(2, liquidacion.entradas());
+        assertEquals(100_000, liquidacion.aLiquidarAlOrganizador());
+        assertEquals(ReglasDeNegocio.cargoServicio(100_000), liquidacion.cargoDePalco());
+        // Tampoco aparece en el detalle por día: el 30/10 no tuvo ventas del evento.
+        assertEquals(List.of("2026-10-28"), resumen.porDia().stream().map(DiaDeVentasDto::fecha).toList());
+    }
+
+    @Test
+    void unaClaveQueNoEsLaDeLaReventaSeCuentaComoCualquierVenta() {
+        // Las compras del catálogo tienen un UUID como clave: nunca empiezan con el prefijo de la reventa.
+        Venta delCatalogo = venta("V-1", "2026-10-28T10:00:00", 50_000, 1);
+
+        assertFalse(ReventaDeEntradas.esCompraEnLaReventa(delCatalogo));
+        assertTrue(ReventaDeEntradas.esCompraEnLaReventa(compraEnLaReventa("V-2", "2026-10-28T10:00:00", 50_000)));
+        assertEquals(1, ResumenDeVentas.resumir(EVENTO, List.of(delCatalogo)).liquidacion().ventas());
+    }
+
     // ---------------------------------------------------------------------------------------------
+
+    /** La venta que nace de una compra en la reventa: un renglón de una entrada, con la clave que le pone la transferencia. */
+    private static Venta compraEnLaReventa(String id, String confirmada, long precio) {
+        return venta(id, ReventaDeEntradas.PREFIJO_CLAVE + "R-" + id, confirmada, precio, 1);
+    }
 
     /**
      * Una venta pagada con un renglón. El cargo de servicio es el 10 % del
@@ -110,8 +143,12 @@ class ResumenDeVentasTest {
      * @param confirmada fecha ISO, o null para una venta sin confirmar
      */
     private static Venta venta(String id, String confirmada, long precioUnitario, int cantidad) {
+        return venta(id, "clave-" + id, confirmada, precioUnitario, cantidad);
+    }
+
+    private static Venta venta(String id, String clave, String confirmada, long precioUnitario, int cantidad) {
         LocalDateTime creada = LocalDateTime.parse("2026-10-27T08:00:00");
-        Venta venta = new Venta(id, "user-a", EVENTO, "clave-" + id, creada, creada.plusMinutes(10));
+        Venta venta = new Venta(id, "user-a", EVENTO, clave, creada, creada.plusMinutes(10));
         venta.agregarItem("sec-1", "Campo", precioUnitario, cantidad);
         fijar(venta, "estado", EstadoVenta.CONFIRMADA);
         if (confirmada != null) {

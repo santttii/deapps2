@@ -201,8 +201,11 @@ export default function MyTicketsPage() {
   const publicacion = publicaciones.find((p) => p.entradaId === entrada.id && p.estado === 'activa');
   const errorReventa = carga.errorReventa;
 
-  const tope = calcularTope(entrada.precioPagado);
-  const minimo = calcularMinimoReventa(entrada.precioPagado);
+  // El rango de la reventa sale del precio de lista del sector, como en el backend: una entrada
+  // comprada en la reventa conserva el tope original. Si el sector no está en el catálogo, lo pagado.
+  const precioDeLista = sector?.precio ?? entrada.precioPagado;
+  const tope = calcularTope(precioDeLista);
+  const minimo = calcularMinimoReventa(precioDeLista);
   const cierraPorHorario = evento ? reventaCerrada(evento.fechaISO) : false;
 
   const precioNumerico = Number(precioReventa || 0);

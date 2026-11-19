@@ -1,0 +1,27 @@
+Pruebas E2E del frontend en el navegador, con Playwright 1.64.1 y Chromium, contra WildFly 41 + H2 (backend/dev.sh)
+y el servidor de desarrollo de Vite (http://localhost:5173). 2026-11-19T17:41:47Z
+Comando: cd frontend && npm run e2e -- --reporter=list
+Además de lo que comprueba cada una, toda prueba falla si la página tira una excepción de JavaScript sin capturar.
+
+
+Running 17 tests using 2 workers
+
+  ok  1 [chromium] › e2e\asistente.spec.ts:10:1 › asistente: responde una pregunta y dice de dónde salió la respuesta (6.2s)
+  ok  2 [chromium] › e2e\catalogo.spec.ts:6:1 › catálogo: busca un evento, lo filtra por categoría y abre su detalle con los sectores (7.9s)
+  ok  3 [chromium] › e2e\asistente.spec.ts:26:1 › asistente: un intento de inyección de prompt se bloquea antes de llegar al modelo (3.6s)
+  ok  4 [chromium] › e2e\catalogo.spec.ts:44:1 › si el servidor no responde, el catálogo muestra el error con "Reintentar" y después se recupera (2.7s)
+  ok  6 [chromium] › e2e\catalogo.spec.ts:66:1 › un evento que no existe: el 404 del servidor se muestra como aviso, no como pantalla en blanco (2.5s)
+  ok  5 [chromium] › e2e\compra.spec.ts:29:1 › compra completa: del evento al checkout, pago aprobado y la entrada con su QR en Mis entradas (6.9s)
+  ok  8 [chromium] › e2e\compra.spec.ts:80:1 › tarjeta rechazada: el mensaje del servidor se muestra en el pago y la compra se puede cancelar (5.0s)
+  ok  7 [chromium] › e2e\organizador.spec.ts:6:1 › organizador: crea un evento con foto, lo edita y lo cancela (10.6s)
+  ok 10 [chromium] › e2e\registro.spec.ts:7:1 › registro: crea una cuenta, la verifica con el código del email y queda con la sesión abierta (2.7s)
+  ok  9 [chromium] › e2e\puerta.spec.ts:7:1 › puerta: valida una entrada, rechaza el mismo código la segunda vez y uno que no existe (4.7s)
+  ok 12 [chromium] › e2e\sesion.spec.ts:16:3 › ingreso con rol user: el menú muestra solo lo de su rol y su pantalla abre (2.5s)
+  ok 13 [chromium] › e2e\sesion.spec.ts:16:3 › ingreso con rol organizer: el menú muestra solo lo de su rol y su pantalla abre (3.0s)
+  ok 14 [chromium] › e2e\sesion.spec.ts:16:3 › ingreso con rol staff: el menú muestra solo lo de su rol y su pantalla abre (2.5s)
+  ok 11 [chromium] › e2e\reventa.spec.ts:7:1 › reventa: publica una entrada respetando el tope, aparece en la reventa y otra cuenta la compra (9.2s)
+  ok 15 [chromium] › e2e\sesion.spec.ts:43:1 › una ruta protegida sin sesión lleva al ingreso y, al ingresar, vuelve a esa ruta (2.6s)
+  ok 16 [chromium] › e2e\sesion.spec.ts:53:1 › con una cuenta de otro rol, la pantalla protegida explica para quién es (3.6s)
+  ok 17 [chromium] › e2e\sesion.spec.ts:62:1 › credenciales incorrectas: el rechazo del servidor se muestra como mensaje (2.3s)
+
+  17 passed (46.4s)

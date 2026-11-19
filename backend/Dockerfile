@@ -1,4 +1,4 @@
-# Imagen del backend: WildFly con los 8 servicios y el ARCA simulado.
+# Imagen del backend: WildFly con los 9 servicios y el ARCA simulado.
 # La arma docker-compose.yml (raíz del repo); para desarrollar sigue estando ./dev.sh.
 #
 # Etapa 1: Maven compila y arma el servidor (servidor/target/server) igual que dev.sh.
@@ -18,6 +18,6 @@ COPY --chown=palco:palco docker/arrancar.sh docker/salud.sh /opt/palco/
 RUN chmod +x /opt/palco/arrancar.sh /opt/palco/salud.sh
 USER palco
 EXPOSE 8080
-# Sano cuando los 8 servicios contestan su /health (el primer arranque migra la base: tarda).
+# Sano cuando los 9 servicios contestan su /health (el primer arranque migra la base: tarda).
 HEALTHCHECK --interval=10s --timeout=5s --start-period=180s --retries=30 CMD ["/opt/palco/salud.sh"]
 ENTRYPOINT ["/opt/palco/arrancar.sh"]

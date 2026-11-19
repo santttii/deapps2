@@ -72,6 +72,19 @@ class CorreoSmtpTest {
     }
 
     @Test
+    void laSesionTieneTiempoMaximoParaConectarLeerYEscribir() throws Exception {
+        // Sin estos valores Jakarta Mail espera para siempre a un servidor que no contesta.
+        SmtpDePrueba smtp = new SmtpDePrueba();
+
+        smtp.enviar(new Email("ana@palco.test", "Asunto", "Cuerpo"));
+
+        java.util.Properties propiedades = smtp.entregados.get(0).getSession().getProperties();
+        assertEquals("5000", propiedades.getProperty("mail.smtp.connectiontimeout"));
+        assertEquals("5000", propiedades.getProperty("mail.smtp.timeout"));
+        assertEquals("5000", propiedades.getProperty("mail.smtp.writetimeout"));
+    }
+
+    @Test
     void variosDestinatariosSeparadosPorComaLleganTodos() throws Exception {
         SmtpDePrueba smtp = new SmtpDePrueba();
 

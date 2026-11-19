@@ -40,15 +40,15 @@ Se publica siempre con la fábrica de conexiones transaccional, `java:/JmsXA`.
 | Consumidor                    | Servicio       | Recibe             | Suscripción | `clientId` / `subscriptionName`                    | Qué hace |
 | ----------------------------- | -------------- | ------------------ | ----------- | -------------------------------------------------- | -------- |
 | `CancelacionDeEventoMDB`      | Ventas         | `EVENTO_CANCELADO` | Durable     | `ventas-cancelaciones` / `ventas-cancelaciones`    | Anula las compras pagadas del evento y sus entradas, pide los reembolsos y publica un `COMPRA_ANULADA` por compra (`CancelacionDeEventos`) |
+| `CancelacionDeEventoMDB`      | Reventa        | `EVENTO_CANCELADO` | Durable     | `reventa-cancelaciones` / `reventa-cancelaciones`  | Retira las publicaciones `ACTIVA` del evento (`RetiroPorCancelacion`). Un mensaje repetido no cambia nada: el UPDATE solo toca las que siguen `ACTIVA` |
 | `AvisoDeCancelacionMDB`       | Notificaciones | `COMPRA_ANULADA`   | No durable  | —                                                  | Le manda el email al comprador (`ServicioDeNotificaciones.enviarAlertaCancelacion`) |
 | `AuditoriaDeCancelacionesMDB` | Notificaciones | `COMPRA_ANULADA`   | Durable, `maxSession = 1` | `palco-auditoria-cancelaciones` / `compras-anuladas` | Guarda una fila de auditoría por compra anulada (`ServicioDeAuditoria.registrarAnulacion`) |
 
-`EVENTO_CANCELADO` lo consume solo Ventas. La auditoría anota las anulaciones y no la cancelación: su fila
+`EVENTO_CANCELADO` lo consumen Ventas y Reventa, cada uno con su suscripción durable. Para sumar a Reventa no
+hubo que tocar Eventos, que publica sin saber quién escucha. La auditoría anota las anulaciones y no la cancelación: su fila
 necesita venta, comprador y monto, y `EVENTO_CANCELADO` no los trae; el rastro de una cancelación es el conjunto
 de filas de sus compras. `DestinosJms.SELECTOR_CANCELACIONES` (los dos tipos) está definido, pero hoy ningún
 consumidor lo usa.
-
-Reventa no está suscripta al tópico (ver [Pendientes](#pendientes)).
 
 ## Clases
 
@@ -165,7 +165,8 @@ El publicador llama a `validar()` antes de mandar: un mensaje incompleto no lleg
   mismas condiciones que para `PAGO_CONFIRMADO`: el broker participa como recurso XA y la base como último
   recurso, no es un commit en dos fases.
 - **Una transacción por compra.** Ventas recibe `EVENTO_CANCELADO` en una transacción (`REQUIRED` en `onMessage`),
-  pero anula cada compra en la suya (`REQUIRES_NEW` en `CancelacionDeEventos.anular`): la venta pasa a
+  pero anula cada compra en la suya (`REQUIRES_NEW` en `AnulacionDeCompras.anular`, un bean aparte para que la
+  llamada pase por el contenedor: llamado sobre `this`, el atributo no se aplica): la venta pasa a
   `CANCELADA`, sus entradas `PENDIENTE_EMISION`, `VALIDA` y `PUBLICADA` pasan a `ANULADA` y se publica su
   `COMPRA_ANULADA`, todo junto. Un fallo en la última compra no deshace las anteriores. Las entradas `USADA` y
   `VENDIDA` no se tocan: con una ya entró alguien y la otra es de otro comprador, que tiene la suya.
@@ -173,6 +174,12 @@ El publicador llama a `validar()` antes de mandar: un mensaje incompleto no lleg
   no responde, la compra se anula igual, el mensaje sale con `reembolsado` en false y queda una advertencia en el
   log con el `pagoId`; el email le dice al comprador que la devolución está en trámite. El reembolso es una
   llamada REST que confirma en el acto: un rollback posterior no lo deshace, y Pagos devuelve un pago una sola vez.
+- **Un reembolso sin respuesta se vuelve a pedir.** En la misma transacción que la anula, la venta queda con la
+  marca `reembolso_pendiente` (migración V4 de Ventas). El barrido `ReintentoDeReembolsos` vuelve a pedir el
+  reembolso en el segundo 45 de cada minuto hasta que Pagos conteste: si lo devolvió, saca la marca y lo deja en el
+  log (no sale otro mensaje: el comprador ya tiene el aviso de devolución en trámite); si contesta que ese pago no
+  se puede devolver, saca la marca y deja un `SEVERE` para revisarlo a mano. Reintentar es seguro por lo mismo de
+  arriba: Pagos devuelve un pago una sola vez.
 - **Idempotencia.**
   - Eventos: cancelar un evento ya cancelado responde 409 `evento-cancelado`, así que no sale un segundo
     `EVENTO_CANCELADO`.
@@ -184,16 +191,7 @@ El publicador llama a `validar()` antes de mandar: un mensaje incompleto no lleg
   5 veces, con 2 segundos entre una y otra, y después pasa a `java:/jms/queue/DLQ`. Ventas y la auditoría deshacen
   la transacción ante un mensaje inválido o un error, así que el broker reintenta; un reintento de Ventas solo
   retoma las compras que faltaban.
-- **Durabilidad.** La suscripción de Ventas y la de la auditoría son durables: si el servicio está detenido, al
+- **Durabilidad.** Las suscripciones de Ventas, de Reventa y de la auditoría son durables: si el servicio está detenido, al
   volver recibe lo pendiente. El aviso al comprador es no durable, igual que el de la compra: si Notificaciones
   está caído ese email se pierde, y un mensaje que no se entiende se descarta con una advertencia en lugar de
   reintentarse. La copia que no se pierde es la de auditoría.
-
-## Pendientes
-
-- **Reembolsos sin respuesta.** Una compra anulada con `reembolsado` en false no tiene hoy un proceso que vuelva a
-  pedir su reembolso: una reentrega de `EVENTO_CANCELADO` la encuentra ya `CANCELADA` y no la toca. Se resuelve a
-  mano con el `pagoId` del log (`POST /api/v1/pagos/{pagoId}/reembolso`, rol `servicio`).
-- **Reventa no escucha la cancelación.** Una publicación `ACTIVA` de una entrada que quedó `ANULADA` sigue en el
-  listado. Si alguien la compra, Ventas rechaza la transferencia porque la entrada ya no está `PUBLICADA`: la
-  publicación queda `ANULADA` y Reventa devuelve el cobro.

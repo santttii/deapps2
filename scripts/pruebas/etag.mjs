@@ -1,5 +1,7 @@
 // ETag en la API REST, contra el servidor en marcha. Cada GET con @ConEtag devuelve ETag, con
 // If-None-Match responde 304 sin cuerpo mientras no cambie, y si el recurso cambia, cambia el ETag.
+// El otro lado es If-Match: la edición de un evento (PUT /api/eventos/{id}) solo se guarda si el
+// evento sigue como se leyó; si no, 412 en Problem Details.
 // Uso: node scripts/pruebas/etag.mjs
 import { BASE, eventoPropio, dniAlAzar, hasta, http, login, uuid } from './lib.mjs';
 
@@ -20,6 +22,26 @@ async function conEtag(nombre, ruta, token) {
   comprobar(`${nombre}: 200 con ETag y, con If-None-Match, 304 sin cuerpo`,
     r.status === 200 && Boolean(etag) && segundo.status === 304 && cuerpo === '', `${r.status} ${etag} → ${segundo.status}`);
   return etag;
+}
+
+/** El cuerpo de PUT /api/eventos/{id} armado con el evento como lo devolvió el GET: los mismos sectores, otro título. */
+function edicion(e, titulo) {
+  return {
+    titulo, categoria: e.categoria, venue: e.venue, fechaISO: e.fechaISO, descripcion: e.descripcion,
+    imagenUrl: e.imagenUrl ?? null,
+    sectores: e.sectores.map((s) => ({ id: s.id, nombre: s.nombre, precio: s.precio, cupo: s.cupo })),
+  };
+}
+
+/** Edita el evento como su organizador; con `ifMatch`, manda esa cabecera. Devuelve el código, el ETag y el cuerpo. */
+async function editar(token, id, cuerpo, ifMatch) {
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  if (ifMatch !== undefined) headers['If-Match'] = ifMatch;
+  const r = await fetch(`${BASE}/api/eventos/${id}`, { method: 'PUT', headers, body: JSON.stringify(cuerpo) });
+  const texto = await r.text();
+  let json = null;
+  try { json = texto ? JSON.parse(texto) : null; } catch { /* no es JSON */ }
+  return { estado: r.status, etag: r.headers.get('etag'), tipo: r.headers.get('content-type') ?? '', json, texto };
 }
 
 console.log(`ETag en la API. Servidor: ${BASE}. ${new Date().toISOString()}\n`);
@@ -74,6 +96,35 @@ const abierta = await post.json();
 comprobar('el POST que abre una compra no trae ETag', post.status === 201 && post.headers.get('etag') === null,
   `${post.status} ETag ${post.headers.get('etag')}`);
 await http('DELETE', `/api/v1/ventas/${abierta.id}`, { token: T });
+
+console.log('\nE. If-Match en la edición de un evento (PUT /api/eventos/{id})');
+r = await fetch(`${BASE}/api/eventos/${evento.slug}`);
+const leido = r.headers.get('etag');
+const comoSeLeyo = await r.json();
+let editado = await editar(O, evento.id, edicion(comoSeLeyo, `${comoSeLeyo.titulo} (editado)`), leido);
+comprobar('con el ETag del GET en If-Match: 200 con ETag nuevo',
+  editado.estado === 200 && Boolean(editado.etag) && editado.etag !== leido, `${editado.estado} ${leido} → ${editado.etag}`);
+r = await fetch(`${BASE}/api/eventos/${evento.slug}`);
+comprobar('el ETag de la respuesta del PUT es el que da el GET siguiente', r.headers.get('etag') === editado.etag,
+  `PUT ${editado.etag} / GET ${r.headers.get('etag')}`);
+
+// Otra pestaña que leyó lo mismo y edita después: su ETag ya es viejo.
+const pisado = await editar(O, evento.id, edicion(comoSeLeyo, `${comoSeLeyo.titulo} (pisado)`), leido);
+const p = pisado.json ?? {};
+comprobar('con el ETag viejo: 412 evento-modificado en Problem Details',
+  pisado.estado === 412 && pisado.tipo.startsWith('application/problem+json') && p.type === '/problemas/evento-modificado'
+    && p.status === 412 && typeof p.title === 'string' && typeof p.detail === 'string' && p.instance === `/api/eventos/${evento.id}`,
+  `${pisado.estado} ${pisado.tipo} ${pisado.texto.slice(0, 260)}`);
+r = await fetch(`${BASE}/api/eventos/${evento.slug}`);
+const despues = await r.json();
+comprobar('el 412 no guardó nada: el evento quedó como la edición que pasó',
+  r.headers.get('etag') === editado.etag && despues.titulo === `${comoSeLeyo.titulo} (editado)`, `${despues.titulo} ${r.headers.get('etag')}`);
+
+const debil = await editar(O, evento.id, edicion(comoSeLeyo, comoSeLeyo.titulo), `W/${editado.etag}`);
+comprobar('If-Match compara fuerte: el ETag actual como W/"…" es 412', debil.estado === 412, `${debil.estado}`);
+const sinCondicion = await editar(O, evento.id, edicion(comoSeLeyo, comoSeLeyo.titulo));
+comprobar('sin If-Match edita como siempre: 200', sinCondicion.estado === 200 && sinCondicion.json?.titulo === comoSeLeyo.titulo,
+  `${sinCondicion.estado} ${sinCondicion.json?.titulo}`);
 
 console.log(`\n${bien} de ${total} comprobaciones`);
 process.exit(bien === total ? 0 : 1);

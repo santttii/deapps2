@@ -1,0 +1,1089 @@
+Colección de Postman (docs/api/palco-api.postman_collection.json) con Newman 6.2.3 contra WildFly 41 + H2 (backend/dev.sh). 2026-11-19T17:41:47Z
+Comando: npx newman run docs/api/palco-api.postman_collection.json --env-var secretoServicios=<el de backend/.env>
+
+newman
+
+Palco API
+
+□ 1 Usuarios (implementado)
+└ Registro (201)
+  POST http://localhost:8080/api/usuarios/registro [201 Created, 270B, 447ms]
+  √  responde 201
+  √  devuelve el email registrado y un mensaje
+
+└ Registro inválido (400)
+  POST http://localhost:8080/api/usuarios/registro [400 Bad Request, 410B, 16ms]
+  √  responde 400
+  √  el error viene como application/problem+json
+  √  type es /problemas/datos-invalidos
+  √  errores nombra el email y la contraseña
+
+└ Login con el email sin verificar (409)
+  POST http://localhost:8080/api/usuarios/login [409 Conflict, 307B, 416ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/conflicto
+  √  no entrega un token
+
+└ Login (200) guarda token
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 407ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es titular@palco.test, con rol user
+
+└ Login incorrecto (401)
+  POST http://localhost:8080/api/usuarios/login [401 Unauthorized, 337B, 401ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+
+└ Mi perfil (200)
+  GET http://localhost:8080/api/usuarios/yo [200 OK, 287B, 17ms]
+  √  responde 200
+  √  es el perfil del dueño del token, sin la contraseña
+
+└ Mi perfil sin token (401)
+  GET http://localhost:8080/api/usuarios/yo [401 Unauthorized, 327B, 9ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+
+└ Login staff (200) guarda tokenStaff
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 425ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es puerta@palco.test, con rol staff
+
+└ Token de servicio con secreto incorrecto (401)
+  POST http://localhost:8080/api/usuarios/servicios/token [401 Unauthorized, 339B, 19ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+
+└ JWKS claves públicas (200)
+  GET http://localhost:8080/api/usuarios/jwks [200 OK, 571B, 17ms]
+  √  responde 200
+  √  trae al menos una clave RSA para firmar
+
+Attempting to set next request to Listar eventos (200) guarda slug
+
+□ 2 Eventos (implementado)
+└ Listar eventos (200) guarda slug
+  GET http://localhost:8080/api/eventos/ [200 OK, 18.31kB, 25ms]
+  √  responde 200
+  √  devuelve eventos con sus sectores
+
+└ Filtrar por categoría (200)
+  GET http://localhost:8080/api/eventos/?categoria=Música [200 OK, 1.65kB, 16ms]
+  √  responde 200
+  √  todos los eventos son de Música
+
+└ Detalle por slug (200)
+  GET http://localhost:8080/api/eventos/atletico-norte-racing-sur [200 OK, 973B, 12ms]
+  √  responde 200
+  √  es el evento pedido, con sus sectores
+
+└ Detalle inexistente (404)
+  GET http://localhost:8080/api/eventos/no-existe-xyz [404 Not Found, 317B, 10ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ Crear evento sin token (401)
+  POST http://localhost:8080/api/eventos/ [401 Unauthorized, 324B, 7ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+
+└ Login organizador (200) guarda tokenOrganizador
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.07kB, 410ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es organizador@palco.test, con rol organizer
+
+└ Crear evento, rol organizer (201) guarda eventoCreadoId
+  POST http://localhost:8080/api/eventos/ [201 Created, 629B, 25ms]
+  √  responde 201
+  √  Location apunta al evento creado
+  √  devuelve el evento con su sector sin vender
+
+└ Mis eventos, rol organizer (200)
+  GET http://localhost:8080/api/eventos/mios [200 OK, 19.32kB, 16ms]
+  √  responde 200
+  √  incluye el evento creado y los de prueba
+
+└ Mis eventos sin token (401)
+  GET http://localhost:8080/api/eventos/mios [401 Unauthorized, 328B, 7ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+
+└ Crear evento inválido (400)
+  POST http://localhost:8080/api/eventos/ [400 Bad Request, 379B, 11ms]
+  √  responde 400
+  √  el error viene como application/problem+json
+  √  type es /problemas/datos-invalidos
+  √  errores nombra el título y los sectores
+
+└ Token de servicio (200) guarda tokenServicio
+  POST http://localhost:8080/api/usuarios/servicios/token [200 OK, 802B, 14ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+
+└ Cambiar cupo con token de organizador (403)
+  POST http://localhost:8080/api/eventos/ev-00bab053/sectores/sec-c8f97216/cupo [403 Forbidden, 334B, 7ms]
+  √  responde 403
+  √  el error viene como application/problem+json
+  √  type es /problemas/sin-permiso
+
+└ Reservar cupo, rol servicio (200)
+  POST http://localhost:8080/api/eventos/ev-00bab053/sectores/sec-c8f97216/cupo [200 OK, 219B, 14ms]
+  √  responde 200
+  √  devuelve el sector con 2 vendidas
+
+└ Reservar más que el cupo (409)
+  POST http://localhost:8080/api/eventos/ev-00bab053/sectores/sec-c8f97216/cupo [409 Conflict, 337B, 17ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/conflicto
+
+└ Liberar cupo, rol servicio (200)
+  POST http://localhost:8080/api/eventos/ev-00bab053/sectores/sec-c8f97216/cupo [200 OK, 219B, 18ms]
+  √  responde 200
+  √  devuelve el sector con 0 vendidas
+
+□ 3 Diseño v1 (Ventas implementado)
+└ Login comprador (200) guarda token
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 406ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es titular@palco.test, con rol user
+
+└ Login organizador en Ventas (200) guarda tokenOrganizador
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.07kB, 403ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es organizador@palco.test, con rol organizer
+
+└ Crear evento para comprar (201) guarda eventoId
+  POST http://localhost:8080/api/eventos/ [201 Created, 669B, 13ms]
+  √  responde 201
+  √  devuelve el evento con Platea B a 27.500, sin vender
+
+└ POST /v1/ventas sin token (401)
+  POST http://localhost:8080/api/v1/ventas [401 Unauthorized, 325B, 6ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+
+└ POST /v1/ventas sin Idempotency-Key (400)
+  POST http://localhost:8080/api/v1/ventas [400 Bad Request, 477B, 9ms]
+  √  responde 400
+  √  el error viene como application/problem+json
+  √  type es /problemas/datos-invalidos
+  √  errores nombra la cabecera Idempotency-Key
+
+└ POST /v1/ventas con el DNI repetido (422)
+  POST http://localhost:8080/api/v1/ventas [422 Unprocessable Entity, 372B, 28ms]
+  √  responde 422
+  √  el error viene como application/problem+json
+  √  type es /problemas/dni-repetido
+
+└ POST /v1/ventas (201) guarda ventaId
+  POST http://localhost:8080/api/v1/ventas [201 Created, 750B, 51ms]
+  √  responde 201
+  √  responde application/json
+  √  la venta trae los campos del contrato
+  √  está EN_CHECKOUT, sin factura, sin pago y sin entradas
+  √  el renglón trae el sector, la cantidad y el precio que dio Eventos
+  √  subtotal, cargo de servicio del 10 % y total
+  √  la reserva vence dentro de los próximos 10 minutos, en UTC
+  √  trae la fecha de creación, en UTC, 10 minutos antes del vencimiento
+  √  _links: self, pagar y cancelar, con rutas sin host
+  √  Location apunta a la venta
+  √  con el precio de prueba de Platea B el total es 60.500
+
+└ POST /v1/ventas repetido con la misma clave (201, la misma venta)
+  POST http://localhost:8080/api/v1/ventas [201 Created, 750B, 16ms]
+  √  responde 201
+  √  la venta trae los campos del contrato
+  √  está EN_CHECKOUT, sin factura, sin pago y sin entradas
+  √  el renglón trae el sector, la cantidad y el precio que dio Eventos
+  √  subtotal, cargo de servicio del 10 % y total
+  √  la reserva vence dentro de los próximos 10 minutos, en UTC
+  √  trae la fecha de creación, en UTC, 10 minutos antes del vencimiento
+  √  _links: self, pagar y cancelar, con rutas sin host
+  √  Location apunta a la venta
+  √  es la misma venta, no una nueva
+
+└ POST /v1/ventas misma clave con otro pedido (409)
+  POST http://localhost:8080/api/v1/ventas [409 Conflict, 303B, 13ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/clave-reutilizada
+
+└ GET /v1/ventas/{id} (200, EN_CHECKOUT)
+  GET http://localhost:8080/api/v1/ventas/V-020b46c5 [200 OK, 719B, 13ms]
+  √  responde 200
+  √  responde application/json
+  √  la venta trae los campos del contrato
+  √  está EN_CHECKOUT, sin factura, sin pago y sin entradas
+  √  el renglón trae el sector, la cantidad y el precio que dio Eventos
+  √  subtotal, cargo de servicio del 10 % y total
+  √  la reserva vence dentro de los próximos 10 minutos, en UTC
+  √  trae la fecha de creación, en UTC, 10 minutos antes del vencimiento
+  √  _links: self, pagar y cancelar, con rutas sin host
+  √  es la venta pedida
+
+└ GET /v1/ventas/{id} inexistente (404)
+  GET http://localhost:8080/api/v1/ventas/V-00000000 [404 Not Found, 298B, 10ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ POST /v1/ventas/{id}/pagos con el cobro rechazado (402)
+  POST http://localhost:8080/api/v1/ventas/V-020b46c5/pagos [402 Payment Required, 376B, 52ms]
+  √  responde 402
+  √  el error viene como application/problem+json
+  √  type es /problemas/pago-rechazado
+
+└ POST /v1/ventas/{id}/pagos (201) guarda entradaId
+  POST http://localhost:8080/api/v1/ventas/V-020b46c5/pagos [201 Created, 1.15kB, 96ms]
+  √  responde 201
+  √  responde application/json
+  √  es la misma venta, con los campos del contrato
+  √  la venta está CONFIRMADA
+  √  trae el id del pago
+  √  Location apunta al pago de la venta
+  √  trae las dos entradas, una por titular y en el orden del pedido, PENDIENTE_EMISION
+  √  cada entrada trae su sector, lo que se pagó por ella y su código
+  √  _links: solo self; ya no se puede pagar ni cancelar
+
+└ POST /v1/ventas/{id}/pagos repetido con la misma clave (201, el mismo pago)
+  POST http://localhost:8080/api/v1/ventas/V-020b46c5/pagos [201 Created, 1.19kB, 12ms]
+  √  responde 201
+  √  es la misma venta, con los campos del contrato
+  √  la venta está CONFIRMADA o EMITIDA
+  √  es el mismo pago: no se cobró dos veces
+  √  son las mismas dos entradas
+
+└ GET /v1/entradas/{id} (200)
+  GET http://localhost:8080/api/v1/entradas/T-1d97e216 [200 OK, 530B, 14ms]
+  √  responde 200
+  √  responde application/json
+  √  la entrada trae los campos del contrato
+  √  precioPagado es el precio del sector, sin el cargo de servicio
+  √  está PENDIENTE_EMISION sin código, o VALIDA con código
+
+└ GET /v1/entradas/{id} emitida (200, VALIDA con codigoQr)
+  GET http://localhost:8080/api/v1/entradas/T-1d97e216 [200 OK, 530B, 13ms]
+  √  responde 200
+  √  la entrada trae los campos del contrato
+  √  precioPagado es el precio del sector, sin el cargo de servicio
+  √  está VALIDA, con su código QR y la fecha de emisión en UTC
+
+└ GET /v1/ventas/{id} (200, EMITIDA)
+  GET http://localhost:8080/api/v1/ventas/V-020b46c5 [200 OK, 1.15kB, 14ms]
+  √  responde 200
+  √  es la misma venta, con los campos del contrato
+  √  la venta está EMITIDA
+  √  conserva el id del pago
+  √  trae las dos entradas, una por titular y en el orden del pedido, VALIDA
+  √  cada entrada trae su sector, lo que se pagó por ella y su código
+  √  _links: solo self; ya no se puede pagar ni cancelar
+
+└ GET /v1/ventas mis compras (200)
+  GET http://localhost:8080/api/v1/ventas [200 OK, 23.79kB, 34ms]
+  √  responde 200
+  √  responde application/json
+  √  es una lista de ventas con los campos del contrato
+  √  viene de la más nueva a la más vieja
+  √  trae la venta de esta corrida, EMITIDA y con su pago
+  √  trae las dos entradas, una por titular y en el orden del pedido, VALIDA
+  √  cada entrada trae su sector, lo que se pagó por ella y su código
+  √  el código de la entrada es el mismo que da GET /entradas/{id}
+
+└ GET /v1/ventas mis compras sin token (401)
+  GET http://localhost:8080/api/v1/ventas [401 Unauthorized, 325B, 7ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+
+└ Login segunda cuenta compradora (200) guarda tokenOtroComprador
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.06kB, 440ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es otro.titular@palco.test, con rol user
+
+└ GET /v1/ventas/{id} de otro comprador (404)
+  GET http://localhost:8080/api/v1/ventas/V-020b46c5 [404 Not Found, 298B, 13ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+  √  no muestra nada de la venta ajena: solo los campos del error
+
+└ GET /v1/ventas de otro comprador (200, sin ventas del titular)
+  GET http://localhost:8080/api/v1/ventas [200 OK, 2.39kB, 14ms]
+  √  responde 200
+  √  responde application/json
+  √  es una lista
+  √  no trae ninguna venta del titular
+
+└ GET /v1/ventas con token de organizador (403)
+  GET http://localhost:8080/api/v1/ventas [403 Forbidden, 297B, 8ms]
+  √  responde 403
+  √  el error viene como application/problem+json
+  √  type es /problemas/sin-permiso
+
+└ Login staff en Ventas (200) guarda tokenStaff
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 447ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es puerta@palco.test, con rol staff
+
+└ GET /v1/ventas/{id} con token de staff (403)
+  GET http://localhost:8080/api/v1/ventas/V-020b46c5 [403 Forbidden, 308B, 9ms]
+  √  responde 403
+  √  el error viene como application/problem+json
+  √  type es /problemas/sin-permiso
+  √  no muestra nada de la venta: solo los campos del error
+
+└ GET /v1/entradas/{id} inexistente (404)
+  GET http://localhost:8080/api/v1/entradas/T-00000000 [404 Not Found, 302B, 12ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ DELETE /v1/ventas/{id} de una venta paga (409)
+  DELETE http://localhost:8080/api/v1/ventas/V-020b46c5 [409 Conflict, 319B, 12ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/venta-ya-paga
+
+└ POST /v1/ventas para cancelar (201) guarda ventaCanceladaId
+  POST http://localhost:8080/api/v1/ventas [201 Created, 750B, 59ms]
+  √  responde 201
+  √  la venta trae los campos del contrato
+  √  está EN_CHECKOUT, sin factura, sin pago y sin entradas
+  √  el renglón trae el sector, la cantidad y el precio que dio Eventos
+  √  subtotal, cargo de servicio del 10 % y total
+  √  la reserva vence dentro de los próximos 10 minutos, en UTC
+  √  trae la fecha de creación, en UTC, 10 minutos antes del vencimiento
+  √  _links: self, pagar y cancelar, con rutas sin host
+  √  Location apunta a la venta
+  √  es otra venta, no la que ya se pagó
+
+└ DELETE /v1/ventas/{id} (204)
+  DELETE http://localhost:8080/api/v1/ventas/V-1326b521 [204 No Content, 64B, 40ms]
+  √  responde 204
+  √  no trae cuerpo
+
+└ DELETE /v1/ventas/{id} repetido (204)
+  DELETE http://localhost:8080/api/v1/ventas/V-1326b521 [204 No Content, 64B, 13ms]
+  √  responde 204
+
+└ GET /v1/ventas/{id} cancelada (200, CANCELADA)
+  GET http://localhost:8080/api/v1/ventas/V-1326b521 [200 OK, 584B, 13ms]
+  √  responde 200
+  √  la venta está CANCELADA, sin pago y sin entradas
+  √  _links: solo self; ya no se puede pagar ni cancelar
+
+└ POST /v1/ventas/{id}/pagos de una venta cancelada (409)
+  POST http://localhost:8080/api/v1/ventas/V-1326b521/pagos [409 Conflict, 355B, 11ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/reserva-vencida
+
+□ 4 Seguridad (clase 11)
+└ SEC Login cuenta A (200) guarda tokenA
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 440ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es titular@palco.test, con rol user
+
+└ SEC Login cuenta B (200) guarda tokenB
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.06kB, 410ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es otro.titular@palco.test, con rol user
+
+└ SEC GET /v1/ventas de A (200) guarda ventaIdA y entradaIdA
+  GET http://localhost:8080/api/v1/ventas [200 OK, 24.2kB, 28ms]
+  √  responde 200
+  √  A tiene una compra con entradas
+
+└ SEC-W01 GET /v1/entradas/{id} de A con el token de B (404, sin datos)
+  GET http://localhost:8080/api/v1/entradas/T-1d97e216 [404 Not Found, 302B, 13ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+  √  no filtra la entrada
+
+└ SEC-W01b GET /v1/ventas/{id} de A con el token de B (404)
+  GET http://localhost:8080/api/v1/ventas/V-020b46c5 [404 Not Found, 298B, 9ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ SEC-W02 Crear evento con rol user (403)
+  POST http://localhost:8080/api/eventos/ [403 Forbidden, 296B, 7ms]
+  √  responde 403
+  √  el error viene como application/problem+json
+  √  type es /problemas/sin-permiso
+
+└ SEC-W02b GET /v1/ventas sin token (401, WWW-Authenticate)
+  GET http://localhost:8080/api/v1/ventas [401 Unauthorized, 325B, 5ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+  √  WWW-Authenticate: Bearer
+
+└ SEC-W03a Login con un email que no existe (401, genérico)
+  POST http://localhost:8080/api/usuarios/login [401 Unauthorized, 337B, 402ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+
+└ SEC-W03b Login con la clave incorrecta (401, el mismo mensaje)
+  POST http://localhost:8080/api/usuarios/login [401 Unauthorized, 337B, 407ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+  √  el mismo detail que con un email que no existe
+
+└ SEC-W05a GET /yo con la firma del token alterada (401)
+  GET http://localhost:8080/api/usuarios/yo [401 Unauthorized, 390B, 15ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+
+└ SEC-W05b GET /yo con un token alg=none (401)
+  ┌
+  │ `Using "btoa" is deprecated. Use "require('btoa')" ins
+  │ tead.`
+  └
+  GET http://localhost:8080/api/usuarios/yo [401 Unauthorized, 390B, 8ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+
+└ SEC-W05c Login: la sesión dura 8 horas
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 399ms]
+  √  responde 200
+  ┌
+  │ `Using "atob" is deprecated. Use "require('atob')" ins
+  │ tead.`
+  └
+  √  exp - iat = 8 h (28.800 s)
+
+└ SEC-W06 POST /v1/ventas sin Idempotency-Key (400, sin información interna)
+  POST http://localhost:8080/api/v1/ventas [400 Bad Request, 477B, 9ms]
+  √  responde 400
+  √  el error viene como application/problem+json
+  √  type es /problemas/datos-invalidos
+  √  sin información interna
+
+└ SEC-D02 GET /yo no devuelve la contraseña ni el hash
+  GET http://localhost:8080/api/usuarios/yo [200 OK, 287B, 11ms]
+  √  responde 200
+  √  sin password ni hash
+
+└ SEC-W04 Sexto login fallido en 15 minutos (429, Retry-After)
+  POST http://localhost:8080/api/usuarios/login [401 Unauthorized, 337B, 411ms]
+  POST http://localhost:8080/api/usuarios/login [401 Unauthorized, 337B, 384ms]
+  POST http://localhost:8080/api/usuarios/login [401 Unauthorized, 337B, 391ms]
+  POST http://localhost:8080/api/usuarios/login [401 Unauthorized, 337B, 398ms]
+  POST http://localhost:8080/api/usuarios/login [401 Unauthorized, 337B, 401ms]
+  POST http://localhost:8080/api/usuarios/login [429 Too Many Requests, 384B, 12ms]
+  √  los cinco intentos anteriores responden 401
+  √  responde 429
+  √  el error viene como application/problem+json
+  √  type es /problemas/demasiados-intentos
+  √  trae Retry-After
+
+□ 5 Validación en puerta (implementado)
+└ Login staff (200) guarda tokenStaff
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 402ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es puerta@palco.test, con rol staff
+
+└ Login organizador (200) guarda tokenOrganizador
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.07kB, 436ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es organizador@palco.test, con rol organizer
+
+└ PUT /v1/validacion/puertas/{eventoId}/{email} (200)
+  PUT http://localhost:8080/api/v1/validacion/puertas/ev-b890239e/puerta@palco.test [200 OK, 266B, 56ms]
+  √  responde 200
+  √  responde application/json
+  √  puerta@palco.test queda en la puerta del evento de la compra
+
+└ POST /v1/validacion/escaneos sin token (401)
+  POST http://localhost:8080/api/v1/validacion/escaneos [401 Unauthorized, 338B, 7ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+
+└ POST /v1/validacion/escaneos con rol user (403)
+  POST http://localhost:8080/api/v1/validacion/escaneos [403 Forbidden, 310B, 9ms]
+  √  responde 403
+  √  el error viene como application/problem+json
+  √  type es /problemas/sin-permiso
+
+└ POST /v1/validacion/escaneos sin evento (400)
+  POST http://localhost:8080/api/v1/validacion/escaneos [400 Bad Request, 373B, 12ms]
+  √  responde 400
+  √  el error viene como application/problem+json
+  √  type es /problemas/datos-invalidos
+  √  errores nombra el evento
+
+└ POST /v1/validacion/escaneos código inexistente (201, INEXISTENTE)
+  POST http://localhost:8080/api/v1/validacion/escaneos [201 Created, 481B, 30ms]
+  √  responde 201
+  √  responde application/json
+  √  el escaneo trae los campos del contrato
+  √  resultado INEXISTENTE, puedeEntrar false
+  √  Location apunta al escaneo
+  √  sin entrada
+
+└ POST /v1/validacion/escaneos en otro evento (201, OTRO_EVENTO)
+  POST http://localhost:8080/api/v1/validacion/escaneos [201 Created, 475B, 27ms]
+  √  responde 201
+  √  el escaneo trae los campos del contrato
+  √  resultado OTRO_EVENTO, puedeEntrar false
+  √  Location apunta al escaneo
+
+└ POST /v1/validacion/escaneos (201, VALIDA) guarda escaneoId
+  POST http://localhost:8080/api/v1/validacion/escaneos [201 Created, 600B, 32ms]
+  √  responde 201
+  √  responde application/json
+  √  el escaneo trae los campos del contrato
+  √  resultado VALIDA, puedeEntrar true
+  √  Location apunta al escaneo
+  √  trae la entrada y su titular, para contrastarlo con el documento
+
+└ POST /v1/validacion/escaneos repetido (201, YA_USADA)
+  POST http://localhost:8080/api/v1/validacion/escaneos [201 Created, 564B, 35ms]
+  √  responde 201
+  √  el escaneo trae los campos del contrato
+  √  resultado YA_USADA, puedeEntrar false
+  √  Location apunta al escaneo
+  √  usoAnterior es el escaneo VALIDA de recién
+
+└ GET /v1/entradas/{id} usada (200, USADA)
+  GET http://localhost:8080/api/v1/entradas/T-1d97e216 [200 OK, 529B, 14ms]
+  √  responde 200
+  √  la entrada está USADA
+
+└ GET /v1/validacion/escaneos?eventoId (200)
+  GET http://localhost:8080/api/v1/validacion/escaneos?eventoId=ev-b890239e [200 OK, 716B, 10ms]
+  √  responde 200
+  √  incluye el escaneo VALIDA, sin el código completo
+
+└ GET /v1/validacion/escaneos de un evento ajeno, rol organizer (404)
+  GET http://localhost:8080/api/v1/validacion/escaneos?eventoId=ev-de-otro [404 Not Found, 317B, 21ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ GET /v1/validacion/escaneos sin eventoId (400)
+  GET http://localhost:8080/api/v1/validacion/escaneos [400 Bad Request, 320B, 8ms]
+  √  responde 400
+  √  el error viene como application/problem+json
+  √  type es /problemas/datos-invalidos
+
+└ GET /v1/validacion/escaneos/{id} (200)
+  GET http://localhost:8080/api/v1/validacion/escaneos/ESC-9e0815df [200 OK, 323B, 13ms]
+  √  responde 200
+  √  es el escaneo VALIDA
+
+□ 6 Reventa (implementado)
+└ Login comprador (200) guarda token
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 436ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es titular@palco.test, con rol user
+
+└ Login segunda cuenta compradora (200) guarda tokenOtroComprador
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.06kB, 398ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es otro.titular@palco.test, con rol user
+
+└ Login organizador (200) guarda tokenOrganizador
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.07kB, 399ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es organizador@palco.test, con rol organizer
+
+└ Crear evento para revender (201) guarda eventoReventaId
+  POST http://localhost:8080/api/eventos/ [201 Created, 672B, 13ms]
+  √  responde 201
+  √  devuelve el evento con Platea B a 27.500, sin vender
+
+└ POST /v1/ventas para revender (201) guarda ventaReventaId
+  POST http://localhost:8080/api/v1/ventas [201 Created, 750B, 66ms]
+  √  responde 201
+
+└ POST /v1/ventas/{id}/pagos para revender (201) guarda las entradas
+  POST http://localhost:8080/api/v1/ventas/V-d4be00b2/pagos [201 Created, 1.15kB, 104ms]
+  √  responde 201
+  √  dos entradas
+
+└ GET /v1/ventas/{id} emitida (200, EMITIDA)
+  GET http://localhost:8080/api/v1/ventas/V-d4be00b2 [200 OK, 1.15kB, 11ms]
+  √  responde 200
+  √  la venta está EMITIDA
+
+└ POST /v1/reventas sin token (401)
+  POST http://localhost:8080/api/v1/reventas/ [401 Unauthorized, 328B, 12ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+
+└ POST /v1/reventas de una entrada que no existe (404)
+  POST http://localhost:8080/api/v1/reventas/ [404 Not Found, 308B, 28ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ POST /v1/reventas sobre el tope (422)
+  POST http://localhost:8080/api/v1/reventas/ [422 Unprocessable Entity, 351B, 37ms]
+  √  responde 422
+  √  el error viene como application/problem+json
+  √  type es /problemas/precio-fuera-de-rango
+  √  el detalle dice el rango
+
+└ POST /v1/reventas bajo el mínimo (422)
+  POST http://localhost:8080/api/v1/reventas/ [422 Unprocessable Entity, 351B, 38ms]
+  √  responde 422
+  √  el error viene como application/problem+json
+  √  type es /problemas/precio-fuera-de-rango
+
+└ POST /v1/reventas (201) guarda publicacionId
+  POST http://localhost:8080/api/v1/reventas/ [201 Created, 409B, 68ms]
+  √  responde 201
+  √  responde application/json
+  √  la publicación trae los campos del contrato
+  √  ACTIVA, a 29.000 y con el tope de esa entrada (27.500 + 10 %)
+  √  Location apunta a la publicación
+
+└ POST /v1/reventas de la misma entrada (409)
+  POST http://localhost:8080/api/v1/reventas/ [409 Conflict, 322B, 21ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/entrada-no-disponible
+
+└ GET /v1/entradas/{id} publicada (200, PUBLICADA)
+  GET http://localhost:8080/api/v1/entradas/T-a2b7800e [200 OK, 533B, 11ms]
+  √  responde 200
+  √  la entrada está PUBLICADA
+
+└ GET /v1/reventas?eventoId público (200)
+  GET http://localhost:8080/api/v1/reventas/?eventoId=ev-9fbdec7e [200 OK, 378B, 11ms]
+  √  responde 200
+  √  incluye la publicación, ACTIVA
+  √  todas están ACTIVA
+
+└ GET /v1/reventas/mias (200)
+  GET http://localhost:8080/api/v1/reventas/mias [200 OK, 1.62kB, 12ms]
+  √  responde 200
+  √  incluye la publicación
+
+└ GET /v1/reventas/mias de otra cuenta (200, sin esa publicación)
+  GET http://localhost:8080/api/v1/reventas/mias [200 OK, 174B, 10ms]
+  √  responde 200
+  √  no incluye la publicación del titular
+
+└ POST /v1/reventas/{id}/compra propia (409)
+  POST http://localhost:8080/api/v1/reventas/R-c91dbb71/compra [409 Conflict, 323B, 25ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/compra-propia
+
+└ POST /v1/reventas/{id}/compra sin Idempotency-Key (400)
+  POST http://localhost:8080/api/v1/reventas/R-c91dbb71/compra [400 Bad Request, 469B, 11ms]
+  √  responde 400
+  √  el error viene como application/problem+json
+  √  type es /problemas/datos-invalidos
+
+└ POST /v1/reventas/{id}/compra con el cobro rechazado (402)
+  POST http://localhost:8080/api/v1/reventas/R-c91dbb71/compra [402 Payment Required, 372B, 47ms]
+  √  responde 402
+  √  el error viene como application/problem+json
+  √  type es /problemas/pago-rechazado
+
+└ POST /v1/reventas/{id}/compra (201) guarda entradaCompradaId
+  POST http://localhost:8080/api/v1/reventas/R-c91dbb71/compra [201 Created, 668B, 121ms]
+  √  responde 201
+  √  responde application/json
+  √  trae la publicación, la entrada nueva y la venta
+  √  la publicación quedó VENDIDA
+  √  la entrada nueva es otra, a nombre del comprador, con código y al precio de la reventa
+  √  Location apunta a la entrada nueva
+
+└ POST /v1/reventas/{id}/compra repetida con la misma clave (201, la misma)
+  POST http://localhost:8080/api/v1/reventas/R-c91dbb71/compra [201 Created, 668B, 24ms]
+  √  responde 201
+  √  es la misma entrada
+
+└ POST /v1/reventas/{id}/compra ya vendida (409)
+  POST http://localhost:8080/api/v1/reventas/R-c91dbb71/compra [409 Conflict, 329B, 13ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/publicacion-no-activa
+
+└ DELETE /v1/reventas/{id} ya vendida (409)
+  DELETE http://localhost:8080/api/v1/reventas/R-c91dbb71 [409 Conflict, 364B, 14ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/publicacion-no-activa
+
+└ GET /v1/entradas/{id} original (200, VENDIDA)
+  GET http://localhost:8080/api/v1/entradas/T-a2b7800e [200 OK, 531B, 13ms]
+  √  responde 200
+  √  la entrada está VENDIDA
+
+└ GET /v1/entradas/{id} del comprador (200, VALIDA)
+  GET http://localhost:8080/api/v1/entradas/T-e27aa6d2 [200 OK, 530B, 12ms]
+  √  responde 200
+  √  la entrada está VALIDA
+
+└ POST /v1/reventas de la segunda entrada (201) guarda publicacionRetiroId
+  POST http://localhost:8080/api/v1/reventas/ [201 Created, 409B, 69ms]
+  √  responde 201
+  √  la publicación trae los campos del contrato
+  √  ACTIVA, a 29.000 y con el tope de esa entrada (27.500 + 10 %)
+
+└ DELETE /v1/reventas/{id} ajena (404)
+  DELETE http://localhost:8080/api/v1/reventas/R-698b0bc5 [404 Not Found, 307B, 12ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ DELETE /v1/reventas/{id} (204)
+  DELETE http://localhost:8080/api/v1/reventas/R-698b0bc5 [204 No Content, 64B, 28ms]
+  √  responde 204
+
+└ DELETE /v1/reventas/{id} repetido (409)
+  DELETE http://localhost:8080/api/v1/reventas/R-698b0bc5 [409 Conflict, 364B, 12ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/publicacion-no-activa
+
+└ GET /v1/entradas/{id} retirada (200, VALIDA)
+  GET http://localhost:8080/api/v1/entradas/T-63fca26e [200 OK, 531B, 11ms]
+  √  responde 200
+  √  la entrada está VALIDA
+
+□ 7 Facturación (implementado)
+└ Login comprador (200) guarda token
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 420ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es titular@palco.test, con rol user
+
+└ GET /v1/facturas/{ventaId} (200) guarda el comprobante
+  GET http://localhost:8080/api/v1/facturas/V-020b46c5 [200 OK, 453B, 16ms]
+  √  responde 200
+  √  responde application/json
+  √  la factura trae los campos del contrato
+  √  es la factura B de la venta, por el total cobrado
+  √  con número y CAE de 14 dígitos
+
+└ GET /v1/facturas/{ventaId} otra vez (200, la misma)
+  GET http://localhost:8080/api/v1/facturas/V-020b46c5 [200 OK, 453B, 11ms]
+  √  responde 200
+  √  mismo comprobante y mismo CAE
+
+└ GET /v1/facturas/{ventaId} sin token (401)
+  GET http://localhost:8080/api/v1/facturas/V-020b46c5 [401 Unauthorized, 338B, 7ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+
+└ Login segunda cuenta compradora (200) guarda tokenOtroComprador
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.06kB, 429ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es otro.titular@palco.test, con rol user
+
+└ GET /v1/facturas/{ventaId} de otro comprador (404)
+  GET http://localhost:8080/api/v1/facturas/V-020b46c5 [404 Not Found, 312B, 12ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ GET /v1/facturas/{ventaId} inexistente (404)
+  GET http://localhost:8080/api/v1/facturas/V-00000000 [404 Not Found, 312B, 11ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ Login staff (200) guarda tokenStaff
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 411ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es puerta@palco.test, con rol staff
+
+└ GET /v1/facturas/{ventaId} con token de staff (403)
+  GET http://localhost:8080/api/v1/facturas/V-020b46c5 [403 Forbidden, 310B, 8ms]
+  √  responde 403
+  √  el error viene como application/problem+json
+  √  type es /problemas/sin-permiso
+
+└ Token de servicio (200) guarda tokenServicio
+  POST http://localhost:8080/api/usuarios/servicios/token [200 OK, 802B, 13ms]
+  √  responde 200
+
+└ GET /v1/facturas/{ventaId} con rol servicio (200)
+  GET http://localhost:8080/api/v1/facturas/V-020b46c5 [200 OK, 453B, 13ms]
+  √  responde 200
+  √  es la misma factura
+
+□ 8 Operaciones del 30/10 (implementado)
+└ Login organizador (200) guarda tokenOrganizador
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.07kB, 398ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es organizador@palco.test, con rol organizer
+
+└ Login otro organizador (200) guarda tokenOtroOrganizador
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.11kB, 396ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es otro.organizador@palco.test, con rol organizer
+
+└ Login comprador (200) guarda token
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 394ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es titular@palco.test, con rol user
+
+└ Crear evento para editar y cancelar (201) guarda eventoPropioId
+  POST http://localhost:8080/api/eventos/ [201 Created, 671B, 16ms]
+  √  responde 201
+  √  devuelve el evento sin cancelar, con su sector
+
+└ PUT /eventos/{id} propio (200)
+  PUT http://localhost:8080/api/eventos/ev-a16798dd [200 OK, 587B, 16ms]
+  √  responde 200
+  √  responde application/json
+  √  es el mismo evento, con el mismo slug
+  √  trae los datos nuevos
+  √  el sector conserva su id, con el nombre y el cupo nuevos
+
+└ PUT /eventos/{id} ajeno (404)
+  PUT http://localhost:8080/api/eventos/ev-a16798dd [404 Not Found, 314B, 13ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ PUT /eventos/{id} con rol user (403)
+  PUT http://localhost:8080/api/eventos/ev-a16798dd [403 Forbidden, 307B, 8ms]
+  √  responde 403
+  √  el error viene como application/problem+json
+  √  type es /problemas/sin-permiso
+
+└ POST /v1/ventas en el evento propio (201) guarda ventaPropiaId
+  POST http://localhost:8080/api/v1/ventas [201 Created, 747B, 63ms]
+  √  responde 201
+  √  es una compra del evento propio, por 22.000
+
+└ POST /v1/ventas/{id}/pagos en el evento propio (201) guarda pagoPropioId
+  POST http://localhost:8080/api/v1/ventas/V-ac53a0a3/pagos [201 Created, 1.14kB, 86ms]
+  √  responde 201
+  √  la venta está CONFIRMADA, con su pago
+
+└ GET /v1/ventas/{id} del evento propio (200, EMITIDA)
+  GET http://localhost:8080/api/v1/ventas/V-ac53a0a3 [200 OK, 1.14kB, 10ms]
+  √  responde 200
+  √  la venta está EMITIDA
+
+└ GET /v1/resumenes?eventoId propio (200)
+  GET http://localhost:8080/api/v1/resumenes?eventoId=ev-a16798dd [200 OK, 401B, 22ms]
+  √  responde 200
+  √  responde application/json
+  √  es el resumen del evento, con el detalle por día y la liquidación
+  √  liquidación: 1 venta, 2 entradas, 22.000 cobrados, 2.000 de cargo y 20.000 para el organizador
+  √  un solo día, con los mismos montos
+
+└ GET /v1/resumenes?eventoId ajeno (404)
+  GET http://localhost:8080/api/v1/resumenes?eventoId=ev-a16798dd [404 Not Found, 307B, 17ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ GET /v1/resumenes?eventoId con rol user (403)
+  GET http://localhost:8080/api/v1/resumenes?eventoId=ev-a16798dd [403 Forbidden, 300B, 8ms]
+  √  responde 403
+  √  el error viene como application/problem+json
+  √  type es /problemas/sin-permiso
+
+└ POST /eventos/{id}/cancelacion ajeno (404)
+  POST http://localhost:8080/api/eventos/ev-a16798dd/cancelacion [404 Not Found, 326B, 17ms]
+  √  responde 404
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-encontrado
+
+└ POST /eventos/{id}/cancelacion con rol user (403)
+  POST http://localhost:8080/api/eventos/ev-a16798dd/cancelacion [403 Forbidden, 319B, 9ms]
+  √  responde 403
+  √  el error viene como application/problem+json
+  √  type es /problemas/sin-permiso
+
+└ POST /eventos/{id}/cancelacion propio (200)
+  POST http://localhost:8080/api/eventos/ev-a16798dd/cancelacion [200 OK, 602B, 58ms]
+  √  responde 200
+  √  responde application/json
+  √  el evento queda cancelado, con el motivo
+
+└ POST /eventos/{id}/cancelacion repetida (409)
+  POST http://localhost:8080/api/eventos/ev-a16798dd/cancelacion [409 Conflict, 316B, 19ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/evento-cancelado
+
+└ GET /v1/ventas/{id} anulada (200, CANCELADA)
+  GET http://localhost:8080/api/v1/ventas/V-ac53a0a3 [200 OK, 1.14kB, 14ms]
+  √  responde 200
+  √  la venta está CANCELADA y conserva su pago
+  √  sus dos entradas quedaron ANULADA
+
+└ Token de servicio (200) guarda tokenServicio
+  POST http://localhost:8080/api/usuarios/servicios/token [200 OK, 802B, 12ms]
+  √  responde 200
+
+└ GET /v1/pagos/{id} de la venta anulada (200, REEMBOLSADO)
+  GET http://localhost:8080/api/v1/pagos/P-7aa8fb3b [200 OK, 304B, 11ms]
+  √  responde 200
+  √  responde application/json
+  √  es el pago de la venta, por el total cobrado
+  √  el pago quedó REEMBOLSADO
+
+└ GET /v1/resumenes?eventoId después de cancelar (200, sin ventas)
+  GET http://localhost:8080/api/v1/resumenes?eventoId=ev-a16798dd [200 OK, 292B, 21ms]
+  √  responde 200
+  √  sin días y con la liquidación en cero
+
+└ Detalle del evento cancelado (200)
+  GET http://localhost:8080/api/eventos/evento-de-prueba-postman-para-cancelar [200 OK, 634B, 11ms]
+  √  responde 200
+  √  está cancelado, con el motivo
+  √  conserva la edición del dueño
+
+└ POST /v1/ventas en el evento cancelado (409)
+  POST http://localhost:8080/api/v1/ventas [409 Conflict, 316B, 53ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/evento-cancelado
+
+└ POST /eventos/imagenes (200) guarda imagenId
+  POST http://localhost:8080/api/eventos/imagenes [200 OK, 219B, 40ms]
+  √  responde 200
+  √  responde application/json
+  √  devuelve solo la URL relativa de la foto, con la extensión del Content-Type
+
+└ GET /eventos/imagenes/{id} (200, la foto subida)
+  GET http://localhost:8080/api/eventos/imagenes/b9c4b431-b71d-414e-aa1b-499c6084b26d.webp [200 OK, 194B, 15ms]
+  √  responde 200
+  √  Content-Type image/webp
+  √  es lo que se subió
+  √  Cache-Control de un año, inmutable
+
+└ POST /eventos/imagenes con texto declarado como PNG (400)
+  POST http://localhost:8080/api/eventos/imagenes [400 Bad Request, 385B, 10ms]
+  √  responde 400
+  √  el error viene como application/problem+json
+  √  type es /problemas/datos-invalidos
+  √  el error es de la imagen
+
+└ POST /eventos/imagenes con un SVG (415)
+  POST http://localhost:8080/api/eventos/imagenes [415 Unsupported Media Type, 271B, 10ms]
+  √  responde 415
+  √  el error viene como application/problem+json
+  √  type about:blank: el problema es el código mismo
+
+└ Registro para recuperar la contraseña (201) guarda emailOlvide
+  POST http://localhost:8080/api/usuarios/registro [201 Created, 268B, 405ms]
+  √  responde 201
+
+└ POST /password/olvide de una cuenta que existe (204)
+  POST http://localhost:8080/api/usuarios/password/olvide [204 No Content, 64B, 13ms]
+  √  responde 204
+  √  no trae cuerpo
+
+└ POST /password/olvide de un email que no existe (204, la misma respuesta)
+  POST http://localhost:8080/api/usuarios/password/olvide [204 No Content, 64B, 9ms]
+  √  responde 204
+  √  no trae cuerpo
+  √  es la misma respuesta que con la cuenta que existe
+
+└ POST /password/reinicio con un código incorrecto (400)
+  POST http://localhost:8080/api/usuarios/password/reinicio [400 Bad Request, 367B, 12ms]
+  √  responde 400
+  √  el error viene como application/problem+json
+  √  type es /problemas/datos-invalidos
+  √  errores.codigo dice que el código no es correcto
+
+└ Login con la contraseña de siempre (409): no cambió
+  POST http://localhost:8080/api/usuarios/login [409 Conflict, 307B, 403ms]
+  √  responde 409
+  √  el error viene como application/problem+json
+  √  type es /problemas/conflicto
+
+□ 9 Asistente (implementado)
+└ GET /v1/asistente/health (200)
+  GET http://localhost:8080/api/v1/asistente/health [200 OK, 197B, 9ms]
+  √  responde 200
+  √  responde application/json
+  √  es el asistente, con la base ok
+
+└ Login comprador (200) guarda token
+  POST http://localhost:8080/api/usuarios/login [200 OK, 1.03kB, 431ms]
+  √  responde 200
+  √  trae el token y cuánto dura
+  √  la cuenta es titular@palco.test, con rol user
+
+└ POST /v1/asistente/preguntas (200, MODELO)
+  POST http://localhost:8080/api/v1/asistente/preguntas [200 OK, 276B, 18ms]
+  √  responde 200
+  √  responde application/json
+  √  la respuesta trae los campos del contrato
+  √  la respondió el modelo, sin motivo y sin derivar a soporte
+  √  dentro del tiempo máximo del gateway (5 s)
+
+└ POST /v1/asistente/preguntas sin token (401)
+  POST http://localhost:8080/api/v1/asistente/preguntas [401 Unauthorized, 338B, 7ms]
+  √  responde 401
+  √  el error viene como application/problem+json
+  √  type es /problemas/no-autenticado
+  √  WWW-Authenticate: Bearer
+
+└ POST /v1/asistente/preguntas con inyección de prompt (200, BLOQUEADA)
+  POST http://localhost:8080/api/v1/asistente/preguntas [200 OK, 333B, 10ms]
+  √  responde 200
+  √  responde application/json
+  √  la respuesta trae los campos del contrato
+  √  origen BLOQUEADA, motivo inyeccion, sin derivar a soporte
+  √  el texto fijo del bloqueo
+
+┌─────────────────────────┬───────────────────┬───────────────────┐
+│                         │          executed │            failed │
+├─────────────────────────┼───────────────────┼───────────────────┤
+│              iterations │                 1 │                 0 │
+├─────────────────────────┼───────────────────┼───────────────────┤
+│                requests │               171 │                 0 │
+├─────────────────────────┼───────────────────┼───────────────────┤
+│            test-scripts │               166 │                 0 │
+├─────────────────────────┼───────────────────┼───────────────────┤
+│      prerequest-scripts │                19 │                 0 │
+├─────────────────────────┼───────────────────┼───────────────────┤
+│              assertions │               541 │                 0 │
+├─────────────────────────┴───────────────────┴───────────────────┤
+│ total run duration: 38.1s                                       │
+├─────────────────────────────────────────────────────────────────┤
+│ total data received: 148.95kB (approx)                          │
+├─────────────────────────────────────────────────────────────────┤
+│ average response time: 98ms [min: 5ms, max: 447ms, s.d.: 157ms] │
+└─────────────────────────────────────────────────────────────────┘

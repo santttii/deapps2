@@ -65,7 +65,9 @@ export default function CancelarEventoModal({ evento, vendidas, onCerrar, onCanc
                   ? 'Se anulan todas las entradas vendidas'
                   : vendidas === 0
                     ? 'Todavía no hay entradas vendidas'
-                    : `Se anulan las ${vendidas.toLocaleString('es-AR')} entradas vendidas`}
+                    : vendidas === 1
+                      ? 'Se anula la única entrada vendida'
+                      : `Se anulan las ${vendidas.toLocaleString('es-AR')} entradas vendidas`}
                 {vendidas !== 0 && ', se le devuelve el pago a cada comprador y le llega un email con el motivo.'}
                 {vendidas === 0 && ': no hay pagos para devolver.'}
               </li>

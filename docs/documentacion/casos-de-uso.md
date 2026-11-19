@@ -136,8 +136,8 @@ por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del ser
   - 2b'. Con sus otras compras del evento pasaría de 6 entradas: 409 `tope-por-evento`. Un titular cuyo DNI ya
     tiene una entrada para el evento: 409 `dni-con-entrada` (también al pagar, y entonces no se cobra).
   - 2c. Sin cupo: 409 `cupo-agotado`; el evento ya empezó: 409 `evento-finalizado`. Se devuelve el cupo de los
-    sectores ya reservados. Con el evento cancelado, Eventos no reserva (409 `evento-cancelado`) y Ventas lo
-    responde como `cupo-agotado`.
+    sectores ya reservados. Con el evento cancelado, Eventos no reserva y Ventas responde 409
+    `evento-cancelado`.
   - 2d. Falta la cabecera `Idempotency-Key` o no es un UUID: 400 `datos-invalidos`. La misma clave con otro pedido:
     409 `clave-reutilizada`. El mismo pedido repetido devuelve la misma venta, sin reservar otra vez.
   - 2e/4a. Eventos, Usuarios o Pagos no responden: 504 `sin-respuesta`. En el pago, el reintento con la misma clave
@@ -304,7 +304,8 @@ por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del ser
   3. El resto es asincrónico (`docs/api/mensajeria-cancelacion-de-eventos.md`). `CancelacionDeEventoMDB`, en Ventas,
      toma cada compra pagada del evento y, en una transacción por compra, la pasa a `CANCELADA`, anula sus
      entradas, le pide a Pagos el reembolso (`POST /api/v1/pagos/{pagoId}/reembolso`, que devuelve contra la
-     pasarela) y publica un `COMPRA_ANULADA`.
+     pasarela) y publica un `COMPRA_ANULADA`. Reventa recibe el mismo `EVENTO_CANCELADO` y retira las publicaciones
+     activas del evento.
   4. Por cada `COMPRA_ANULADA`, Notificaciones le manda el email al comprador (asunto "Se canceló <evento>", con el
      motivo y si el dinero ya volvió) y guarda la fila de auditoría.
 - **Flujos alternativos:**
@@ -313,8 +314,9 @@ por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del ser
     `evento-finalizado`.
   - 1c. Motivo de más de 500 caracteres o pedido sin cuerpo: 400 `datos-invalidos`; sin
     `Content-Type: application/json`: 415.
-  - 3a. Pagos no responde: la compra se anula igual y el aviso dice que la devolución está en trámite
-    (`reembolsado` en false).
+  - 3a. Pagos no responde: la compra se anula igual, el aviso dice que la devolución está en trámite
+    (`reembolsado` en false) y la compra queda marcada. Ventas vuelve a pedir ese reembolso cada minuto
+    (`ReintentoDeReembolsos`) hasta que Pagos conteste.
   - 3b. El broker reentrega `EVENTO_CANCELADO`: las compras ya anuladas no se tocan, no se reembolsa dos veces ni se
     repite el aviso.
 - **Postcondición:** el evento sale del catálogo y no vende más (Eventos no reserva cupo; una compra nueva

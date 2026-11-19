@@ -16,7 +16,7 @@ public final class RespuestasFrecuentes {
     private static final List<Frecuente> FRECUENTES = List.of(
             new Frecuente(List.of("revend", "reventa", "publicar"),
                     "La reventa oficial permite publicar una entrada entre el "
-                            + ReglasDeNegocio.MINIMO_REVENTA_PORCENTAJE + " % y lo pagado más un "
+                            + ReglasDeNegocio.MINIMO_REVENTA_PORCENTAJE + " % del precio original de la entrada y ese precio más un "
                             + ReglasDeNegocio.TOPE_REVENTA_PORCENTAJE + " %, hasta "
                             + ReglasDeNegocio.HORAS_LIMITE_REVENTA + " horas antes del evento."),
             new Frecuente(List.of("cuantas entradas", "maximo de entradas", "por compra"),

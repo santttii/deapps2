@@ -34,7 +34,8 @@ import com.palco.reventa.negocio.externos.PedidoNoEnviado;
 /**
  * ServicioDeReventa: publicar una entrada propia, retirarla y comprar una
  * publicación ajena, con las reglas de {@code ReglasDeNegocio} (precio entre
- * el 50% y el 110% de lo pagado; la reventa cierra 3 horas antes del evento).
+ * el 50% y el 110% del precio de lista del sector; la reventa cierra 3 horas
+ * antes del evento).
  *
  * Stateless: cada pedido llega completo (quién, qué publicación, qué precio,
  * con qué tarjeta) y no hay una conversación que recordar entre un pedido y
@@ -108,8 +109,12 @@ public class ServicioDeReventa implements IReventa {
             throw new ErroresDeNegocio.Conflicto(TiposDeProblema.ENTRADA_NO_DISPONIBLE,
                     "La entrada no se puede revender: está " + entrada.estado() + ".");
         }
-        long minimo = ReglasDeNegocio.minimoReventa(entrada.precioPagado());
-        long maximo = ReglasDeNegocio.topeReventa(entrada.precioPagado());
+        // El rango sale del precio de lista del sector y no de lo pagado: una entrada comprada en la reventa
+        // nace con el precio de esa reventa como precio pagado, y así cada reventa subiría el tope otro 10%.
+        // Si Eventos no responde, sale SinRespuesta y no se publica nada, igual que al pedirle la fecha.
+        long precioDeLista = eventos.precioDelSector(entrada.eventoId(), entrada.sectorId());
+        long minimo = ReglasDeNegocio.minimoReventa(precioDeLista);
+        long maximo = ReglasDeNegocio.topeReventa(precioDeLista);
         if (nueva.precio() < minimo || nueva.precio() > maximo) {
             throw new ErroresDeNegocio.ReglaIncumplida(TiposDeProblema.PRECIO_FUERA_DE_RANGO,
                     "El precio tiene que estar entre $" + minimo + " y $" + maximo + ".");
@@ -118,7 +123,8 @@ public class ServicioDeReventa implements IReventa {
 
         ventas.publicar(entrada.entradaId(), vendedorId);
         Publicacion publicacion = new Publicacion(nuevoId(), entrada.entradaId(), vendedorId, entrada.eventoId(),
-                entrada.sectorId(), entrada.sector(), entrada.precioPagado(), nueva.precio(), ahoraUtc());
+                entrada.sectorId(), entrada.sector(), entrada.precioPagado(), precioDeLista, nueva.precio(),
+                ahoraUtc());
         try {
             publicaciones.guardar(publicacion);
         } catch (RuntimeException e) {

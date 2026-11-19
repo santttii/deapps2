@@ -118,7 +118,9 @@ public interface VentaRepository {
      * vieja a la más nueva, para el resumen del panel del organizador. Es la
      * misma selección que {@link #pagadasDelEvento} (las {@code CONFIRMADA} y
      * las {@code EMITIDA}: una anulada no se liquida), pero trae los items en
-     * la misma consulta, porque el resumen cuenta entradas.
+     * la misma consulta, porque el resumen cuenta entradas. Trae también las
+     * ventas que nacen de la reventa: las deja afuera {@code ResumenDeVentas},
+     * que es quien decide qué se liquida.
      */
     List<Venta> pagadasDelEventoConItems(String eventoId);
 
@@ -138,6 +140,28 @@ public interface VentaRepository {
 
     /** Saca la marca de devolución pendiente: Eventos ya aceptó (o rechazó para siempre) el cupo. */
     boolean marcarCupoDevuelto(String ventaId);
+
+    // ---- Los reembolsos que Pagos no contestó al cancelarse un evento ----
+
+    /**
+     * Pone la marca {@code reembolso_pendiente} en una venta anulada por la
+     * cancelación de su evento, cuando Pagos no contestó el reembolso. Exige
+     * que la venta esté {@code CANCELADA} y tenga un pago: es lo único que hay
+     * para devolver. Corre en la transacción de la anulación, así la marca
+     * existe solo si la anulación quedó confirmada.
+     */
+    boolean marcarReembolsoPendiente(String ventaId);
+
+    /**
+     * Las ventas con la marca {@code reembolso_pendiente}, de la más vieja a
+     * la más nueva. Las usa el barrido {@code ReintentoDeReembolsos}. No trae
+     * los renglones ni las entradas: para volver a pedir el reembolso alcanza
+     * con el id de la venta y el de su pago.
+     */
+    List<Venta> buscarReembolsosPendientes();
+
+    /** Saca la marca de reembolso pendiente: Pagos ya devolvió el pago (o contestó que no se puede devolver). */
+    boolean marcarReembolsoResuelto(String ventaId);
 
     /** {@code CONFIRMADA} → {@code EMITIDA}, cuando sus entradas ya tienen código. */
     boolean marcarEmitida(String ventaId);

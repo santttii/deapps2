@@ -13,7 +13,7 @@ interface ListingCardProps {
 }
 
 export default function ListingCard({ publicacion, evento, sector, onComprar, href }: ListingCardProps) {
-  // El tope lo calcula Reventa (lo pagado + 10%) y viaja en la publicación.
+  // El tope lo calcula Reventa (el precio de lista del sector + 10%) y viaja en la publicación.
   const tope = publicacion.precioMaximo;
   const porcentaje = (publicacion.precio / tope) * 100;
 

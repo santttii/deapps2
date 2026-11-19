@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -71,6 +72,8 @@ class ServicioDeReventaTest {
         servicio.devoluciones = devoluciones;
         relojALas(LocalDateTime.of(2026, 11, 20, 12, 0));
         when(eventos.fechaDelEvento("ev-1")).thenReturn(EVENTO);
+        // Una entrada de la primera venta: el precio de lista del sector es lo que se pagó.
+        when(eventos.precioDelSector("ev-1", "sec-1")).thenReturn(PAGADO);
         when(ventas.consultar("T-1", VENDEDOR)).thenReturn(entrada("VALIDA"));
     }
 
@@ -83,7 +86,7 @@ class ServicioDeReventaTest {
     }
 
     private static Publicacion publicacion(long precio) {
-        return new Publicacion("R-1", "T-1", VENDEDOR, "ev-1", "sec-1", "Campo", PAGADO, precio,
+        return new Publicacion("R-1", "T-1", VENDEDOR, "ev-1", "sec-1", "Campo", PAGADO, PAGADO, precio,
                 LocalDateTime.of(2026, 11, 19, 15, 0));
     }
 
@@ -122,6 +125,43 @@ class ServicioDeReventaTest {
                     () -> servicio.publicar(VENDEDOR, new NuevaPublicacionDto("T-1", precio)));
             assertEquals(TiposDeProblema.PRECIO_FUERA_DE_RANGO, error.tipo());
         }
+    }
+
+    @Test
+    void unaEntradaRevendidaConservaElTopeYElMinimoDelPrecioDeLista() {
+        // Se compró en la reventa al tope (55.000 sobre una lista de 50.000): Ventas la registra con ese precio
+        // pagado. Si el rango saliera de ahí, el tope pasaría a 60.500 y el mínimo a 27.500.
+        long pagadoEnLaReventa = ReglasDeNegocio.topeReventa(PAGADO);
+        when(ventas.consultar("T-1", VENDEDOR)).thenReturn(
+                new ClienteDeVentas.Entrada("T-1", "V-2", "ev-1", "sec-1", "Campo", pagadoEnLaReventa, "VALIDA"));
+
+        PublicacionDto publicada = servicio.publicar(VENDEDOR, new NuevaPublicacionDto("T-1", pagadoEnLaReventa));
+        assertEquals(ReglasDeNegocio.topeReventa(PAGADO), publicada.precioMaximo());
+
+        ErroresDeNegocio.ReglaIncumplida error = assertThrows(ErroresDeNegocio.ReglaIncumplida.class,
+                () -> servicio.publicar(VENDEDOR, new NuevaPublicacionDto("T-1", pagadoEnLaReventa + 1)));
+        assertEquals(TiposDeProblema.PRECIO_FUERA_DE_RANGO, error.tipo());
+
+        // El mínimo también es el de la lista: el 50% de 50.000, aunque se haya pagado 55.000.
+        servicio.publicar(VENDEDOR, new NuevaPublicacionDto("T-1", ReglasDeNegocio.minimoReventa(PAGADO)));
+        verify(ventas, times(2)).publicar("T-1", VENDEDOR);
+    }
+
+    @Test
+    void siEventosNoRespondeNoSePublicaNadaComoAntes() {
+        // Eventos caído: no contesta ni el precio del sector ni la fecha. Antes del arreglo, la fecha ya
+        // cortaba la publicación con SinRespuesta (503) sin tocar Ventas; ahora corta el precio, igual.
+        ErroresDeNegocio.SinRespuesta caido = new ErroresDeNegocio.SinRespuesta(
+                "El servicio de eventos no responde. Probá de nuevo.");
+        when(eventos.precioDelSector(anyString(), anyString())).thenThrow(caido);
+        when(eventos.fechaDelEvento(anyString())).thenThrow(caido);
+
+        ErroresDeNegocio.SinRespuesta error = assertThrows(ErroresDeNegocio.SinRespuesta.class,
+                () -> servicio.publicar(VENDEDOR, new NuevaPublicacionDto("T-1", 55_000L)));
+
+        assertEquals("El servicio de eventos no responde. Probá de nuevo.", error.getMessage());
+        verify(ventas, never()).publicar(anyString(), anyString());
+        verify(publicaciones, never()).guardar(any());
     }
 
     @Test

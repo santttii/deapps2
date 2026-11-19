@@ -215,8 +215,9 @@ public final class Dtos {
      *
      * Solo cuenta las compras pagadas y vigentes ({@code CONFIRMADA} y
      * {@code EMITIDA}): una venta anulada por la cancelación del evento se
-     * reembolsa y no se liquida. Las compras de la reventa oficial son ventas
-     * nuevas y entran acá como cualquier otra.
+     * reembolsa y no se liquida. Las compras en la reventa oficial no entran:
+     * ese lugar ya se liquidó en la compra original, y el precio de reventa es
+     * del vendedor.
      */
     public record LiquidacionDto(
             int ventas,

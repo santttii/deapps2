@@ -99,6 +99,16 @@ public class Venta {
     @Column(name = "devolucion_pendiente", nullable = false)
     private boolean devolucionPendiente;
 
+    /**
+     * true desde que la venta se anuló por la cancelación de su evento sin
+     * que Pagos contestara el reembolso, hasta que lo contesta. La pone la
+     * misma transacción que anula la venta y la saca el barrido
+     * {@code ReintentoDeReembolsos}, que mientras sea true vuelve a pedir el
+     * reembolso.
+     */
+    @Column(name = "reembolso_pendiente", nullable = false)
+    private boolean reembolsoPendiente;
+
     /** Los renglones se guardan junto con la venta (cascade): no tienen repositorio propio. */
     @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("orden")
@@ -176,6 +186,7 @@ public class Venta {
     public LocalDateTime getCreada() { return creada; }
     public LocalDateTime getConfirmada() { return confirmada; }
     public boolean isDevolucionPendiente() { return devolucionPendiente; }
+    public boolean isReembolsoPendiente() { return reembolsoPendiente; }
     public List<VentaItem> getItems() { return items; }
     public List<Entrada> getEntradas() { return entradas; }
 }

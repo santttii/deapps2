@@ -104,6 +104,21 @@ public final class ErroresDeNegocio {
         }
     }
 
+    /**
+     * El pedido traía una condición ({@code If-Match}) y el recurso ya no está como lo vio el
+     * cliente: cambió desde que lo leyó → 412. No se cambió nada; el cliente vuelve a leerlo y decide.
+     */
+    @ApplicationException(rollback = true)
+    public static class PrecondicionFallida extends ErrorDeNegocio {
+        public PrecondicionFallida(String mensaje) {
+            this("precondicion-fallida", mensaje);
+        }
+
+        public PrecondicionFallida(String tipo, String mensaje) {
+            super(tipo, mensaje);
+        }
+    }
+
     /** El pedido está bien formado pero rompe una regla de negocio (máximo de entradas, DNI repetido…) → 422. */
     @ApplicationException(rollback = true)
     public static class ReglaIncumplida extends ErrorDeNegocio {
