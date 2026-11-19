@@ -5,8 +5,9 @@
 #   backend      mvn verify: tests unitarios y de integración del backend
 #   frontend     npm ci, lint y build
 #   integracion  docker compose up (Postgres + backend + nginx) y la prueba de integración contra eso
+#   e2e          docker compose up y las pruebas E2E del frontend (Playwright, Chromium) por https://localhost
 #
-# Los jobs de los otros frentes (mutación, Sonar, dependencias, E2E, ZAP) se suman como jobs nuevos en
+# Los jobs de los otros frentes (mutación, Sonar, dependencias, ZAP) se suman como jobs nuevos en
 # este mismo archivo, sin tocar estos.
 
 name: CI
@@ -120,7 +121,7 @@ jobs:
           inicio=$(date +%s)
           docker compose up --build --detach --wait --wait-timeout 900
           echo "Levantado en $(( $(date +%s) - inicio )) segundos" | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Humo por HTTPS (nginx, cabeceras y los 8 servicios)
+      - name: Humo por HTTPS (nginx, cabeceras y los 9 servicios)
         run: |
           curl -skI https://localhost/ | tee cabeceras.txt
           for h in Content-Security-Policy Strict-Transport-Security X-Content-Type-Options Referrer-Policy; do
@@ -128,7 +129,7 @@ jobs:
           done
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost/)" = 301
           for ruta in usuarios/health eventos/health v1/health v1/pagos/health v1/validacion/health \
-                      v1/reventas/health notificaciones/health v1/facturas/health; do
+                      v1/reventas/health notificaciones/health v1/facturas/health v1/asistente/health; do
             codigo=$(curl -sk -o /dev/null -w '%{http_code}' "https://localhost/api/$ruta")
             echo "$ruta $codigo"
             test "$codigo" = 200
@@ -160,6 +161,60 @@ jobs:
             logs/
             compose.log
             cabeceras.txt
+      - name: Bajar todo
+        if: always()
+        run: docker compose down -v
+
+  e2e:
+    name: E2E (Playwright contra docker compose)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      # El log del servidor queda en ./logs: de ahí las pruebas leen el código de verificación de las
+      # cuentas nuevas (sin SMTP, el email se escribe en el log).
+      PALCO_DIR_LOGS: ./logs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Dependencias del frontend y Chromium
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: docker compose up (un comando, todo el sistema)
+        run: |
+          mkdir -p logs && chmod 777 logs
+          docker compose up --build --detach --wait --wait-timeout 900
+      - name: Pruebas E2E (npm run e2e)
+        working-directory: frontend
+        env:
+          # La app por nginx, con su certificado autofirmado; la API, por el mismo origen.
+          PALCO_E2E_URL: https://localhost
+          PALCO_LOG: ${{ github.workspace }}/logs/server.log
+        run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-e2e
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+      - name: Log de los contenedores
+        if: failure()
+        run: docker compose ps && docker compose logs --no-color > compose-e2e.log
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: compose-e2e
+          path: |
+            compose-e2e.log
+            logs/
+          if-no-files-found: ignore
       - name: Bajar todo
         if: always()
         run: docker compose down -v

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Arma WildFly con los 8 servicios y lo levanta en http://localhost:8080.
+# Arma WildFly con los 9 servicios y lo levanta en http://localhost:8080.
 # Cada servicio queda en /api/<servicio> (ej. /api/eventos).
 # Para actualizar un servicio sin reiniciar: ./redesplegar.sh <servicio>
 set -euo pipefail
