@@ -394,8 +394,10 @@ export default function MyTicketsPage() {
             </h2>
             <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
               <div className="border border-wire p-3">
-                <p className="font-mono-label text-[10px] text-muted">pagaste</p>
-                <p className="font-semibold">{money(entrada.precioPagado)}</p>
+                {/* El mínimo y el tope salen del precio original (el de lista del sector), no de lo pagado:
+                    con una entrada comprada en la reventa, lo pagado ya incluye hasta un 10 % más. */}
+                <p className="font-mono-label text-[10px] text-muted">precio original</p>
+                <p className="font-semibold">{money(precioDeLista)}</p>
               </div>
               <div className="border border-wire p-3">
                 <p className="font-mono-label text-[10px] text-muted">mínimo 50%</p>
