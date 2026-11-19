@@ -282,7 +282,7 @@ cada parte del panel. Un organizador solo ve y modifica sus propios eventos.
 ### La foto del evento
 
 Arriba del formulario de **Crear evento** está **Subir foto**: se elige una imagen JPG, PNG o WEBP de
-hasta 2 MB y se ve enseguida cómo queda. La foto se sube al tocar **Crear evento**. Sin foto propia,
+hasta 2 MB y se ve enseguida cómo queda (con la foto elegida, el botón pasa a decir **Cambiar foto**). La foto se sube al tocar **Crear evento**. Sin foto propia,
 el evento usa la foto de su categoría. Con **quitar foto** se descarta la elegida.
 
 ![Subir la foto de un evento](img/15-subir-foto.png)
