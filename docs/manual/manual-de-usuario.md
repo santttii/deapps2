@@ -193,8 +193,8 @@ compras (cada una con su enlace **factura**), las entradas usadas y las reventas
 aparecen las **compras en curso, canceladas o vencidas**.
 
 Para revender una entrada, en **Publicar en reventa oficial** se escribe el precio de venta. Palco
-muestra lo que se pagó, el **mínimo (50 %)** y el **tope (+10 %)**, y no deja publicar fuera de ese
-rango. Se toca **Publicar**. Cuando otra persona la compra, se emite una entrada nueva a su nombre y
+muestra el **precio original** de la entrada (el de lista de su sector), el **mínimo (50 %)** y el
+**tope (+10 %)** calculados sobre ese precio, y no deja publicar fuera de ese rango. Se toca **Publicar**. Cuando otra persona la compra, se emite una entrada nueva a su nombre y
 la vieja deja de servir.
 
 ### Reglas de la reventa
