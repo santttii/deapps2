@@ -2,7 +2,7 @@
 # Después: https://localhost (certificado autofirmado: el navegador pide aceptarlo una vez).
 #
 # - db:      PostgreSQL. Las migraciones de cada servicio crean sus esquemas al arrancar.
-# - backend: WildFly con los 8 servicios, el broker JMS (embebido) y el ARCA simulado.
+# - backend: WildFly con los 9 servicios, el broker JMS (embebido) y el ARCA simulado.
 # - web:     nginx con el frontend, TLS y cabeceras de seguridad; pasa /api y /legado al backend.
 #
 # Nada de esto es secreto: la base no se publica fuera de la red de compose y el secreto entre
@@ -36,6 +36,12 @@ services:
       PALCO_CORS_ORIGENES: ${PALCO_URL_PUBLICA:-https://localhost},http://localhost:5173
       PALCO_SECRETO_SERVICIOS: ${PALCO_SECRETO_SERVICIOS:-}
       PALCO_JWT_CLAVE_PRIVADA: ${PALCO_JWT_CLAVE_PRIVADA:-}
+      # El modelo del asistente: simulado por defecto, o uno real con la API de chat de OpenAI
+      # (ver backend/.env.example). La clave nunca va en este archivo: sale del .env de la raíz.
+      PALCO_ASISTENTE_MODELO: ${PALCO_ASISTENTE_MODELO:-simulado}
+      PALCO_ASISTENTE_OPENAI_URL: ${PALCO_ASISTENTE_OPENAI_URL:-}
+      PALCO_ASISTENTE_OPENAI_MODELO: ${PALCO_ASISTENTE_OPENAI_MODELO:-}
+      PALCO_ASISTENTE_OPENAI_CLAVE: ${PALCO_ASISTENTE_OPENAI_CLAVE:-}
     ports:
       # Solo en esta máquina: para Postman, scripts/pruebas y el CI. La app se usa por https://localhost.
       - "127.0.0.1:${PALCO_PUERTO_BACKEND:-8080}:8080"

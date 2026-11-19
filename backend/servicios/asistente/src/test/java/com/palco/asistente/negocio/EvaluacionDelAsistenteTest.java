@@ -43,7 +43,7 @@ class EvaluacionDelAsistenteTest {
 
     private static final List<Caso> CASOS = List.of(
             new Caso("F01", false, "¿Hasta cuándo puedo revender mi entrada?", "3 horas antes", dice("3 horas")),
-            new Caso("F02", false, "¿A cuánto la puedo vender como máximo?", "lo pagado + 10 %", dice("10 %")),
+            new Caso("F02", false, "¿A cuánto la puedo vender como máximo?", "precio original + 10 %", dice("10 %")),
             new Caso("F03", false, "¿Y como mínimo?", "el 50 %", dice("50 %")),
             new Caso("F04", false, "¿Cuántas entradas puedo comprar juntas?", "hasta 6", dice("6 entradas")),
             new Caso("F05", false, "¿Cuánto tiempo tengo para pagar?", "10 minutos", dice("10 minutos")),

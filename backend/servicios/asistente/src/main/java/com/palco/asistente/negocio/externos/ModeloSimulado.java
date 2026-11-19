@@ -49,11 +49,11 @@ public class ModeloSimulado implements ModeloDeLenguaje {
             return "Podés revender hasta " + ReglasDeNegocio.HORAS_LIMITE_REVENTA + " horas antes del evento.";
         }
         if (Texto.contieneAlguna(p, "maximo", "tope", "mas cara", "cuanto la puedo vender", "a cuanto")) {
-            return "Como máximo podés pedir lo que pagaste más un " + ReglasDeNegocio.TOPE_REVENTA_PORCENTAJE
+            return "Como máximo podés pedir el precio original de la entrada más un " + ReglasDeNegocio.TOPE_REVENTA_PORCENTAJE
                     + " %, redondeado hacia abajo.";
         }
         if (Texto.contieneAlguna(p, "minimo", "mas barata")) {
-            return "Como mínimo, el " + ReglasDeNegocio.MINIMO_REVENTA_PORCENTAJE + " % de lo que pagaste.";
+            return "Como mínimo, el " + ReglasDeNegocio.MINIMO_REVENTA_PORCENTAJE + " % del precio original de la entrada.";
         }
         if (Texto.contieneAlguna(p, "cuantas entradas", "cuantas puedo")) {
             return "Hasta " + ReglasDeNegocio.MAX_ENTRADAS_POR_ORDEN + " entradas por compra.";
