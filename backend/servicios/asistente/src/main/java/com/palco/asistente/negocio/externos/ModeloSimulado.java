@@ -48,15 +48,18 @@ public class ModeloSimulado implements ModeloDeLenguaje {
         if (Texto.contieneAlguna(p, "revend", "reventa") && Texto.contieneAlguna(p, "hasta cuando", "cuando", "hora")) {
             return "Podés revender hasta " + ReglasDeNegocio.HORAS_LIMITE_REVENTA + " horas antes del evento.";
         }
+        // Antes que el tope de la reventa: "¿cuál es el máximo de entradas?" tiene la palabra "máximo".
+        if (Texto.contieneAlguna(p, "cuantas entradas", "cuantas puedo", "maximo de entradas", "limite de entradas")) {
+            return "Hasta " + ReglasDeNegocio.MAX_ENTRADAS_POR_ORDEN + " entradas por compra y "
+                    + ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO + " por evento, sumando todas tus compras. "
+                    + "Cada persona (DNI) puede tener una sola entrada por evento.";
+        }
         if (Texto.contieneAlguna(p, "maximo", "tope", "mas cara", "cuanto la puedo vender", "a cuanto")) {
             return "Como máximo podés pedir el precio original de la entrada más un " + ReglasDeNegocio.TOPE_REVENTA_PORCENTAJE
                     + " %, redondeado hacia abajo.";
         }
         if (Texto.contieneAlguna(p, "minimo", "mas barata")) {
             return "Como mínimo, el " + ReglasDeNegocio.MINIMO_REVENTA_PORCENTAJE + " % del precio original de la entrada.";
-        }
-        if (Texto.contieneAlguna(p, "cuantas entradas", "cuantas puedo")) {
-            return "Hasta " + ReglasDeNegocio.MAX_ENTRADAS_POR_ORDEN + " entradas por compra.";
         }
         if (Texto.contieneAlguna(p, "tiempo", "minutos", "cuanto tengo para pagar")) {
             return "Tenés " + ReglasDeNegocio.MINUTOS_RESERVA
@@ -74,6 +77,12 @@ public class ModeloSimulado implements ModeloDeLenguaje {
         if (Texto.contieneAlguna(p, "me compraron", "sigue sirviendo", "la mia sigue")) {
             return "No: cuando te la compran queda vendida y su QR deja de servir en la puerta.";
         }
+        // Cancelar mi compra no es lo mismo que se cancele el evento ("se canceló", "lo cancelaron", "suspendido").
+        boolean seCanceloElEvento = Texto.contieneAlguna(p, "se cancelo", "cancelaron", "cancelado", "cancelada", "suspend");
+        if (Texto.contieneAlguna(p, "cancel") && !seCanceloElEvento) {
+            return "Podés cancelar una compra mientras no la pagaste: en el checkout, con Cancelar compra. "
+                    + "Si ya está paga no se cancela; si no podés ir, publicala en la reventa oficial.";
+        }
         if (Texto.contieneAlguna(p, "cancel", "reembols", "mi plata", "devuelv")) {
             return "Si se cancela el evento, la compra se anula y se te devuelve el dinero. Te avisamos por email.";
         }
@@ -81,7 +90,8 @@ public class ModeloSimulado implements ModeloDeLenguaje {
             return "Llevá el QR de tu entrada y el DNI del titular: en la puerta los comparan.";
         }
         if (Texto.contieneAlguna(p, "factura")) {
-            return "La factura se emite sola después de pagar; la ves con su número y CAE en el detalle de la compra.";
+            return "La factura se emite sola después de pagar. La ves en Mis entradas, con el botón Ver factura: "
+                    + "tiene su número y el CAE de ARCA.";
         }
         if (Texto.contieneAlguna(p, "mis entradas", "que evento tengo", "listas", "mis compras")) {
             return "Tus compras y entradas, con su estado y su QR, están en Mis entradas.";

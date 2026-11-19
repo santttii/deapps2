@@ -20,7 +20,10 @@ public final class RespuestasFrecuentes {
                             + ReglasDeNegocio.TOPE_REVENTA_PORCENTAJE + " %, hasta "
                             + ReglasDeNegocio.HORAS_LIMITE_REVENTA + " horas antes del evento."),
             new Frecuente(List.of("cuantas entradas", "maximo de entradas", "por compra"),
-                    "Podés comprar hasta " + ReglasDeNegocio.MAX_ENTRADAS_POR_ORDEN + " entradas por compra."),
+                    "Podés comprar hasta " + ReglasDeNegocio.MAX_ENTRADAS_POR_ORDEN + " entradas por compra y "
+                            + ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO + " por evento; cada DNI, una sola entrada por evento."),
+            new Frecuente(List.of("factura"),
+                    "La factura está en Mis entradas, con el botón Ver factura: tiene su número y el CAE de ARCA."),
             new Frecuente(List.of("reserva", "minutos", "tiempo para pagar"),
                     "Los lugares quedan reservados " + ReglasDeNegocio.MINUTOS_RESERVA
                             + " minutos mientras pagás."),
@@ -29,7 +32,8 @@ public final class RespuestasFrecuentes {
             new Frecuente(List.of("puerta", "ingres", "llevar"),
                     "En la puerta mostrás el QR de tu entrada y el DNI del titular."),
             new Frecuente(List.of("cancel", "reembols", "devolucion"),
-                    "Si se cancela un evento, la compra se anula y se devuelve el dinero. Te avisamos por email."));
+                    "Una compra se cancela solo antes de pagarla. Si se cancela un evento, la compra se anula y "
+                            + "se devuelve el dinero. Te avisamos por email."));
 
     private RespuestasFrecuentes() {
     }
