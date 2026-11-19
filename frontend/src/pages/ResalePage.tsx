@@ -214,8 +214,8 @@ export default function ResalePage() {
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-ink">Cómo funciona el tope</h2>
             <p className="mt-2 text-sm text-graphite">
-              El precio publicado nunca puede superar el 110% de lo que pagó el
-              vendedor. Ese máximo es el tope que figura en cada publicación.
+              El precio publicado nunca puede superar el precio de lista de su
+              sector más un 10%. Ese máximo es el tope que figura en cada publicación.
             </p>
           </div>
 

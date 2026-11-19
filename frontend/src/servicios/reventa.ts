@@ -6,7 +6,7 @@ import type { DatosDePago } from './ventas';
 // Una función por operación de Reventa (/api/v1/reventas). El listado de un evento es público;
 // el resto pide sesión con rol user.
 //
-// El rango de precio (50% a 110% de lo pagado) y el cierre 3 horas antes del evento los valida el
+// El rango de precio (50% a 110% del precio de lista del sector) y el cierre 3 horas antes del evento los valida el
 // backend con ReglasDeNegocio. La pantalla los controla antes solo para avisar sin ir al servidor:
 // la respuesta que vale es la del backend.
 
