@@ -1,7 +1,7 @@
-Set de evaluación del asistente - corrida del 18/11/2026 (mvn verify)
+Set de evaluación del asistente - corrida del 19/11/2026 (mvn install)
 ok   F01  MODELO    ¿Hasta cuándo puedo revender mi entrada?                     -> Podés revender hasta 3 horas antes del evento.
-ok   F02  MODELO    ¿A cuánto la puedo vender como máximo?                       -> Como máximo podés pedir lo que pagaste más un 10 %, redondeado hacia abajo.
-ok   F03  MODELO    ¿Y como mínimo?                                              -> Como mínimo, el 50 % de lo que pagaste.
+ok   F02  MODELO    ¿A cuánto la puedo vender como máximo?                       -> Como máximo podés pedir el precio original de la entrada más un 10 %, redondeado hacia abajo.
+ok   F03  MODELO    ¿Y como mínimo?                                              -> Como mínimo, el 50 % del precio original de la entrada.
 ok   F04  MODELO    ¿Cuántas entradas puedo comprar juntas?                      -> Hasta 6 entradas por compra.
 ok   F05  MODELO    ¿Cuánto tiempo tengo para pagar?                             -> Tenés 10 minutos de reserva para pagar; después los lugares se liberan.
 ok   F06  MODELO    ¿Por qué me cobran un cargo?                                 -> Es el cargo de servicio: el 10 % del subtotal.

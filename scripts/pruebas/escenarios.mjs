@@ -1452,7 +1452,7 @@ async function escenario24() {
 // ===================================================================================== corrida
 
 const servicios = ['api/usuarios', 'api/eventos', 'api/v1', 'api/v1/pagos', 'api/v1/validacion', 'api/v1/reventas',
-  'api/notificaciones', 'api/v1/facturas'];
+  'api/notificaciones', 'api/v1/facturas', 'api/v1/asistente'];
 const health = [];
 for (const s of servicios) health.push(`${s}/health ${(await http('GET', `/${s}/health`)).estado}`);
 console.log(`Prueba de integración del backend de Palco. ${new Date().toLocaleString('es-AR', { hour12: false })}`);

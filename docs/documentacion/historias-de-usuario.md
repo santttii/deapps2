@@ -481,7 +481,7 @@ Escenario: CA-14.3 Cuenta que no es de puerta
 ## Cobertura actual por la prueba de integración
 
 Lo que ya comprueba `scripts/pruebas/escenarios.mjs` (los números son los de sus escenarios). Es el punto de
-partida de la matriz; los criterios que no están en esta tabla todavía necesitan su caso.
+partida de la matriz; los criterios que no están en esta tabla tienen su caso en la de los tests unitarios, más abajo.
 
 | Criterio | Escenario |
 |---|---|
@@ -493,11 +493,9 @@ partida de la matriz; los criterios que no están en esta tabla todavía necesit
 | CA-02.1 | 5, 24 |
 | CA-05.7 | 6 |
 | CA-05.9 | 7, 8, 9, 10, 11, 12, 13 |
-| CA-05.5 | 14 |
 | CA-06.1, CA-06.2 | 15 |
 | CA-13.1, CA-13.2, CA-13.3 | 16 |
 | CA-08.1, CA-08.2, CA-08.3, CA-08.5, CA-09.1, CA-09.2, CA-09.3 | 17 |
-| CA-05.6 | 18 |
 | CA-09.4 | 19 |
 | CA-09.5 | 20 |
 | CA-10.4, CA-13.5, CA-14.1, CA-14.2, CA-14.3 | 21 |
@@ -527,6 +525,8 @@ escrito acá no pasa desapercibido.
 | CA-03.3 | ReinicioDePasswordTest#unCodigoIncorrectoSumaUnIntentoYNoCambiaNada |
 | CA-04.1 | ServicioDeEventosTest#elDetalleDevuelveElEventoConSusSectores, CupoEnH2Test#elListadoFiltraPorCategoriaYOrdenaPorFecha |
 | CA-04.3 | ServicioDeEventosTest#unSlugQueNoExisteEsNoEncontrado |
+| CA-05.5 | ClienteDePagosTest#siPagosNoRespondeEsSinRespuesta, ConciliacionDePagosTest#conUnPagoAprobadoConfirmaLaVentaConEsePagoYLosTitularesCopiados, ConciliacionDePagosTest#sinPagoConEsaClaveVenceLaVentaYRecienDespuesDevuelveElCupo |
+| CA-05.6 | ClienteDeEventosTest#siEventosNoRespondeAlReservarEsSinRespuesta, ServicioDeVentasTest#unSectorQueNoRespondioNoSeDevuelvePorqueNoSeSabeSiSeReservo |
 | CA-05.8 | ComprasEnCursoTest#sinLaIdentidadVerificadaNoSeAbreLaCompra |
 | CA-05.10 | ServicioDeVentasTest#conLasDeOtrasComprasNoSePuedePasarDeSeisEntradasPorEvento, ServicioDeVentasTest#unDniQueYaTieneEntradaParaElEventoNoPuedeSerTitularDeOtra, ServicioDeVentasTest#antesDeCobrarSeVuelveAMirarElDniYSiOtraCompraLoUsoNoSeCobra, ComprasEnCursoTest#siOtraCompraUsoElDniDeUnTitularNoSeCobraYSeQuitaLaMarca, ConciliacionEnH2Test#lasEntradasDelCompradorCuentanLasEnCursoVigentesYLasPagadasMenosLasRevendidas, ConciliacionEnH2Test#unDniTieneEntradaSiEsTitularDeUnaEnPieOEstaEnUnaCompraQueSeEstaCobrando |
 | CA-06.3 | ServicioDeFacturacionTest#siArcaNoRespondeLaFallaSaleYNoSeGuardaNada, ServicioDeFacturacionTest#siArcaRechazaElComprobanteLaFallaSaleYNoSeGuardaNada, FacturacionDeComprasMDBTest#conArcaCaidoElMensajeVuelveAlBrokerYLaReentregaFactura, ArcaSoapTest#siArcaTardaMasQueElTiempoDeLecturaFallaSinEsperarlo |
@@ -536,6 +536,7 @@ escrito acá no pasa desapercibido.
 | CA-09.3 | ServicioDeReventaTest#nadieCompraSuPropiaPublicacion |
 | CA-10.1 | ServicioDeEventosTest#crearUnEventoParaMasTardeSeGuarda |
 | CA-10.2 | ServicioDeEventosTest#crearUnEventoConFechaPasadaEsUnDatoInvalidoDelCampoFechaISO, ServicioDeEventosTest#crearUnEventoConUnaCategoriaQueNoExisteEsUnDatoInvalidoDelCampoCategoria, NuevoEventoDtoTest#cadaSectorSeValidaConSuPrecioYSuCupo |
+| CA-10.3 | ServicioDeEventosTest#unEventoAjenoNoSePuedeEditarYParaElOrganizadorNoExiste |
 | CA-11.1 | ServicioDeEventosTest#cancelarMarcaElEventoYPublicaElMensajeConSuMotivo, CancelacionDeEventosTest#anulaCadaCompraPagadaPideSuReembolsoYPublicaSuAviso, PublicacionesEnH2Test#alCancelarseElEventoSeRetiranSusActivasSalvoLaQueSeEstaPagando |
 | CA-11.2 | ServicioDeEventosTest#unEventoAjenoNoSePuedeCancelar |
 | CA-11.3 | ServicioDeEventosTest#unEventoCanceladoNoVendeMasEntradasPeroSiguePudiendoDevolverCupo, ClienteDeEventosTest#unEventoCanceladoEsUnConflictoDeEventoCanceladoYNoDeCupoAgotado |

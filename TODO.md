@@ -618,10 +618,9 @@ carpeta 5 de Postman).
 - [x] Integración contra WildFly real: en lugar de Arquillian, 21 escenarios
       en Node (`scripts/pruebas/escenarios.mjs`) por la API y `jboss-cli`, y la
       colección de Postman (`scripts/postman`).
-- [ ] Escenario de la cancelación de un evento con sus reembolsos (30/10): es
-      el que prueba el segundo proceso de mensajería de punta a punta, y es lo
-      que la defensa del 13/11 va a querer ver corriendo. Hoy el flujo solo
-      tiene tests con dobles.
+- [x] Escenario de la cancelación de un evento con sus reembolsos: el 22,
+      que anula las compras, devuelve los pagos, retira la reventa y avisa
+      (15 de 15 el 18/11, `docs/testing/evidencia/checkpoint-3/escenarios.txt`).
 - [ ] Sumar a `openapi.yaml` y a la colección de Postman las 8 rutas nuevas
       del 30/10 (editar y cancelar evento, subir imagen, las dos de
       contraseña, el usuario por id y el resumen de ventas).
@@ -661,14 +660,17 @@ carpeta 5 de Postman).
 - [ ] MSW para mockear la API.
 
 ### End to end
-- [ ] Playwright contra front + WildFly + base de test. Se hicieron recorridos
-      con Playwright, pero no están en el repo.
+- [x] Playwright contra el frontend y el backend real: `frontend/e2e/`
+      (`npm run e2e`, configuración en `frontend/playwright.config.ts`), en
+      Chromium. La corre el job E2E del CI contra el `docker compose`.
 - [ ] Recorrido completo: catálogo → evento → checkout → confirmación (con
       emisión asíncrona) → publicar en reventa → comprar con otra cuenta →
       validar en puerta.
-- [ ] Registro con verificación de email (depende del proveedor de email).
-- [ ] Organizador crea evento y aparece en el catálogo.
-- [ ] Accesos por rol.
+- [x] Registro con verificación de email: el código se lee del `server.log`
+      (`registro.spec.ts`).
+- [x] Organizador crea evento y aparece en el catálogo; además lo edita y lo
+      cancela (`organizador.spec.ts`).
+- [x] Accesos por rol (`sesion.spec.ts`).
 
 ## Fase 12 — Seguridad
 
@@ -716,7 +718,10 @@ carpeta 5 de Postman).
 
 ## Fase 13 — Infraestructura y deploy
 
-- [ ] CI (GitHub Actions): lint y build del front; `mvn verify` del backend.
+- [x] CI (GitHub Actions, `.github/workflows/ci.yml`): gitleaks; `mvn -B verify`
+      con JaCoCo y la tabla de cobertura en el resumen de la corrida; lint y
+      build del front; `docker compose` con los guiones de `scripts/pruebas/`;
+      y la suite E2E.
 - [ ] Hosting **(a confirmar)**: front estático (Vercel, Netlify) y WildFly en
       Render o Railway (construyen la imagen en la nube, no hace falta Docker
       local), base en Supabase.
@@ -753,14 +758,14 @@ en la consigna, que no es la nuestra. "Qué pide" sale de la consigna
 (secciones 5, 6 y 9); donde la consigna no dice nada, figura "a confirmar con
 la cátedra".
 
-| Viernes | Hito del cronograma | Qué pide la consigna | Estado al 23/10 | Fases |
+| Viernes | Hito del cronograma | Qué pide la consigna | Estado (al 23/10, salvo que diga otra fecha) | Fases |
 |---|---|---|---|---|
 | 04/09 | 1.er check point TPO | Entrega Parcial N.º 1 (31/08): componentes candidatos con su interfaz, diagrama de arquitectura, stack y un componente desplegado. Sin defensa | Ya pasó | — |
 | 18/09 | 1.ª entrega parcial | Entrega Obligatoria N.º 1 (14/09): tres componentes desplegados, uno stateful y uno stateless, tres patrones, seguridad declarativa y documento de 5 a 8 páginas. Con defensa oral | Ya pasó | — |
 | **23/10**, sin confirmar | No figura con nombre: ese día hay clase | Entrega Parcial N.º 2 (19/10), checkpoint formativo sin defensa: diagrama de arquitectura de integración (SOA); clasificación justificada de cada integración externa en síncrona (SOAP o REST) o asincrónica (cola o tópico); y un proceso de negocio de punta a punta con mensajería real y broker configurado | Documento, diagrama y evidencia en `docs/entrega3/`, congelados en el tag `entrega-parcial-2` (14/10). La subida la confirma el grupo | 2, 3, 4 y 6 |
 | **06/11** | Entrega del diseño del TP Obligatorio | La consigna no la nombra. La cátedra respondió el 16/10 que la documentación es técnica, con diagramas de casos de uso y casos de uso, sin Figma ni manual de usuario | Hechos: el diagrama de casos de uso con los casos de uso (13.9), siete diagramas de secuencia, el WSDL y `docs/api/openapi.yaml` al día. Faltan los diagramas de secuencia de autenticación y de reventa, el diagrama SOA actualizado y el borrador del documento técnico; se sube el jueves 05/11 | 5 y 11 |
 | **13/11** | 2.ª Entrega PARCIAL | Entrega Obligatoria N.º 2 — 2.º Parcial (09/11), con defensa oral de 20 a 25 minutos y nota mínima 4. Hay que entregar: dos procesos con mensajería de punta a punta (uno por cola y uno por tópico); un servicio SOAP con su WSDL, justificado como sistema legado; un servicio REST (partner moderno o API de consumo externo); transacciones declarativas en un flujo crítico de varios pasos; documento técnico actualizado, de 8 a 12 páginas de contenido (sin contar los anexos, confirmado el 16/10), con un diagrama de secuencia por integración; y la declaración del uso de IA. Hay que defender: una demo que cruce componentes, mensajería y servicios web; por qué cada integración es síncrona o asincrónica; y qué pasa con la transacción si algo falla a mitad del flujo | Hecho y probado en el servidor: la cola (emisión) y el tópico (aviso, auditoría y factura), el SOAP con su WSDL (ARCA simulado), la API REST propia, la transacción declarativa que confirma la compra y la prueba repetible de una falla a mitad del flujo (escenario 14). Desde el 30/10 hay un **segundo proceso asincrónico** completo: cancelar un evento (Eventos → Ventas → reembolso en Pagos → aviso y auditoría), que cubre de sobra los "dos procesos con mensajería" que pide la consigna; le falta correrlo en el servidor. Faltan el documento técnico con los dos diagramas de secuencia pendientes y el de la cancelación, la declaración del uso de IA (la escribe el grupo) y la demo recorrida en el navegador | 4, 5, 6 y 11 |
-| **20/11** | 3.er Check point TPO | La consigna no lo nombra: a confirmar con la cátedra | Validación y Reventa están implementadas y probadas por la API. Falta recorrer sus pantallas en el navegador | 7, 8 y 10 |
+| **20/11** | 3.er Check point TPO | La consigna no lo nombra. La cátedra pidió: integraciones SOAP, REST y mensajería funcionando; resiliencia (timeout de 5 s con fallback, consumidores idempotentes y DLQ, sin pérdida de mensajes si se apaga el broker, `Idempotency-Key` y `ETag`, errores en Problem Details); la IA a través de su gateway; CI con reporte de cobertura parcial; primera versión del plan de pruebas, de la matriz de trazabilidad y del manual de usuario; y Jira al día | Al 19/11: hecho y con evidencia en el repo, salvo el tablero, que está fuera del repo. Detalle en "3.er check point (20/11): estado al 19/11" | 6, 11 y 13 |
 | **27/11** | Prueba del TP Obligatorio | La consigna no la nombra así: qué se hace ese día, a confirmar con la cátedra. Se toma como límite para lo que pide la Entrega Final (30/11 en el detalle de la consigna): sistema completo que cumpla el checklist de la sección 6; documentación final de 10 a 15 páginas; historial de git incremental y con participación visible de todos; demo completa, preguntas individuales y reflexión del equipo (los aprendizajes los escribe el grupo) | Los 8 componentes están implementados. Desde el 30/10 el backend tiene también editar y cancelar evento con reembolsos, recuperar contraseña, el envío de emails, la subida de imágenes y las ventas por día. Faltan: las pantallas de esas seis cosas en el frontend, las pruebas del frontend y de punta a punta, la base y el bucket en Supabase, la documentación final, recorrer en el navegador el panel y la puerta, y que en git se vea a los cinco (hoy no hay commits a nombre de Joaquin Molina) | 9 a 13 |
 | **04/12** | Final adelantado | El encabezado de la consigna da el 04/12 y el 11/12 para la Entrega Final. El grupo decidió el 16/10 defenderla el viernes 04/12 (final adelantado); el 11/12 (final regular) queda como alternativa | Decidido | — |
 
@@ -774,6 +779,33 @@ la cátedra".
   documento técnico en PDF, subidos al aula virtual. La hora límite que da la
   consigna (13:30) es de la comisión del lunes y falta confirmarla: cada
   entrega se sube el jueves anterior.
+
+### 3.er check point (20/11): estado al 19/11
+
+Cada pedido de la cátedra con su evidencia. Las salidas de las corridas del
+18/11 están en `docs/testing/evidencia/checkpoint-3/`; el detalle, en las
+filas C3 (sección 2.2) y en las secciones 4.10, 8.8, 10.8 y 16.7 del documento
+maestro.
+
+| Pedido | Estado | Evidencia |
+|---|---|---|
+| Integraciones SOAP, REST y mensajería funcionando | Hecho | SOAP: escenario 15 (factura con CAE del ARCA simulado). REST: `node scripts/pruebas/escenarios.mjs`, 24 de 24 y 379 comprobaciones (`checkpoint-3/escenarios.txt`), y la colección de Postman, nueve carpetas sin fallas el 19/11 (`docs/api/GUIA_POSTMAN.md`). Mensajería: escenarios 7 a 13 (la compra, por cola y tópico) y 22 (la cancelación de un evento, por su tópico) |
+| Timeout de 5 s con fallback | Hecho | 2 s para conectar y 5 para leer en cada cliente REST y en el SOAP, con su fallback (tabla de la sección 8.8). `node scripts/pruebas/asistente.mjs`, parte C: con el modelo demorado 8 s, el fallback llega a los 5007 ms (`checkpoint-3/asistente.txt`). Escenarios 14, 18, 19 y 20 |
+| Consumidores idempotentes y DLQ | Hecho | Escenario 8 (mensaje repetido sin efecto) y 12 (mensaje inválido en la DLQ después de 5 entregas) |
+| Sin pérdida de mensajes si se apaga el broker | Hecho | `node scripts/pruebas/broker-apagado.mjs`: 10 de 10 (`checkpoint-3/broker-apagado.txt`) |
+| `Idempotency-Key` y `ETag` | Hecho | Escenario 2. `node scripts/pruebas/etag.mjs`: 19 de 19, 304 en los 10 GET con `ETag` y el 412 de `If-Match` (`checkpoint-3/etag.txt`). `PUT /api/eventos/{eventoId}` acepta `If-Match` y responde 412 si el evento cambió (`ServicioDeEventosTest`, sin fallas el 19/11) |
+| Errores en Problem Details | Hecho | `backend/common/src/main/java/com/palco/common/rest/ManejadoresDeErrores.java`; escenarios 4 y 5 |
+| IA a través de su gateway | Hecho, con el modelo simulado por defecto | `backend/servicios/asistente` (gateway `AsistenteIA`, sección 4.10). `node scripts/pruebas/asistente.mjs`: 11 de 11. `EvaluacionDelAsistenteTest`: 20 de 20 y 5 de 5 adversariales (`checkpoint-3/evaluacion-ia.txt`). `mvn -f backend/pom.xml -pl servicios/asistente -am test`: 23 tests, 0 fallas (19/11). Carpeta 9 de Postman |
+| CI con reporte de cobertura parcial | Hecho | `.github/workflows/ci.yml`: secretos, backend (`mvn -B verify` con JaCoCo y la tabla de `scripts/qa/cobertura.mjs` en el resumen), frontend, integración (los 9 `health`, el del asistente incluido, y los guiones de `scripts/pruebas/`) y E2E (`npm run e2e`). Cobertura: 78,4 % de las líneas con 870 tests (`checkpoint-3/cobertura.md`) |
+| Primera versión del plan de pruebas y de la matriz de trazabilidad | Hecho | `docs/testing/plan-de-pruebas.md`; `docs/testing/evidencia/matriz-de-trazabilidad.md`, que arma `scripts/qa/matriz.mjs`: 62 criterios, los 62 con caso y en verde |
+| Primera versión del manual de usuario | Hecho | `docs/manual/manual-de-usuario.md`, con capturas en `docs/manual/img/` |
+| Jira al día | Fuera del repo | El tablero se lleva en Notion y hay una exportación en el formato de Jira |
+
+Además del pedido: la suite E2E con Playwright (`frontend/e2e/`, `npm run e2e`: 17 de 17,
+`checkpoint-3/e2e.txt`), la carpeta 9 Asistente de la colección de Postman (166 requests y 541 tests
+sin fallas, `checkpoint-3/postman.txt`), el asistente probado por HTTP contra un proveedor local con la
+API de chat de OpenAI (29 de 29, `checkpoint-3/asistente-proveedor.txt`) y el diagrama de integración
+SOA al día (`docs/documentacion/diagramas/integracion-soa.svg`).
 
 ### Respuestas de la cátedra (16/10)
 
@@ -817,7 +849,13 @@ la cátedra".
 
 - [x] Diagramas de casos de uso y casos de uso (sección 13.9 del documento
       maestro, `docs/documentacion/diagramas/casos-de-uso.svg`).
-- [ ] Diagrama de secuencia de autenticación (S2). Responsable: a definir.
-- [ ] Diagrama de secuencia de la reventa (S3). Responsable: a reasignar.
-- [ ] Diagrama de integración SOA actualizado (Joaquin, con Santiago).
-- [ ] Documento técnico de 8 a 12 páginas para el 13/11.
+- [x] Diagrama de secuencia de autenticación (S2):
+      `docs/documentacion/diagramas/secuencia-seguridad-jwt.svg`.
+- [x] Diagrama de secuencia de la reventa (S3):
+      `docs/documentacion/diagramas/secuencia-reventa-rest.svg`.
+- [x] Diagrama de integración SOA actualizado:
+      `docs/documentacion/diagramas/integracion-soa.svg` (sección 3.6 del
+      documento maestro).
+- [x] Documento técnico de la Entrega Obligatoria N.º 2:
+      `docs/entrega-obligatoria-2/Palco_Documento_Tecnico.md` y su PDF.
+- [x] El asistente con IA en el documento maestro (secciones 4.10 y 5.14).

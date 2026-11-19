@@ -101,6 +101,108 @@ Las rutas salen de la ubicación del archivo, así que se puede correr desde cua
 - Los contadores del broker son de todo el servidor. Si alguien compra mientras corre, la prueba busca esas ventas en el log y las descuenta; si aun así no cierra, se repite.
 - El escenario 8 corta si en la suscripción durable hay copias de otras ventas, para no dejarlas sin auditar. La venta que usa queda sin fila de auditoría, y el 12 deja el mensaje inválido en la DLQ.
 
+## pruebas/etag.mjs
+
+`ETag` e `If-Match` en la API, contra el servidor en marcha. Cada GET con `@ConEtag` devuelve `ETag`; con `If-None-Match` responde 304 sin cuerpo mientras el recurso no cambie, y cuando cambia, cambia el `ETag`. La edición de un evento (`PUT /api/eventos/{id}`) con `If-Match` solo se guarda si el evento sigue como se leyó; si no, 412 en Problem Details.
+
+```bash
+node scripts/pruebas/etag.mjs
+```
+
+## pruebas/asistente.mjs
+
+El asistente por su gateway, con el modelo simulado: respuestas del modelo, guardrails de entrada y de salida, tiempo máximo de 5 segundos con fallback y plan de apagado. Cambia la configuración con `jboss-cli` sin redesplegar y la deja como estaba.
+
+```bash
+node scripts/pruebas/asistente.mjs
+```
+
+## pruebas/patron-state.mjs
+
+El patrón State de la venta, por la API: cada transición válida cambia el estado y cada transición inválida responde 409. Crea un evento propio, para no agotar el tope de 6 entradas por comprador y evento de los eventos fijos.
+
+```bash
+node scripts/pruebas/patron-state.mjs
+```
+
+## pruebas/broker-apagado.mjs
+
+Si se apaga el broker no se pierden mensajes. Deja un `PAGO_CONFIRMADO` esperando en la cola (con el consumidor detenido), reinicia el servidor entero (el broker está embebido en WildFly) y comprueba que al volver el mensaje sigue ahí y la entrada se emite.
+
+```bash
+node scripts/pruebas/broker-apagado.mjs   # va última: reinicia el servidor
+```
+
+Necesita una base que sobreviva al reinicio, porque la venta tiene que seguir ahí cuando el mensaje se procese: el compose (PostgreSQL) o `dev.sh` con un H2 en archivo, por ejemplo `PALCO_DB_URL="jdbc:h2:file:./h2/palco;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;LOCK_TIMEOUT=10000" ./dev.sh`. Con el H2 en memoria que usa `dev.sh` por defecto, la base vuelve vacía y la venta ya no existe.
+
+## pruebas/proveedor-openai-local.mjs
+
+Un proveedor de IA de prueba con la API de chat de OpenAI (`POST /v1/chat/completions`). Sirve para probar por HTTP el adaptador `ModeloCompatibleOpenAI` del asistente sin una clave paga y sin red. No es un modelo de lenguaje: contesta con reglas fijas. Usa solo Node, sin paquetes de npm.
+
+```bash
+node scripts/pruebas/proveedor-openai-local.mjs                          # en http://127.0.0.1:8089/v1
+node scripts/pruebas/proveedor-openai-local.mjs --puerto=9000 --modo=lento
+```
+
+Muestra en la consola cada pedido que recibe: las cabeceras, el modelo y cada mensaje con su rol. De `Authorization` solo dice si vino, nunca el valor. Ahí se ve que las instrucciones del gateway y los datos de Palco llegan en el mensaje `system`, y la pregunta, sola y ya enmascarada, en el `user`.
+
+| Modo | Qué contesta |
+|---|---|
+| `normal` | 200 con la cita textual del dato de Palco que corresponde a la pregunta, tal como llegó en el `system` |
+| `lento` | Lo mismo, pero a los 8 segundos (`?demoraMs=N` para otra demora): más que los 5 que espera el gateway |
+| `401` | El error de OpenAI para una clave inválida |
+| `500` | El error de OpenAI para una falla de su servidor |
+| `json-roto` | 200 con el JSON cortado a la mitad |
+| `con-dni`, `con-email` | 200 con un DNI o un email en el texto |
+
+El modo se cambia con `curl -X POST http://127.0.0.1:8089/control/modo/<modo>` y queda así hasta el próximo cambio. `GET /control` devuelve el modo y cuántos pedidos llegaron, y `GET /control/recibidos` los pedidos, sin `Authorization`. Variables opcionales: `PROVEEDOR_PUERTO` (`8089`) y `PROVEEDOR_HOST` (`127.0.0.1`).
+
+Para que el asistente lo use, el servidor tiene que apuntar a él: ver más abajo [cómo apuntar el servidor al proveedor](#cómo-apuntar-el-servidor-al-proveedor).
+
+## pruebas/asistente-proveedor.mjs
+
+La prueba de punta a punta del asistente con el proveedor de prueba. Hace las preguntas por la API del asistente (`POST /api/v1/asistente/preguntas`) con la sesión de `titular@palco.test`. Después compara lo que contesta Palco con lo que recibió y respondió el proveedor (su registro, `GET /control/recibidos`) y con lo que escribió el servidor en el `server.log`. Levanta el proveedor y lo baja al terminar; si ya hay uno escuchando en el puerto, usa ese.
+
+```bash
+node scripts/pruebas/asistente-proveedor.mjs                # el servidor ya arrancó apuntando al proveedor
+node scripts/pruebas/asistente-proveedor.mjs --configurar   # lo apunta con jboss-cli y al final lo deja como estaba
+```
+
+Sale con código 0 si todas las comprobaciones pasan y con 1 si alguna falla. Sale con 2 si el servidor no usa el proveedor, y en ese caso explica cómo configurarlo.
+
+### Qué comprueba
+
+| Parte | Qué comprueba |
+|---|---|
+| A. Respuesta del proveedor | La pregunta llega por `POST /v1/chat/completions` en dos mensajes: las instrucciones y los datos de Palco en el `system` (con los valores de `ReglasDeNegocio`) y la pregunta, sola, en el `user`. Palco responde con origen `MODELO` y el texto del proveedor tal cual, que cita el dato del `system`. El `server.log` registra `modelo=openai-compatible/<modelo>` |
+| B. Datos personales | Una pregunta con DNI, email y tarjeta le llega al proveedor con `[dni oculto]`, `[email oculto]` y `[tarjeta oculta]`, y así queda en el log. Si el proveedor contesta con un DNI o un email, el guardrail de salida no muestra esa respuesta: origen `BLOQUEADA` (`salida-con-datos-personales`), con derivación a soporte |
+| C. Guardrail de entrada | Una inyección de prompt, un pedido de datos de terceros y una pregunta de más de 500 caracteres se bloquean, y el proveedor no recibe nada |
+| D. Proveedor lento | El proveedor tarda 8 s: a los 5 s responde el fallback (`timeout`) con la respuesta frecuente, y el adaptador corta la conexión |
+| E. Proveedor con error | 401, 500 y JSON roto terminan en el fallback (`error-del-modelo`): la respuesta frecuente o, si no hay, soporte. El log dice que el proveedor respondió 401, sin el cuerpo del error |
+| F. Plan de apagado | Con `palco.asistente.habilitado=false` (por `jboss-cli`, sin redesplegar) responde el fallback (`apagado`) sin llamar al proveedor. Al volver a encenderlo, responde otra vez el proveedor |
+| G. Seguridad | Sin token responde 401, y el proveedor no recibe nada |
+
+### Cómo apuntar el servidor al proveedor
+
+El asistente lee su configuración con MicroProfile Config: de una variable de entorno (`PALCO_ASISTENTE_OPENAI_URL` es `palco.asistente.openai.url`) o de una propiedad del sistema de WildFly, que tiene prioridad. Hay dos maneras:
+
+- **Al arrancar.** `dev.sh` le pasa el entorno a WildFly. También carga `backend/.env`, que gana si define las mismas variables. Con la base H2 en memoria, reiniciar borra los datos.
+
+  ```bash
+  cd backend && PALCO_ASISTENTE_MODELO=openai PALCO_ASISTENTE_OPENAI_URL=http://127.0.0.1:8089/v1 ./dev.sh
+  ```
+
+- **En marcha, con `--configurar`.** El script define con `jboss-cli` las propiedades `palco.asistente.modelo=openai` y `palco.asistente.openai.url` y redespliega solo el asistente (`/deployment=palco-asistente.war:redeploy`). Al terminar, aunque falle, las deja como estaban y lo vuelve a redesplegar. Mientras corre, todo el asistente del servidor usa el proveedor de prueba.
+
+El redeploy hace falta porque `FabricaDeModelo` elige el modelo una sola vez por despliegue (`@ApplicationScoped`): cambiar `palco.asistente.modelo` en caliente no cambia el modelo hasta redesplegar el asistente. La dirección, el modelo y la clave del proveedor, en cambio, `ModeloCompatibleOpenAI` los lee en cada pedido. Por eso se pueden cambiar con `jboss-cli` sin redesplegar, como la demora del modelo simulado y `palco.asistente.habilitado`. Las propiedades que se agregan con `jboss-cli` quedan guardadas en el `standalone.xml` y siguen después de reiniciar, hasta que se quitan con `/system-property=<nombre>:remove`.
+
+### Qué necesita
+
+- Node 18 o más nuevo, sin paquetes de npm.
+- El servidor levantado en esta máquina, con la cuenta `titular@palco.test` (contraseña `palco1234`).
+- `jboss-cli` y el `server.log` del servidor de `backend/servidor/target/server/`, igual que `escenarios.mjs` (variables `JBOSS_CLI` y `PALCO_LOG`). Sin el log no se hacen las comprobaciones del registro, y el script lo avisa.
+- El puerto 8089 libre, o `PROVEEDOR_PUERTO` con otro, que tiene que ser el mismo de `PALCO_ASISTENTE_OPENAI_URL`.
+
 ## postman/generar.js
 
 Genera la colección de Postman, `docs/api/palco-api.postman_collection.json`, que no se edita a mano: se cambia el generador y se corre `node scripts/postman/generar.js` desde la raíz (solo Node, sin paquetes de npm). La guía está en `docs/api/GUIA_POSTMAN.md`, sección 12.

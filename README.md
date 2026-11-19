@@ -2,7 +2,7 @@
 
 Plataforma de venta de entradas para eventos. Trabajo práctico académico: el
 diferencial de producto es el **anti-scalping** — entradas nominativas ligadas a un
-DNI y un canal de reventa oficial con tope de precio de +10% sobre lo pagado.
+DNI y un canal de reventa oficial con tope de precio de +10% sobre el precio original de la entrada.
 
 El repo tiene dos partes:
 
@@ -10,15 +10,16 @@ El repo tiene dos partes:
   ingreso y el registro, el catálogo, la compra, Mis entradas, la reventa, la
   puerta y el panel del organizador. En el navegador solo quedan la sesión (el
   token) y el carrito de la compra en curso.
-- **`backend/`**: Jakarta EE sobre WildFly. Son 8 servicios independientes (un
+- **`backend/`**: Jakarta EE sobre WildFly. Son 9 servicios independientes (un
   WAR cada uno) desplegados en el mismo WildFly, con el broker JMS (ActiveMQ
   Artemis) que trae el servidor: Usuarios; Eventos (también la edición y la
   cancelación); Ventas (compra con reserva de cupo, pago y emisión asincrónica
   de las entradas); Pagos (con una pasarela simulada); Reventa (publica y vende
   con tope, con su conciliación de pagos); Validación (el control de ingreso en
-  la puerta); Notificaciones (emails y auditoría, por tópico), y Facturación
+  la puerta); Notificaciones (emails y auditoría, por tópico); Facturación
   (factura cada compra confirmada pidiéndole el CAE por SOAP a un ARCA
-  simulado, que se despliega aparte en `/legado/arca`). Los servicios se hablan
+  simulado, que se despliega aparte en `/legado/arca`), y el Asistente (la IA,
+  detrás de su gateway). Los servicios se hablan
   solo por REST, SOAP o JMS. El plan completo está en [`TODO.md`](TODO.md).
 
 ## Índice
@@ -63,7 +64,7 @@ el 30/10, con las imágenes ya bajadas, el armado tardó unos 2,5 minutos y el a
 es solo el arranque. Está listo cuando `docker compose ps` muestra los tres contenedores `healthy` (con `docker compose
 up --build --wait` el comando termina recién ahí).
 
-Levanta tres contenedores: `db` (PostgreSQL), `backend` (WildFly con los 8 servicios, el broker y el ARCA simulado)
+Levanta tres contenedores: `db` (PostgreSQL), `backend` (WildFly con los 9 servicios, el broker y el ARCA simulado)
 y `web` (nginx con el frontend, TLS y las cabeceras de seguridad, que pasa `/api` y `/legado` al backend). La API
 también queda en `http://localhost:8080`, solo para esta máquina (Postman y `scripts/pruebas`). Ningún secreto está
 en el repo: el secreto entre servicios y la clave de los tokens se generan en cada arranque si no se definen.
@@ -108,8 +109,8 @@ cp .env.example .env   # la primera vez
 La primera vez tarda unos minutos porque descarga WildFly 41. Queda en
 `http://localhost:8080`. Usuarios, Eventos y Notificaciones van en
 `/api/<servicio>`; Ventas, en `/api/v1`; Pagos, en `/api/v1/pagos`; Reventa, en
-`/api/v1/reventas`; Validación, en `/api/v1/validacion`, y Facturación, en
-`/api/v1/facturas`. Para comprobar que anda: `curl localhost:8080/api/eventos/health`
+`/api/v1/reventas`; Validación, en `/api/v1/validacion`; Facturación, en
+`/api/v1/facturas`, y el Asistente, en `/api/v1/asistente`. Para comprobar que anda: `curl localhost:8080/api/eventos/health`
 (cada servicio responde `<su raíz>/health`: para Ventas, `/api/v1/health`; para
 Pagos, `/api/v1/pagos/health`, y así). El ARCA simulado publica su WSDL en
 `http://localhost:8080/legado/arca?wsdl` (copia en [`docs/api/arca.wsdl`](docs/api/arca.wsdl)).
@@ -136,9 +137,18 @@ migraciones vuelven a cargar los datos de prueba. Para usar **Supabase**,
 completar las variables `PALCO_DB_*` del `.env` y volver a correr `./dev.sh`:
 las mismas migraciones crean las tablas allá.
 
+**Asistente con IA** (`/api/v1/asistente`). Sin configurar nada responde con el
+modelo simulado. Para usar un modelo real basta un proveedor con la API de chat
+de OpenAI (OpenAI, Gemini, Groq u Ollama local): en el `.env` del backend, o en
+el `.env` de la raíz para Docker, se ponen `PALCO_ASISTENTE_MODELO=openai`,
+`PALCO_ASISTENTE_OPENAI_URL`, `PALCO_ASISTENTE_OPENAI_MODELO` y
+`PALCO_ASISTENTE_OPENAI_CLAVE` (ver `backend/.env.example`). El gateway le da
+5 segundos al modelo; si no responde o falla, contesta con las preguntas
+frecuentes.
+
 | Comando (desde `backend/`) | Qué hace |
 |---|---|
-| `./dev.sh` | Compila todo, arma WildFly con los 8 servicios y lo levanta |
+| `./dev.sh` | Compila todo, arma WildFly con los 9 servicios y lo levanta |
 | `./redesplegar.sh eventos` | Recompila un servicio y lo redespliega sin reiniciar |
 | `mvn test` | Corre los tests (ver [Tests](#tests)) |
 | `mvn clean install` | Arma todo; el server queda en `servidor/target/server`, listo para hostear |
@@ -186,7 +196,7 @@ resumen. "Rol" es lo que pide el token: `user`, `organizer`, `staff` o
 | Pagos | `POST /api/v1/pagos/{pagoId}/reembolso` | `servicio` | Devuelve un pago aprobado, una sola vez |
 | Reventa | `GET /api/v1/reventas?eventoId=` | pública | Publicaciones activas de un evento |
 | Reventa | `GET /api/v1/reventas/mias` | `user` | Las publicaciones de quien pregunta, en todos sus estados |
-| Reventa | `POST /api/v1/reventas` | `user` | Publica una entrada propia `VALIDA`, con el precio entre el 50 % y el 110 % de lo pagado |
+| Reventa | `POST /api/v1/reventas` | `user` | Publica una entrada propia `VALIDA`, con el precio entre el 50 % y el 110 % del precio de lista del sector |
 | Reventa | `DELETE /api/v1/reventas/{publicacionId}` | `user` | Retira una publicación propia; la entrada vuelve a `VALIDA` |
 | Reventa | `POST /api/v1/reventas/{publicacionId}/compra` | `user` | Compra una publicación: cobra y transfiere (entrada nueva para el comprador). Pide `Idempotency-Key` |
 | Validación | `POST /api/v1/validacion/escaneos` | `staff` | Escanea un código en la puerta de un evento asignado: `VALIDA`, `YA_USADA`, `INEXISTENTE`, `OTRO_EVENTO` o `NO_HABILITADA` (504 y `SIN_RESPUESTA` si Ventas no contesta) |
@@ -253,6 +263,7 @@ Desde `frontend/`:
 | `npm run build` | Chequeo de tipos (`tsc -b`) y build de producción en `dist/` |
 | `npm run preview` | Sirve el build de `dist/` localmente |
 | `npm run lint` | Lint con oxlint |
+| `npm run e2e` | Pruebas de punta a punta con Playwright (`frontend/e2e/`) contra la app levantada; ver [Tests](#tests) |
 
 ## Usuarios de prueba
 
@@ -308,7 +319,7 @@ Las constantes viven en [`frontend/src/types/index.ts`](frontend/src/types/index
 
 | Constante | Valor | Regla |
 |---|---|---|
-| `TOPE_REVENTA` | `0.10` | Una entrada se puede revender como máximo a lo pagado +10% (redondeado hacia abajo). El mínimo es el 50% de lo pagado. |
+| `TOPE_REVENTA` | `0.10` | Una entrada se puede revender como máximo al precio de lista de su sector +10% (redondeado hacia abajo). El mínimo es el 50% de ese precio. |
 | `TASA_SERVICIO` | `0.10` | Cargo de servicio sobre el subtotal en el checkout. |
 | `MAX_ENTRADAS_POR_ORDEN` | `6` | Máximo de entradas por compra, sumando todos los sectores. Tampoco se puede superar el cupo disponible de un sector. |
 | `MAX_ENTRADAS_POR_EVENTO` | `6` | Máximo de entradas de un mismo comprador para un evento, sumando todas sus compras (pagadas y en curso; no cuentan las canceladas, vencidas ni revendidas). 409 `tope-por-evento`. |
@@ -373,11 +384,25 @@ Con el backend levantado, desde la raíz del repo y en Git Bash:
 cd backend && mvn -q test
 ```
 
-Hay tests en `common`, en los ocho servicios y en el ARCA simulado, y corren
+Hay tests en `common`, en los nueve servicios y en el ARCA simulado, y corren
 sin WildFly. La prueba en vivo de pagos simultáneos
 (`backend/servicios/ventas/src/test/en-vivo/pagos-simultaneos.mjs`) sí necesita
-el servidor levantado. El frontend no tiene tests: se controla con
-`npm run lint` y `npm run build`.
+el servidor levantado.
+
+El frontend tiene pruebas de punta a punta con Playwright en `frontend/e2e/`:
+recorren en el navegador el login de cada rol, el catálogo, la compra, la
+reventa, el panel del organizador, la puerta, el asistente y el registro.
+Necesitan el backend y la app levantados; cada prueba crea sus propios datos.
+
+```bash
+cd frontend && npx playwright install chromium   # una sola vez
+cd frontend && npm run e2e                       # contra http://localhost:5173
+PALCO_E2E_URL=https://localhost PALCO_LOG=../logs/server.log npm run e2e   # contra el compose (con PALCO_DIR_LOGS=./logs)
+```
+
+Para dar de alta cuentas nuevas leen el código de verificación del log del
+servidor (`PALCO_LOG`; por defecto, el que escribe `dev.sh`). Además, `npm run lint`
+y `npm run build` controlan el código del frontend.
 
 ## Stack
 
@@ -416,14 +441,14 @@ frontend/                 # SPA React (Vite)
 docs/                     # Spec de diseño original
 backend/
 ├── pom.xml               # Proyecto Maven padre (versiones de Java, Jakarta EE y WildFly)
-├── dev.sh                # Arma y levanta WildFly con los 8 servicios
+├── dev.sh                # Arma y levanta WildFly con los 9 servicios
 ├── redesplegar.sh        # Redespliega un servicio sin reiniciar
 ├── common/               # Lo compartido: reglas de negocio, errores, JSON, CORS, health, migraciones
 ├── servicios/            # Un WAR por servicio: /api/<servicio>, o /api/v1 (Ventas) y /api/v1/pagos (Pagos)
 │   ├── usuarios/  eventos/  ventas/  pagos/
-│   ├── validacion/  reventa/  notificaciones/  facturacion/
+│   ├── validacion/  reventa/  notificaciones/  facturacion/  asistente/
 │   └── arca/        # ARCA simulado (sistema externo, SOAP): no es un servicio de Palco
-└── servidor/             # Arma WildFly (base, broker JMS) y despliega los 8 WAR
+└── servidor/             # Arma WildFly (base, broker JMS) y despliega los 10 WAR
 ```
 
 Cada servicio sigue las tres capas de la Entrega 1:
@@ -570,9 +595,10 @@ El plan de trabajo está en [`TODO.md`](TODO.md).
   y los roles los valida el backend. El token de sesión queda en `localStorage`,
   donde un script inyectado en la página podría leerlo; hoy el frontend no carga
   scripts de terceros.
-- **Pantallas pendientes**: editar y cancelar un evento, subir su foto,
-  recuperar la contraseña y ver las ventas por día están en la API (ver
-  [API disponible](#api-disponible)) y todavía no tienen pantalla.
+- **Pantallas pendientes**: recuperar la contraseña y ver las ventas por día
+  están en la API (ver [API disponible](#api-disponible)) y todavía no tienen
+  pantalla. Editar y cancelar un evento y subir su foto se hacen desde el panel
+  del organizador.
 - **Verificación de identidad**: no hay control con foto del DNI. Verificar el
   email marca la identidad como verificada, y con eso la cuenta puede comprar.
 - **Pagos simulados**: el cobro y el reembolso pasan por `ServicioDePagos`,
@@ -584,5 +610,3 @@ El plan de trabajo está en [`TODO.md`](TODO.md).
   fotos de los eventos se guardan en la base de Palco (tabla `eventos.imagen`,
   hasta 2 MB cada una). Alcanza para el volumen del proyecto; con muchas fotos
   conviene Supabase Storage, que se usa solo con configurar esas variables.
-- **Sin tests en el frontend**: los tests automatizados son del backend (ver
-  [Tests](#tests)).
