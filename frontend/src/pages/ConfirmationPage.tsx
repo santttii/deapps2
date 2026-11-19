@@ -287,7 +287,7 @@ export default function ConfirmationPage() {
               </div>
             </div>
             <p className="mt-4 border-t border-line pt-3 text-xs text-muted">
-              Podés revender cada entrada hasta un 10% por encima de lo que pagaste, desde Mis
+              Podés revender cada entrada hasta un 10% por encima de su precio original, desde Mis
               entradas.
             </p>
           </aside>

@@ -196,6 +196,12 @@ export default function EventPage() {
             src={evento.imagenUrl}
             prioritaria
           />
+          {/* En pantalla angosta el selector, con su aviso, queda debajo de todo: la cancelación se
+              avisa también acá, arriba del título, para que se vea sin bajar. En pantalla ancha el
+              selector ya está al lado y el aviso no se repite. */}
+          {cancelado && (
+            <p className="mt-6 border-l-2 border-accent pl-2 text-sm text-ink md:hidden">{avisoDeRol}</p>
+          )}
           <h1 className="mt-6 text-[clamp(30px,4vw,44px)] font-bold tracking-[-0.03em] text-ink">
             {evento.titulo}
           </h1>
@@ -228,8 +234,8 @@ export default function EventPage() {
           </div>
           <p className="mt-6 max-w-2xl text-sm text-muted">
             Política de reventa: cada entrada queda ligada al DNI del titular. Solo puede
-            revenderse por el canal oficial, con un tope de precio de +10% sobre lo
-            pagado, hasta 3 horas antes del evento.
+            revenderse por el canal oficial, con un tope de precio de +10% sobre el
+            precio original de la entrada, hasta 3 horas antes del evento.
           </p>
 
           <section id="reventa" className="mt-10" aria-labelledby="titulo-reventa">

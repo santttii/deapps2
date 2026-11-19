@@ -114,6 +114,12 @@ export default function CreateEventModal({ abierto, onCerrar, evento }: CreateEv
       setErrores((prev) => ({ ...prev, imagen: 'La imagen tiene que ser JPG, PNG o WEBP.' }));
       return;
     }
+    // El tipo sale de la extensión del nombre: un archivo vacío con extensión .jpg pasa el control
+    // de arriba y deja la vista previa rota.
+    if (elegida.size === 0) {
+      setErrores((prev) => ({ ...prev, imagen: 'La imagen está vacía: elegí otro archivo.' }));
+      return;
+    }
     if (elegida.size > FOTO_MAXIMO_BYTES) {
       setErrores((prev) => ({ ...prev, imagen: 'La imagen no puede pasar de 2 MB.' }));
       return;
@@ -161,9 +167,14 @@ export default function CreateEventModal({ abierto, onCerrar, evento }: CreateEv
       : [titulo, venue, fecha, descripcion].some((v) => v.trim() !== '') ||
         sectores.some((s) => s.nombre.trim() !== '' || s.precio !== '' || s.cupo !== ''));
 
-  // Escape y el clic afuera solo ocultan el modal: lo escrito sigue ahí al volver a abrirlo. Lo
-  // que descarta el formulario es Cancelar, y pregunta antes si hay algo cargado.
+  // Al crear, Escape y el clic afuera solo ocultan el modal: lo escrito sigue ahí al volver a
+  // abrirlo. Lo que descarta el formulario es Cancelar, y pregunta antes si hay algo cargado.
+  // Al editar, el panel desmonta el modal al cerrarlo (así se abre con los datos actuales), y
+  // cerrar ya es descartar: Escape y el clic afuera pasan por acá y preguntan lo mismo.
   function cancelar() {
+    // Mientras se guarda no se descarta nada: el pedido ya salió (el botón está deshabilitado,
+    // pero Escape y el clic afuera llegan igual al editar).
+    if (creando) return;
     const pregunta = editando ? '¿Descartar los cambios?' : '¿Descartar el evento que estabas cargando?';
     if (hayAlgoEscrito && !window.confirm(pregunta)) return;
     vaciar();
@@ -200,7 +211,11 @@ export default function CreateEventModal({ abierto, onCerrar, evento }: CreateEv
         s.nombre.trim() ? null : 'Ingresá el nombre del sector.',
         errorDeNumero(s.precio, 'precio', PRECIO_MAXIMO),
         errorDeNumero(s.cupo, 'cupo', CUPO_MAXIMO),
-        Number(s.cupo) < s.vendidas ? `El cupo no puede ser menor que las ${s.vendidas} entradas vendidas.` : null,
+        Number(s.cupo) < s.vendidas
+          ? s.vendidas === 1
+            ? 'El cupo no puede ser menor que 1: ya hay una entrada vendida.'
+            : `El cupo no puede ser menor que las ${s.vendidas} entradas vendidas.`
+          : null,
       ].filter((m) => m !== null);
       if (mensajes.length > 0) porFila[i] = mensajes;
     });
@@ -269,7 +284,7 @@ export default function CreateEventModal({ abierto, onCerrar, evento }: CreateEv
   const erroresDeSectorDelServidor = CAMPOS_DE_SECTOR.map((campo) => errores[campo]).filter(Boolean);
 
   return (
-    <Modal abierto={abierto} onCerrar={onCerrar} titulo={editando ? 'Editar evento' : 'Crear evento'}>
+    <Modal abierto={abierto} onCerrar={editando ? cancelar : onCerrar} titulo={editando ? 'Editar evento' : 'Crear evento'}>
       {/* Los botones van fuera de la parte que se desplaza, así siempre están a la vista. Lo que
           se le resta a la altura es lo que ocupan los márgenes del modal, el título y los botones.
           dvh y no vh: en el celular, vh no descuenta la barra del navegador. */}

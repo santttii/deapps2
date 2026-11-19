@@ -21,6 +21,7 @@ import type { Evento } from './types';
 const TITULOS: Record<string, string> = {
   '/checkout': 'Checkout',
   '/mis-entradas': 'Mis entradas',
+  '/asistente': 'Asistente',
   '/ingresar': 'Ingresar',
   '/registro': 'Crear cuenta',
   '/reventa': 'Reventa oficial',

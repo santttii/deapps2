@@ -65,7 +65,7 @@ export default function ResalePage() {
           {/* No dice "verificados": las cuentas nuevas no pasan por una verificación de identidad. */}
           <p className="max-w-xl text-sm text-muted">
             Todas las publicaciones son de titulares registrados · el tope es el precio
-            pagado + 10%
+            original + 10%
           </p>
           {!cargando && !error && (
             <span className="font-mono-label text-[11px] text-muted">
