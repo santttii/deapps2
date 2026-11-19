@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="2075" viewBox="0 0 1040 2075" font-family="Arial, Helvetica, sans-serif">
+<title>Falla después del cobro: rollback y conciliación</title>
+
+<defs>
+  <marker id="lleno" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10 z" fill="#1f2937"/>
+  </marker>
+  <marker id="abierto" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#4b5563" stroke-width="1.4"/>
+  </marker>
+  <marker id="async" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#2b5797" stroke-width="1.8"/>
+  </marker>
+  <marker id="triangulo" viewBox="0 0 14 12" refX="13" refY="6" markerWidth="14" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L14,6 L0,12 z" fill="#ffffff" stroke="#1f2937" stroke-width="1.2"/>
+  </marker>
+</defs>
+<rect x="0" y="0" width="1040" height="2075" fill="#ffffff"/>
+<line x1="99.06821620809" y1="200.5" x2="99.06821620809" y2="1986.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="250.22595808699617" y1="200.5" x2="250.22595808699617" y2="1986.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="400.81295366082435" y1="200.5" x2="400.81295366082435" y2="1986.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="536.6354743019492" y1="200.5" x2="536.6354743019492" y2="1986.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="681.1275027261863" y1="200.5" x2="681.1275027261863" y2="1986.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="824.4275912931982" y1="200.5" x2="824.4275912931982" y2="1986.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="950.2803510870431" y1="200.5" x2="950.2803510870431" y2="1986.5" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<rect x="241.2" y="1336.5" width="763.2" height="630" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<line x1="241.2" y1="1798.5" x2="1004.4" y2="1798.5" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6 4"/>
+<text x="24.0" y="40.0" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#1f2937" text-anchor="start" font-weight="bold">Falla después del cobro: rollback y conciliación</text>
+<rect x="858.6" y="18" width="157.4" height="26" rx="4" fill="#e7f2ea" stroke="#2f6b3a" stroke-width="1"/>
+<text x="937.3" y="36.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#2f6b3a" text-anchor="middle" font-weight="bold">Estado: Implementado</text>
+<text x="24.0" y="68.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Comportamiento transaccional de la compra cuando algo falla después de cobrar (escenario 14 de scripts/pruebas/escenarios.mjs). La falla se provoca con la</text>
+<text x="24.0" y="85.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">propiedad de sistema palco.ventas.fallar-despues-del-cobro=true, una herramienta de prueba que se prende y se apaga con jboss-cli.</text>
+<rect x="30" y="113.5" width="138.1" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="99.1" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Comprador</text>
+<text x="99.1" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">frontend, JWT rol user</text>
+<rect x="180.1" y="113.5" width="140.2" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="250.2" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">VentasResource y</text>
+<text x="250.2" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ComprasEnCurso</text>
+<text x="250.2" y="173.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">Ventas, /api/v1/ventas</text>
+<rect x="332.3" y="113.5" width="137" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="400.8" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ServicioDeVentas</text>
+<text x="400.8" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">@Stateful, una</text>
+<text x="400.8" y="171.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">instancia por compra</text>
+<rect x="481.3" y="113.5" width="110.7" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="536.6" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Pagos</text>
+<text x="536.6" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">ServicioDePagos</text>
+<text x="536.6" y="171.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">y PagosFake</text>
+<rect x="604" y="113.5" width="154.3" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="681.1" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ConciliacionDe</text>
+<text x="681.1" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Pagos</text>
+<text x="681.1" y="173.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">@Singleton, @Schedule,</text>
+<text x="681.1" y="189.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">NOT_SUPPORTED</text>
+<rect x="770.3" y="113.5" width="108.3" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="824.4" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Confirmacion</text>
+<text x="824.4" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Conciliada</text>
+<text x="824.4" y="173.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">@Stateless</text>
+<rect x="890.6" y="113.5" width="119.4" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="950.3" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Broker Artemis</text>
+<text x="950.3" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">cola y tópico</text>
+<text x="174.6" y="241.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">1. POST /api/v1/ventas/{ventaId}/pagos,</text>
+<text x="174.6" y="261.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">Idempotency-Key; medioDePago y token</text>
+<line x1="102.1" y1="272.5" x2="247.2" y2="272.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="294.2" y="301.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">2. pagar: VentaRepositoryJpa.guardarClaveDePago</text>
+<text x="294.2" y="321.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">anota clave_pago y pago_intentado con un UPDATE,</text>
+<text x="294.2" y="341.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">en una transacción corta que se confirma en el</text>
+<text x="294.2" y="361.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">momento</text>
+<polyline points="250.22595808699617,292.5 284.2259580869962,292.5 284.2259580869962,368.5 254.22595808699617,368.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="325.5" y="397.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">3. confirmarCompra (REQUIRED,</text>
+<text x="325.5" y="417.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">@Remove): el contenedor abre la</text>
+<text x="325.5" y="437.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">transacción del pago</text>
+<line x1="253.2" y1="448.5" x2="397.8" y2="448.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="444.8" y="477.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">4. respaldarTitulares (REQUIRES_NEW): copia los</text>
+<text x="444.8" y="497.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">titulares a venta_titular y se confirma al volver; no se</text>
+<text x="444.8" y="517.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">deshace si después falla la transacción del pago</text>
+<polyline points="400.81295366082435,468.5 434.81295366082435,468.5 434.81295366082435,524.5 404.81295366082435,524.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="468.7" y="553.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">5. POST /api/v1/pagos, token de rol servicio,</text>
+<text x="468.7" y="573.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">Idempotency-Key &lt;ventaId&gt;:&lt;clave&gt;; ventaId,</text>
+<text x="468.7" y="593.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">monto total, medioDePago y token</text>
+<line x1="403.8" y1="604.5" x2="533.6" y2="604.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="468.7" y="632.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">201 con el pago APROBADO, guardado en Pagos</text>
+<line x1="533.6" y1="642.5" x2="403.8" y2="642.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="444.8" y="671.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">6. En la transacción del pago: ventas.confirmar</text>
+<text x="444.8" y="691.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">(CONFIRMADA, con pagoId), entradas.guardar y</text>
+<text x="444.8" y="711.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">publicar PAGO_CONFIRMADO (MANDATORY), que</text>
+<text x="444.8" y="731.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">sale recién con el commit</text>
+<polyline points="400.81295366082435,662.5 434.81295366082435,662.5 434.81295366082435,738.5 404.81295366082435,738.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="444.8" y="767.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">7. Con palco.ventas.fallar-despues-del-cobro=true</text>
+<text x="444.8" y="787.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">lanza IllegalStateException</text>
+<polyline points="400.81295366082435,758.5 434.81295366082435,758.5 434.81295366082435,794.5 404.81295366082435,794.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="325.5" y="822.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">EJBException: el contenedor deshace la transacción</text>
+<text x="325.5" y="840.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">del pago y descarta la instancia; ComprasEnCurso la</text>
+<text x="325.5" y="858.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">quita del índice y deja la marca</text>
+<line x1="397.8" y1="868.5" x2="253.2" y2="868.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="174.6" y="896.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">500 error-inesperado con idError; la traza</text>
+<text x="174.6" y="914.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">queda solo en el log</text>
+<line x1="247.2" y1="924.5" x2="102.1" y2="924.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M28,938.5 L658,938.5 L668,948.5 L668,1006.5 L28,1006.5 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
+<text x="38.0" y="959.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">Después de la falla, en Ventas: la venta sigue EN_CHECKOUT con su clave_pago, sin pagoId y sin</text>
+<text x="38.0" y="977.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">entradas; no salió ningún mensaje a la cola ni al tópico; el cupo sigue reservado y los titulares</text>
+<text x="38.0" y="995.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">quedaron copiados. En Pagos: el cobro quedó APROBADO.</text>
+<rect x="24" y="1020.5" width="992" height="28" fill="#eef2f7" stroke="none"/>
+<text x="34.0" y="1039.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" font-weight="bold">Conciliación: corre en el segundo 30 de cada minuto, sin transacción propia</text>
+<text x="637.1" y="1079.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">8. buscarPagosSinResultado</text>
+<text x="637.1" y="1099.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">(VentaRepositoryJpa): ventas EN_CHECKOUT</text>
+<text x="637.1" y="1119.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">con clave_pago cuyo intento empezó hace más</text>
+<text x="637.1" y="1139.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">de 2 minutos (MINUTOS_DE_MARGEN)</text>
+<polyline points="681.1275027261863,1070.5 647.1275027261863,1070.5 647.1275027261863,1146.5 677.1275027261863,1146.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="465.7" y="1175.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">9. tieneInstancia: ya no la tiene (se descartó con la falla);</text>
+<text x="465.7" y="1195.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">tomarParaConciliar la marca como ocupada</text>
+<line x1="678.1" y1="1206.5" x2="253.2" y2="1206.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="608.9" y="1235.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">10. Cobros.buscarCobro: GET</text>
+<text x="608.9" y="1255.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">/api/v1/pagos?claveIdempotencia=&lt;ventaId&gt;:&lt;clave&gt;</text>
+<line x1="678.1" y1="1266.5" x2="539.6" y2="1266.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="608.9" y="1294.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 con el pago APROBADO; 404 no-encontrado si</text>
+<text x="608.9" y="1312.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">esa clave no cobró</text>
+<line x1="539.6" y1="1322.5" x2="678.1" y2="1322.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="637.1" y="1381.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">11. buscarTitulares (VentaRepositoryJpa): la</text>
+<text x="637.1" y="1401.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">copia del paso 4, uno por entrada</text>
+<polyline points="681.1275027261863,1372.5 647.1275027261863,1372.5 647.1275027261863,1408.5 677.1275027261863,1408.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="752.8" y="1437.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">12. confirmar(ventaId, clave,</text>
+<text x="752.8" y="1457.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">pagoId, titulares), REQUIRED</text>
+<line x1="684.1" y1="1468.5" x2="821.4" y2="1468.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="780.4" y="1497.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">13. confirmarConciliada: UPDATE a CONFIRMADA</text>
+<text x="780.4" y="1517.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">con ese pagoId, solo si sigue EN_CHECKOUT con</text>
+<text x="780.4" y="1537.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">esa clave; entradas.guardar crea las entradas con los</text>
+<text x="780.4" y="1557.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">titulares copiados</text>
+<polyline points="824.4275912931982,1488.5 790.4275912931982,1488.5 790.4275912931982,1564.5 820.4275912931982,1564.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="852.0" y="1593.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">14. publicar PAGO_CONFIRMADO</text>
+<text x="852.0" y="1613.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">(MANDATORY) a cola.emision-entradas y</text>
+<text x="852.0" y="1633.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">topico.compra-confirmada; sale con el</text>
+<text x="852.0" y="1653.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">commit</text>
+<line x1="827.4" y1="1664.5" x2="947.3" y2="1664.5" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="752.8" y="1692.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">true: la venta quedó CONFIRMADA con el pago</text>
+<text x="752.8" y="1710.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">del paso 5</text>
+<line x1="821.4" y1="1720.5" x2="684.1" y2="1720.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M380,1734.5 L970,1734.5 L980,1744.5 L980,1784.5 L380,1784.5 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
+<text x="390.0" y="1755.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">EmisionDeEntradasMDB consume el PAGO_CONFIRMADO de la cola, emite las entradas y la</text>
+<text x="390.0" y="1773.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">venta pasa a EMITIDA.</text>
+<text x="637.1" y="1843.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">15. vencerPagoSinCobro (VentaRepositoryJpa):</text>
+<text x="637.1" y="1863.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">UPDATE a VENCIDA que quita clave_pago y</text>
+<text x="637.1" y="1883.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">marca devolucion_pendiente; se confirma en el</text>
+<text x="637.1" y="1903.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">momento</text>
+<polyline points="681.1275027261863,1834.5 647.1275027261863,1834.5 647.1275027261863,1910.5 677.1275027261863,1910.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="465.7" y="1939.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">16. devolverCupo: le devuelve el cupo de la venta a Eventos</text>
+<line x1="678.1" y1="1950.5" x2="253.2" y2="1950.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<path d="M241.2,1336.5 L270.4,1336.5 L270.4,1350.5 L262.4,1358.5 L241.2,1358.5 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="248.2" y="1352.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">alt</text>
+<text x="278.4" y="1353.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[APROBADO]</text>
+<text x="249.2" y="1817.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[no hay cobro con esa clave, o Pagos lo rechazó]</text>
+<line x1="24" y1="2002.5" x2="64" y2="2002.5" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="74.0" y="2007.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Llamada síncrona (REST o local)</text>
+<line x1="302.7" y1="2002.5" x2="342.7" y2="2002.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="352.7" y="2007.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Respuesta</text>
+<line x1="452.9" y1="2002.5" x2="492.9" y2="2002.5" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="502.9" y="2007.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Mensaje asincrónico (JMS)</text>
+<text x="24.0" y="2030.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">Fuente: VentasResource, ComprasEnCurso, ServicioDeVentas, VentaRepositoryJpa, ClienteDePagos, ConciliacionDePagos, ConfirmacionConciliada, EmisionDeEntradasMDB y</text>
+<text x="24.0" y="2046.8" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">ManejadoresDeErrores. El paso 5 y la consulta del paso 10 usan la misma clave &lt;ventaId&gt;:&lt;clave&gt;: hay un solo cobro.</text>
+</svg>

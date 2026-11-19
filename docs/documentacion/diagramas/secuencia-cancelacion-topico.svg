@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="1762" viewBox="0 0 1040 1762" font-family="Arial, Helvetica, sans-serif">
+<title>Cancelación de un evento: anulación, reembolso y aviso</title>
+
+<defs>
+  <marker id="lleno" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10 z" fill="#1f2937"/>
+  </marker>
+  <marker id="abierto" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#4b5563" stroke-width="1.4"/>
+  </marker>
+  <marker id="async" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#2b5797" stroke-width="1.8"/>
+  </marker>
+  <marker id="triangulo" viewBox="0 0 14 12" refX="13" refY="6" markerWidth="14" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L14,6 L0,12 z" fill="#ffffff" stroke="#1f2937" stroke-width="1.2"/>
+  </marker>
+</defs>
+<rect x="0" y="0" width="1040" height="1762" fill="#ffffff"/>
+<line x1="84.68447170574831" y1="203" x2="84.68447170574831" y2="1657" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="213.68658019721852" y1="203" x2="213.68658019721852" y2="1657" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="346.75811982194966" y1="203" x2="346.75811982194966" y2="1657" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="474.7371456562947" y1="203" x2="474.7371456562947" y2="1657" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="597.3288266990396" y1="203" x2="597.3288266990396" y2="1657" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="726.8311460396568" y1="203" x2="726.8311460396568" y2="1657" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="844.4066449428152" y1="203" x2="844.4066449428152" y2="1657" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="953.9231912763828" y1="203" x2="953.9231912763828" y2="1657" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<rect x="215" y="619" width="796.8" height="380" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<rect x="337.8" y="1069" width="628.2" height="450" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<line x1="337.8" y1="1333" x2="965.9" y2="1333" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6 4"/>
+<text x="24.0" y="40.0" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#1f2937" text-anchor="start" font-weight="bold">Cancelación de un evento: anulación, reembolso y aviso</text>
+<rect x="858.6" y="18" width="157.4" height="26" rx="4" fill="#e7f2ea" stroke="#2f6b3a" stroke-width="1"/>
+<text x="937.3" y="36.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#2f6b3a" text-anchor="middle" font-weight="bold">Estado: Implementado</text>
+<text x="24.0" y="68.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Segundo proceso asincrónico, en topico.eventos-cancelados. Eventos publica EVENTO_CANCELADO; Ventas anula cada compra pagada, pide su reembolso a</text>
+<text x="24.0" y="85.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Pagos por REST y publica un COMPRA_ANULADA por compra, que reciben el aviso al comprador y la auditoría.</text>
+<rect x="30" y="113.5" width="109.4" height="89.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="84.7" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Organizador</text>
+<text x="84.7" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">JWT rol organizer</text>
+<rect x="151.4" y="113.5" width="124.6" height="89.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="213.7" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Eventos</text>
+<text x="213.7" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">EventosResource →</text>
+<text x="213.7" y="171.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">ServicioDeEventos</text>
+<rect x="288" y="113.5" width="117.5" height="89.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="346.8" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">topico.eventos-</text>
+<text x="346.8" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">cancelados</text>
+<text x="346.8" y="173.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">Artemis</text>
+<rect x="417.5" y="113.5" width="114.5" height="89.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="474.7" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">CancelacionDe</text>
+<text x="474.7" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">EventoMDB</text>
+<text x="474.7" y="173.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">y CancelacionDe-</text>
+<text x="474.7" y="189.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">Eventos (Ventas)</text>
+<rect x="544" y="113.5" width="106.7" height="89.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="597.3" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Pagos</text>
+<text x="597.3" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">ServicioDePagos</text>
+<text x="597.3" y="171.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">y PagosFake</text>
+<rect x="662.7" y="113.5" width="128.3" height="89.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="726.8" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">AvisoDe</text>
+<text x="726.8" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">CancelacionMDB</text>
+<text x="726.8" y="173.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">y ServicioDe-</text>
+<text x="726.8" y="189.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">Notificaciones</text>
+<rect x="803" y="113.5" width="82.9" height="89.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="844.4" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Usuarios</text>
+<text x="844.4" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">/api/usuarios</text>
+<rect x="897.8" y="113.5" width="112.2" height="89.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="953.9" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">AuditoriaDe</text>
+<text x="953.9" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Cancelaciones</text>
+<text x="953.9" y="173.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">MDB</text>
+<text x="953.9" y="191.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">durable</text>
+<text x="149.2" y="244.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">1. POST</text>
+<text x="149.2" y="264.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">/api/eventos/{eventoId}/cancelacion, con</text>
+<text x="149.2" y="284.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">{&quot;motivo&quot;} opcional</text>
+<line x1="87.7" y1="295" x2="210.7" y2="295" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="257.7" y="324.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">2. cancelarEvento: solo el dueño (si no, 404); 409 si</text>
+<text x="257.7" y="344.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">ya está cancelado o ya empezó; marca el evento</text>
+<text x="257.7" y="364.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">cancelado con su motivo</text>
+<polyline points="213.68658019721852,315 247.68658019721852,315 247.68658019721852,371 217.68658019721852,371" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="280.2" y="400.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">3. EVENTO_CANCELADO (publicador MANDATORY,</text>
+<text x="280.2" y="420.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">java:/JmsXA), en la transacción de la marca; sale con el commit</text>
+<line x1="216.7" y1="431" x2="343.8" y2="431" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="149.2" y="459.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 con el evento cancelado</text>
+<line x1="210.7" y1="469" x2="87.7" y2="469" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="410.7" y="498.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">4. copia para la suscripción durable ventas-cancelaciones</text>
+<text x="410.7" y="518.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">(selector tipoEvento = 'EVENTO_CANCELADO')</text>
+<line x1="349.8" y1="529" x2="471.7" y2="529" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="518.7" y="558.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">5. EventoCanceladoMensaje.desdeJson y</text>
+<text x="518.7" y="578.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">anularComprasDelEvento: busca las ventas</text>
+<text x="518.7" y="598.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">CONFIRMADA o EMITIDA del evento</text>
+<polyline points="474.7371456562947,549 508.7371456562947,549 508.7371456562947,605 478.7371456562947,605" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="518.7" y="664.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">6. anular: UPDATE condicional de la venta a</text>
+<text x="518.7" y="684.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">CANCELADA, solo si sigue CONFIRMADA o EMITIDA</text>
+<text x="518.7" y="704.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">(si no cambia ninguna fila, pasa a la siguiente); sus</text>
+<text x="518.7" y="724.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">entradas PENDIENTE_EMISION, VALIDA y</text>
+<text x="518.7" y="744.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">PUBLICADA pasan a ANULADA</text>
+<polyline points="474.7371456562947,655 508.7371456562947,655 508.7371456562947,751 478.7371456562947,751" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="536.0" y="780.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">7. POST /api/v1/pagos/{pagoId}/reembolso, token de</text>
+<text x="536.0" y="800.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">rol servicio, motivo &quot;Evento cancelado&quot;</text>
+<line x1="477.7" y1="811" x2="594.3" y2="811" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="641.3" y="840.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">8. PagosFake devuelve el cobro y UPDATE</text>
+<text x="641.3" y="860.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">condicional del pago APROBADO a REEMBOLSADO</text>
+<polyline points="597.3288266990396,831 631.3288266990396,831 631.3288266990396,867 601.3288266990396,867" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="536.0" y="895.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 con el pago REEMBOLSADO; si Pagos no responde,</text>
+<text x="536.0" y="913.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">la anulación sigue con reembolsado = false</text>
+<line x1="594.3" y1="923" x2="477.7" y2="923" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="410.7" y="952.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">9. COMPRA_ANULADA (MANDATORY, java:/JmsXA):</text>
+<text x="410.7" y="972.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">venta, comprador, monto y reembolsado</text>
+<line x1="471.7" y1="983" x2="349.8" y2="983" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<path d="M215,619 L256.4,619 L256.4,633 L248.4,641 L215,641 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="222.0" y="635.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">loop</text>
+<text x="264.4" y="636.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[por cada compra pagada]</text>
+<text x="410.7" y="1027.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">commit: la copia queda consumida y los</text>
+<text x="410.7" y="1045.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">COMPRA_ANULADA salen</text>
+<line x1="471.7" y1="1055" x2="349.8" y2="1055" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="536.8" y="1114.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">10. copia de cada COMPRA_ANULADA (selector</text>
+<text x="536.8" y="1134.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">tipoEvento = 'COMPRA_ANULADA')</text>
+<line x1="349.8" y1="1145" x2="723.8" y2="1145" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="785.6" y="1174.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">11. GET /api/usuarios/{compradorId}, token</text>
+<text x="785.6" y="1194.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">de rol servicio</text>
+<line x1="729.8" y1="1205" x2="841.4" y2="1205" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="785.6" y="1233.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 con nombre y email</text>
+<line x1="841.4" y1="1243" x2="729.8" y2="1243" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="682.8" y="1272.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">12. correos.enviar(&quot;Se canceló &lt;evento&gt;&quot;): por</text>
+<text x="682.8" y="1292.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">SMTP, o sin PALCO_SMTP_HOST, CorreoAlLog</text>
+<text x="682.8" y="1312.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">en el log</text>
+<polyline points="726.8311460396568,1263 692.8311460396568,1263 692.8311460396568,1319 722.8311460396568,1319" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="650.3" y="1378.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">13. copia durable de cada COMPRA_ANULADA (mismo selector, maxSession 1)</text>
+<line x1="349.8" y1="1389" x2="950.9" y2="1389" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="909.9" y="1418.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">14. registrarAnulacion: si el JMSMessageID ya</text>
+<text x="909.9" y="1438.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">está, no inserta (reentrega); si no, guarda la fila</text>
+<text x="909.9" y="1458.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">COMPRA_ANULADA en registro_auditoria</text>
+<polyline points="953.9231912763828,1409 919.9231912763828,1409 919.9231912763828,1465 949.9231912763828,1465" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="650.3" y="1493.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">commit: la copia queda consumida</text>
+<line x1="950.9" y1="1503" x2="349.8" y2="1503" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M337.8,1069 L372,1069 L372,1083 L364,1091 L337.8,1091 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="344.8" y="1085.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">par</text>
+<text x="380.0" y="1086.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[aviso al comprador (no durable)]</text>
+<text x="345.8" y="1352.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[auditoría (durable: palco-auditoria-cancelaciones / compras-anuladas)]</text>
+<path d="M28,1533 L658,1533 L668,1543 L668,1637 L28,1637 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
+<text x="38.0" y="1553.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">La venta anulada queda con devolucion_pendiente: el barrido DevolucionDeCupos (segundo 30 de</text>
+<text x="38.0" y="1571.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">cada minuto) le devuelve su cupo a Eventos con POST</text>
+<text x="38.0" y="1589.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">/api/eventos/{eventoId}/sectores/{sectorId}/cupo, cantidad negativa y la clave</text>
+<text x="38.0" y="1607.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">devolucion:&lt;venta&gt;:&lt;sector&gt;. La auditoría se consulta con GET /api/notificaciones/auditoria, rol</text>
+<text x="38.0" y="1625.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">servicio.</text>
+<line x1="24" y1="1673" x2="64" y2="1673" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="74.0" y="1678.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Llamada síncrona (REST o local)</text>
+<line x1="302.7" y1="1673" x2="342.7" y2="1673" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="352.7" y="1678.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Respuesta</text>
+<line x1="452.9" y1="1673" x2="492.9" y2="1673" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="502.9" y="1678.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Mensaje asincrónico (JMS)</text>
+<text x="24.0" y="1701.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">Fuente: EventosResource, ServicioDeEventos, PublicadorDeCancelacionesJms, CancelacionDeEventoMDB, CancelacionDeEventos, VentaRepositoryJpa,</text>
+<text x="24.0" y="1717.3" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">EntradaRepositoryJpa, ClienteDePagos, ServicioDePagos, AvisoDeCancelacionMDB, ServicioDeNotificaciones, ClienteDeUsuarios, FabricaDeCorreos,</text>
+<text x="24.0" y="1733.6" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">AuditoriaDeCancelacionesMDB, ServicioDeAuditoria y DestinosJms. Contrato: docs/api/mensajeria-cancelacion-de-eventos.md.</text>
+</svg>

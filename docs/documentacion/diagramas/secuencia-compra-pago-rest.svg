@@ -99,7 +99,7 @@
 <path d="M224.8080808080809,1243.5 L774.8080808080808,1243.5 L784.8080808080808,1253.5 L784.8080808080808,1311.5 L224.8080808080809,1311.5 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
 <text x="234.8" y="1264.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">Si nadie reintenta, ConciliacionDePagos (@Schedule, una vez por minuto) le pregunta a</text>
 <text x="234.8" y="1282.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">Pagos por la clave (GET /api/v1/pagos?claveIdempotencia=) y confirma la venta con ese</text>
-<text x="234.8" y="1300.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">pago o la vence y devuelve el cupo. Sin probar en el servidor.</text>
+<text x="234.8" y="1300.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">pago o la vence y devuelve el cupo.</text>
 <path d="M26,735.5 L59.4401,735.5 L59.4401,749.5 L51.4401,757.5 L26,757.5 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
 <text x="33.0" y="751.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">alt</text>
 <text x="67.4" y="752.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[APROBADO]</text>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1297" viewBox="0 0 1000 1297" font-family="Arial, Helvetica, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1561" viewBox="0 0 1000 1561" font-family="Arial, Helvetica, sans-serif">
 <title>Tópico de compra confirmada: aviso y auditoría</title>
 
 <defs>
@@ -16,104 +16,126 @@
     <path d="M0,0 L14,6 L0,12 z" fill="#ffffff" stroke="#1f2937" stroke-width="1.2"/>
   </marker>
 </defs>
-<rect x="0" y="0" width="1000" height="1297" fill="#ffffff"/>
-<line x1="95.4" y1="201" x2="95.4" y2="1209" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
-<line x1="254.06666666666666" y1="201" x2="254.06666666666666" y2="1209" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
-<line x1="420.6666666666667" y1="201" x2="420.6666666666667" y2="1209" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
-<line x1="579.3333333333334" y1="201" x2="579.3333333333334" y2="1209" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
-<line x1="738" y1="201" x2="738" y2="1209" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
-<line x1="896.6666666666666" y1="201" x2="896.6666666666666" y2="1209" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
-<rect x="408.6666666666667" y="473" width="329.06" height="70" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
-<rect x="396.94000000000005" y="761" width="353.05999999999995" height="88" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
-<rect x="181.9366666666667" y="287" width="792.0633333333333" height="578" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
-<line x1="181.9366666666667" y1="557" x2="974" y2="557" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6 4"/>
+<rect x="0" y="0" width="1000" height="1561" fill="#ffffff"/>
+<line x1="92" y1="201" x2="92" y2="1473" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="237" y1="201" x2="237" y2="1473" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="384" y1="201" x2="384" y2="1473" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="518" y1="201" x2="518" y2="1473" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="645" y1="201" x2="645" y2="1473" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="772" y1="201" x2="772" y2="1473" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="906" y1="201" x2="906" y2="1473" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<rect x="506" y="537" width="462" height="166" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<line x1="506" y1="623" x2="968" y2="623" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6 4"/>
+<rect x="372" y="717" width="340" height="70" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<rect x="431" y="1025" width="353" height="88" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<rect x="150" y="287" width="824" height="842" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<line x1="150" y1="801" x2="974" y2="801" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6 4"/>
 <text x="24.0" y="40.0" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#1f2937" text-anchor="start" font-weight="bold">Tópico de compra confirmada: aviso y auditoría</text>
 <rect x="818.73612" y="18" width="157.26388" height="26" rx="4" fill="#e7f2ea" stroke="#2f6b3a" stroke-width="1"/>
 <text x="897.4" y="36.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#2f6b3a" text-anchor="middle" font-weight="bold">Estado: Implementado</text>
-<text x="24.0" y="68.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Integración I5: publicación y suscripción. Dos interesados independientes en el mismo hecho; cada suscripción recibe su propia copia. El aviso es simulado:</text>
-<text x="24.0" y="85.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">queda en el log.</text>
-<rect x="30.0" y="114" width="130.8" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
-<text x="95.4" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ServicioDe</text>
-<text x="95.4" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Ventas</text>
-<text x="95.4" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">confirmarCompra</text>
-<rect x="172.8" y="114" width="162.5" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
-<text x="254.1" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">topico.</text>
-<text x="254.1" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">compra-confirmada</text>
-<text x="254.1" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">java:/jms/topic/compra</text>
-<text x="254.1" y="189.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">Confirmada</text>
-<rect x="347.3" y="114" width="146.7" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
-<text x="420.7" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">AvisoDe</text>
-<text x="420.7" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">CompraMDB</text>
-<text x="420.7" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">suscripción no durable</text>
-<rect x="506.0" y="114" width="146.7" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
-<text x="579.3" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ServicioDe</text>
-<text x="579.3" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Notificaciones</text>
-<text x="579.3" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">INotificaciones</text>
-<rect x="664.7" y="114" width="146.7" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
-<text x="738.0" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">AuditoriaDe</text>
-<text x="738.0" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ComprasMDB</text>
-<text x="738.0" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">durable, maxSession 1</text>
-<rect x="823.3" y="114" width="146.7" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
-<text x="896.7" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ServicioDe</text>
-<text x="896.7" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Auditoria</text>
-<text x="896.7" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">registro_auditoria</text>
+<text x="24.0" y="68.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Integración I5: publicación y suscripción. Dos interesados independientes en el mismo hecho; cada suscripción recibe su propia copia. El aviso le pide</text>
+<text x="24.0" y="85.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">el email del comprador a Usuarios por REST y lo manda con Correos: por SMTP o, sin servidor de correo configurado, al log (CorreoAlLog).</text>
+<rect x="32" y="114" width="120" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="92" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ServicioDe</text>
+<text x="92" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Ventas</text>
+<text x="92" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">confirmarCompra</text>
+<rect x="162" y="114" width="150" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="237" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">topico.</text>
+<text x="237" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">compra-confirmada</text>
+<text x="237" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">java:/jms/topic/compra</text>
+<text x="237" y="189.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">Confirmada</text>
+<rect x="322" y="114" width="124" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="384" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">AvisoDe</text>
+<text x="384" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">CompraMDB</text>
+<text x="384" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">suscripción</text>
+<text x="384" y="189.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">no durable</text>
+<rect x="456" y="114" width="124" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="518" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ServicioDe</text>
+<text x="518" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Notificaciones</text>
+<text x="518" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">INotificaciones</text>
+<rect x="590" y="114" width="110" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="645" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Usuarios</text>
+<text x="645" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">/api/usuarios</text>
+<rect x="710" y="114" width="124" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="772" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">AuditoriaDe</text>
+<text x="772" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ComprasMDB</text>
+<text x="772" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">durable,</text>
+<text x="772" y="189.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">maxSession 1</text>
+<rect x="844" y="114" width="124" height="87" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="906" y="138.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ServicioDe</text>
+<text x="906" y="156.0" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Auditoria</text>
+<text x="906" y="174.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">registro_auditoria</text>
 <text x="180.2" y="242.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">1. PAGO_CONFIRMADO, en la transacción de</text>
 <text x="180.2" y="262.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">confirmarCompra; sale con el commit</text>
-<line x1="98.4" y1="273" x2="251.1" y2="273" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
-<text x="337.4" y="332.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">2. copia del mensaje (selector tipoEvento =</text>
-<text x="337.4" y="352.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">'PAGO_CONFIRMADO')</text>
-<line x1="257.1" y1="363" x2="417.7" y2="363" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
-<text x="500.0" y="392.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">3. enviarConfirmacion(mensaje)</text>
-<line x1="423.7" y1="403" x2="576.3" y2="403" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
-<text x="535.3" y="432.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">4. Escribe el aviso en el log: no hay proveedor de</text>
-<text x="535.3" y="452.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">correo (simulado)</text>
-<polyline points="579.3333333333334,423 545.3333333333334,423 545.3333333333334,459 575.3333333333334,459" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
-<text x="464.7" y="518.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">5. WARNING y se descarta, sin rollback</text>
-<polyline points="420.6666666666667,509 454.6666666666667,509 454.6666666666667,527 424.6666666666667,527" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
-<path d="M408.6666666666667,473 L446.1406666666667,473 L446.1406666666667,487 L438.1406666666667,495 L408.6666666666667,495 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
-<text x="415.7" y="489.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">opt</text>
-<text x="454.1" y="490.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[mensaje inválido]</text>
-<text x="496.0" y="602.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">6. copia del mensaje (mismo selector)</text>
-<line x1="257.1" y1="613" x2="735.0" y2="613" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
-<text x="817.3" y="642.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">7. registrar(JMSMessageID, mensaje, cuerpo)</text>
-<line x1="741.0" y1="653" x2="893.7" y2="653" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
-<text x="852.7" y="682.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">8. em.find por JMSMessageID: si ya existe, no</text>
-<text x="852.7" y="702.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">inserta (reentrega); si no, em.persist de la fila</text>
-<polyline points="896.6666666666666,673 862.6666666666666,673 862.6666666666666,709 892.6666666666666,709" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
-<text x="496.0" y="737.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">commit: la copia queda consumida</text>
-<line x1="735.0" y1="747" x2="257.1" y2="747" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
-<text x="694.0" y="806.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">9. setRollbackOnly(): 5 entregas cada 2 s y</text>
-<text x="694.0" y="826.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">después la DLQ</text>
-<polyline points="738,797 704,797 704,833 734,833" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
-<path d="M396.94000000000005,761 L434.41400000000004,761 L434.41400000000004,775 L426.41400000000004,783 L396.94000000000005,783 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
-<text x="403.9" y="777.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">opt</text>
-<text x="442.4" y="778.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[mensaje inválido]</text>
-<path d="M181.9366666666667,287 L219.4106666666667,287 L219.4106666666667,301 L211.4106666666667,309 L181.9366666666667,309 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
-<text x="188.9" y="303.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">par</text>
-<text x="227.4" y="304.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[aviso al comprador]</text>
-<text x="189.9" y="576.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[auditoría (clientId palco-auditoria, subscriptionName compras-confirmadas)]</text>
-<rect x="24" y="879" width="952" height="28" fill="#eef2f7" stroke="none"/>
-<text x="34.0" y="898.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" font-weight="bold">Suscriptor detenido (escenario 11)</text>
-<text x="179.2" y="938.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">10. PAGO_CONFIRMADO, con Notificaciones</text>
-<text x="179.2" y="958.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">detenido</text>
-<line x1="98.4" y1="969" x2="251.1" y2="969" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
-<text x="298.1" y="998.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">11. Guarda la copia de la suscripción durable</text>
-<text x="298.1" y="1018.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">compras-confirmadas. La no durable no tiene</text>
-<text x="298.1" y="1038.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">copia: ese aviso se pierde, y se acepta</text>
-<polyline points="254.06666666666666,989 288.06666666666666,989 288.06666666666666,1045 258.06666666666666,1045" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
-<text x="496.0" y="1074.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">12. al reanudar: entrega los mensajes guardados, en orden</text>
-<line x1="257.1" y1="1085" x2="735.0" y2="1085" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
-<text x="817.3" y="1114.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">13. registrar: una fila por mensaje</text>
-<line x1="741.0" y1="1125" x2="893.7" y2="1125" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
-<path d="M652.3333333333333,1139 L962,1139 L972,1149 L972,1189 L652.3333333333333,1189 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
-<text x="662.3" y="1159.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">Consulta: GET /api/notificaciones/auditoria, rol</text>
-<text x="662.3" y="1177.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">servicio.</text>
-<line x1="24" y1="1225" x2="64" y2="1225" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
-<text x="74.0" y="1230.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Llamada local (EJB)</text>
-<line x1="225.93800000000002" y1="1225" x2="265.938" y2="1225" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
-<text x="275.9" y="1230.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Respuesta</text>
-<line x1="369.428" y1="1225" x2="409.428" y2="1225" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
-<text x="419.4" y="1230.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Mensaje asincrónico (JMS)</text>
-<text x="24.0" y="1253.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">Fuente: AvisoDeCompraMDB, AuditoriaDeComprasMDB, ServicioDeNotificaciones, ServicioDeAuditoria y RegistroDeAuditoria. Evidencia: escenarios 9 y 11,</text>
-<text x="24.0" y="1269.3" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">suscriptor-durable.txt.</text>
+<line x1="95" y1="273" x2="234" y2="273" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="310.5" y="332.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">2. copia del mensaje (selector</text>
+<text x="310.5" y="352.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">tipoEvento IN ('PAGO_CONFIRMADO',</text>
+<text x="310.5" y="372.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">'REVENTA_CONFIRMADA'))</text>
+<line x1="240" y1="383" x2="381" y2="383" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="451" y="412.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">3. enviarConfirmacion(mensaje)</text>
+<line x1="387" y1="423" x2="515" y2="423" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="581.5" y="452.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">4. GET /api/usuarios/{compradorId},</text>
+<text x="581.5" y="472.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">token de rol servicio (ClienteDeUsuarios)</text>
+<line x1="521" y1="483" x2="642" y2="483" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="581.5" y="512.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 con el email y el nombre</text>
+<line x1="642" y1="522" x2="521" y2="522" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="562" y="582.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">5. correos.enviar: por SMTP (CorreoSmtp) o, sin</text>
+<text x="562" y="602.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">servidor configurado, al log (CorreoAlLog)</text>
+<polyline points="518,573 552,573 552,609 522,609" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="562" y="662.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">6. El aviso queda en el log y el mensaje se da</text>
+<text x="562" y="682.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">por atendido, sin reintento</text>
+<polyline points="518,653 552,653 552,689 522,689" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<path d="M506,537 L543.474,537 L543.474,551 L535.474,559 L506,559 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="513.0" y="553.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">alt</text>
+<text x="551.5" y="554.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[Usuarios devolvió el email]</text>
+<text x="514.0" y="642.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[Usuarios no responde o no lo conoce]</text>
+<text x="428" y="762.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">7. WARNING y se descarta, sin rollback</text>
+<polyline points="384,753 418,753 418,771 388,771" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<path d="M372,717 L409.474,717 L409.474,731 L401.474,739 L372,739 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="379.0" y="733.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">opt</text>
+<text x="417.5" y="734.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[mensaje inválido]</text>
+<text x="504.5" y="846.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">8. copia del mensaje (mismo selector)</text>
+<line x1="240" y1="857" x2="769" y2="857" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="830" y="886.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">9. registrar(JMSMessageID, tipoEvento,</text>
+<text x="830" y="906.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">mensaje, cuerpo)</text>
+<line x1="775" y1="917" x2="903" y2="917" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="862" y="946.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">10. em.find por JMSMessageID: si ya existe, no</text>
+<text x="862" y="966.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">inserta (reentrega); si no, em.persist de la fila</text>
+<polyline points="906,937 872,937 872,973 902,973" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="504.5" y="1001.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">commit: la copia queda consumida</text>
+<line x1="769" y1="1011" x2="240" y2="1011" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="728" y="1070.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">11. setRollbackOnly(): 5 entregas cada 2 s y</text>
+<text x="728" y="1090.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">después la DLQ</text>
+<polyline points="772,1061 738,1061 738,1097 768,1097" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<path d="M431,1025 L468.474,1025 L468.474,1039 L460.474,1047 L431,1047 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="438.0" y="1041.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">opt</text>
+<text x="476.5" y="1042.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[mensaje inválido]</text>
+<path d="M150,287 L187.474,287 L187.474,301 L179.474,309 L150,309 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="157.0" y="303.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">par</text>
+<text x="195.5" y="304.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[aviso al comprador]</text>
+<text x="158.0" y="820.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[auditoría (clientId palco-auditoria, subscriptionName compras-confirmadas)]</text>
+<rect x="24" y="1143" width="952" height="28" fill="#eef2f7" stroke="none"/>
+<text x="34.0" y="1162.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" font-weight="bold">Suscriptor detenido (escenario 11)</text>
+<text x="180.2" y="1202.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">12. PAGO_CONFIRMADO, con Notificaciones</text>
+<text x="180.2" y="1222.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">detenido</text>
+<line x1="95" y1="1233" x2="234" y2="1233" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="281" y="1262.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">13. Guarda la copia de la suscripción durable</text>
+<text x="281" y="1282.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">compras-confirmadas. La no durable no tiene</text>
+<text x="281" y="1302.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">copia: ese aviso se pierde, y se acepta</text>
+<polyline points="237,1253 271,1253 271,1309 241,1309" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="504.5" y="1338.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#2b5797" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">14. al reanudar: entrega los mensajes guardados, en orden</text>
+<line x1="240" y1="1349" x2="769" y2="1349" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="839" y="1378.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">15. registrar: una fila por mensaje</text>
+<line x1="775" y1="1389" x2="903" y2="1389" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<path d="M652.333,1403 L962,1403 L972,1413 L972,1453 L652.333,1453 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
+<text x="662.3" y="1423.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">Consulta: GET /api/notificaciones/auditoria, rol</text>
+<text x="662.3" y="1441.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">servicio.</text>
+<line x1="24" y1="1489" x2="64" y2="1489" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="74.0" y="1494.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Llamada síncrona (local o REST)</text>
+<line x1="301.546" y1="1489" x2="341.546" y2="1489" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="351.5" y="1494.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Respuesta</text>
+<line x1="445.036" y1="1489" x2="485.036" y2="1489" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="495.0" y="1494.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Mensaje asincrónico (JMS)</text>
+<text x="24.0" y="1517.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">Fuente: AvisoDeCompraMDB, ServicioDeNotificaciones, ClienteDeUsuarios, FabricaDeCorreos, AuditoriaDeComprasMDB, ServicioDeAuditoria y</text>
+<text x="24.0" y="1533.3" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">RegistroDeAuditoria. Evidencia: escenarios 9 y 11, suscriptor-durable.txt.</text>
 </svg>

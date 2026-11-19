@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="2296" viewBox="0 0 1040 2296" font-family="Arial, Helvetica, sans-serif">
+<title>Seguridad: ingreso, token JWT y llamadas entre servicios</title>
+
+<defs>
+  <marker id="lleno" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10 z" fill="#1f2937"/>
+  </marker>
+  <marker id="abierto" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#4b5563" stroke-width="1.4"/>
+  </marker>
+  <marker id="async" viewBox="0 0 12 10" refX="11" refY="5" markerWidth="12" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L12,5 L0,10" fill="none" stroke="#2b5797" stroke-width="1.8"/>
+  </marker>
+  <marker id="triangulo" viewBox="0 0 14 12" refX="13" refY="6" markerWidth="14" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+    <path d="M0,0 L14,6 L0,12 z" fill="#ffffff" stroke="#1f2937" stroke-width="1.2"/>
+  </marker>
+</defs>
+<rect x="0" y="0" width="1040" height="2296" fill="#ffffff"/>
+<line x1="104.90999841546507" y1="185" x2="104.90999841546507" y2="2191" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="286.72199334495326" y1="185" x2="286.72199334495326" y2="2191" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="473.6658215813659" y1="185" x2="473.6658215813659" y2="2191" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="697.1970369196641" y1="185" x2="697.1970369196641" y2="2191" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<line x1="925.3432102677864" y1="185" x2="925.3432102677864" y2="2191" stroke="#c7ccd4" stroke-width="1.3" stroke-dasharray="5 5"/>
+<rect x="26" y="371" width="680.2" height="324" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<line x1="26" y1="475" x2="706.2" y2="475" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6 4"/>
+<rect x="219.3" y="793" width="489.3" height="148" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<rect x="95.9" y="1087" width="386.8" height="174" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<line x1="95.9" y1="1191" x2="482.7" y2="1191" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6 4"/>
+<rect x="274.7" y="1455" width="431.5" height="226" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<rect x="366.1" y="1831" width="568.3" height="126" fill="none" stroke="#9ca3af" stroke-width="1.3"/>
+<text x="24.0" y="40.0" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#1f2937" text-anchor="start" font-weight="bold">Seguridad: ingreso, token JWT y llamadas entre servicios</text>
+<rect x="858.6" y="18" width="157.4" height="26" rx="4" fill="#e7f2ea" stroke="#2f6b3a" stroke-width="1"/>
+<text x="937.3" y="36.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#2f6b3a" text-anchor="middle" font-weight="bold">Estado: Implementado</text>
+<text x="24.0" y="68.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">Integración S2 (todos los servicios hacia Usuarios: JWKS y token de servicio). Usuarios firma los tokens con RS256; cada servicio los verifica con MicroProfile JWT y</text>
+<text x="24.0" y="85.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start">controla el rol con @RolesAllowed.</text>
+<rect x="30" y="113.5" width="149.8" height="71.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="104.9" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Frontend</text>
+<text x="104.9" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">React, lib/api.ts</text>
+<rect x="191.8" y="113.5" width="189.8" height="71.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="286.7" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Usuarios</text>
+<text x="286.7" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">UsuariosResource y</text>
+<text x="286.7" y="171.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">ServicioDeUsuarios</text>
+<rect x="393.6" y="113.5" width="160.1" height="71.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="473.7" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Ventas</text>
+<text x="473.7" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">MP-JWT y</text>
+<text x="473.7" y="171.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">VentasResource</text>
+<rect x="565.7" y="113.5" width="263" height="71.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="697.2" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">ClienteDeEventos y</text>
+<text x="697.2" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">TokenDeServicio</text>
+<text x="697.2" y="173.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">Ventas, @ApplicationScoped</text>
+<rect x="840.7" y="113.5" width="169.3" height="71.5" rx="5" fill="#f4f6f9" stroke="#1f2937" stroke-width="1.3"/>
+<text x="925.3" y="137.5" font-family="Arial, Helvetica, sans-serif" font-size="14.5" fill="#1f2937" text-anchor="middle" font-weight="bold">Eventos</text>
+<text x="925.3" y="155.5" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">MP-JWT y</text>
+<text x="925.3" y="171.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="middle">EventosResource</text>
+<rect x="24" y="211" width="992" height="28" fill="#eef2f7" stroke="none"/>
+<text x="34.0" y="230.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" font-weight="bold">A. Ingreso</text>
+<text x="195.8" y="270.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">1. POST /api/usuarios/login (@PermitAll)</text>
+<text x="195.8" y="290.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">con email y password</text>
+<line x1="107.9" y1="301" x2="283.7" y2="301" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="330.7" y="330.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">2. iniciarSesion: cuenta los ingresos fallidos de ese email</text>
+<text x="330.7" y="350.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">en los últimos 15 minutos (tabla intento_login)</text>
+<polyline points="286.72199334495326,321 320.72199334495326,321 320.72199334495326,357 290.72199334495326,357" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="195.8" y="415.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">429 demasiados-intentos con Retry-After (segundos</text>
+<text x="195.8" y="433.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">hasta que el fallido más viejo salga de la ventana),</text>
+<text x="195.8" y="451.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">aunque la contraseña sea la correcta</text>
+<line x1="283.7" y1="461" x2="107.9" y2="461" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="330.7" y="520.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">3. Contrasenas.verificar: PBKDF2-HMAC-SHA256 con</text>
+<text x="330.7" y="540.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">600.000 iteraciones, con un hash falso si el email no</text>
+<text x="330.7" y="560.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">existe. Si no coincide: guarda el fallido y 401</text>
+<polyline points="286.72199334495326,511 320.72199334495326,511 320.72199334495326,567 290.72199334495326,567" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="330.7" y="596.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">4. Tokens.firmar: JWT RS256 con el kid de la clave;</text>
+<text x="330.7" y="616.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">iss palco, sub, upn, groups [rol], exp a 8 horas</text>
+<polyline points="286.72199334495326,587 320.72199334495326,587 320.72199334495326,623 290.72199334495326,623" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="195.8" y="651.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 {token, expiraEnSegundos: 28800,</text>
+<text x="195.8" y="669.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">usuario}; el frontend lo guarda en localStorage</text>
+<line x1="283.7" y1="679" x2="107.9" y2="679" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M26,371 L55.2,371 L55.2,385 L47.2,393 L26,393 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="33.0" y="387.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">alt</text>
+<text x="63.2" y="388.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[5 fallidos en 15 minutos]</text>
+<text x="34.0" y="494.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[menos de 5]</text>
+<rect x="24" y="709" width="992" height="28" fill="#eef2f7" stroke="none"/>
+<text x="34.0" y="728.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" font-weight="bold">B. Llamada con el token del usuario</text>
+<text x="289.3" y="768.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">5. POST /api/v1/ventas con Authorization: Bearer &lt;token&gt;</text>
+<line x1="107.9" y1="779" x2="470.7" y2="779" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="380.2" y="838.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">6. GET /api/usuarios/jwks (@PermitAll), URL</text>
+<text x="380.2" y="858.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">de mp.jwt.verify.publickey.location</text>
+<line x1="470.7" y1="869" x2="289.7" y2="869" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="380.2" y="897.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 {keys: [{kty RSA, alg RS256, kid, n, e}]};</text>
+<text x="380.2" y="915.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">queda en caché</text>
+<line x1="289.7" y1="925" x2="470.7" y2="925" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M219.3,793 L253.5,793 L253.5,807 L245.5,815 L219.3,815 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="226.3" y="809.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">opt</text>
+<text x="261.5" y="810.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[primer token, pasó 1 minuto o llega un kid que no está en la caché]</text>
+<text x="517.7" y="970.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">7. MP-JWT verifica la firma RS256 con la clave de</text>
+<text x="517.7" y="990.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">la caché, iss = palco y exp; los roles salen del</text>
+<text x="517.7" y="1010.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">claim groups</text>
+<polyline points="473.6658215813659,961 507.6658215813659,961 507.6658215813659,1017 477.6658215813659,1017" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="517.7" y="1046.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">8. @RolesAllowed(&quot;user&quot;) en VentasResource.iniciar;</text>
+<text x="517.7" y="1066.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">Sesion.usuarioId lee el sub</text>
+<polyline points="473.6658215813659,1037 507.6658215813659,1037 507.6658215813659,1073 477.6658215813659,1073" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="289.3" y="1131.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">401 application/problem+json, /problemas/token-invalido,</text>
+<text x="289.3" y="1149.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">WWW-Authenticate: Bearer error=&quot;invalid_token&quot;. Lo</text>
+<text x="289.3" y="1167.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">escribe ErrorDeAutenticacionServlet, antes de JAX-RS</text>
+<line x1="470.7" y1="1177" x2="107.9" y2="1177" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="289.3" y="1235.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">403 /problemas/sin-permiso</text>
+<line x1="470.7" y1="1245" x2="107.9" y2="1245" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M95.9,1087 L125.1,1087 L125.1,1101 L117.1,1109 L95.9,1109 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="102.9" y="1103.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">alt</text>
+<text x="133.1" y="1104.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[firma alterada, token vencido o alg=none]</text>
+<text x="103.9" y="1210.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[token válido sin el rol user]</text>
+<rect x="24" y="1275" width="992" height="28" fill="#eef2f7" stroke="none"/>
+<text x="34.0" y="1294.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" font-weight="bold">C. Llamada entre servicios (rol servicio)</text>
+<text x="585.4" y="1334.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">9. ServicioDeVentas:</text>
+<text x="585.4" y="1354.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">reservarCupo(eventoId, sectorId, cantidad)</text>
+<line x1="476.7" y1="1365" x2="694.2" y2="1365" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="741.2" y="1394.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">10. tokenDeServicio.obtener(),</text>
+<text x="741.2" y="1414.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">synchronized: reutiliza el token guardado</text>
+<text x="741.2" y="1434.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">si le quedan más de 30 segundos</text>
+<polyline points="697.1970369196641,1385 731.1970369196641,1385 731.1970369196641,1441 701.1970369196641,1441" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="492.0" y="1500.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">11. POST /api/usuarios/servicios/token (@PermitAll) con</text>
+<text x="492.0" y="1520.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">{&quot;secreto&quot;}: PALCO_SECRETO_SERVICIOS</text>
+<line x1="694.2" y1="1531" x2="289.7" y2="1531" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="330.7" y="1560.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">12. emitirTokenDeServicio: compara el secreto</text>
+<text x="330.7" y="1580.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">con MessageDigest.isEqual (si no coincide, 401)</text>
+<text x="330.7" y="1600.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">y firma con la misma clave: sub servicio, groups</text>
+<text x="330.7" y="1620.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[servicio], exp a 5 minutos</text>
+<polyline points="286.72199334495326,1551 320.72199334495326,1551 320.72199334495326,1627 290.72199334495326,1627" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="492.0" y="1655.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 {token, expiraEnSegundos: 300}</text>
+<line x1="289.7" y1="1665" x2="694.2" y2="1665" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M274.7,1455 L308.9,1455 L308.9,1469 L300.9,1477 L274.7,1477 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="281.7" y="1471.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">opt</text>
+<text x="316.9" y="1472.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[no hay token o le quedan menos de 30 segundos]</text>
+<text x="811.3" y="1710.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">13. POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo,</text>
+<text x="811.3" y="1730.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">Authorization: Bearer &lt;token de servicio&gt;</text>
+<line x1="700.2" y1="1741" x2="922.3" y2="1741" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="881.3" y="1770.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">14. MP-JWT lo verifica igual, con su propia caché</text>
+<text x="881.3" y="1790.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">de la JWKS de Usuarios;</text>
+<text x="881.3" y="1810.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">@RolesAllowed(&quot;servicio&quot;)</text>
+<polyline points="925.3432102677864,1761 891.3432102677864,1761 891.3432102677864,1817 921.3432102677864,1817" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="811.3" y="1875.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">401 /problemas/token-invalido</text>
+<line x1="922.3" y1="1885" x2="700.2" y2="1885" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="653.2" y="1914.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">15. invalidar() y obtener(): pide otro token</text>
+<text x="653.2" y="1934.0" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="end" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">(pasos 11 y 12) y repite el POST una vez</text>
+<polyline points="697.1970369196641,1905 663.1970369196641,1905 663.1970369196641,1941 693.1970369196641,1941" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<path d="M366.1,1831 L395.3,1831 L395.3,1845 L387.3,1853 L366.1,1853 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
+<text x="373.1" y="1847.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">alt</text>
+<text x="403.3" y="1848.0" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[Eventos responde 401: Usuarios se redesplegó y cambió la clave]</text>
+<text x="811.3" y="1985.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 con el sector</text>
+<line x1="922.3" y1="1995" x2="700.2" y2="1995" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="585.4" y="2023.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">el sector, con nombre y precio</text>
+<line x1="694.2" y1="2033" x2="476.7" y2="2033" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="289.3" y="2061.0" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">201 Created con la venta EN_CHECKOUT</text>
+<line x1="470.7" y1="2071" x2="107.9" y2="2071" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<path d="M28,2085 L718,2085 L728,2095 L728,2171 L28,2171 z" fill="#f7f5ec" stroke="#b9b08a" stroke-width="1"/>
+<text x="38.0" y="2105.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">ClavesJwt (@Singleton, @Startup) carga la clave privada RSA de PALCO_JWT_CLAVE_PRIVADA; sin esa</text>
+<text x="38.0" y="2123.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">variable genera una al desplegar Usuarios. Por eso los servicios vuelven a pedir la JWKS cada minuto</text>
+<text x="38.0" y="2141.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">(smallrye.jwt.jwks.refresh-interval=1) o cuando llega un kid desconocido (forced-refresh-interval=0), y quien llama</text>
+<text x="38.0" y="2159.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#1f2937" text-anchor="start">con el token de servicio pide otro ante un 401.</text>
+<line x1="24" y1="2207" x2="64" y2="2207" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
+<text x="74.0" y="2212.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Llamada síncrona (REST o local)</text>
+<line x1="302.7" y1="2207" x2="342.7" y2="2207" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
+<text x="352.7" y="2212.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Respuesta</text>
+<line x1="452.9" y1="2207" x2="492.9" y2="2207" stroke="#2b5797" stroke-width="1.8" marker-end="url(#async)"/>
+<text x="502.9" y="2212.0" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#4b5563" text-anchor="start">Mensaje asincrónico (JMS)</text>
+<text x="24.0" y="2235.0" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">Fuente: UsuariosResource, ServicioDeUsuarios, Contrasenas, Tokens, ClavesJwt, ManejadoresDeErrores, ErrorDeAutenticacionServlet y web-fragment.xml,</text>
+<text x="24.0" y="2251.3" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">microprofile-config.properties de palco-common (vale para los 8 servicios), VentasResource, ServicioDeVentas, ClienteDeEventos, TokenDeServicio y EventosResource. Los</text>
+<text x="24.0" y="2267.6" font-family="Arial, Helvetica, sans-serif" font-size="12.5" fill="#4b5563" text-anchor="start">errores salen como Problem Details con &quot;type&quot;: &quot;/problemas/&lt;tipo&gt;&quot;.</text>
+</svg>
