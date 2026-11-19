@@ -34,6 +34,7 @@ import com.palco.common.ReglasDeNegocio;
 import com.palco.common.mensajeria.PublicadorPagoConfirmado;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.common.datos.BaseDeDatos;
+import com.palco.ventas.api.Dtos.LiquidacionDto;
 import com.palco.ventas.api.Dtos.TitularDto;
 import com.palco.ventas.api.DtosDeReventa.TransferenciaDto;
 import com.palco.ventas.api.DtosDeReventa.TransferenciaHechaDto;
@@ -287,6 +288,23 @@ class ReventaDeEntradasEnH2Test {
         } catch (Exception e) {
             return true;
         }
+    }
+
+    @Test
+    void laCompraEnLaReventaNoEntraEnLaLiquidacionDelOrganizador() {
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+        enTransaccion(em, () -> reventa.transferir(transferencia("R-0000000e", COMPRADOR)));
+
+        // La consulta trae las dos ventas pagadas del evento: la original, que sigue pagada aunque su
+        // entrada esté VENDIDA, y la que nació de la reventa...
+        List<Venta> pagadas = ventas.pagadasDelEventoConItems("ev-1");
+        assertEquals(2, pagadas.size());
+
+        // ...pero el lugar se le liquida al organizador una sola vez, al precio de lista y no al de reventa.
+        LiquidacionDto liquidacion = ResumenDeVentas.resumir("ev-1", pagadas).liquidacion();
+        assertEquals(1, liquidacion.ventas());
+        assertEquals(1, liquidacion.entradas());
+        assertEquals(50_000, liquidacion.aLiquidarAlOrganizador());
     }
 
     @Test

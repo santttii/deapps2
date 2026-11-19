@@ -64,6 +64,13 @@ public class ResumenDeVentas {
     /**
      * Arma el resumen a partir de las ventas. No es privado para poder probarlo
      * con una lista armada a mano, sin base ni llamadas a Eventos.
+     *
+     * Deja afuera las compras en la reventa oficial, del detalle por día y de
+     * la liquidación. No son una venta del evento: el lugar ya se vendió y se
+     * liquida en la compra original, que sigue pagada aunque su entrada haya
+     * pasado a {@code VENDIDA}. Contarla también le pagaría dos veces el mismo
+     * lugar al organizador (y lo contaría dos veces entre las vendidas), con un
+     * precio de reventa que es del vendedor y no suyo.
      */
     static ResumenDeVentasDto resumir(String eventoId, List<Venta> pagadas) {
         // LinkedHashMap: la consulta viene ordenada por fecha de confirmación, y el resumen
@@ -72,6 +79,9 @@ public class ResumenDeVentas {
         Acumulado total = new Acumulado();
 
         for (Venta venta : pagadas) {
+            if (ReventaDeEntradas.esCompraEnLaReventa(venta)) {
+                continue;
+            }
             // Una venta pagada siempre tiene fecha de confirmación; si faltara, se la cuenta
             // por la fecha de creación antes que dejarla afuera del resumen.
             LocalDate dia = (venta.getConfirmada() != null ? venta.getConfirmada() : venta.getCreada())

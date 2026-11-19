@@ -52,7 +52,7 @@ public final class DestinosJms {
      */
     public static final String REVENTA_CONFIRMADA = "REVENTA_CONFIRMADA";
 
-    /** El organizador dueño canceló un evento. Lo publica Eventos; lo consume Ventas. */
+    /** El organizador dueño canceló un evento. Lo publica Eventos; lo consumen Ventas y Reventa. */
     public static final String EVENTO_CANCELADO = "EVENTO_CANCELADO";
 
     /**
@@ -74,13 +74,17 @@ public final class DestinosJms {
     public static final String SELECTOR_COMPRA_CONFIRMADA =
             "tipoEvento IN ('PAGO_CONFIRMADO', 'REVENTA_CONFIRMADA')";
 
-    /** Filtro de Ventas en el tópico de cancelaciones: solo el hecho del evento, no sus propias anulaciones. */
+    /** Filtro de Ventas y de Reventa en el tópico de cancelaciones: solo el hecho del evento, no las anulaciones. */
     public static final String SELECTOR_EVENTO_CANCELADO = "tipoEvento = 'EVENTO_CANCELADO'";
 
     /** Filtro del aviso al comprador: solo las anulaciones, que son las que traen a quién avisarle. */
     public static final String SELECTOR_COMPRA_ANULADA = "tipoEvento = 'COMPRA_ANULADA'";
 
-    /** Filtro de la auditoría de cancelaciones: anota el hecho del evento y el de cada compra. */
+    /**
+     * Los dos tipos del tópico de cancelaciones. Hoy ningún consumidor lo usa: la
+     * auditoría anota solo las anulaciones ({@link #SELECTOR_COMPRA_ANULADA}),
+     * porque su fila necesita venta, comprador y monto.
+     */
     public static final String SELECTOR_CANCELACIONES =
             "tipoEvento IN ('EVENTO_CANCELADO', 'COMPRA_ANULADA')";
 

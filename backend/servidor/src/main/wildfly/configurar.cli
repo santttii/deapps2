@@ -33,9 +33,10 @@ jms-queue add --queue-address=cola.emision-entradas --entries=["java:/jms/queue/
 # Publicación/suscripción: Notificaciones y Auditoría reciben cada una su copia.
 jms-topic add --topic-address=topico.compra-confirmada --entries=["java:/jms/topic/compraConfirmada"]
 
-# Segundo proceso asincrónico: cancelar un evento. Eventos publica EVENTO_CANCELADO; Ventas
-# lo consume, anula las entradas, pide el reembolso a Pagos y publica un COMPRA_ANULADA por
-# compra, que escuchan el aviso al comprador y la auditoría. Tópico aparte del de compras:
+# Segundo proceso asincrónico: cancelar un evento. Eventos publica EVENTO_CANCELADO, que
+# consumen dos servicios: Reventa retira las publicaciones del evento, y Ventas anula las
+# entradas, pide el reembolso a Pagos y publica un COMPRA_ANULADA por compra, que escuchan
+# el aviso al comprador y la auditoría. Tópico aparte del de compras:
 # otro proceso, otros suscriptores y otro cuerpo de mensaje.
 jms-topic add --topic-address=topico.eventos-cancelados --entries=["java:/jms/topic/eventosCancelados"]
 

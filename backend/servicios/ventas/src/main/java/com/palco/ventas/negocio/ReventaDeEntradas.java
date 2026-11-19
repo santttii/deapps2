@@ -62,6 +62,16 @@ public class ReventaDeEntradas {
      */
     static final String PREFIJO_CLAVE = "reventa:";
 
+    /**
+     * Si la venta es la que nace de una compra en la reventa oficial
+     * ({@link #transferir}). Se reconoce por el prefijo de su clave: la clave
+     * de una compra del catálogo tiene que ser un UUID
+     * ({@code VentasResource.claveValida}), así que nunca empieza así.
+     */
+    static boolean esCompraEnLaReventa(Venta venta) {
+        return venta.getClaveIdempotencia().startsWith(PREFIJO_CLAVE);
+    }
+
     @Inject
     EntradaRepository entradas;
 

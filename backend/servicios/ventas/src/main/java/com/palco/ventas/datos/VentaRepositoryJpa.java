@@ -386,6 +386,36 @@ public class VentaRepositoryJpa implements VentaRepository {
                 .setParameter("id", ventaId));
     }
 
+    @Override
+    public boolean marcarReembolsoPendiente(String ventaId) {
+        return cambioUnaFila(em.createQuery("""
+                        update Venta v set v.reembolsoPendiente = true
+                        where v.id = :id
+                          and v.estado = :cancelada
+                          and v.pagoId is not null""")
+                .setParameter("id", ventaId)
+                .setParameter("cancelada", EstadoVenta.CANCELADA));
+    }
+
+    @Override
+    public List<Venta> buscarReembolsosPendientes() {
+        // Sin cargar renglones ni entradas: el barrido usa solo campos de la venta.
+        return em.createQuery("""
+                        select v from Venta v
+                        where v.reembolsoPendiente = true
+                        order by v.creada, v.id""", Venta.class)
+                .getResultList();
+    }
+
+    @Override
+    public boolean marcarReembolsoResuelto(String ventaId) {
+        return cambioUnaFila(em.createQuery("""
+                        update Venta v set v.reembolsoPendiente = false
+                        where v.id = :id
+                          and v.reembolsoPendiente = true""")
+                .setParameter("id", ventaId));
+    }
+
     private Venta cargada(Venta venta) {
         venta.getItems().size();
         venta.getEntradas().size();
