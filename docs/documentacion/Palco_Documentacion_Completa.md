@@ -243,7 +243,7 @@ Se exigen todos para la Entrega Final; varios ya se piden antes, en la entrega q
 | Resiliencia ante la caída de un sistema externo | Parcial | Si un consumidor de mensajes se detiene, la compra sigue y los mensajes esperan en el broker (`docs/entrega3/evidencia/mensajes-pendientes.txt`); hasta 5 entregas con 2 segundos entre reintentos y después la cola de mensajes fallidos (`java:/jms/queue/DLQ`), configurados en `configurar.cli`. En el servidor, el 16/10, un mensaje inválido terminó en la DLQ con 2 copias, una por cada suscriptor durable del tópico (auditoría y facturación). Si Pagos no contesta o la confirmación falla después del cobro, la conciliación de pagos cierra la venta con el resultado real del cobro (probado el 16/10, escenario 14). Facturación usa los reintentos del broker cuando ARCA no responde, y despliega aunque ARCA esté caído porque baja el WSDL recién en el primer pedido; Validación registra `SIN_RESPUESTA` y responde 504 si Ventas no contesta. Esos dos casos de caída tienen tests, pero no se provocaron en el servidor. Sin Circuit Breaker. Desde el 18/11, además: cada integración tiene su tiempo máximo y su fallback (8.8), el asistente responde las preguntas frecuentes si el modelo no contesta en 5 s, y `broker-apagado.mjs` reinicia el broker con un mensaje pendiente sin perderlo (C3.2 y C3.3) |
 | Heterogeneidad tecnológica (un componente en otra tecnología) | Pendiente | Todos los servicios son Jakarta EE |
 | Prueba de escalabilidad horizontal | Pendiente | — |
-| Al menos 2 ADR | Pendiente | Las decisiones están escritas con su porqué en la sección 5 (entre ellas la vigencia de la sesión y el diseño de la facturación por SOAP, del 16/10), pero no en formato ADR |
+| Al menos 2 ADR | Cumplido (19/11) | Cuatro ADR en `docs/adr/`: el controlador de fachada de la compra (ADR-001), el State del ciclo de vida de la venta (ADR-002), el Adapter y la Factory de ARCA (ADR-003) y la publicación y suscripción de `PAGO_CONFIRMADO` (ADR-004) |
 
 # 3. Arquitectura general
 
@@ -905,6 +905,15 @@ Solo se cuentan los patrones que están aplicados en el código. Para cada uno: 
 | Publicación transaccional | `PublicadorPagoConfirmadoJms` con `MANDATORY` y `java:/JmsXA` | El mensaje sale solo si la venta se confirma |
 
 No se cuentan como aplicados otros patrones que se evaluaron (por ejemplo una tabla de salida u *outbox*, que fue una de las alternativas para publicar el mensaje y se descartó: 5.4).
+
+## 6.9 State
+
+| | |
+|---|---|
+| Dónde | `ventas/dominio/estado/`: la interfaz sellada `EstadoDeVenta` y una clase por estado (`EnCheckout`, `Confirmada`, `Emitida`, `Cancelada`, `Vencida`), cada una con una sola instancia. `EstadoDeVenta.de(...)` devuelve el objeto que corresponde al `EstadoVenta` guardado en la base. Lo usan `ServicioDeVentas` al pagar y `ComprasEnCurso` al cancelar. ADR-002 en `docs/adr/` |
+| Problema | Qué se puede hacer con una venta depende de su estado: pagar solo en `EN_CHECKOUT` y con la reserva vigente; cancelar una venta paga no corresponde; cancelar dos veces no es un error. Escrito con `if` sobre el enum, cada operación repetía las mismas preguntas |
+| Por qué este | Cada estado decide sus operaciones en su clase, y una operación que no corresponde lanza `TransicionInvalida`, que es un `Conflicto` y sale como 409 Problem Details (`venta-ya-paga` o `reserva-vencida`). La interfaz es `sealed` y `de(...)` es un `switch` sin `default`: un estado nuevo sin su clase no compila. JPA sigue guardando el enum `EstadoVenta`, así que no hace falta un convertidor |
+| Límite | El State decide si la operación corresponde; el cambio en la base lo sigue haciendo el `UPDATE` condicional del repositorio, para que de dos pedidos simultáneos cambie la fila uno solo. Las transiciones que no pide el comprador (confirmar el pago, emitir, vencer, anular por cancelación del evento) son `UPDATE` condicionales sin pasar por el State. La entrada (`EstadoEntrada`) sigue siendo un enum sin comportamiento. Prueba: `EstadoDeVentaTest` y `scripts/pruebas/patron-state.mjs` (16.7) |
 
 # 7. Transacciones
 
@@ -3071,10 +3080,10 @@ Siguen sin respuesta de la cátedra: la hora límite de subida; la confirmación
 | 1 | Documentación final de 10 a 15 páginas, recortada de este documento, con la reflexión del equipo (los aprendizajes los escribe el grupo) | La exige la Entrega Final, que se defiende el 04/12 | Joaquin integra, con los cinco | 25/11 |
 | 2 | ~~Conciliación en Reventa (L1), reembolso de la compra sin entrada (L2) y mensaje de la compra en la reventa (L13)~~ hechos el 23/10 (7.10 y 10.1) | Son los dos huecos de la reventa que dejan un cobro sin entrada o una compra sin factura | Julian; L13 se decide con el grupo porque cambia el contrato de mensajería | Para el checkpoint del 20/11 |
 | 3 | ~~Control de dueño en el panel y en la puerta (L17 y L18)~~ Hecho el 23/10 (4.6, escenario 21) | Un organizador veía los datos de eventos ajenos | Julian | Hecho |
-| 4 | Pruebas de frontend y de punta a punta (Vitest, Playwright) | El frontend no tiene tests propios; los recorridos con Playwright que se hicieron no están en el repo (Fase 11 de `TODO.md`) | A definir | — |
+| 4 | ~~Pruebas de punta a punta (Playwright)~~ Hechas el 19/11: 17 pruebas en `frontend/e2e/` y el job `e2e` del CI (16.7). Quedan las pruebas unitarias del frontend (Vitest) | El frontend no tenía tests propios | A definir | — |
 | 5 | Base en PostgreSQL (Supabase), CI y hosting | La base de desarrollo se borra al reiniciar (L7) | A definir | — |
 | 6 | Aviso de compra por email | Hoy es una línea en el log. Falta elegir proveedor y pedirle a Usuarios el email del comprador | Julian, solo si sobra tiempo | Sin fecha |
-| 7 | Al menos 2 ADR (desafío opcional de la consigna) | Las decisiones ya están escritas con su porqué en la sección 5, pero no en formato ADR | A definir | Sin fecha |
+| 7 | ~~Al menos 2 ADR (desafío opcional de la consigna)~~ Hecho el 19/11: 4 ADR en `docs/adr/` (controlador de fachada de la compra, State de la venta, Adapter y Factory de ARCA, y publicación y suscripción de `PAGO_CONFIRMADO`) | Las decisiones estaban escritas con su porqué en la sección 5, pero no en formato ADR | Santiago | Hecho |
 | 8 | Mercado Pago real con su webhook | Decidido el 13/10 como "Diseñado, pendiente": el requisito REST lo cubre la API propia. La cátedra aceptó la pasarela simulada el 16/10, así que queda fuera del alcance | Valentina | Fuera del alcance |
 
 # Aprendizajes del equipo
