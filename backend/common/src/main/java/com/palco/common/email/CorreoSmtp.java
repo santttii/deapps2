@@ -58,6 +58,14 @@ public class CorreoSmtp implements Correos {
     static final String REMITENTE_POR_DEFECTO = "no-responder@palco.test";
     static final int PUERTO_POR_DEFECTO = 587;
 
+    /**
+     * Milisegundos de espera para conectar, leer y escribir. Jakarta Mail no
+     * tiene límite por defecto: un servidor SMTP colgado dejaría tomado el
+     * hilo que manda el aviso (el de un MDB o el de un pedido). Es el mismo
+     * tope de 5 segundos que usan las llamadas REST entre servicios.
+     */
+    static final String TIEMPO_MAXIMO_MS = "5000";
+
     private static final Logger LOG = Logger.getLogger(CorreoSmtp.class.getName());
 
     /** No son privados para que un test los fije sin variables de entorno. */
@@ -104,6 +112,9 @@ public class CorreoSmtp implements Correos {
         propiedades.put("mail.smtp.host", host == null ? "localhost" : host);
         propiedades.put("mail.smtp.port", String.valueOf(puerto));
         propiedades.put("mail.smtp.starttls.enable", String.valueOf(tls));
+        propiedades.put("mail.smtp.connectiontimeout", TIEMPO_MAXIMO_MS);
+        propiedades.put("mail.smtp.timeout", TIEMPO_MAXIMO_MS);
+        propiedades.put("mail.smtp.writetimeout", TIEMPO_MAXIMO_MS);
         boolean autenticar = usuario != null && !usuario.isBlank();
         propiedades.put("mail.smtp.auth", String.valueOf(autenticar));
         if (!autenticar) {

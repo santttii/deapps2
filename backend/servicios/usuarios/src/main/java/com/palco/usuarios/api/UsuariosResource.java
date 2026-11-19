@@ -140,16 +140,6 @@ public class UsuariosResource {
     }
 
     /**
-     * Un usuario por su id, para otros servicios (rol {@code servicio}): lo usa
-     * Notificaciones, que del mensaje de la compra tiene el {@code compradorId}
-     * y necesita su email para mandarle el aviso.
-     *
-     * Es una ruta con parámetro y convive con las fijas ({@code yo},
-     * {@code jwks}, {@code login}…) porque JAX-RS prefiere la literal, y
-     * además ningún id puede chocar con ellas: todos tienen la forma
-     * {@code user-3f9a1c2b}.
-     */
-    /**
      * {@code GET /api/usuarios/cuentas?email=...}: el rol de una cuenta
      * verificada, para otros servicios (rol {@code servicio}). Devuelve solo
      * el email y el rol, nada más de la cuenta. 404 si no hay una cuenta
@@ -163,6 +153,16 @@ public class UsuariosResource {
                 usuarios.rolDeLaCuenta(email));
     }
 
+    /**
+     * Un usuario por su id, para otros servicios (rol {@code servicio}): lo usa
+     * Notificaciones, que del mensaje de la compra tiene el {@code compradorId}
+     * y necesita su email para mandarle el aviso.
+     *
+     * Es una ruta con parámetro y convive con las fijas ({@code yo},
+     * {@code jwks}, {@code login}…) porque JAX-RS prefiere la literal, y
+     * además ningún id puede chocar con ellas: todos tienen la forma
+     * {@code user-3f9a1c2b}.
+     */
     @GET
     @Path("{usuarioId}")
     @RolesAllowed("servicio")
