@@ -4,11 +4,12 @@
 # Etapa 1: Maven compila y arma el servidor (servidor/target/server) igual que dev.sh.
 # Los tests no corren acá: corren en el CI (mvn verify). La caché de ~/.m2 la guarda
 # BuildKit entre construcciones, así la segunda vez no vuelve a bajar WildFly.
+# -T 1C arma los módulos en paralelo, un hilo por núcleo: los servicios no dependen entre sí.
 FROM maven:3.9-eclipse-temurin-25 AS armado
 WORKDIR /fuente
 COPY . .
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -B -q -DskipTests install
+    mvn -B -q -T 1C -DskipTests install
 
 # Etapa 2: solo un JRE 25 y el servidor ya armado.
 FROM eclipse-temurin:25-jre
