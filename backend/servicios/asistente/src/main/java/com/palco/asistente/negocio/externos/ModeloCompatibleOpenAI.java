@@ -115,7 +115,10 @@ public class ModeloCompatibleOpenAI implements ModeloDeLenguaje {
     static String datosDePalco() {
         return "Datos de Palco que podés usar (no inventes otros):\n"
                 + "- Se compran hasta " + ReglasDeNegocio.MAX_ENTRADAS_POR_ORDEN + " entradas por compra y hasta "
-                + ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO + " por persona y evento.\n"
+                + ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO + " por persona y evento, sumando todas sus compras."
+                + " Cada DNI puede tener una sola entrada por evento.\n"
+                + "- Una compra se cancela solo mientras no se pagó (Cancelar compra, en el checkout); ya paga no"
+                + " se cancela: si no podés ir, se publica en la reventa oficial.\n"
                 + "- Al comprar, los lugares quedan reservados " + ReglasDeNegocio.MINUTOS_RESERVA
                 + " minutos para pagar.\n"
                 + "- El cargo de servicio es el " + ReglasDeNegocio.TASA_SERVICIO_PORCENTAJE + " % del subtotal.\n"
@@ -126,7 +129,8 @@ public class ModeloCompatibleOpenAI implements ModeloDeLenguaje {
                 + ReglasDeNegocio.HORAS_LIMITE_REVENTA + " horas antes del evento. Se publica y se retira desde"
                 + " Mis entradas; cuando se vende, el QR anterior deja de servir.\n"
                 + "- Si se cancela un evento, la compra se anula, se devuelve el dinero y se avisa por email.\n"
-                + "- La factura se emite sola después de pagar y se ve con su número y CAE en el detalle de la compra.\n"
+                + "- La factura se emite sola después de pagar y se ve en Mis entradas, con el botón Ver factura:"
+                + " tiene su número y el CAE de ARCA.\n"
                 + "- Las compras y las entradas, con su estado y su QR, están en Mis entradas.";
     }
 

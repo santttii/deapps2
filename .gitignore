@@ -30,3 +30,4 @@ target/
 # Pruebas E2E del frontend (Playwright): resultados y reporte HTML de cada corrida
 frontend/test-results/
 frontend/playwright-report/
+*.patch
