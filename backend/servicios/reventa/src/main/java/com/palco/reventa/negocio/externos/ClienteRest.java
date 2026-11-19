@@ -32,8 +32,8 @@ import com.palco.common.seguridad.TokenDeServicio;
  * para todos.
  *
  * <ul>
- * <li>Tiempos de espera: 2 segundos para conectar y 10 para leer (Pagos
- * espera a su pasarela).</li>
+ * <li>Tiempos de espera: 2 segundos para conectar y 5 para leer. Pasado ese
+ * tiempo la llamada falla y Reventa responde con su error, sin quedar colgada.</li>
  * <li>Si el servicio llamado responde 401, el token guardado dejó de servir
  * (pasa cuando se redespliega Usuarios): se pide uno nuevo y se reintenta una
  * sola vez. Un 401 es anterior a la operación, así que repetir no la hace dos

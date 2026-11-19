@@ -60,10 +60,10 @@ class PublicacionesEnH2Test {
         em = fabrica.createEntityManager();
         repositorio = con(em);
         enTransaccion(em, () -> {
-            repositorio.guardar(new Publicacion("R-1", "T-1", "U-vendedor", "ev-1", "sec-1", "Campo", 50_000, 55_000,
-                    AHORA.minusDays(1)));
-            repositorio.guardar(new Publicacion("R-2", "T-2", "U-vendedor", "ev-1", "sec-1", "Campo", 50_000, 40_000,
-                    AHORA.minusDays(1)));
+            repositorio.guardar(new Publicacion("R-1", "T-1", "U-vendedor", "ev-1", "sec-1", "Campo", 50_000, 50_000,
+                    55_000, AHORA.minusDays(1)));
+            repositorio.guardar(new Publicacion("R-2", "T-2", "U-vendedor", "ev-1", "sec-1", "Campo", 50_000, 50_000,
+                    40_000, AHORA.minusDays(1)));
             return null;
         });
     }
@@ -107,7 +107,7 @@ class PublicacionesEnH2Test {
         assertTrue(enTransaccion(em, () -> repositorio.tomar("R-2", "U-a", "k1", "Ana Gómez", "30111222", AHORA)));
         enTransaccion(em, () -> {
             repositorio.guardar(new Publicacion("R-3", "T-3", "U-vendedor", "ev-2", "sec-2", "Campo", 50_000, 50_000,
-                    AHORA.minusDays(1)));
+                    50_000, AHORA.minusDays(1)));
             return null;
         });
 

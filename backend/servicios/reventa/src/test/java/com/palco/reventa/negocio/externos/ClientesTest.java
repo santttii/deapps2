@@ -216,4 +216,32 @@ class ClientesTest {
         assertEquals(LocalDateTime.of(2026, 12, 1, 20, 30), eventos.fechaDelEvento("ev-2"));
         assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> eventos.fechaDelEvento("ev-9"));
     }
+
+    @Test
+    void eventosBuscaElPrecioDeListaDelSectorEnElCatalogo() {
+        ClienteDeEventos eventos = new ClienteDeEventos();
+        eventos.rest = rest;
+        when(rest.llamar(eq("GET"), eq(ClienteDeEventos.RUTA), anyMap(), anyMap(), any()))
+                .thenReturn(new Respuesta(200, "[{\"id\":\"ev-1\",\"fechaISO\":\"2026-11-20T21:00:00\",\"sectores\":["
+                        + "{\"id\":\"sec-1\",\"nombre\":\"Campo\",\"precio\":50000,\"cupo\":100,\"vendidas\":3},"
+                        + "{\"id\":\"sec-2\",\"nombre\":\"Platea\",\"precio\":80000,\"cupo\":50,\"vendidas\":0},"
+                        + "{\"id\":\"sec-3\",\"nombre\":\"Sin precio\"}]}]"));
+
+        assertEquals(80_000, eventos.precioDelSector("ev-1", "sec-2"));
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> eventos.precioDelSector("ev-1", "sec-9"));
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> eventos.precioDelSector("ev-9", "sec-1"));
+        // Sin precio no hay tope que calcular: es una respuesta que no se entiende, no un tope de 0.
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> eventos.precioDelSector("ev-1", "sec-3"));
+    }
+
+    @Test
+    void siEventosNoEntregaElCatalogoElPrecioEsSinRespuestaComoLaFecha() {
+        ClienteDeEventos eventos = new ClienteDeEventos();
+        eventos.rest = rest;
+        when(rest.llamar(eq("GET"), eq(ClienteDeEventos.RUTA), anyMap(), anyMap(), any()))
+                .thenReturn(new Respuesta(503, null));
+
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> eventos.fechaDelEvento("ev-1"));
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> eventos.precioDelSector("ev-1", "sec-1"));
+    }
 }
