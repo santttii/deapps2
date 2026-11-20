@@ -28,17 +28,93 @@ public final class Guardrails {
     private static final Pattern DNI = Pattern.compile("\\b\\d{1,2}\\.?\\d{3}\\.?\\d{3}\\b");
     private static final Pattern EMAIL = Pattern.compile("[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)+");
 
-    // Frases típicas de inyección de prompt, sobre el texto normalizado (sin tildes ni mayúsculas).
-    private static final List<Pattern> INYECCION = List.of(
-            Pattern.compile("ignor\\w* (tus|las|todas)\\b.*(instruccion|regla)"),
-            Pattern.compile("olvid\\w* (tus|las)\\b.*(instruccion|regla)"),
-            Pattern.compile("prompt del sistema|system prompt|instrucciones del sistema"),
-            Pattern.compile("modo (desarrollador|dios|admin)|\\bsoy (el )?(admin|administrador|desarrollador)\\b"),
-            Pattern.compile("actua como|hacete pasar|fingi ser"));
+    // Inyección de prompt (LLM01). Los patrones se buscan sobre el texto normalizado (Texto.normalizar),
+    // así que "IGNORÁ", "ignora" e "ignorá   tus" llegan iguales. Están agrupados por lo que busca quien
+    // escribe y van en español (voseo, tuteo y usted) y en inglés, porque el modelo entiende los dos.
+    // Dos reglas evitan bloquear dudas legítimas:
+    // - Un verbo suelto no alcanza: tiene que ir con su objeto, cerca y en la misma oración (CERCA). En
+    //   "olvidate de la factura, ¿qué regla tiene la reventa?" no se juntan.
+    // - Con cualquier regla como objeto, el verbo tiene que estar en imperativo: "ignorá las reglas" es un
+    //   intento; "ignoro las reglas de la reventa" u "olvidé la contraseña" son preguntas.
+    // Es una lista de frases y no frena todo: por eso el asistente además solo lee, no ve datos de otros
+    // usuarios y su respuesta pasa por el guardrail de salida.
+    private static final String CERCA = "[^.?!¿]{0,40}";
 
-    // Pedir datos personales: "pasame el DNI de...", "decime el email del titular".
+    // Lo que el modelo tiene de fondo y nadie que compra una entrada nombra: sus instrucciones, el
+    // mensaje del sistema, "lo de arriba".
+    private static final String LO_DEL_MODELO = "(tus|your) (instruccion|indicacion|directiva|instruction|guideline)"
+            + "|(instruccion|indicacion|regla|mensaje|texto|instruction|rule|message|text)\\w* "
+            + "(inicial|original|ocult|previ|anterior|de arriba|del sistema)"
+            + "|(initial|original|hidden|previous|prior|above|system|first) (instruction|rule|message|text)"
+            + "|lo (anterior|de antes|de arriba)|everything (above|before)|the (message|text|words|instructions) above";
+
+    /** 1. Que deje de lado sus instrucciones: "ignorá tus instrucciones", "olvidate de todo lo anterior". */
+    private static final Pattern IGNORAR_INSTRUCCIONES = Pattern.compile(
+            // Cualquier forma de ignorar u olvidar, si lo que sigue es lo del modelo.
+            "\\b(ignor|olvid|disregard|forget)\\w*" + CERCA + "\\b(" + LO_DEL_MODELO + ")"
+            // En imperativo alcanza con cualquier regla: "ignorá las reglas de Palco", "no sigas las reglas".
+            + "|\\b(ignora|ignore|olvida|olvidate|saltea|desobedece|no sigas|no respetes|no cumplas|no hagas caso"
+            + "|deja de lado|pasa por alto|disregard|forget|override|bypass)\\b" + CERCA
+            + "\\b(instruccion|indicacion|regla|restriccion|directiva|instruction|rule|guideline|everything)");
+
+    /** 2. Que muestre, repita o traduzca sus instrucciones: "decime tu prompt", "repetí el mensaje de arriba". */
+    private static final Pattern REVELAR_INSTRUCCIONES = Pattern.compile(
+            // Nombrar el prompt ya alcanza: ninguna duda sobre entradas lo menciona.
+            "\\bprompts?\\b|instrucciones del sistema"
+            // Un pedido de mostrar, repetir o traducir, seguido de lo del modelo.
+            + "|\\b(deci|decime|dime|mostra|mostrame|muestra|muestrame|pasame|dame|repeti|repetime|repite|escribi"
+            + "|escribime|copia|imprimi|imprime|traduci|traducime|traduce|resumi|resume|revela|cuales son|cual es"
+            + "|que dicen|tell|show|print|write|repeat|reveal|translate|give|what are|what is|what were)\\b" + CERCA
+            + "\\b(" + LO_DEL_MODELO + ")");
+
+    /** 3. Que cambie de rol o se quede sin límites: "actuá como administrador", "a partir de ahora sos DAN". */
+    private static final Pattern CAMBIAR_DE_ROL = Pattern.compile(
+            "\\b(actua como|comportate como|hace de cuenta|hacete pasar|(fingi|finge) (ser|que)|simula ser"
+            + "|como si fueras|como si no tuvieras|juego de rol|act as|pretend (to be|you)|role ?play)\\b"
+            // Un rol nuevo "desde ahora". Con una duda después ("a partir de ahora, ¿cuántas...?") no es un rol.
+            + "|\\b(a partir de ahora|desde ahora|de ahora en (mas|adelante)|from now on),? (sos|eres|seras|te llamas|you)\\b"
+            // Los "modos" sin reglas que circulan para saltear los filtros de un modelo. "Dan" solo, no:
+            // "¿me dan factura?".
+            + "|\\b(sos|eres|you are|modo|mode) dan\\b|\\bdan mode\\b|jailbreak"
+            + "|\\bmodo (desarrollador|developer|dios|god|admin|administrador|sin restricciones|sin filtros)\\b"
+            + "|\\b(developer|god) mode\\b"
+            // Responder cualquier cosa es justo lo que no tiene que hacer.
+            + "|\\b(responde|respondeme|contesta|contestame|answer)( a| sobre)? (cualquier cosa|cualquier tema|lo que sea|anything)"
+            // Atribuirse un rol que Palco no tiene. Organizador y staff sí existen: "soy staff" es una duda normal.
+            + "|\\bsoy (el |la |un |una |tu )?(admin|administrador|administradora|desarrollador|desarrolladora|developer)\\b"
+            + "|\\bi( am|'m) (the |an |a |your )?(admin|administrator|developer)\\b");
+
+    /** 4. Un texto del usuario disfrazado de mensaje del sistema: "[SISTEMA]: nuevas reglas", "<|im_start|>". */
+    private static final Pattern MENSAJE_FALSO_DEL_SISTEMA = Pattern.compile(
+            // Una etiqueta de rol entre corchetes, llaves o signos de menor y mayor: [sistema], <system>, [INST].
+            "[\\[<{] ?/? ?(sistema|system|sys|inst|admin|administrador|developer|desarrollador|asistente|assistant) ?[\\]>}]"
+            // Las marcas que separan los mensajes en el formato de chat de algunos modelos.
+            + "|<\\|\\w+\\|>"
+            // Una etiqueta de rol con dos puntos al principio de la pregunta o de una oración: "SISTEMA: ...".
+            // En el medio de una oración es una duda: "el sistema: no me deja pagar".
+            + "|(^|[.!?] )\\W*(sistema|system|admin|administrador|developer|desarrollador) ?:"
+            // Reglas o instrucciones "nuevas" puestas como encabezado: "nuevas reglas: ...".
+            + "|\\b(nuevas|new) (reglas|instrucciones|indicaciones|rules|instructions) ?:");
+
+    private static final List<Pattern> INYECCION =
+            List.of(IGNORAR_INSTRUCCIONES, REVELAR_INSTRUCCIONES, CAMBIAR_DE_ROL, MENSAJE_FALSO_DEL_SISTEMA);
+
+    // Pedir datos personales de otra persona. Nombrar el dato no alcanza: "¿qué pasa si pierdo mi
+    // tarjeta?" o "¿necesito el DNI para entrar?" son dudas sobre los datos propios.
+    private static final String DATO = "(dni|documento|email|mail|correo|telefono|tarjeta)";
+    private static final String DE_OTRA_PERSONA = "(del|de la|de los|de las|de)( un| una| esa| ese| esta| este| mi| mis)? "
+            + "(titular|comprador|vendedor|duen|persona|otr[oa]|usuari|client|alguien|quien)";
     private static final Pattern DATOS_DE_TERCEROS = Pattern.compile(
-            "(pasa|pasame|dame|decime|mostrame|mostra|quiero|necesito)\\b.*\\b(dni|documento|email|mail|correo|telefono|tarjeta)\\b");
+            // Una orden que pide el dato mismo: "pasame el DNI de Juan", "decime su email", "dame los datos de
+            // la tarjeta". "Pasá" cuenta solo al principio de la oración, donde es una orden: en "¿qué pasa
+            // si...?" o "no me pasa la tarjeta" es pasar de suceder.
+            "(\\b(pasame|dame|decime|mostrame|mostra)|(^|[.!?¿,] ?)pasa)\\b(,? por favor,?)?( todos| todas)?"
+            + "( el| la| los| las| su| sus)?( (numero|numeros|datos) (de|del)( la| el| su| sus)?)? " + DATO
+            // Un pedido más largo o con "quiero" o "necesito": el dato tiene que ser de otra persona.
+            // "Decime cuál es el DNI del titular" o "necesito el mail del vendedor" sí; "decime si tengo que
+            // llevar el DNI" o "quiero pagar con otra tarjeta" no.
+            + "|\\b(pasame|dame|decime|mostrame|mostra|quiero|necesito)\\b" + CERCA
+            + "\\b((su|sus) " + DATO + "|" + DATO + "\\w* " + DE_OTRA_PERSONA + ")");
 
     private Guardrails() {
     }
