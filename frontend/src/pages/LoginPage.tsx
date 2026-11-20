@@ -134,9 +134,9 @@ export default function LoginPage() {
               <p className="font-mono-label mb-2 text-ink">Usuarios de prueba</p>
               {/* Sin mayúsculas: la contraseña se tipea así. */}
               <div className="font-mono">
-                <p>titular@palco.test / palco1234 — user</p>
-                <p>organizador@palco.test / palco1234 — organizer</p>
-                <p>puerta@palco.test / palco1234 — staff</p>
+                <p>titular@palco.test / palco1234 (user)</p>
+                <p>organizador@palco.test / palco1234 (organizer)</p>
+                <p>puerta@palco.test / palco1234 (staff)</p>
               </div>
             </div>
           )}

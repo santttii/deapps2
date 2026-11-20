@@ -64,10 +64,10 @@
         <mxCell id="layer_ext" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#888780;verticalAlign=top;fontStyle=1;fontSize=13;align=left;spacingLeft=10;spacingTop=6;" value="SISTEMAS EXTERNOS / INTEGRACIÓN" vertex="1">
           <mxGeometry height="100" width="760" x="40" y="540" as="geometry" />
         </mxCell>
-        <mxCell id="c_afip" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAECE7;strokeColor=#D85A30;" value="AFIP / ARCA&#xa;SOAP — sistema legado" vertex="1">
+        <mxCell id="c_afip" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAECE7;strokeColor=#D85A30;" value="AFIP / ARCA&#xa;SOAP, sistema legado" vertex="1">
           <mxGeometry height="50" width="220" x="60" y="590" as="geometry" />
         </mxCell>
-        <mxCell id="c_mp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAECE7;strokeColor=#D85A30;" value="Mercado Pago&#xa;REST — partner moderno" vertex="1">
+        <mxCell id="c_mp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAECE7;strokeColor=#D85A30;" value="Mercado Pago&#xa;REST, partner moderno" vertex="1">
           <mxGeometry height="50" width="220" x="310" y="590" as="geometry" />
         </mxCell>
         <mxCell id="c_broker" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAECE7;strokeColor=#D85A30;" value="Broker (ActiveMQ/RabbitMQ)&#xa;colas y tópicos" vertex="1">

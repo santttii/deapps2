@@ -6,7 +6,7 @@ export default function Footer() {
           Palco<span className="text-accent">.</span>
         </p>
         <p className="mt-2 max-w-md text-sm text-muted">
-          Entradas nominativas y reventa oficial con tope de +10%. Proyecto académico —
+          Entradas nominativas y reventa oficial con tope de +10%. Proyecto académico:
           eventos, venues y artistas ficticios.
         </p>
       </div>

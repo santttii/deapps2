@@ -1,4 +1,4 @@
-# Palco — TODO
+# Palco: TODO
 
 Lista de trabajo para pasar de la demo solo frontend a un sistema real con
 backend. Está ordenada por fases: cada fase depende, en general, de las
@@ -21,23 +21,23 @@ entregas está en la sección 22 del documento maestro y, resumido, en
 Desarrollo de Aplicaciones II. Grupo: Deya, Frisoli, Loto, Molina, Zuchowicki.
 La cátedra aceptó el grupo de cinco el 16/10.
 
-- **Entrega Parcial N.º 1 — Arquitectura general** (exposición 18/09):
+- **Entrega Parcial N.º 1: Arquitectura general** (exposición 18/09):
   arquitectura en tres capas, 8 componentes de negocio con una interfaz cada
   uno, stack Jakarta EE sobre WildFly.
-- **Taller — Arquitectura de integración**: bus de integración (ESB
+- **Taller (arquitectura de integración)**: bus de integración (ESB
   conceptual, sin producto dedicado) apoyado en el broker JMS y en clientes
   SOAP/REST detrás de interfaces propias (`IPagos`, `IFacturacion`).
   `ServicioDeUsuarios` es el servicio reutilizable (principio SOA).
-- **Taller — Escenario de mensajería**: el evento `PAGO_CONFIRMADO` se publica
+- **Taller (escenario de mensajería)**: el evento `PAGO_CONFIRMADO` se publica
   en una cola (emisión de entradas) y en un tópico (notificaciones y
-  auditoría). Ver [Fase 6](#fase-6--mensajería-jms-pago-confirmado).
+  auditoría). Ver [Fase 6](#fase-6-mensajería-jms-pago-confirmado).
 
 ### Stack definido
 
 | Capa | Tecnología |
 |---|---|
-| Presentación | React (SPA) consumiendo la API REST — es el front de este repo |
-| Negocio | Jakarta EE — EJB + CDI, Session Beans desplegados en WildFly |
+| Presentación | React (SPA) consumiendo la API REST; es el front de este repo |
+| Negocio | Jakarta EE: EJB + CDI, Session Beans desplegados en WildFly |
 | Datos | JPA + Hibernate, un repositorio por entidad |
 | API REST propia | JAX-RS |
 | Integración | JAX-WS (ARCA simulado, SOAP) · cliente JAX-RS (Pagos por REST; Mercado Pago quedó como diseño) · JMS (ActiveMQ Artemis) |
@@ -60,7 +60,7 @@ hablan solo por interfaz, nunca contra la implementación del otro.
 
 ---
 
-## Fase 0 — Decisiones y setup
+## Fase 0. Decisiones y setup
 
 - [x] `ServicioDeEventos`: no hay código previo, se arranca de cero.
 - [x] Versiones: **Java 25 (LTS)** y **WildFly 41** (Jakarta EE 11).
@@ -122,7 +122,7 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       Mailtrap ni certificados de ARCA porque esas integraciones son
       simuladas. `VITE_API_URL` es del frontend.
 
-## Fase 1 — Base de datos y entidades
+## Fase 1. Base de datos y entidades
 
 - [x] Entidades JPA: `Usuario`, `CodigoVerificacion`, `IntentoLogin`,
       `Evento`, `Sector`, `DevolucionDeCupo`, `Venta`, `VentaItem`, `Entrada`,
@@ -157,7 +157,7 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       cuentas de prueba. Las publicaciones de reventa no se cargan: se crean
       desde la pantalla o los escenarios.
 
-## Fase 2 — `ServicioDeUsuarios` (servicio reutilizable)
+## Fase 2. `ServicioDeUsuarios` (servicio reutilizable)
 
 - [x] Interfaz `IUsuarios` y Session Bean `@Stateless`.
 - [x] `POST /api/usuarios/registro`: valida datos (mismas reglas que
@@ -213,7 +213,7 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       trabajo. SEC-W05 queda "parcial, vigencia justificada" y la prueba
       SEC-W05c de Postman comprueba que el token dura 8 horas.
 
-## Fase 3 — `ServicioDeEventos`
+## Fase 3. `ServicioDeEventos`
 
 - [x] Interfaz `IEventos` y Session Bean `@Stateless` con las operaciones de
       la Entrega 1 (`crearEvento`, `listarEventos`, `obtenerDetalle`,
@@ -238,7 +238,7 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       entradas. Un evento que ya empezó o está cancelado no se edita.
 - [x] Cancelar evento (30/10): `POST /api/eventos/{eventoId}/cancelacion`,
       solo el dueño. Es el segundo proceso asincrónico de punta a punta; el
-      detalle está en la [Fase 6](#fase-6--mensajería-jms-pago-confirmado).
+      detalle está en la [Fase 6](#fase-6-mensajería-jms-pago-confirmado).
       El evento no se borra: sale del catálogo, su detalle sigue respondiendo
       con el motivo, no se le vende más y no se edita. Cancelar dos veces da
       409 `evento-cancelado`, y así nadie reembolsa dos veces. Migración V7.
@@ -261,7 +261,7 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       el proyecto en Supabase todavía no existe.
 - [ ] El input de imagen en el alta y la edición del frontend (el backend ya está).
 
-## Fase 4 — `ServicioDeVentas` (stateful) y `ServicioDePagos`
+## Fase 4. `ServicioDeVentas` (stateful) y `ServicioDePagos`
 
 - [x] Interfaz `IVentas` como `@Stateful` (`iniciarCompra`,
       `confirmarCompra`, `cancelarCompra`): mantiene los titulares entre
@@ -301,7 +301,7 @@ hablan solo por interfaz, nunca contra la implementación del otro.
       reembolsa (por ejemplo, con un evento cancelado).
 - [ ] "Asignar después por link" para que otro titular complete sus datos.
 
-## Fase 5 — `ServicioDeFacturación` (ARCA, simulado)
+## Fase 5. `ServicioDeFacturación` (ARCA, simulado)
 
 Diseño decidido el 16/10, todo simulado (la cátedra aceptó que la integración
 con ARCA sea simulada por ahora). Reusa el tópico, la suscripción durable y los
@@ -330,7 +330,7 @@ Probado en el servidor el 16/10 (escenario 15).
   (WSAA y WSFEv1), el ambiente de homologación con certificado y la espera de
   5 segundos con cola de reintento.
 
-## Fase 6 — Mensajería JMS: pago confirmado
+## Fase 6. Mensajería JMS: pago confirmado
 
 Según el taller: el mismo evento se publica en una **cola** y en un **tópico**.
 
@@ -457,7 +457,7 @@ que es el que trae a quién avisarle y cuánto se le devolvió.
 - [x] Reintentos de factura (Fase 5): los hace el broker con los reintentos
       que ya existen (decisión del 16/10), sin cola aparte.
 
-## Fase 7 — `ServicioDeReventa`
+## Fase 7. `ServicioDeReventa`
 
 Implementado y probado en el servidor (escenarios 17, 19 y 20 y carpeta 6 de
 Postman). Reventa guarda las publicaciones; las entradas siguen en Ventas, que
@@ -491,7 +491,7 @@ las publica, retira y transfiere por REST con el token de servicio.
 - [ ] Liquidación al vendedor.
 - [ ] Diagrama de secuencia de la reventa (a reasignar; punto 5 de 22.1).
 
-## Fase 8 — `ServicioDeValidación` (stateless)
+## Fase 8. `ServicioDeValidación` (stateless)
 
 Implementado y probado en el servidor por la API el 16/10 (escenario 16 y
 carpeta 5 de Postman).
@@ -529,7 +529,7 @@ carpeta 5 de Postman).
       `SIN_RESPUESTA`; hoy solo con tests).
 - [ ] Modo offline: fuera del alcance de esta etapa.
 
-## Fase 9 — Panel del organizador
+## Fase 9. Panel del organizador
 
 - [x] Panel conectado: entradas vendidas, recaudado y cupo salen de Eventos;
       las publicaciones activas, de Reventa; la ocupación por sector, de
@@ -551,7 +551,7 @@ carpeta 5 de Postman).
 - [ ] (Opcional) Dashboard de analytics como nuevo suscriptor de
       `topico.compra-confirmada`.
 
-## Fase 10 — Conexión frontend ↔ backend
+## Fase 10. Conexión frontend ↔ backend
 
 - [x] Cliente HTTP en `src/lib/api.ts`: base URL desde `VITE_API_URL`, manejo
       de errores (Problem Details: `{type, title, status, detail, errores}`) y
@@ -607,7 +607,7 @@ carpeta 5 de Postman).
 - [x] Datos fijos: `src/data/listings.ts` y `organizer.ts` ya no existen;
       `events.ts` solo tiene las fotos locales.
 
-## Fase 11 — Pruebas
+## Fase 11. Pruebas
 
 ### Backend
 - [x] JUnit 5 + Mockito para la lógica de cada Session Bean, con las
@@ -672,7 +672,7 @@ carpeta 5 de Postman).
       cancela (`organizador.spec.ts`).
 - [x] Accesos por rol (`sesion.spec.ts`).
 
-## Fase 12 — Seguridad
+## Fase 12. Seguridad
 
 - [x] Bean Validation en los DTOs de entrada.
 - [x] `@RolesAllowed` en cada operación según rol; las internas, solo con rol
@@ -716,7 +716,7 @@ carpeta 5 de Postman).
 - [x] DTD y entidades externas deshabilitadas al procesar XML en Facturación
       (SEC-I01).
 
-## Fase 13 — Infraestructura y deploy
+## Fase 13. Infraestructura y deploy
 
 - [x] CI (GitHub Actions, `.github/workflows/ci.yml`): gitleaks; `mvn -B verify`
       con JaCoCo y la tabla de cobertura en el resumen de la corrida; lint y
@@ -730,7 +730,7 @@ carpeta 5 de Postman).
 - [ ] Monitoreo: métricas de WildFly, tamaño de colas y DLQ, logs.
 - [ ] Dominio y HTTPS.
 
-## Fase 14 — Pendientes del frontend actual
+## Fase 14. Pendientes del frontend actual
 
 No dependen del backend.
 
@@ -760,14 +760,14 @@ la cátedra".
 
 | Viernes | Hito del cronograma | Qué pide la consigna | Estado (al 23/10, salvo que diga otra fecha) | Fases |
 |---|---|---|---|---|
-| 04/09 | 1.er check point TPO | Entrega Parcial N.º 1 (31/08): componentes candidatos con su interfaz, diagrama de arquitectura, stack y un componente desplegado. Sin defensa | Ya pasó | — |
-| 18/09 | 1.ª entrega parcial | Entrega Obligatoria N.º 1 (14/09): tres componentes desplegados, uno stateful y uno stateless, tres patrones, seguridad declarativa y documento de 5 a 8 páginas. Con defensa oral | Ya pasó | — |
+| 04/09 | 1.er check point TPO | Entrega Parcial N.º 1 (31/08): componentes candidatos con su interfaz, diagrama de arquitectura, stack y un componente desplegado. Sin defensa | Ya pasó | No aplica |
+| 18/09 | 1.ª entrega parcial | Entrega Obligatoria N.º 1 (14/09): tres componentes desplegados, uno stateful y uno stateless, tres patrones, seguridad declarativa y documento de 5 a 8 páginas. Con defensa oral | Ya pasó | No aplica |
 | **23/10**, sin confirmar | No figura con nombre: ese día hay clase | Entrega Parcial N.º 2 (19/10), checkpoint formativo sin defensa: diagrama de arquitectura de integración (SOA); clasificación justificada de cada integración externa en síncrona (SOAP o REST) o asincrónica (cola o tópico); y un proceso de negocio de punta a punta con mensajería real y broker configurado | Documento, diagrama y evidencia en `docs/entrega3/`, congelados en el tag `entrega-parcial-2` (14/10). La subida la confirma el grupo | 2, 3, 4 y 6 |
 | **06/11** | Entrega del diseño del TP Obligatorio | La consigna no la nombra. La cátedra respondió el 16/10 que la documentación es técnica, con diagramas de casos de uso y casos de uso, sin Figma ni manual de usuario | Hechos: el diagrama de casos de uso con los casos de uso (13.9), siete diagramas de secuencia, el WSDL y `docs/api/openapi.yaml` al día. Faltan los diagramas de secuencia de autenticación y de reventa, el diagrama SOA actualizado y el borrador del documento técnico; se sube el jueves 05/11 | 5 y 11 |
-| **13/11** | 2.ª Entrega PARCIAL | Entrega Obligatoria N.º 2 — 2.º Parcial (09/11), con defensa oral de 20 a 25 minutos y nota mínima 4. Hay que entregar: dos procesos con mensajería de punta a punta (uno por cola y uno por tópico); un servicio SOAP con su WSDL, justificado como sistema legado; un servicio REST (partner moderno o API de consumo externo); transacciones declarativas en un flujo crítico de varios pasos; documento técnico actualizado, de 8 a 12 páginas de contenido (sin contar los anexos, confirmado el 16/10), con un diagrama de secuencia por integración; y la declaración del uso de IA. Hay que defender: una demo que cruce componentes, mensajería y servicios web; por qué cada integración es síncrona o asincrónica; y qué pasa con la transacción si algo falla a mitad del flujo | Hecho y probado en el servidor: la cola (emisión) y el tópico (aviso, auditoría y factura), el SOAP con su WSDL (ARCA simulado), la API REST propia, la transacción declarativa que confirma la compra y la prueba repetible de una falla a mitad del flujo (escenario 14). Desde el 30/10 hay un **segundo proceso asincrónico** completo: cancelar un evento (Eventos → Ventas → reembolso en Pagos → aviso y auditoría), que cubre de sobra los "dos procesos con mensajería" que pide la consigna; le falta correrlo en el servidor. Faltan el documento técnico con los dos diagramas de secuencia pendientes y el de la cancelación, la declaración del uso de IA (la escribe el grupo) y la demo recorrida en el navegador | 4, 5, 6 y 11 |
+| **13/11** | 2.ª Entrega PARCIAL | Entrega Obligatoria N.º 2 (2.º Parcial, 09/11), con defensa oral de 20 a 25 minutos y nota mínima 4. Hay que entregar: dos procesos con mensajería de punta a punta (uno por cola y uno por tópico); un servicio SOAP con su WSDL, justificado como sistema legado; un servicio REST (partner moderno o API de consumo externo); transacciones declarativas en un flujo crítico de varios pasos; documento técnico actualizado, de 8 a 12 páginas de contenido (sin contar los anexos, confirmado el 16/10), con un diagrama de secuencia por integración; y la declaración del uso de IA. Hay que defender: una demo que cruce componentes, mensajería y servicios web; por qué cada integración es síncrona o asincrónica; y qué pasa con la transacción si algo falla a mitad del flujo | Hecho y probado en el servidor: la cola (emisión) y el tópico (aviso, auditoría y factura), el SOAP con su WSDL (ARCA simulado), la API REST propia, la transacción declarativa que confirma la compra y la prueba repetible de una falla a mitad del flujo (escenario 14). Desde el 30/10 hay un **segundo proceso asincrónico** completo: cancelar un evento (Eventos → Ventas → reembolso en Pagos → aviso y auditoría), que cubre de sobra los "dos procesos con mensajería" que pide la consigna; le falta correrlo en el servidor. Faltan el documento técnico con los dos diagramas de secuencia pendientes y el de la cancelación, la declaración del uso de IA (la escribe el grupo) y la demo recorrida en el navegador | 4, 5, 6 y 11 |
 | **20/11** | 3.er Check point TPO | La consigna no lo nombra. La cátedra pidió: integraciones SOAP, REST y mensajería funcionando; resiliencia (timeout de 5 s con fallback, consumidores idempotentes y DLQ, sin pérdida de mensajes si se apaga el broker, `Idempotency-Key` y `ETag`, errores en Problem Details); la IA a través de su gateway; CI con reporte de cobertura parcial; primera versión del plan de pruebas, de la matriz de trazabilidad y del manual de usuario; y Jira al día | Al 19/11: hecho y con evidencia en el repo, salvo el tablero, que está fuera del repo. Detalle en "3.er check point (20/11): estado al 19/11" | 6, 11 y 13 |
 | **27/11** | Prueba del TP Obligatorio | La consigna no la nombra así: qué se hace ese día, a confirmar con la cátedra. Se toma como límite para lo que pide la Entrega Final (30/11 en el detalle de la consigna): sistema completo que cumpla el checklist de la sección 6; documentación final de 10 a 15 páginas; historial de git incremental y con participación visible de todos; demo completa, preguntas individuales y reflexión del equipo (los aprendizajes los escribe el grupo) | Los 8 componentes están implementados. Desde el 30/10 el backend tiene también editar y cancelar evento con reembolsos, recuperar contraseña, el envío de emails, la subida de imágenes y las ventas por día. Faltan: las pantallas de esas seis cosas en el frontend, las pruebas del frontend y de punta a punta, la base y el bucket en Supabase, la documentación final, recorrer en el navegador el panel y la puerta, y que en git se vea a los cinco (hoy no hay commits a nombre de Joaquin Molina) | 9 a 13 |
-| **04/12** | Final adelantado | El encabezado de la consigna da el 04/12 y el 11/12 para la Entrega Final. El grupo decidió el 16/10 defenderla el viernes 04/12 (final adelantado); el 11/12 (final regular) queda como alternativa | Decidido | — |
+| **04/12** | Final adelantado | El encabezado de la consigna da el 04/12 y el 11/12 para la Entrega Final. El grupo decidió el 16/10 defenderla el viernes 04/12 (final adelantado); el 11/12 (final regular) queda como alternativa | Decidido | No aplica |
 
 - El 16/10, el 23/10 y el 30/10 hay clase de "Desarrollo de una aplicación
   integrada", sin entrega con nombre.
@@ -791,19 +791,19 @@ maestro.
 |---|---|---|
 | Integraciones SOAP, REST y mensajería funcionando | Hecho | SOAP: escenario 15 (factura con CAE del ARCA simulado). REST: `node scripts/pruebas/escenarios.mjs`, 24 de 24 y 379 comprobaciones (`checkpoint-3/escenarios.txt`), y la colección de Postman, nueve carpetas sin fallas el 19/11 (`docs/api/GUIA_POSTMAN.md`). Mensajería: escenarios 7 a 13 (la compra, por cola y tópico) y 22 (la cancelación de un evento, por su tópico) |
 | Timeout de 5 s con fallback | Hecho | 2 s para conectar y 5 para leer en cada cliente REST y en el SOAP, con su fallback (tabla de la sección 8.8). `node scripts/pruebas/asistente.mjs`, parte C: con el modelo demorado 8 s, el fallback llega a los 5007 ms (`checkpoint-3/asistente.txt`). Escenarios 14, 18, 19 y 20 |
-| Consumidores idempotentes y DLQ | Hecho | Escenario 8 (mensaje repetido sin efecto) y 12 (mensaje inválido en la DLQ después de 5 entregas) |
-| Sin pérdida de mensajes si se apaga el broker | Hecho | `node scripts/pruebas/broker-apagado.mjs`: 10 de 10 (`checkpoint-3/broker-apagado.txt`) |
+| Consumidores idempotentes y DLQ | Hecho | Escenario 8 (mensaje repetido sin efecto) y 12 (mensaje inválido en la DLQ después de 5 entregas). Contra el compose, con el ARCA sin responder: la compra se emite igual, el mensaje de Facturación llega a la DLQ y, devuelto con `move-messages`, sale una sola factura, 29 de 29 (`checkpoint-3/arca-lento-dlq.txt`) |
+| Sin pérdida de mensajes si se apaga el broker | Hecho | `node scripts/pruebas/broker-apagado.mjs`: 10 de 10 (`checkpoint-3/broker-apagado.txt`). En el compose, el journal va en el volumen `datos-servidor` (ADR-005): con un mensaje pendiente, `docker compose down` y `up` no lo pierden, 16 de 16 (`checkpoint-3/broker-recreado.txt`) |
 | `Idempotency-Key` y `ETag` | Hecho | Escenario 2. `node scripts/pruebas/etag.mjs`: 19 de 19, 304 en los 10 GET con `ETag` y el 412 de `If-Match` (`checkpoint-3/etag.txt`). `PUT /api/eventos/{eventoId}` acepta `If-Match` y responde 412 si el evento cambió (`ServicioDeEventosTest`, sin fallas el 19/11) |
 | Errores en Problem Details | Hecho | `backend/common/src/main/java/com/palco/common/rest/ManejadoresDeErrores.java`; escenarios 4 y 5 |
-| IA a través de su gateway | Hecho, con el modelo simulado por defecto | `backend/servicios/asistente` (gateway `AsistenteIA`, sección 4.10). `node scripts/pruebas/asistente.mjs`: 11 de 11. `EvaluacionDelAsistenteTest`: 20 de 20 y 5 de 5 adversariales (`checkpoint-3/evaluacion-ia.txt`). `mvn -f backend/pom.xml -pl servicios/asistente -am test`: 23 tests, 0 fallas (19/11). Carpeta 9 de Postman |
-| CI con reporte de cobertura parcial | Hecho | `.github/workflows/ci.yml`: secretos, backend (`mvn -B verify` con JaCoCo y la tabla de `scripts/qa/cobertura.mjs` en el resumen), frontend, integración (los 9 `health`, el del asistente incluido, y los guiones de `scripts/pruebas/`) y E2E (`npm run e2e`). Cobertura: 78,4 % de las líneas con 870 tests (`checkpoint-3/cobertura.md`) |
+| IA a través de su gateway | Hecho, con el modelo simulado por defecto | `backend/servicios/asistente` (gateway `AsistenteIA`, sección 4.10). `node scripts/pruebas/asistente.mjs`: 11 de 11. `EvaluacionDelAsistenteTest`: 26 de 26 y 11 de 11 adversariales (`checkpoint-3/evaluacion-ia.txt`). `mvn -f backend/pom.xml -pl servicios/asistente -am test`: 115 tests, 0 fallas (19/11). Carpeta 9 de Postman |
+| CI con reporte de cobertura parcial | Hecho | `.github/workflows/ci.yml`: secretos, backend (`mvn -B verify` con JaCoCo y la tabla de `scripts/qa/cobertura.mjs` en el resumen), frontend, integración (los 9 `health`, el del asistente incluido, y los guiones de `scripts/pruebas/`) y E2E (`npm run e2e`). Cobertura: 78,4 % de las líneas (`checkpoint-3/cobertura.md`) |
 | Primera versión del plan de pruebas y de la matriz de trazabilidad | Hecho | `docs/testing/plan-de-pruebas.md`; `docs/testing/evidencia/matriz-de-trazabilidad.md`, que arma `scripts/qa/matriz.mjs`: 62 criterios, los 62 con caso y en verde |
 | Primera versión del manual de usuario | Hecho | `docs/manual/manual-de-usuario.md`, con capturas en `docs/manual/img/` |
 | Jira al día | Fuera del repo | El tablero se lleva en Notion y hay una exportación en el formato de Jira |
 
 Además del pedido: la suite E2E con Playwright (`frontend/e2e/`, `npm run e2e`: 17 de 17,
-`checkpoint-3/e2e.txt`), la carpeta 9 Asistente de la colección de Postman (166 requests y 541 tests
-sin fallas, `checkpoint-3/postman.txt`), el asistente probado por HTTP contra un proveedor local con la
+`checkpoint-3/e2e.txt`), la carpeta 9 Asistente de la colección de Postman (la corrida entera da 171 requests
+y 541 aserciones, sin fallas: `checkpoint-3/postman.txt`), el asistente probado por HTTP contra un proveedor local con la
 API de chat de OpenAI (29 de 29, `checkpoint-3/asistente-proveedor.txt`) y el diagrama de integración
 SOA al día (`docs/documentacion/diagramas/integracion-soa.svg`).
 

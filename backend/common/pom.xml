@@ -12,7 +12,7 @@
 
     <artifactId>palco-common</artifactId>
     <packaging>jar</packaging>
-    <name>Palco — common</name>
+    <name>Palco: common</name>
     <description>Lo que comparten todos los servicios: reglas de negocio, contratos de mensajes, manejo de errores REST, CORS, healthcheck y migraciones.</description>
 
     <dependencies>

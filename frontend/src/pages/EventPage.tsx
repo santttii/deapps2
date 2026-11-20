@@ -305,7 +305,7 @@ export default function EventPage() {
                     <p className="text-sm text-muted">{money(s.precio)}</p>
                   </div>
                   {agotado ? (
-                    <span className="font-mono-label text-[11px] text-faint">agotada · —</span>
+                    <span className="font-mono-label text-[11px] text-faint">agotada</span>
                   ) : (
                     <div className="flex items-center gap-3">
                       <button
@@ -315,7 +315,7 @@ export default function EventPage() {
                         onClick={() => ajustar(s.id, -1, cupoDisponible)}
                         className="flex h-9 w-9 items-center justify-center border border-edge disabled:opacity-30"
                       >
-                        –
+                        −
                       </button>
                       <span className="w-4 text-center text-sm">{cantidad}</span>
                       <button

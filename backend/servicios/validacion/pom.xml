@@ -12,7 +12,7 @@
 
     <artifactId>palco-validacion</artifactId>
     <packaging>war</packaging>
-    <name>Palco — ServicioDeValidación</name>
+    <name>Palco: ServicioDeValidación</name>
     <description>Valida autenticidad y uso único de la entrada en puerta (stateless). Interfaz: IValidacion.</description>
 
     <dependencies>

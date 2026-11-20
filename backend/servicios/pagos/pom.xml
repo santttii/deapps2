@@ -12,7 +12,7 @@
 
     <artifactId>palco-pagos</artifactId>
     <packaging>war</packaging>
-    <name>Palco — ServicioDePagos</name>
+    <name>Palco: ServicioDePagos</name>
     <description>Cobra los pagos contra una pasarela (hoy simulada; Mercado Pago después). Interfaz: IPagos.</description>
 
     <dependencies>

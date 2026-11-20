@@ -12,7 +12,7 @@
 
     <artifactId>palco-servidor</artifactId>
     <packaging>pom</packaging>
-    <name>Palco — servidor</name>
+    <name>Palco: servidor</name>
     <description>
         Arma un WildFly con todo lo que necesitan los servicios (base de datos, broker JMS)
         y despliega los 9 WAR de Palco. Resultado en target/server, listo para correr o hostear.

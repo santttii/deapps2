@@ -42,7 +42,7 @@ export default function StatCard({
       {error ? (
         <div role="alert" className="mt-2">
           <p className="text-3xl font-semibold tracking-tight text-muted" aria-hidden="true">
-            —
+            Sin dato
           </p>
           <p className="mt-1 text-xs text-muted">
             {error}{' '}

@@ -1,4 +1,4 @@
-# Palco — Entrega Parcial N.º 2: arquitectura de integración y primer proceso asincrónico
+# Palco, Entrega Parcial N.º 2: arquitectura de integración y primer proceso asincrónico
 
 **Desarrollo de Aplicaciones II (3.4.218) · UADE · 2.º cuatrimestre de 2026**
 

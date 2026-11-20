@@ -9,8 +9,8 @@ página no dependa de un servicio externo.
 | Archivo | Se usa en | Autor | Fuente |
 |---|---|---|---|
 | `atletico-norte-racing-sur.jpg` | Atlético Norte vs. Racing del Sur | sin dato | [rawpixel](https://www.rawpixel.com/image/5921928/photo-image-public-domain-free-game) |
-| `copa-federal-semifinal.jpg` | Copa Federal — Semifinal | sin dato | [rawpixel](https://www.rawpixel.com/image/3282256/free-photo-image-football-soccer-euro-2020) |
-| `kiroshi-tour-continental.jpg` | Kiroshi — Tour Continental | Josh Sorenson | [StockSnap](https://stocksnap.io/photo/people-crowd-XAOL9EYTV8) |
+| `copa-federal-semifinal.jpg` | Copa Federal (Semifinal) | sin dato | [rawpixel](https://www.rawpixel.com/image/3282256/free-photo-image-football-soccer-euro-2020) |
+| `kiroshi-tour-continental.jpg` | Kiroshi (Tour Continental) | Josh Sorenson | [StockSnap](https://stocksnap.io/photo/people-crowd-XAOL9EYTV8) |
 | `marea-baja-invitados.jpg` | Marea Baja + invitados | Paweł Bukowski | [StockSnap](https://stocksnap.io/photo/music-concert-L695JG265J) |
 | `subsuelo-noche-09.jpg` | Subsuelo · Noche 09 | sin dato | [rawpixel](https://www.rawpixel.com/image/3337274/free-photo-image-music-png-arcade-game-machine) |
 | `el-metodo-gronholm.jpg` | El método Grönholm | sin dato | [rawpixel](https://www.rawpixel.com/image/3297996/free-photo-image-stage-theatre-auditorium) |

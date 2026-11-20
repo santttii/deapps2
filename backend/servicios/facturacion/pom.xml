@@ -12,7 +12,7 @@
 
     <artifactId>palco-facturacion</artifactId>
     <packaging>war</packaging>
-    <name>Palco — ServicioDeFacturación</name>
+    <name>Palco: ServicioDeFacturación</name>
     <description>
         Factura cada compra confirmada pidiéndole el CAE a ARCA (simulado) por SOAP. Interfaz: IFacturacion.
     </description>

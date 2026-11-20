@@ -177,7 +177,7 @@ class ServicioDeEventosTest {
 
     @Test
     void elSlugSaleDelTituloSinAcentosNiSignos() {
-        NuevoEventoDto nuevo = new NuevoEventoDto("Kiroshi — Tour Continental!", "Música", "Arena", MAS_TARDE,
+        NuevoEventoDto nuevo = new NuevoEventoDto("Kiroshi \u2014 Tour Continental!", "Música", "Arena", MAS_TARDE,
                 "Descripción", null, List.of(new NuevoSectorDto("Campo", 50_000, 100)));
 
         assertEquals("kiroshi-tour-continental", servicio.crearEvento(nuevo, "org-1").slug());
@@ -267,7 +267,7 @@ class ServicioDeEventosTest {
 
     // --- Listar el catálogo ---
 
-    private final Evento kiroshi = evento("ev-2", "kiroshi", "Kiroshi — Tour", Categoria.MUSICA,
+    private final Evento kiroshi = evento("ev-2", "kiroshi", "Kiroshi \u2014 Tour", Categoria.MUSICA,
             "Arena Central", MAS_TARDE);
     private final Evento gronholm = evento("ev-4", "gronholm", "El método Grönholm", Categoria.TEATRO,
             "Teatro San Marcos", MAS_TARDE.plusDays(1));

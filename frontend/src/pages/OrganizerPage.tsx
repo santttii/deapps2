@@ -261,7 +261,7 @@ export default function OrganizerPage() {
   function vendidasDeLaFila(id: string): string {
     const liquidacion = liquidaciones[id];
     if (liquidacion) return numero(liquidacion.entradas);
-    return errorVentas ? '—' : '…';
+    return errorVentas ? 'Sin dato' : '…';
   }
 
   return (
@@ -525,7 +525,7 @@ export default function OrganizerPage() {
                         </p>
                       </div>
                       <div className="border border-wire p-4">
-                        <p className="text-xl font-semibold text-ink">{porIngresar === null ? '—' : numero(porIngresar)}</p>
+                        <p className="text-xl font-semibold text-ink">{porIngresar === null ? 'Sin dato' : numero(porIngresar)}</p>
                         <p className="font-mono-label text-[10px] text-muted">por ingresar</p>
                       </div>
                     </div>

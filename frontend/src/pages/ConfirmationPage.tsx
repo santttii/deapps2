@@ -227,7 +227,7 @@ export default function ConfirmationPage() {
                         </div>
                         <div>
                           <p className="font-mono-label text-[10px] text-muted">Sector</p>
-                          <p>{evento?.sectores.find((s) => s.id === entrada.sectorId)?.nombre ?? '—'}</p>
+                          <p>{evento?.sectores.find((s) => s.id === entrada.sectorId)?.nombre ?? 'Sin dato'}</p>
                         </div>
                         <div>
                           <p className="font-mono-label text-[10px] text-muted">Titular</p>

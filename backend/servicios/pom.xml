@@ -12,7 +12,7 @@
 
     <artifactId>palco-servicios</artifactId>
     <packaging>pom</packaging>
-    <name>Palco — servicios</name>
+    <name>Palco: servicios</name>
     <description>
         Los 9 servicios de Palco (8 de negocio y el asistente). Cada uno es un WAR independiente con su propia API
         (/api/&lt;servicio&gt;) y su propio esquema de base. Se comunican solo por REST o JMS.

@@ -1,4 +1,4 @@
-# Entrega Parcial N.º 2 (23/10/2026) — carpeta de la entrega
+# Entrega Parcial N.º 2 (23/10/2026): carpeta de la entrega
 
 Acá está el documento técnico de la entrega y todo lo que lo respalda. Describe el estado del servidor de desarrollo el 14/10/2026 entre las 17:56 y las 18:00, armado desde cero ese día desde el commit `580dd05`, el del tag `entrega-parcial-2`.
 

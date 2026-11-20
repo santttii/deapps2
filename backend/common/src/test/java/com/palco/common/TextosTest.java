@@ -48,7 +48,7 @@ class TextosTest {
     @Test
     void slugReemplazaTodoLoQueNoEsLetraONumeroPorGuiones() {
         assertEquals("el-metodo-gronholm", Textos.slug("El método Grönholm"));
-        assertEquals("kiroshi-tour-continental", Textos.slug("Kiroshi — Tour Continental"));
+        assertEquals("kiroshi-tour-continental", Textos.slug("Kiroshi \u2014 Tour Continental"));
         assertEquals("subsuelo-noche-09", Textos.slug("Subsuelo · Noche 09"));
         assertEquals("evento", Textos.slug("¡¡!!"));
     }

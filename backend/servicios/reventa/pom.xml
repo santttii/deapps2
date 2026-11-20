@@ -12,7 +12,7 @@
 
     <artifactId>palco-reventa</artifactId>
     <packaging>war</packaging>
-    <name>Palco — ServicioDeReventa</name>
+    <name>Palco: ServicioDeReventa</name>
     <description>Publicación y compra de reventa oficial con tope de precio. Interfaz: IReventa.</description>
 
     <dependencies>

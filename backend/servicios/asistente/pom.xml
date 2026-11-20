@@ -12,7 +12,7 @@
 
     <artifactId>palco-asistente</artifactId>
     <packaging>war</packaging>
-    <name>Palco — ServicioDeAsistente</name>
+    <name>Palco: ServicioDeAsistente</name>
     <description>
         Asistente de compradores con IA, detrás de un gateway (Facade + Adapter): guardrails,
         timeout de 5 segundos y fallback a preguntas frecuentes. Solo lee: no compra ni publica.

@@ -1,4 +1,4 @@
-# Palco — Documento técnico de la Entrega Obligatoria N.º 2
+# Palco: documento técnico de la Entrega Obligatoria N.º 2
 
 **Desarrollo de Aplicaciones II (3.4.218) · UADE · 2.º cuatrimestre de 2026**
 
@@ -6,7 +6,7 @@
 |---|---|
 | Proyecto | Palco, plataforma de venta de entradas nominativas con reventa oficial (tope de +10 %) |
 | Integrantes | Santiago Loto, Sebastian Deya, Julian Zuchowicki, Valentina Frisoli y Joaquin Molina |
-| Entrega | Entrega Obligatoria N.º 2 — 2.º Parcial, defendida el 13/11/2026 |
+| Entrega | Entrega Obligatoria N.º 2 (2.º Parcial), defendida el 13/11/2026 |
 | Repositorio | https://github.com/santttii/deapps2 |
 | Versión que se describe | `master` al 13/11/2026, commit `b70d939` |
 
@@ -22,9 +22,9 @@ Este documento describe el sistema tal como está en esa versión: lo que se mue
 | Al menos 1 servicio SOAP, con su WSDL, justificado como integración con un sistema externo "legado" del dominio | 5 | `backend/servicios/arca/` (ARCA simulado, WSDL en `/legado/arca?wsdl`, copia en `docs/api/arca.wsdl`); cliente en `facturacion/.../negocio/externos/ArcaSoap.java` | Escenario 15; tests de Facturación y del ARCA simulado |
 | Al menos 1 servicio REST, justificado como integración con un partner moderno o como API de consumo externo | 6 | `docs/api/openapi.yaml`; los recursos `api/*Resource.java` de cada servicio; los clientes REST en `negocio/externos/` | Colección de Postman (154 pedidos); escenarios 1 a 6 |
 | Transacciones declarativas en al menos un flujo de negocio crítico de varios pasos (reservar, cobrar y confirmar) | 7 | `ventas/.../negocio/ServicioDeVentas.java` (`confirmarCompra`, `REQUIRED`), `ComprasEnCurso.java` y `common/.../mensajeria/PublicadorPagoConfirmadoJms.java` (`MANDATORY`) | Escenarios 13 y 14 |
-| Documento técnico actualizado (8 a 12 páginas) con diagramas de secuencia de cada integración | Todo el documento; anexo A | Este documento (`docs/entrega-obligatoria-2/`) y `docs/documentacion/diagramas/` | — |
+| Documento técnico actualizado (8 a 12 páginas) con diagramas de secuencia de cada integración | Todo el documento; anexo A | Este documento (`docs/entrega-obligatoria-2/`) y `docs/documentacion/diagramas/` | No aplica |
 | Defensa: demo de punta a punta de un flujo que cruce componentes internos, mensajería y servicios web | 10.3 | La compra: REST, cola, tópico, SOAP y la validación en la puerta | Escenarios 1, 15 y 16 |
-| Defensa: por qué cada integración externa es síncrona o asincrónica | 3 | Tabla de la sección 3 | — |
+| Defensa: por qué cada integración externa es síncrona o asincrónica | 3 | Tabla de la sección 3 | No aplica |
 | Defensa: comportamiento transaccional ante una falla a mitad del flujo crítico | 7.2 | `palco.ventas.fallar-despues-del-cobro` provoca la falla; `ventas/.../negocio/ConciliacionDePagos.java` la resuelve | Escenario 14 |
 
 Las rutas que empiezan con el nombre de un servicio (`ventas/...`) están en `backend/servicios/`. Las que empiezan con `common/...` están en `backend/common/src/main/java/com/palco/`.
@@ -70,7 +70,7 @@ Palco está construido con componentes: cada componente de negocio es un WAR pro
 | Reventa | `/api/v1/reventas` | Stateless | Publicación con tope de precio, compra de una publicación y su conciliación |
 | Notificaciones | `/api/notificaciones` | Stateless | El aviso al comprador por email y la auditoría de los mensajes |
 | Facturación | `/api/v1/facturas` | Stateless | La factura electrónica de cada compra, con el CAE de ARCA |
-| ARCA simulado | `/legado/arca` | — | El sistema externo legado: no es un componente de Palco y no comparte código con él |
+| ARCA simulado | `/legado/arca` | No aplica | El sistema externo legado: no es un componente de Palco y no comparte código con él |
 
 **Por qué Ventas es stateful.** Una compra es una conversación con un mismo comprador en varios pasos: abrir la compra con la reserva del cupo, cargar los titulares, pagar e incluso reintentar el pago con otro medio. `ServicioDeVentas` es `@Stateful` con `@StatefulTimeout` de 10 minutos, que es lo que dura la reserva. La instancia guarda la venta calculada y sus titulares, y el pago se valida contra ese estado sin volver a leer la base. `@Remove` termina la conversación cuando la compra se paga o se cancela, y `ComprasEnCurso` es la fachada que ubica la instancia de cada compra.
 

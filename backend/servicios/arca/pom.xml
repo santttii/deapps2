@@ -18,7 +18,7 @@
 
     <artifactId>palco-arca</artifactId>
     <packaging>war</packaging>
-    <name>Palco — ARCA simulado</name>
+    <name>Palco: ARCA simulado</name>
     <description>
         Sistema legado simulado: representa el servicio SOAP de factura electrónica de ARCA (WSFEv1).
         Le da número de comprobante y CAE a cada factura que pide ServicioDeFacturación.

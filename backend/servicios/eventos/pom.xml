@@ -12,7 +12,7 @@
 
     <artifactId>palco-eventos</artifactId>
     <packaging>war</packaging>
-    <name>Palco — ServicioDeEventos</name>
+    <name>Palco: ServicioDeEventos</name>
     <description>Catálogo de eventos, tipos de entrada y cupos. Interfaz: IEventos.</description>
 
     <dependencies>

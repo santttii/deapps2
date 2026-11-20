@@ -12,7 +12,7 @@
 
     <artifactId>palco-notificaciones</artifactId>
     <packaging>war</packaging>
-    <name>Palco — ServicioDeNotificaciones</name>
+    <name>Palco: ServicioDeNotificaciones</name>
     <description>Confirmaciones, recordatorios y alertas, de forma asincrónica. Interfaz: INotificaciones.</description>
 
     <dependencies>

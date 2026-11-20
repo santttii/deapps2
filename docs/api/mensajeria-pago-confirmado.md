@@ -1,4 +1,4 @@
-# Contrato de mensajería — `PAGO_CONFIRMADO`
+# Contrato de mensajería: `PAGO_CONFIRMADO`
 
 Documenta el mensaje que publica `ServicioDeVentas` cuando se aprueba un pago,
 según el taller de escenario de mensajería. Cubre el pendiente de la Fase 6 del

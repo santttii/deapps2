@@ -16,7 +16,7 @@ function buscarCsv(dir, encontrados = []) {
   return encontrados;
 }
 
-const pct = (cubiertas, total) => (total === 0 ? '—' : `${((100 * cubiertas) / total).toFixed(1)} %`);
+const pct = (cubiertas, total) => (total === 0 ? 'No aplica' : `${((100 * cubiertas) / total).toFixed(1)} %`);
 const filas = [];
 const total = { li: 0, lc: 0, ri: 0, rc: 0 };
 

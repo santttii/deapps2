@@ -361,11 +361,11 @@ export default function MyTicketsPage() {
                 <div className="mt-5 grid grid-cols-2 gap-3 border-t border-dashed border-edge pt-4 text-sm sm:grid-cols-3">
                   <div>
                     <p className="font-mono-label text-[10px] text-muted">Titular</p>
-                    <p>{entrada.titular.nombre || '—'} {entrada.titular.apellido}</p>
+                    <p>{entrada.titular.nombre || 'Sin dato'} {entrada.titular.apellido}</p>
                   </div>
                   <div>
                     <p className="font-mono-label text-[10px] text-muted">DNI</p>
-                    <p>{entrada.titular.dni ? formatearDNI(entrada.titular.dni) : '—'}</p>
+                    <p>{entrada.titular.dni ? formatearDNI(entrada.titular.dni) : 'Sin dato'}</p>
                   </div>
                   <div>
                     <p className="font-mono-label text-[10px] text-muted">Sector</p>

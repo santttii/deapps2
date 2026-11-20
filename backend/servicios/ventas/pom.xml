@@ -12,7 +12,7 @@
 
     <artifactId>palco-ventas</artifactId>
     <packaging>war</packaging>
-    <name>Palco — ServicioDeVentas</name>
+    <name>Palco: ServicioDeVentas</name>
     <description>Orquesta el checkout de punta a punta (stateful). Interfaz: IVentas.</description>
 
     <dependencies>
