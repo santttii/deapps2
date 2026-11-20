@@ -28,7 +28,8 @@ const salida = valores('--salida')[0];
 const texto = fs.readFileSync(HU, 'utf8');
 const historias = [...texto.matchAll(/^## (HU-\d+) (.+?) · (\w+)$/gm)]
   .map(([, id, nombre, prioridad]) => ({ id, nombre, prioridad }));
-const criterios = [...texto.matchAll(/Escenario: (CA-(\d+)\.\d+) (.+)$/gm)]
+// Un criterio es un "Escenario" o, si se prueba con varios datos, un "Esquema del escenario" con sus Ejemplos.
+const criterios = [...texto.matchAll(/(?:Esquema del escenario|Escenario): (CA-(\d+)\.\d+) (.+)$/gm)]
   .map(([, id, hu, nombre]) => ({ id, hu: `HU-${hu}`, nombre: nombre.trim(), casos: [] }));
 const porId = new Map(criterios.map((c) => [c.id, c]));
 
@@ -135,7 +136,7 @@ const lineas = [
 ];
 for (const h of historias) {
   for (const c of criterios.filter((x) => x.hu === h.id)) {
-    const casos = c.casos.map((k) => `${k.id} (${k.fuente}: ${k.resultado})`).join('<br>') || '—';
+    const casos = c.casos.map((k) => `${k.id} (${k.fuente}: ${k.resultado})`).join('<br>') || 'Ninguno';
     lineas.push(`| ${h.id} ${h.nombre} | ${h.prioridad} | ${c.id} ${c.nombre} | ${casos} | ${estado(c)} |`);
   }
 }
