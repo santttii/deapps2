@@ -42,6 +42,7 @@ Los escenarios 8, 10, 11 y 12 detienen un consumidor (`stop-delivery`) o pasan m
 - WildFly levantado con todos los WAR (`cd backend && ./dev.sh`), incluido el ARCA simulado, y las cuentas de prueba de siempre: `titular@palco.test`, `otro.titular@palco.test`, `organizador@palco.test` y `puerta@palco.test`, con la contraseña `palco1234`.
 - El servidor armado en `backend/servidor/target/server/` de la misma máquina: de ahí salen `jboss-cli` (`jboss-cli.bat` en Windows, `jboss-cli.sh` en Linux y macOS) y el `server.log` que se lee para comprobar lo que hicieron los consumidores.
 - Java para `jboss-cli`: el de `JAVA_HOME` o, si no está definida, el del `PATH`. En Git Bash, `JAVA_HOME` puede estar escrita al modo de Windows (`C:\...`) o al de Git Bash (`/c/...`): la prueba la convierte.
+- El secreto entre servicios, para pedir el token de rol `servicio`. `lib.mjs` lo toma de `PALCO_SECRETO_SERVICIOS`, de la línea de `backend/.env` o de `backend/servidor/target/secreto-servicios`, donde `dev.sh` deja el que usa el servidor, en ese orden. No hay un valor por defecto: si no lo encuentra, la prueba lo dice y corta. Contra el compose hay que pasarle el mismo `PALCO_SECRETO_SERVICIOS` que recibió el backend.
 
 Las rutas salen de la ubicación del archivo, así que se puede correr desde cualquier carpeta. Variables opcionales: `PALCO_URL` (`http://localhost:8080`), `JBOSS_CLI` y `PALCO_LOG` (si `jboss-cli` o el log no están en la ruta del proyecto).
 

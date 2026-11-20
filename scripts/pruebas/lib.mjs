@@ -81,13 +81,22 @@ export async function login(email, password = 'palco1234') {
   return r.json.token;
 }
 
-// El secreto compartido de los servicios: el de la variable de entorno, el de backend/.env o el de desarrollo,
-// en ese orden, igual que lo resuelve el servidor al arrancar con dev.sh.
+/** Donde dev.sh deja el secreto con el que arrancó el servidor (servidor/target, que git ignora). */
+const SECRETO_DE_DEV = path.join(REPO, 'backend', 'servidor', 'target', 'secreto-servicios');
+
+// El secreto compartido de los servicios: el de la variable de entorno (el CI la define), el de backend/.env o
+// el que dejó dev.sh, en ese orden. No hay un valor por defecto: el servidor tampoco lo tiene.
 function secretoDeServicios() {
-  if (process.env.PALCO_SECRETO_SERVICIOS) return process.env.PALCO_SECRETO_SERVICIOS;
+  const delEntorno = process.env.PALCO_SECRETO_SERVICIOS?.trim();
+  if (delEntorno) return delEntorno;
   const env = path.join(REPO, 'backend', '.env');
-  const linea = fs.existsSync(env) ? fs.readFileSync(env, 'utf8').match(/^PALCO_SECRETO_SERVICIOS=(.+)$/m) : null;
-  return linea ? linea[1].trim() : 'palco-desarrollo';
+  const linea = fs.existsSync(env) ? fs.readFileSync(env, 'utf8').match(/^PALCO_SECRETO_SERVICIOS=(.*)$/m) : null;
+  const delEnv = linea?.[1].trim();
+  if (delEnv) return delEnv;
+  const deDev = fs.existsSync(SECRETO_DE_DEV) ? fs.readFileSync(SECRETO_DE_DEV, 'utf8').trim() : '';
+  if (deDev) return deDev;
+  throw new Error('No está el secreto entre servicios: definí PALCO_SECRETO_SERVICIOS, ponelo en backend/.env '
+    + 'o levantá el servidor con backend/dev.sh, que lo deja en backend/servidor/target/secreto-servicios.');
 }
 
 export async function tokenDeServicio() {

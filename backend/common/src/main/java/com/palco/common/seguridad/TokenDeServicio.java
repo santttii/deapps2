@@ -1,8 +1,10 @@
 package com.palco.common.seguridad;
 
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -32,6 +34,12 @@ import com.palco.common.ErroresDeNegocio;
  * reintenta una sola vez: pasa cada vez que se redespliega Usuarios, porque
  * cambia la clave con la que firma.
  *
+ * El secreto sale de {@code PALCO_SECRETO_SERVICIOS} y el código no trae un
+ * valor de reserva: uno escrito acá lo conocería cualquiera que lea el repo, y
+ * con él podría pedirse un token de rol {@code servicio}. Si la variable falta,
+ * el servicio no puede llamar a los otros y el log lo avisa (ver leerSecreto).
+ * dev.sh y docker/arrancar.sh la generan si no viene definida.
+ *
  * Es un bean {@code @ApplicationScoped} y no un Session Bean: hay una sola
  * instancia por servicio y lo único que guarda, el token vigente, es el mismo
  * para todos los pedidos. No es la conversación de un usuario (eso sería
@@ -48,19 +56,12 @@ public class TokenDeServicio {
     /** Dirección de los otros servicios: PALCO_URL_INTERNA o http://localhost:8080. */
     public static final String URL_INTERNA = entorno("PALCO_URL_INTERNA", "http://localhost:8080");
 
-    /**
-     * Lo que vale el secreto si falta PALCO_SECRETO_SERVICIOS. Está escrito en el
-     * repo, así que es público: sirve solo en la máquina de desarrollo. No es el
-     * mismo caso que la clave JWT: si esa falta se genera una al azar, que nadie
-     * conoce; con este valor, quien leyó el código puede pedir un token de servicio.
-     */
-    static final String SECRETO_DE_DESARROLLO = "palco-desarrollo";
     static final String RUTA_DEL_TOKEN = "/api/usuarios/servicios/token";
 
     /** Un token al que le queda menos que esto se renueva, para que no venza en medio de una llamada. */
     static final Duration MARGEN = Duration.ofSeconds(30);
 
-    private static final String SECRETO = leerSecreto();
+    private static final String SECRETO = leerSecreto(System.getenv("PALCO_SECRETO_SERVICIOS"));
     private static final Jsonb JSONB = JsonbBuilder.create();
 
     /** Lo que responde {@code POST /api/usuarios/servicios/token}. */
@@ -74,7 +75,10 @@ public class TokenDeServicio {
     private String token;
     private Instant vence;
 
-    /** PALCO_SECRETO_SERVICIOS o el valor de desarrollo. Lo leen este cliente y ServicioDeUsuarios. */
+    /**
+     * PALCO_SECRETO_SERVICIOS o, si falta, uno al azar que nadie conoce. Lo leen
+     * este cliente y ServicioDeUsuarios.
+     */
     public static String secretoCompartido() {
         return SECRETO;
     }
@@ -121,7 +125,7 @@ public class TokenDeServicio {
                 .post(Entity.entity(cuerpo, MediaType.APPLICATION_JSON))) {
             if (respuesta.getStatus() != 200) {
                 LOG.warning("Usuarios no emitió el token de servicio: respondió " + respuesta.getStatus()
-                        + ". Si es 401, PALCO_SECRETO_SERVICIOS no coincide entre los servicios.");
+                        + ". Si es 401, PALCO_SECRETO_SERVICIOS falta o no coincide entre los servicios.");
                 throw new ErroresDeNegocio.SinRespuesta("No se pudo obtener el token de servicio.");
             }
             return leerRespuesta(respuesta.readEntity(String.class));
@@ -147,12 +151,21 @@ public class TokenDeServicio {
         return respuesta;
     }
 
-    private static String leerSecreto() {
-        String configurado = System.getenv("PALCO_SECRETO_SERVICIOS");
+    /**
+     * El valor de PALCO_SECRETO_SERVICIOS sin los espacios de los costados. Si
+     * falta, uno al azar de 32 bytes, distinto en cada servicio (cada WAR trae su
+     * copia de esta clase) y en cada arranque, que nadie conoce: este servicio no
+     * consigue tokens de servicio y, si es Usuarios, no se los entrega a nadie. Es
+     * el mismo criterio que la clave JWT, que si falta también se genera al azar,
+     * pero acá el sistema no anda sin la variable, así que el log lo avisa como error.
+     */
+    static String leerSecreto(String configurado) {
         if (configurado == null || configurado.isBlank()) {
-            LOG.warning("Sin PALCO_SECRETO_SERVICIOS: se usa el secreto de desarrollo, que es público. "
-                    + "En producción hay que definirlo.");
-            return SECRETO_DE_DESARROLLO;
+            LOG.severe("Falta PALCO_SECRETO_SERVICIOS: este servicio no puede pedir tokens de servicio y, si es "
+                    + "Usuarios, no los entrega. Hay que definirlo con el mismo valor en todos los servicios.");
+            byte[] azar = new byte[32];
+            new SecureRandom().nextBytes(azar);
+            return HexFormat.of().formatHex(azar);
         }
         return configurado.strip();
     }

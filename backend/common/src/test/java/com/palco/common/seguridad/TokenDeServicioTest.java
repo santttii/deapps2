@@ -2,7 +2,9 @@ package com.palco.common.seguridad;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -107,5 +109,21 @@ class TokenDeServicioTest {
     void laDireccionYElSecretoTienenValorAunqueNoEstenLasVariablesDeEntorno() {
         assertFalse(TokenDeServicio.URL_INTERNA.isBlank());
         assertFalse(TokenDeServicio.secretoCompartido().isBlank());
+    }
+
+    @Test
+    void conLaVariableSeUsaEseSecretoSinLosEspaciosDeLosCostados() {
+        assertEquals("abc123", TokenDeServicio.leerSecreto("  abc123\r\n"));
+    }
+
+    @Test
+    void sinLaVariableNoHayUnValorFijoSinoUnoAlAzarDistintoCadaVez() {
+        String sinVariable = TokenDeServicio.leerSecreto(null);
+        String enBlanco = TokenDeServicio.leerSecreto("   ");
+
+        assertTrue(sinVariable.matches("[0-9a-f]{64}"), sinVariable);
+        assertTrue(enBlanco.matches("[0-9a-f]{64}"), enBlanco);
+        assertNotEquals(sinVariable, enBlanco);
+        assertNotEquals(sinVariable, TokenDeServicio.leerSecreto(null));
     }
 }
