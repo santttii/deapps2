@@ -1,6 +1,6 @@
 # Guía Postman: API de Palco
 
-La colección `docs/api/palco-api.postman_collection.json` se corre entera, en orden y sin intervención, contra el backend local. Se puede repetir las veces que haga falta sin reiniciar el servidor.
+La colección `docs/api/palco-api.postman_collection.json` se corre entera, en orden y sin intervención, contra el backend local. Se puede repetir las veces que haga falta sin reiniciar el servidor. En el CI la corre el job `api` en cada corrida, contra el sistema levantado con `docker compose` (sección 7, "En el CI").
 
 La colección no se edita a mano: la genera `scripts/postman/generar.js` (sección 12).
 
@@ -10,6 +10,7 @@ La colección no se edita a mano: la genera `scripts/postman/generar.js` (secci�
 
 1. Postman (postman.com/downloads). Se puede usar sin cuenta ("Skip and go to the app").
 2. El backend levantado: `cd backend && ./dev.sh`. Para comprobarlo, abrí en el navegador `http://localhost:8080/api/eventos` (el catálogo) y `http://localhost:8080/api/v1/health` (Ventas).
+3. El secreto entre servicios con el que arrancó el servidor, para la variable `secretoServicios`, que viene vacía (sección 7).
 
 ## 2. Importar
 
@@ -29,7 +30,7 @@ La colección no se edita a mano: la genera `scripts/postman/generar.js` (secci�
 | **8 Operaciones del 30/10 (implementado)** | 32 | Sobre un evento y una cuenta que crea la carpeta: editar el evento propio (`PUT`, 200), el de otro organizador (404) y con rol `user` (403); una compra pagada y emitida; las ventas por día y la liquidación (`GET /v1/resumenes`, 200, 404 ajeno y 403 por rol); cancelar el evento ajeno (404), con rol `user` (403), el propio (200) y otra vez (409); la venta anulada (`CANCELADA`, entradas `ANULADA`, asincrónico), su pago `REEMBOLSADO`, el resumen en cero, el detalle del evento cancelado y una compra nueva en él (409 `evento-cancelado`). La foto: se sube y se guarda en la base de Palco (200, con su URL), esa URL responde sin token (200), un texto declarado como PNG se rechaza por su firma (400 `datos-invalidos`) y un SVG por su tipo (415). Olvidé mi contraseña de una cuenta que existe y de un email que no (204 las dos, la misma respuesta), el reinicio con un código incorrecto (400) y el login que muestra que la contraseña no cambió. Ver la sección 14 |
 | **9 Asistente (implementado)** | 5 | El asistente de preguntas (`/api/v1/asistente`): el health (200), una pregunta con sesión que responde el modelo (200, origen `MODELO`), la misma sin token (401 `no-autenticado`, con `WWW-Authenticate`) y un intento de inyección de prompt que corta el guardrail de entrada. El corte no es un error: responde 200 con origen `BLOQUEADA` y motivo `inyeccion`, y no Problem Details. En el backend local el modelo es el simulado |
 
-Además hay una subcarpeta que **queda fuera de la corrida**: **1 Usuarios → Pasos manuales** (2 requests), verificar el email y reenviar el código. Necesitan un dato que solo sale en el log del servidor. Ver la sección 8.
+Además hay una subcarpeta que **queda fuera de la corrida**: **1 Usuarios → Pasos manuales** (2 requests), verificar el email y reenviar el código. Necesitan un dato que solo sale en el log del servidor. Ver la sección 8. En el CI corren aparte, después de la corrida, con el código que el job lee del log (sección 7, "En el CI").
 
 Cómo queda afuera: el último request automático de la carpeta 1 ("JWKS claves públicas (200)") le dice a la corrida que siga en la carpeta 2. Está en la pestaña Scripts de ese request. Si en el Runner lo destildás, la corrida entra en la subcarpeta. La carpeta 9 es la última: la corrida termina con ella.
 
@@ -46,7 +47,7 @@ Las crea el backend al arrancar (migraciones `V2__usuarios_de_prueba.sql` y `V3_
 | `organizer` | `organizador@palco.test` | Crear eventos, también los de las compras de las carpetas 3 y 6; asignar la puerta del evento de la compra (carpeta 5); en Ventas, el 403 por rol; en la carpeta 8, el dueño del evento que se edita y se cancela, y quien sube la foto | `tokenOrganizador` |
 | `organizer` | `otro.organizador@palco.test` | Carpeta 8: el evento de `organizador@palco.test` no lo puede editar, cancelar ni pedir su resumen | `tokenOtroOrganizador` |
 | `staff` | `puerta@palco.test` | Validación en puerta (carpeta 5); en Ventas y en Facturación, el 403 por rol | `tokenStaff` |
-| `servicio` | No es una cuenta: `POST /api/usuarios/servicios/token` con `{"secreto":"{{secretoServicios}}"}` (por defecto `palco-desarrollo`) | Cambiar el cupo de un sector; consultar cualquier factura; consultar un pago (carpeta 8) | `tokenServicio` (dura 5 minutos) |
+| `servicio` | No es una cuenta: `POST /api/usuarios/servicios/token` con `{"secreto":"{{secretoServicios}}"}`, el secreto con el que arrancó el servidor (la variable viene vacía: ver la sección 7) | Cambiar el cupo de un sector; consultar cualquier factura; consultar un pago (carpeta 8) | `tokenServicio` (dura 5 minutos) |
 
 Cada request manda el token de su rol en la cabecera `Authorization: Bearer {{...}}`. No hay que copiar tokens a mano: los guardan los requests de login.
 
@@ -90,11 +91,12 @@ La compra de la carpeta 3 es de 2 entradas de Platea B del evento que crea la ca
 
 ## 6. Variables
 
-Están en la colección → pestaña **Variables**. Solo las dos primeras filas se cambian a mano; el resto lo completa la corrida.
+Están en la colección → pestaña **Variables**. Solo las tres primeras filas se cambian a mano; el resto lo completa la corrida.
 
 | Variable | Valor | Quién la carga |
 |---|---|---|
 | `baseUsuarios`, `baseEventos`, `baseApi`, `baseValidacion`, `baseReventas`, `baseFacturas`, `baseAsistente` | `http://localhost:8080/api/usuarios`, `…/api/eventos`, `…/api/v1`, `…/api/v1/validacion`, `…/api/v1/reventas`, `…/api/v1/facturas`, `…/api/v1/asistente` | A mano, si el backend está en otra dirección |
+| `secretoServicios` | vacío | A mano, antes de correr: el `PALCO_SECRETO_SERVICIOS` con el que arrancó el servidor (sección 7). En Newman, con `--env-var secretoServicios=...` |
 | `codigoVerificacion` | vacío | A mano, solo para el paso manual de verificar el email |
 | `token`, `tokenOtroComprador`, `tokenOrganizador`, `tokenStaff`, `tokenServicio` | vacío | Los requests de login y "Token de servicio" |
 | `emailRegistro`, `dniRegistro` | vacío | "Registro (201)", antes de enviarse |
@@ -161,7 +163,13 @@ Desde esa carpeta, con la ruta a la colección entre comillas (tiene espacios):
 npx newman run docs/api/palco-api.postman_collection.json   # desde la raíz del repo
 ```
 
-Si el servidor arrancó con un `PALCO_SECRETO_SERVICIOS` propio (en `backend/.env`), hay que pasarle el mismo valor a la colección: `--env-var secretoServicios=<el valor>` en Newman, o cambiar la variable `secretoServicios` en Postman. Sin eso, el token de servicio da 401 y fallan los requests que lo usan.
+La colección no trae el secreto entre servicios: la variable `secretoServicios` viene vacía, porque el servidor tampoco tiene un valor por defecto. Hay que pasarle el mismo `PALCO_SECRETO_SERVICIOS` con el que arrancó el servidor: el de `backend/.env` o el de la variable de entorno, si se definió, o el que generó `dev.sh` para ese arranque. En los tres casos `dev.sh` deja el que usa en `backend/servidor/target/secreto-servicios`, así que desde la raíz del repo alcanza con:
+
+```bash
+npx newman run docs/api/palco-api.postman_collection.json --env-var "secretoServicios=$(cat backend/servidor/target/secreto-servicios)"
+```
+
+En Postman, ese valor se carga en la variable `secretoServicios`. Contra el compose, el secreto se define antes del `up` (`PALCO_SECRETO_SERVICIOS` en el entorno o en un `.env` junto a `docker-compose.yml`): si no, el contenedor genera uno y no lo muestra. Sin el secreto, el token de servicio da 401 y fallan los requests que lo usan.
 
 Para correr una sola carpeta se agrega `--folder` con el nombre exacto:
 
@@ -184,6 +192,12 @@ Newman cuenta 171 requests porque suma los cinco intentos de login que SEC-W04 m
 En la corrida del 16/10/2026 había 69 requests de la colección (74 para Newman) y 252 tests, con 6 fallados en la carpeta 4, por cambios que todavía no estaban desplegados o decididos (sección 13).
 
 Contra un servidor desplegado antes de agregar `otro.titular@palco.test` (comprobado el 14/10/2026) fallan exactamente los tres requests que usan esa cuenta: su login responde 401 y los dos que siguen reciben 401 en lugar de 404 y 200. Son 9 tests fallados y un script cortado, con 201 tests ejecutados. Se arregla redesplegando Usuarios, que corre la migración nueva. Si la emisión tarda más de un segundo, el request que la espera se repite y el total de requests sube; el de tests no cambia.
+
+### En el CI
+
+El job `api` de `.github/workflows/ci.yml` corre la colección con Newman 6.2.3 en cada corrida del CI, con su propio sistema levantado con `docker compose up` (PostgreSQL, no H2), en paralelo con los demás jobs. Newman le pega al backend por `http://localhost:8080`, donde el compose lo publica, que es la dirección que ya tiene la colección. El secreto entre servicios es uno nuevo en cada corrida: se le pasa al compose por `PALCO_SECRETO_SERVICIOS` y a Newman con `--env-var secretoServicios=...`.
+
+Después de la corrida, el job hace los "Pasos manuales" como se hacen a mano (sección 8), con el log del servidor en `./logs/server.log` (por `PALCO_DIR_LOGS`): toma de ahí el email de "Registro (201)" y lo carga en la variable `emailRegistro` de una copia de la colección, envía "MANUAL · Reenviar código (204)" cuando pasaron 30 segundos del registro, lee del log el código nuevo y envía "MANUAL · Verificar email (200)" con `--env-var codigoVerificacion=...`. El email sale del log porque Newman no exporta las variables que cargó la corrida. La tabla final de cada corrida queda en el resumen del job, y la salida de Newman, los reportes JUnit y el log del servidor, en el artifact `reporte-api`.
 
 ### Qué deja cada corrida en el servidor
 
@@ -216,13 +230,13 @@ Fuera de la carpeta 6, la segunda cuenta compradora solo lee. La carpeta 4 tampo
 
 ## 8. Pasos manuales: verificar el email
 
-Al registrarse, el servicio genera un código de 6 dígitos al azar. El envío por email todavía no está: el código solo sale en el log del servidor, en una línea así:
+Al registrarse, el servicio genera un código de 6 dígitos al azar. Sin SMTP configurado (`PALCO_SMTP_HOST`), el email no se manda: queda en el log del servidor, en una línea así:
 
 ```
-Código de verificación para postman-…@palco.test: 482913
+Email para postman-…@palco.test (Tu código de Palco): Hola Ana: tu código para verificar el email es 482913. Vence en 15 minutos.
 ```
 
-Por eso estos dos requests no pueden correr solos. Están en **1 Usuarios → Pasos manuales (fuera de la corrida)**:
+Por eso estos dos requests no pueden correr solos en la corrida. En el CI los corre el job `api` después de la corrida, con el código que lee del log (sección 7, "En el CI"). Están en **1 Usuarios → Pasos manuales (fuera de la corrida)**:
 
 1. Enviá "Registro (201)" (o corré la carpeta 1). El email queda en `emailRegistro`.
 2. Buscá el código en el log de WildFly.
@@ -320,7 +334,7 @@ Comprueba desde afuera los criterios de la matriz de seguridad de la clase 11 (`
 
 **SEC-W04 no toca las cuentas de prueba.** Antes de enviarse genera un email nuevo, `intentos-…@palco.test`, y manda con él los cinco intentos fallidos, uno después del otro; el request es el sexto. Así el límite no bloquea las cuentas que usan los demás requests, y una corrida no arrastra los intentos de la anterior. Va último en la colección.
 
-Corrida del 16/10 con el servidor armado desde cero con esos cambios y la decisión de mantener la sesión en 8 horas: 74 requests, 252 aserciones, 0 fallas. Si el servidor arrancó con un `PALCO_SECRETO_SERVICIOS` propio, Newman se corre con `--env-var secretoServicios=<el valor>`.
+Corrida del 16/10 con el servidor armado desde cero con esos cambios y la decisión de mantener la sesión en 8 horas: 74 requests, 252 aserciones, 0 fallas. Newman se corre con `--env-var secretoServicios=<el secreto del servidor>` (sección 7).
 
 ## 14. Operaciones del 30/10 (carpeta 8)
 

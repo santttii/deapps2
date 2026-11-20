@@ -2170,7 +2170,7 @@ const coleccion = {
   },
   variable: [
     variable('baseUsuarios', 'http://localhost:8080/api/usuarios', 'Raíz del servicio de Usuarios.'),
-    variable('secretoServicios', 'palco-desarrollo', 'Secreto compartido de los servicios (PALCO_SECRETO_SERVICIOS). Si el servidor arrancó con otro, pasarlo con --env-var secretoServicios=... o cambiarlo en las variables.'),
+    variable('secretoServicios', '', 'Secreto compartido de los servicios (PALCO_SECRETO_SERVICIOS): el mismo con el que arrancó el servidor. No tiene valor por defecto. Está en backend/.env, en la variable de entorno o en backend/servidor/target/secreto-servicios, que deja dev.sh. En Newman se pasa con --env-var secretoServicios=...; en Postman se carga en esta variable.'),
     variable('baseEventos', 'http://localhost:8080/api/eventos', 'Raíz del servicio de Eventos.'),
     variable('baseApi', 'http://localhost:8080/api/v1', 'Raíz de la API versionada (Ventas).'),
     variable('baseValidacion', 'http://localhost:8080/api/v1/validacion', 'Raíz del servicio de Validación.'),

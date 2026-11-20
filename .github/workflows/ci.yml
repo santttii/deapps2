@@ -8,6 +8,8 @@
 #   integracion  docker compose up (Postgres + backend + nginx) y la prueba de integración contra eso,
 #                repartida en 4 jobs en paralelo (ver la matriz del job)
 #   e2e          docker compose up y las pruebas E2E del frontend (Playwright, Chromium) por https://localhost
+#   api          docker compose up y la colección de Postman con Newman contra el backend: las nueve carpetas
+#                y los "Pasos manuales", con el código de verificación que sale en el log del servidor
 #
 # Los jobs de los otros frentes (mutación, Sonar, dependencias, ZAP) se suman como jobs nuevos en
 # este mismo archivo, sin tocar estos.
@@ -268,6 +270,117 @@ jobs:
           path: |
             compose-e2e.log
             logs/
+          if-no-files-found: ignore
+      - name: Bajar todo
+        if: always()
+        run: docker compose down -v
+
+  api:
+    name: API (Postman con Newman contra docker compose)
+    runs-on: ubuntu-latest
+    # Con su propio sistema levantado, en paralelo con los demás: la colección deja datos (eventos, compras,
+    # una puerta asignada, una cuenta verificada) que no tienen que cruzarse con los escenarios de integración.
+    timeout-minutes: 40
+    env:
+      # El log del servidor queda en ./logs: de ahí salen el email y el código de verificación de los
+      # "Pasos manuales" (sin SMTP, el email se escribe en el log).
+      PALCO_DIR_LOGS: ./logs
+      # La versión de Newman con la que se comprobó la colección a mano (docs/api/GUIA_POSTMAN.md).
+      NEWMAN: newman@6.2.3
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Secretos de esta corrida
+        # Nunca están en el repo: se generan acá y se le pasan al compose y a Newman.
+        run: |
+          secreto=$(openssl rand -hex 32)
+          echo "::add-mask::$secreto"
+          echo "PALCO_SECRETO_SERVICIOS=$secreto" >> "$GITHUB_ENV"
+          mkdir -p logs newman && chmod 777 logs
+      - name: Imágenes del sistema (con reintentos si falla la red)
+        # Las mismas descargas y los mismos reintentos que en la integración (ahí está el porqué).
+        run: |
+          for intento in 1 2 3 4; do
+            docker compose pull --ignore-buildable --quiet && docker compose build && exit 0
+            echo "Falló la descarga o el armado de las imágenes (intento $intento de 4)"
+            [ "$intento" -lt 4 ] && sleep $((intento * 30))
+          done
+          exit 1
+      - name: docker compose up (un comando, todo el sistema)
+        run: |
+          inicio=$(date +%s)
+          docker compose up --build --detach --wait --wait-timeout 900
+          echo "Levantado en $(( $(date +%s) - inicio )) segundos" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Bajar Newman
+        # Antes de la corrida, así la cuenta de los 30 segundos de los "Pasos manuales" empieza con el primer request.
+        run: npx --yes "$NEWMAN" --version
+      - name: Colección de Postman (las nueve carpetas)
+        # La colección apunta a http://localhost:8080, donde el compose publica el backend (solo en esta máquina):
+        # Newman le pega directo, como a dev.sh en la comprobación de la guía. Solo se le pasa el secreto entre
+        # servicios de esta corrida, porque la variable secretoServicios viene vacía. El último request de la
+        # carpeta 1 saltea los "Pasos manuales", que corren en el paso siguiente.
+        run: |
+          set -o pipefail   # que el paso falle si falla Newman, aunque tee termine bien
+          date +%s > newman/inicio
+          npx --yes "$NEWMAN" run docs/api/palco-api.postman_collection.json \
+            --env-var "secretoServicios=$PALCO_SECRETO_SERVICIOS" \
+            --reporters cli,junit --reporter-junit-export newman/coleccion.xml \
+            --color off | tee newman/coleccion.txt
+      - name: 'Pasos manuales: reenviar el código y verificar el email (sección 8 de la guía)'
+        # Lo mismo que a mano, con el log del servidor en lugar de la consola. Newman no exporta las variables
+        # que cargó la corrida, así que el email de "Registro (201)" también sale del log: es la única cuenta
+        # postman-… de esta base, que es nueva.
+        run: |
+          set -o pipefail
+          email=$(sed -nE 's/.*Email para (postman-[0-9a-z]+@palco\.test) .*/\1/p' logs/server.log | tail -n 1)
+          test -n "$email" || { echo 'No está el email de "Registro (201)" en logs/server.log'; exit 1; }
+          # Como en la guía, el email se carga en la variable emailRegistro de la colección: el test de
+          # "Verificar email" lo lee de ahí.
+          node -e '
+            const fs = require("fs");
+            const coleccion = JSON.parse(fs.readFileSync("docs/api/palco-api.postman_collection.json", "utf8"));
+            coleccion.variable.find((v) => v.key === "emailRegistro").value = process.argv[1];
+            fs.writeFileSync("newman/pasos-manuales.json", JSON.stringify(coleccion));
+          ' "$email"
+          # El reenvío pide 30 segundos desde el registro, que es el primer request de la corrida.
+          espera=$(( $(cat newman/inicio) + 35 - $(date +%s) ))
+          if [ "$espera" -gt 0 ]; then sleep "$espera"; fi
+          npx --yes "$NEWMAN" run newman/pasos-manuales.json --folder 'MANUAL · Reenviar código (204)' \
+            --reporters cli,junit --reporter-junit-export newman/reenvio.xml \
+            --color off | tee newman/reenvio.txt
+          # El reenvío reemplaza el código del registro: vale el del último email de esa cuenta.
+          codigo=$(sed -nE "s/.*Email para $email \(.*el email es ([0-9]{6})\..*/\1/p" logs/server.log | tail -n 1)
+          test -n "$codigo" || { echo "No está el código de $email en logs/server.log"; exit 1; }
+          npx --yes "$NEWMAN" run newman/pasos-manuales.json --folder 'MANUAL · Verificar email (200)' \
+            --env-var "codigoVerificacion=$codigo" \
+            --reporters cli,junit --reporter-junit-export newman/verificacion.xml \
+            --color off | tee newman/verificacion.txt
+      - name: Resumen de Newman
+        # La tabla final de cada corrida (y el detalle de las fallas, si hubo), sin los códigos de color.
+        if: always()
+        run: |
+          {
+            echo '### Postman (Newman)'
+            for corrida in coleccion reenvio verificacion; do
+              [ -f "newman/$corrida.txt" ] || continue
+              echo; echo "newman/$corrida.txt"; echo '```'
+              sed -n '/^┌/,$p' "newman/$corrida.txt" | sed -E 's/\x1b\[[0-9;]*m//g'
+              echo '```'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Estado de los contenedores
+        if: always()
+        run: docker compose ps && docker compose logs --no-color > compose-api.log
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: reporte-api
+          path: |
+            newman/
+            logs/
+            compose-api.log
           if-no-files-found: ignore
       - name: Bajar todo
         if: always()

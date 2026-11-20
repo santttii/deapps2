@@ -13,9 +13,9 @@
     },
     {
       "key": "secretoServicios",
-      "value": "palco-desarrollo",
+      "value": "",
       "type": "string",
-      "description": "Secreto compartido de los servicios (PALCO_SECRETO_SERVICIOS). Si el servidor arrancó con otro, pasarlo con --env-var secretoServicios=... o cambiarlo en las variables."
+      "description": "Secreto compartido de los servicios (PALCO_SECRETO_SERVICIOS): el mismo con el que arrancó el servidor. No tiene valor por defecto. Está en backend/.env, en la variable de entorno o en backend/servidor/target/secreto-servicios, que deja dev.sh. En Newman se pasa con --env-var secretoServicios=...; en Postman se carga en esta variable."
     },
     {
       "key": "baseEventos",
