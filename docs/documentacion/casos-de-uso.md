@@ -14,8 +14,8 @@ tiene pantalla en el frontend y se usa por la API.*
 | Organizador | `organizer` | Persona |
 | Personal de puerta | `staff` | Persona |
 | Usuario registrado | cualquiera de los tres | Actor abstracto (en cursiva en el diagrama): lo que comparten las tres cuentas, iniciar sesión y recuperar la contraseña. Comprador, organizador y personal de puerta lo heredan |
-| Pasarela de pago | — | Sistema externo, **simulado** (`PagosFake`, dentro de Pagos): cobra y devuelve |
-| ARCA | — | Sistema externo legado, **simulado** (`ArcaSimulado`, un servicio SOAP en un WAR aparte, `/legado/arca`) |
+| Pasarela de pago | Ninguno | Sistema externo, **simulado** (`PagosFake`, dentro de Pagos): cobra y devuelve |
+| ARCA | Ninguno | Sistema externo legado, **simulado** (`ArcaSimulado`, un servicio SOAP en un WAR aparte, `/legado/arca`) |
 
 Los errores salen como Problem Details (`application/problem+json`) con `"type": "/problemas/<tipo>"`; en cada flujo
 alternativo se da el código HTTP y el tipo. Una operación con `@RolesAllowed` responde 401 `no-autenticado` sin
@@ -25,7 +25,7 @@ repite en cada uno. Lo ajeno (un evento de otro organizador, una entrada o una v
 
 Los emails (código de verificación, código para la contraseña nueva, compra confirmada y evento cancelado) salen
 por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del servidor como
-`Email para <email> — <asunto>: <cuerpo>`.
+`Email para <email> (<asunto>): <cuerpo>`.
 
 ## Resumen
 

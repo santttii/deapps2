@@ -31,6 +31,6 @@ public class CorreoAlLog implements Correos {
 
     @Override
     public void enviar(Email email) {
-        LOG.info(Textos.enUnaLinea("Email para " + email.para() + " — " + email.asunto() + ": " + email.cuerpo()));
+        LOG.info(Textos.enUnaLinea("Email para " + email.para() + " (" + email.asunto() + "): " + email.cuerpo()));
     }
 }

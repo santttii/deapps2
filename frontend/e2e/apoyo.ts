@@ -115,7 +115,7 @@ function logDesde(marca: number): string {
 
 /**
  * El código de verificación que le mandó el servidor a ese email. Sin SMTP configurado, el email
- * queda en el log en un renglón "Email para <email> — Tu código de Palco: ... el email es 123456."
+ * queda en el log en un renglón "Email para <email> (Tu código de Palco): ... el email es 123456."
  */
 export async function codigoDeVerificacion(email: string, marca: number): Promise<string> {
   const patron = new RegExp(`Email para ${email.replace(/[.+]/g, '\\$&')} .*el email es (\\d{6})\\.`);
