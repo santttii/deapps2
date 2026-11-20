@@ -58,13 +58,14 @@ public class PagoRepositoryJpa implements PagoRepository {
     }
 
     @Override
-    public boolean marcarReembolsado(String pagoId, String motivo, LocalDateTime ahora) {
+    public boolean marcarReembolsado(String pagoId, long monto, String motivo, LocalDateTime ahora) {
         int cambiadas = em.createQuery("""
                         update Pago p
-                        set p.estado = :reembolsado, p.motivoReembolso = :motivo, p.reembolsado = :ahora,
-                            p.actualizado = :ahora
+                        set p.estado = :reembolsado, p.montoReembolsado = :monto, p.motivoReembolso = :motivo,
+                            p.reembolsado = :ahora, p.actualizado = :ahora
                         where p.id = :id and p.estado = :aprobado""")
                 .setParameter("id", pagoId)
+                .setParameter("monto", monto)
                 .setParameter("motivo", motivo)
                 .setParameter("ahora", ahora)
                 .setParameter("reembolsado", EstadoPago.REEMBOLSADO)

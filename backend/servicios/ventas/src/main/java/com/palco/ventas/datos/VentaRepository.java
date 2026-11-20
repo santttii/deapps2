@@ -106,12 +106,13 @@ public interface VentaRepository {
 
     /**
      * Anula una venta pagada porque se canceló su evento: la pasa a
-     * {@code CANCELADA} y marca el cupo por devolver. Es un UPDATE con la
-     * condición adentro (tiene que seguir {@code CONFIRMADA} o
-     * {@code EMITIDA}), así que repetirlo no cambia nada y devuelve false: es
-     * lo que hace idempotente a la cancelación si el mensaje llega dos veces.
+     * {@code CANCELADA} y, si {@code devolverCupo}, marca el cupo por devolver.
+     * Es un UPDATE con la condición adentro (tiene que seguir
+     * {@code CONFIRMADA} o {@code EMITIDA}), así que repetirlo no cambia nada y
+     * devuelve false: es lo que hace idempotente a la cancelación si el mensaje
+     * llega dos veces.
      */
-    boolean anularPorCancelacionDelEvento(String ventaId);
+    boolean anularPorCancelacionDelEvento(String ventaId, boolean devolverCupo);
 
     /**
      * Las ventas pagadas de un evento con sus renglones ya cargados, de la más

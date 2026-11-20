@@ -29,6 +29,14 @@ public interface EntradaRepository {
     int anularDeLaVenta(String ventaId);
 
     /**
+     * La suma del precio pagado (sin el cargo de servicio) de las entradas de
+     * la venta que su comprador revendió en la reventa oficial
+     * ({@code VENDIDA}); 0 si no revendió ninguna. La usa la cancelación de un
+     * evento para no devolverle a quien revendió lo que ya cobró en la reventa.
+     */
+    long precioDeLasRevendidas(String ventaId);
+
+    /**
      * Guarda las entradas de una venta recién confirmada; los INSERT salen en
      * el momento. Lanza {@code ErroresDeNegocio.Conflicto} si la venta ya tiene
      * una entrada para alguno de esos DNI: es la base la que lo impide, con una

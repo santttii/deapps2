@@ -42,7 +42,10 @@ public final class Dtos {
     /**
      * El pedido de reembolso. {@code ventaId} es la venta del pago: si no
      * coincide, el pedido apunta a otro pago y no se devuelve nada.
-     * {@code motivo} queda guardado con el pago.
+     * {@code motivo} queda guardado con el pago. {@code monto} es opcional:
+     * sin él se devuelve el pago entero (lo que pide Reventa); con él, esa
+     * parte (lo que pide Ventas cuando se cancela un evento y quien compró ya
+     * había revendido alguna de sus entradas).
      */
     public record ReembolsoDto(
             @NotBlank(message = "Falta la venta del pago que se devuelve.")
@@ -51,15 +54,22 @@ public final class Dtos {
 
             @NotBlank(message = "Falta el motivo del reembolso.")
             @Size(max = 200, message = "El motivo tiene hasta 200 caracteres.")
-            String motivo) {
+            String motivo,
+
+            /** Pesos enteros. Que no pase lo cobrado lo controla {@code ServicioDePagos}, que conoce el pago. */
+            @Min(value = 1, message = "El monto a devolver tiene que ser mayor a 0.")
+            Long monto) {
     }
 
     /**
      * El pago ya resuelto. {@code estado} es {@code APROBADO}, {@code RECHAZADO}
      * o, si se devolvió, {@code REEMBOLSADO};
      * {@code motivo} dice por qué se rechazó y es null si se aprobó;
-     * {@code idExterno} es el id del pago en la pasarela.
+     * {@code idExterno} es el id del pago en la pasarela;
+     * {@code montoReembolsado} es lo que se devolvió (el pago entero o una
+     * parte) y es null si no se devolvió.
      */
-    public record PagoDto(String pagoId, String ventaId, long monto, String estado, String motivo, String idExterno) {
+    public record PagoDto(String pagoId, String ventaId, long monto, String estado, String motivo, String idExterno,
+            Long montoReembolsado) {
     }
 }

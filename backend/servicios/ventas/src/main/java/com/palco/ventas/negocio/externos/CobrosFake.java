@@ -78,7 +78,7 @@ public class CobrosFake implements Cobros {
      * hay que usar el servicio de Pagos, que es el cobro por defecto.
      */
     @Override
-    public Devolucion reembolsar(String pagoId, String ventaId, String motivo) {
+    public Devolucion reembolsar(String pagoId, String ventaId, long monto, String motivo) {
         return Devolucion.SIN_RESPUESTA;
     }
 

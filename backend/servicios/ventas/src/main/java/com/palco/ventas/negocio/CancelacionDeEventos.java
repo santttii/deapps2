@@ -13,7 +13,10 @@ import com.palco.ventas.dominio.Venta;
  * Lo que hace Ventas cuando Eventos avisa que se canceló un evento: por cada
  * compra pagada de ese evento anula sus entradas, le pide a Pagos que devuelva
  * el dinero y publica un {@code COMPRA_ANULADA}, que es lo que escucha
- * Notificaciones para avisarle a cada comprador.
+ * Notificaciones para avisarle a cada comprador. Una entrada revendida deja
+ * dos compras pagadas, la de quien la vendió y la de quien la compró en la
+ * reventa: cómo se reparte el reembolso entre las dos lo explica
+ * {@link AnulacionDeCompras}.
  *
  * Está acá y no en el MDB porque el MDB es un punto de entrada delgado, como
  * el recurso REST: lee el mensaje y delega.
@@ -63,8 +66,7 @@ public class CancelacionDeEventos {
         }
         int anuladas = 0;
         for (Venta venta : pagadas) {
-            if (anulacion.anular(venta.getId(), venta.getCompradorId(), venta.getMontoTotal(), venta.getPagoId(),
-                    mensaje)) {
+            if (anulacion.anular(AnulacionDeCompras.CompraPagada.de(venta), mensaje)) {
                 anuladas++;
             }
         }

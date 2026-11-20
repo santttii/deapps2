@@ -88,16 +88,20 @@ public class ClienteDePagos implements Cobros {
 
     private static final Jsonb JSONB = JsonbBuilder.create();
 
-    /** Lo que se le manda a Pagos. La clave de idempotencia no va acá: viaja en la cabecera. */
-    /** El cuerpo del pedido de reembolso, como lo espera Pagos. */
-    public record PedidoDeReembolso(String ventaId, String motivo) {
+    /** El cuerpo del pedido de reembolso, como lo espera Pagos: {@code monto} es cuánto se devuelve. */
+    public record PedidoDeReembolso(String ventaId, String motivo, long monto) {
     }
 
+    /** Lo que se le manda a Pagos. La clave de idempotencia no va acá: viaja en la cabecera. */
     public record Pedido(String ventaId, long monto, String medioDePago, String token) {
     }
 
-    /** El pago como lo devuelve Pagos. Para la compra importan {@code pagoId}, {@code estado} y {@code motivo}. */
-    public record Pago(String pagoId, String ventaId, long monto, String estado, String motivo, String idExterno) {
+    /**
+     * El pago como lo devuelve Pagos. Para la compra importan {@code pagoId}, {@code estado} y {@code motivo};
+     * para el reembolso, además, {@code montoReembolsado}.
+     */
+    public record Pago(String pagoId, String ventaId, long monto, String estado, String motivo, String idExterno,
+            Long montoReembolsado) {
     }
 
     /** El {@code type} del 409 con el que Pagos dice que esa clave ya cobró otra venta u otro monto. */
@@ -204,12 +208,12 @@ public class ClienteDePagos implements Cobros {
     }
 
     /**
-     * Pide que se devuelva el pago de una venta:
-     * {@code POST /api/v1/pagos/{pagoId}/reembolso}. Pagos lo hace una sola
-     * vez, así que repetirlo es seguro.
+     * Pide que se devuelva el pago de una venta, entero o una parte:
+     * {@code POST /api/v1/pagos/{pagoId}/reembolso} con el monto. Pagos lo hace
+     * una sola vez, así que repetirlo es seguro.
      *
      * <ul>
-     * <li>200 con el pago {@code REEMBOLSADO} y de esta venta: {@code HECHA}.</li>
+     * <li>200 con el pago {@code REEMBOLSADO}, de esta venta y por ese monto: {@code HECHA}.</li>
      * <li>409 {@code pago-no-reembolsable} o 404 de Pagos: {@code RECHAZADA}. Repetirlo daría lo mismo.</li>
      * <li>Cualquier otra cosa, incluido un 404 sin el error de Pagos (el WAR no está desplegado):
      * {@code SIN_RESPUESTA}.</li>
@@ -219,8 +223,8 @@ public class ClienteDePagos implements Cobros {
      * reembolso que quedó sin respuesta se vuelve a pedir después.
      */
     @Override
-    public Devolucion reembolsar(String pagoId, String ventaId, String motivo) {
-        String cuerpo = JSONB.toJson(new PedidoDeReembolso(ventaId, motivo));
+    public Devolucion reembolsar(String pagoId, String ventaId, long monto, String motivo) {
+        String cuerpo = JSONB.toJson(new PedidoDeReembolso(ventaId, motivo, monto));
         Respuesta respuesta;
         try {
             respuesta = devolver(pagoId, cuerpo, tokenParaConsultar(ventaId));
@@ -233,7 +237,8 @@ public class ClienteDePagos implements Cobros {
         }
         if (respuesta.estado() == 200) {
             Pago pago = leerPago(respuesta.cuerpo());
-            if (pago != null && "REEMBOLSADO".equals(pago.estado()) && ventaId.equals(pago.ventaId())) {
+            if (pago != null && "REEMBOLSADO".equals(pago.estado()) && ventaId.equals(pago.ventaId())
+                    && pago.montoReembolsado() != null && pago.montoReembolsado() == monto) {
                 return Devolucion.HECHA;
             }
         } else if ((respuesta.estado() == 409 && TIPO_PAGO_NO_REEMBOLSABLE.equals(tipoDeProblema(respuesta.cuerpo())))

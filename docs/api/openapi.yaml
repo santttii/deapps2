@@ -1051,9 +1051,11 @@ paths:
       tags: [pagos]
       summary: Devolver un pago aprobado
       description: >
-        Requiere rol `servicio`. Devuelve el pago entero y lo deja `REEMBOLSADO`. Lo pide Reventa cuando cobró una
-        compra y Ventas rechazó la transferencia de la entrada. Es idempotente: repetirlo responde el mismo pago sin
-        volver a devolver. Si la pasarela no responde (504), el pago sigue `APROBADO` y se puede repetir.
+        Requiere rol `servicio`. Devuelve el pago, entero o la parte que dice `monto`, y lo deja `REEMBOLSADO` con
+        `montoReembolsado`. Lo piden Reventa, cuando cobró una compra y Ventas rechazó la transferencia de la entrada
+        (entero), y Ventas, cuando se cancela el evento (entero, o sin lo que corresponde a las entradas que el
+        comprador ya revendió). Es idempotente: repetirlo con el mismo monto responde el mismo pago sin volver a
+        devolver. Si la pasarela no responde (504), el pago sigue `APROBADO` y se puede repetir.
       parameters:
         - name: pagoId
           in: path
@@ -1076,7 +1078,8 @@ paths:
         '404': { $ref: '#/components/responses/NoEncontrado' }
         '409':
           description: >
-            El pago no está aprobado o es de otra venta (`/problemas/pago-no-reembolsable`). No se devuelve nada.
+            El pago no está aprobado, es de otra venta, el monto pasa lo cobrado o ya se devolvió por otro monto
+            (`/problemas/pago-no-reembolsable`). No se devuelve nada.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
@@ -2221,6 +2224,7 @@ components:
         estado: { type: string, enum: [APROBADO, RECHAZADO, REEMBOLSADO] }
         motivo: { type: [string, 'null'], example: fondos_insuficientes }
         idExterno: { type: [string, 'null'] }
+        montoReembolsado: { type: [integer, 'null'], format: int64, description: 'Lo que se devolvió: el pago entero o una parte; null si no se devolvió', example: 30250 }
 
     Reembolso:
       type: object
@@ -2228,6 +2232,7 @@ components:
       properties:
         ventaId: { type: string, maxLength: 40, description: 'La venta del pago; si no coincide, no se devuelve nada', example: R-3f9a1c2b }
         motivo: { type: string, maxLength: 200, example: 'Reventa: Ventas no transfirió la entrada T-1 al comprador (ya no estaba publicada).' }
+        monto: { type: integer, format: int64, minimum: 1, description: 'Opcional: cuánto se devuelve, sin pasar lo cobrado. Sin él, el pago entero', example: 30250 }
 
     NuevaPublicacion:
       type: object

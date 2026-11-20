@@ -1,4 +1,4 @@
-# Contrato de mensajería — `EVENTO_CANCELADO` y `COMPRA_ANULADA`
+# Contrato de mensajería: `EVENTO_CANCELADO` y `COMPRA_ANULADA`
 
 Documenta los dos mensajes del segundo proceso asincrónico de Palco: la cancelación de un evento. El de la
 compra (`PAGO_CONFIRMADO` y `REVENTA_CONFIRMADA`) está en
@@ -14,7 +14,8 @@ Son dos hechos distintos, y por eso dos mensajes:
   que lo marca como cancelado. Lleva el evento y nada de las ventas: quién compró qué lo sabe Ventas.
 - **`COMPRA_ANULADA`**, uno por compra. Lo publica Ventas (`CancelacionDeEventos.anular`) por cada compra pagada
   del evento, en la transacción en que la anula, después de pedirle el reembolso a Pagos. Es el que trae a quién
-  avisarle y cuánto se le devolvió.
+  avisarle y cuánto se le devolvió. Si quien compró ya había revendido todas las entradas de esa compra, la compra
+  se anula sin reembolso y sin este mensaje: no le queda ninguna entrada que anular ni nada que devolverle.
 
 ```
 ServicioDeEventos ──► topico.eventos-cancelados ──► CancelacionDeEventoMDB (Ventas, durable)        EVENTO_CANCELADO
@@ -41,7 +42,7 @@ Se publica siempre con la fábrica de conexiones transaccional, `java:/JmsXA`.
 | ----------------------------- | -------------- | ------------------ | ----------- | -------------------------------------------------- | -------- |
 | `CancelacionDeEventoMDB`      | Ventas         | `EVENTO_CANCELADO` | Durable     | `ventas-cancelaciones` / `ventas-cancelaciones`    | Anula las compras pagadas del evento y sus entradas, pide los reembolsos y publica un `COMPRA_ANULADA` por compra (`CancelacionDeEventos`) |
 | `CancelacionDeEventoMDB`      | Reventa        | `EVENTO_CANCELADO` | Durable     | `reventa-cancelaciones` / `reventa-cancelaciones`  | Retira las publicaciones `ACTIVA` del evento (`RetiroPorCancelacion`). Un mensaje repetido no cambia nada: el UPDATE solo toca las que siguen `ACTIVA` |
-| `AvisoDeCancelacionMDB`       | Notificaciones | `COMPRA_ANULADA`   | No durable  | —                                                  | Le manda el email al comprador (`ServicioDeNotificaciones.enviarAlertaCancelacion`) |
+| `AvisoDeCancelacionMDB`       | Notificaciones | `COMPRA_ANULADA`   | No durable  | No tiene                                           | Le manda el email al comprador (`ServicioDeNotificaciones.enviarAlertaCancelacion`) |
 | `AuditoriaDeCancelacionesMDB` | Notificaciones | `COMPRA_ANULADA`   | Durable, `maxSession = 1` | `palco-auditoria-cancelaciones` / `compras-anuladas` | Guarda una fila de auditoría por compra anulada (`ServicioDeAuditoria.registrarAnulacion`) |
 
 `EVENTO_CANCELADO` lo consumen Ventas y Reventa, cada uno con su suscripción durable. Para sumar a Reventa no
@@ -108,7 +109,7 @@ despliega con las suscripciones sin pendientes.
 | `eventoId`    | string           | Id del evento cancelado |
 | `titulo`      | string           | Título del evento, copiado de `EVENTO_CANCELADO` |
 | `motivo`      | string, opcional | El motivo de la cancelación, copiado de `EVENTO_CANCELADO` |
-| `monto`       | número           | Lo que había pagado, con el cargo de servicio, en pesos enteros (`long`) |
+| `monto`       | número           | Lo que se le devuelve, en pesos enteros (`long`): lo que pagó, con el cargo de servicio, menos lo que corresponde a las entradas que ya había revendido (su precio y su cargo). Sin revendidas, lo que pagó |
 | `reembolsado` | booleano         | Si Pagos ya devolvió ese monto. Puede ser false: la compra se anula igual (ver [Garantías](#garantías)) |
 | `timestamp`   | string           | Instante de la anulación, en UTC con `Z`; tampoco se trunca |
 
@@ -174,6 +175,11 @@ El publicador llama a `validar()` antes de mandar: un mensaje incompleto no lleg
   no responde, la compra se anula igual, el mensaje sale con `reembolsado` en false y queda una advertencia en el
   log con el `pagoId`; el email le dice al comprador que la devolución está en trámite. El reembolso es una
   llamada REST que confirma en el acto: un rollback posterior no lo deshace, y Pagos devuelve un pago una sola vez.
+- **Una entrada revendida se devuelve una sola vez, a quien la tiene.** La compra hecha en la reventa pide el
+  reembolso con el id de la publicación, que es la venta con la que Pagos guardó ese cobro (lo hizo Reventa, antes
+  de que la venta existiera), y no devuelve cupo, porque no reservó ninguno. A quien la vendió se le devuelve lo que
+  pagó menos lo que corresponde a las entradas revendidas: esa parte vuelve a quien se las compró. El cupo lo
+  devuelve entero la compra original.
 - **Un reembolso sin respuesta se vuelve a pedir.** En la misma transacción que la anula, la venta queda con la
   marca `reembolso_pendiente` (migración V4 de Ventas). El barrido `ReintentoDeReembolsos` vuelve a pedir el
   reembolso en el segundo 45 de cada minuto hasta que Pagos conteste: si lo devolvió, saca la marca y lo deja en el

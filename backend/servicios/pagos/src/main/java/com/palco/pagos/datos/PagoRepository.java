@@ -27,9 +27,9 @@ public interface PagoRepository {
     void guardar(Pago pago);
 
     /**
-     * {@code APROBADO} → {@code REEMBOLSADO}, con el motivo y la hora. Es un
-     * solo UPDATE con la condición adentro: devuelve si cambió la fila. Si otro
-     * pedido lo reembolsó antes, devuelve false.
+     * {@code APROBADO} → {@code REEMBOLSADO}, con lo que se devolvió, el motivo
+     * y la hora. Es un solo UPDATE con la condición adentro: devuelve si cambió
+     * la fila. Si otro pedido lo reembolsó antes, devuelve false.
      */
-    boolean marcarReembolsado(String pagoId, String motivo, LocalDateTime ahora);
+    boolean marcarReembolsado(String pagoId, long monto, String motivo, LocalDateTime ahora);
 }

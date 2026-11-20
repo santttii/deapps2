@@ -8,12 +8,14 @@ import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
 import jakarta.inject.Inject;
 
+import com.palco.common.ReglasDeNegocio;
 import com.palco.common.Textos;
 import com.palco.common.mensajeria.CompraAnuladaMensaje;
 import com.palco.common.mensajeria.EventoCanceladoMensaje;
 import com.palco.common.mensajeria.PublicadorDeCancelaciones;
 import com.palco.ventas.datos.EntradaRepository;
 import com.palco.ventas.datos.VentaRepository;
+import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.negocio.externos.Cobros;
 
 /**
@@ -37,6 +39,30 @@ import com.palco.ventas.negocio.externos.Cobros;
  * con {@code SessionContext.getBusinessObject}, pero un bean aparte se lee y
  * se prueba más fácil, y es como ya lo resuelve el servicio.
  *
+ * <strong>Las compras que pasaron por la reventa.</strong> Una entrada
+ * revendida deja dos ventas pagadas del evento: la de quien la vendió, con esa
+ * entrada {@code VENDIDA}, y la que nació para quien la compró
+ * ({@link ReventaDeEntradas#transferir}). Las dos se anulan acá, con tres
+ * diferencias:
+ * <ul>
+ * <li><em>El reembolso de quien compró en la reventa se pide con el id de la
+ * publicación.</em> Ese cobro lo hizo Reventa antes de que la venta existiera,
+ * y Pagos lo guardó con la publicación como venta. Pedido con el id de la
+ * venta, Pagos contesta que el pago es de otra venta y el dinero no vuelve.
+ * Lo pide Ventas, y no Reventa aunque haya cobrado ella, por dos razones: el
+ * aviso al comprador sale de acá, en esta transacción, y tiene que decir si el
+ * dinero volvió; y un reembolso sin respuesta lo retoma el mismo barrido que
+ * el de cualquier compra ({@link ReintentoDeReembolsos}), sin otro estado en
+ * Reventa ni dos servicios que se repartan quién devuelve qué.</li>
+ * <li><em>La venta que nació en la reventa no devuelve cupo.</em> No reservó
+ * ninguno: el lugar ya era de la compra original, que lo devuelve entero.</li>
+ * <li><em>A quien vendió no se le devuelve lo que corresponde a las entradas
+ * que ya revendió</em> ({@link #montoADevolver}). Esa parte se la pagó quien
+ * se las compró, y es a esa persona a quien se le devuelve, en su propia
+ * venta: así cada lugar se devuelve una sola vez. Si las revendió todas, no
+ * hay nada que devolverle ni que avisarle.</li>
+ * </ul>
+ *
  * Stateless: todo lo que necesita llega como parámetro o está en la base.
  */
 @Stateless
@@ -46,6 +72,24 @@ public class AnulacionDeCompras {
 
     /** Queda en el pago, para que se entienda por qué se devolvió. También lo usa {@link ReintentoDeReembolsos}. */
     static final String MOTIVO = "Evento cancelado";
+
+    /**
+     * Lo que la anulación necesita de una venta pagada, copiado de la entidad
+     * que trajo la consulta y no la entidad misma: la anulación corre en una
+     * transacción nueva, y esa entidad pertenece al contexto de persistencia
+     * de la otra.
+     *
+     * @param ventaEnPagos     con qué venta guardó Pagos el cobro ({@link ReventaDeEntradas#ventaEnPagos})
+     * @param nacioEnLaReventa si la venta nació de una compra en la reventa: entonces no reservó cupo
+     */
+    public record CompraPagada(String ventaId, String compradorId, long montoTotal, String pagoId,
+            String ventaEnPagos, boolean nacioEnLaReventa) {
+
+        static CompraPagada de(Venta venta) {
+            return new CompraPagada(venta.getId(), venta.getCompradorId(), venta.getMontoTotal(), venta.getPagoId(),
+                    ReventaDeEntradas.ventaEnPagos(venta), ReventaDeEntradas.esCompraEnLaReventa(venta));
+        }
+    }
 
     @Inject
     VentaRepository ventas;
@@ -66,10 +110,6 @@ public class AnulacionDeCompras {
      * Una compra, en su propia transacción. Devuelve false si ya estaba
      * anulada: entonces no se pide el reembolso ni se publica el aviso otra vez.
      *
-     * Los datos de la venta llegan por parámetro y no como entidad porque esta
-     * transacción es nueva: la entidad que trajo la consulta pertenece al
-     * contexto de persistencia de la otra.
-     *
      * Si Pagos no contesta el reembolso, la venta queda con la marca
      * {@code reembolso_pendiente}, en esta misma transacción: la marca existe
      * solo si la anulación quedó confirmada. Con la marca, el barrido
@@ -77,15 +117,31 @@ public class AnulacionDeCompras {
      * mensaje no lo haría: encuentra la venta ya anulada y no la toca.
      */
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public boolean anular(String ventaId, String compradorId, long monto, String pagoId,
-            EventoCanceladoMensaje mensaje) {
-        if (!ventas.anularPorCancelacionDelEvento(ventaId)) {
+    public boolean anular(CompraPagada compra, EventoCanceladoMensaje mensaje) {
+        String ventaId = compra.ventaId();
+        if (!ventas.anularPorCancelacionDelEvento(ventaId, !compra.nacioEnLaReventa())) {
             return false;
         }
         int anuladas = entradas.anularDeLaVenta(ventaId);
+        // Se suma después de anular: ya no le queda ninguna entrada PUBLICADA, así que ninguna puede pasar a
+        // VENDIDA y lo revendido no cambia más. ReintentoDeReembolsos lo vuelve a sumar y le da lo mismo.
+        long aDevolver = montoADevolver(compra.montoTotal(), entradas.precioDeLasRevendidas(ventaId));
+        String cupo = compra.nacioEnLaReventa()
+                ? "no se devuelve, porque la venta nació en la reventa y el lugar lo devuelve la compra original"
+                : "queda para DevolucionDeCupos";
+
+        if (aDevolver == 0) {
+            // COMPRA_ANULADA exige un monto mayor que 0, y no hay nada que contarle: no tenía entradas que anular.
+            LOG.info("AnulacionDeCompras: anulada la venta " + Textos.enUnaLinea(ventaId) + " del evento "
+                    + Textos.enUnaLinea(mensaje.eventoId()) + " sin reembolso ni aviso: su comprador había revendido"
+                    + " todas sus entradas. Cupo: " + cupo + ".");
+            return true;
+        }
 
         // El reembolso va antes de publicar, porque el aviso dice si el dinero volvió.
-        Cobros.Devolucion devolucion = pagoId == null ? null : cobros.reembolsar(pagoId, ventaId, MOTIVO);
+        String pagoId = compra.pagoId();
+        Cobros.Devolucion devolucion = pagoId == null ? null
+                : cobros.reembolsar(pagoId, compra.ventaEnPagos(), aDevolver, MOTIVO);
         boolean reembolsado = devolucion == Cobros.Devolucion.HECHA;
         String reembolso = "hecho";
         if (devolucion == Cobros.Devolucion.SIN_RESPUESTA) {
@@ -104,12 +160,25 @@ public class AnulacionDeCompras {
         }
 
         // En la misma transacción que la anulación: si esta se deshace, el aviso no sale.
-        cancelaciones.publicarCompraAnulada(new CompraAnuladaMensaje(ventaId, compradorId, mensaje.eventoId(),
-                mensaje.titulo(), mensaje.motivo(), monto, reembolsado, reloj.instant()));
+        cancelaciones.publicarCompraAnulada(new CompraAnuladaMensaje(ventaId, compra.compradorId(),
+                mensaje.eventoId(), mensaje.titulo(), mensaje.motivo(), aDevolver, reembolsado, reloj.instant()));
 
         LOG.info("AnulacionDeCompras: anulada la venta " + Textos.enUnaLinea(ventaId) + " del evento "
                 + Textos.enUnaLinea(mensaje.eventoId()) + ". Entradas anuladas: " + anuladas
-                + ". Reembolso: " + reembolso + ".");
+                + ". Reembolso: " + reembolso + " ($" + aDevolver + " de $" + compra.montoTotal() + ", pedido a Pagos"
+                + " con la venta " + Textos.enUnaLinea(compra.ventaEnPagos()) + "). Cupo: " + cupo + ".");
         return true;
+    }
+
+    /**
+     * Cuánto se le devuelve a quien compró: lo que pagó, menos lo que
+     * corresponde a las entradas que ya revendió, que es su precio pagado más
+     * el cargo de servicio de ese precio (la misma regla con la que se cobró,
+     * {@code ReglasDeNegocio.cargoServicio}). Sin revendidas es lo que pagó;
+     * con todas revendidas, 0. Lo usa también {@link ReintentoDeReembolsos},
+     * para volver a pedir el mismo monto.
+     */
+    static long montoADevolver(long montoTotal, long precioDeLasRevendidas) {
+        return montoTotal - precioDeLasRevendidas - ReglasDeNegocio.cargoServicio(precioDeLasRevendidas);
     }
 }

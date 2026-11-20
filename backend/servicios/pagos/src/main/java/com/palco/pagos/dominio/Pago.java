@@ -66,6 +66,10 @@ public class Pago {
     /** Cuándo se devolvió, en UTC; null si no se devolvió. */
     private LocalDateTime reembolsado;
 
+    /** Cuánto se devolvió, en pesos enteros: el pago entero o una parte. Null si no se devolvió. */
+    @Column(name = "monto_reembolsado")
+    private Long montoReembolsado;
+
     protected Pago() {
         // JPA
     }
@@ -99,17 +103,19 @@ public class Pago {
     public LocalDateTime getActualizado() { return actualizado; }
     public String getMotivoReembolso() { return motivoReembolso; }
     public LocalDateTime getReembolsado() { return reembolsado; }
+    public Long getMontoReembolsado() { return montoReembolsado; }
 
     /**
      * {@code APROBADO} → {@code REEMBOLSADO}, sobre la entidad. Lo usa el
      * repositorio en memoria de los tests; el de la base lo hace con un
      * UPDATE condicional ({@code PagoRepository.marcarReembolsado}).
      */
-    public boolean reembolsar(String motivo, LocalDateTime ahora) {
+    public boolean reembolsar(long monto, String motivo, LocalDateTime ahora) {
         if (estado != EstadoPago.APROBADO) {
             return false;
         }
         this.estado = EstadoPago.REEMBOLSADO;
+        this.montoReembolsado = monto;
         this.motivoReembolso = motivo;
         this.reembolsado = ahora;
         this.actualizado = ahora;

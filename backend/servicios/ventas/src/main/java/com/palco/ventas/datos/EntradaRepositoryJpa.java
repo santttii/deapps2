@@ -75,6 +75,16 @@ public class EntradaRepositoryJpa implements EntradaRepository {
     }
 
     @Override
+    public long precioDeLasRevendidas(String ventaId) {
+        return em.createQuery("""
+                        select coalesce(sum(e.precioPagado), 0) from Entrada e
+                        where e.venta.id = :ventaId and e.estado = :vendida""", Long.class)
+                .setParameter("ventaId", ventaId)
+                .setParameter("vendida", EstadoEntrada.VENDIDA)
+                .getSingleResult();
+    }
+
+    @Override
     public int emitirPendientes(String ventaId, LocalDateTime ahora) {
         // Primero se manda a la base lo que estuviera pendiente, para que la consulta lo encuentre.
         em.flush();

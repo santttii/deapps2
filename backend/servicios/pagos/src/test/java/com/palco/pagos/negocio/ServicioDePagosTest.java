@@ -275,7 +275,8 @@ class ServicioDePagosTest {
     void unPagoAprobadoSeDevuelveYQuedaReembolsadoConElMotivoYLaHora() {
         PagoDto cobrado = servicio.procesarPago(pedido("R-3f9a1c2b", 60500, "tok_test"), CLAVE);
 
-        PagoDto devuelto = servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "  sin entrada  "));
+        PagoDto devuelto = servicio.reembolsar(cobrado.pagoId(),
+                new ReembolsoDto("R-3f9a1c2b", "  sin entrada  ", null));
 
         assertEquals("REEMBOLSADO", devuelto.estado());
         assertEquals(cobrado.pagoId(), devuelto.pagoId());
@@ -290,7 +291,7 @@ class ServicioDePagosTest {
     @Test
     void devolverDosVecesElMismoPagoLePideUnaSolaVezALaPasarela() {
         PagoDto cobrado = servicio.procesarPago(pedido("R-3f9a1c2b", 60500, "tok_test"), CLAVE);
-        ReembolsoDto pedido = new ReembolsoDto("R-3f9a1c2b", "sin entrada");
+        ReembolsoDto pedido = new ReembolsoDto("R-3f9a1c2b", "sin entrada", null);
 
         PagoDto primero = servicio.reembolsar(cobrado.pagoId(), pedido);
         PagoDto segundo = servicio.reembolsar(cobrado.pagoId(), pedido);
@@ -306,10 +307,10 @@ class ServicioDePagosTest {
     void siOtroPedidoLoDevolvioMientrasTantoValeEseReembolso() {
         PagoDto cobrado = servicio.procesarPago(pedido("R-3f9a1c2b", 60500, "tok_test"), CLAVE);
         // El otro pedido termina mientras este espera a la pasarela: cuando este quiere marcarlo, ya está.
-        pasarela.mientrasReembolsa = () -> repositorio.marcarReembolsado(cobrado.pagoId(), "el otro",
+        pasarela.mientrasReembolsa = () -> repositorio.marcarReembolsado(cobrado.pagoId(), 60500, "el otro",
                 LocalDateTime.of(2026, 10, 16, 21, 30, 0));
 
-        PagoDto devuelto = servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "este"));
+        PagoDto devuelto = servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "este", null));
 
         assertEquals("REEMBOLSADO", devuelto.estado());
         assertEquals("el otro", repositorio.buscarPorId(cobrado.pagoId()).orElseThrow().getMotivoReembolso());
@@ -321,16 +322,16 @@ class ServicioDePagosTest {
         PagoDto aprobado = servicio.procesarPago(pedido("R-0b9a8c7d", 60500, "tok_test"), OTRA_CLAVE);
 
         ErroresDeNegocio.Conflicto noAprobado = assertThrows(ErroresDeNegocio.Conflicto.class,
-                () -> servicio.reembolsar(rechazado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "x")));
+                () -> servicio.reembolsar(rechazado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "x", null)));
         ErroresDeNegocio.Conflicto ajeno = assertThrows(ErroresDeNegocio.Conflicto.class,
-                () -> servicio.reembolsar(aprobado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "x")));
+                () -> servicio.reembolsar(aprobado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "x", null)));
 
         assertEquals(ServicioDePagos.PAGO_NO_REEMBOLSABLE, noAprobado.tipo());
         assertEquals(ServicioDePagos.PAGO_NO_REEMBOLSABLE, ajeno.tipo());
         assertEquals(0, pasarela.reembolsos);
         assertEquals("APROBADO", servicio.obtener(aprobado.pagoId()).estado());
         assertThrows(ErroresDeNegocio.NoEncontrado.class,
-                () -> servicio.reembolsar("P-noexiste", new ReembolsoDto("R-3f9a1c2b", "x")));
+                () -> servicio.reembolsar("P-noexiste", new ReembolsoDto("R-3f9a1c2b", "x", null)));
     }
 
     @Test
@@ -339,18 +340,78 @@ class ServicioDePagosTest {
         pasarela.reembolsoSinRespuesta = true;
 
         assertThrows(ErroresDeNegocio.SinRespuesta.class,
-                () -> servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "sin entrada")));
+                () -> servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "sin entrada", null)));
         assertEquals("APROBADO", servicio.obtener(cobrado.pagoId()).estado());
 
         pasarela.reembolsoSinRespuesta = false;
         assertEquals("REEMBOLSADO",
-                servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "sin entrada")).estado());
+                servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "sin entrada", null)).estado());
+    }
+
+    // ---- Reembolso de una parte: el evento se canceló y el comprador ya había revendido una entrada ----
+
+    @Test
+    void sinMontoSeDevuelveElPagoEnteroYQuedaAnotadoCuanto() {
+        PagoDto cobrado = servicio.procesarPago(pedido("R-3f9a1c2b", 60500, "tok_test"), CLAVE);
+
+        PagoDto devuelto = servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("R-3f9a1c2b", "sin entrada", null));
+
+        assertEquals(60500, devuelto.montoReembolsado());
+        assertEquals(60500, pasarela.ultimoMontoDeReembolso);
+        assertEquals(60500, repositorio.buscarPorId(cobrado.pagoId()).orElseThrow().getMontoReembolsado());
+    }
+
+    @Test
+    void conMontoSeDevuelveSoloEsaParteYRepetirloNoDevuelveDosVeces() {
+        // Dos entradas de 27.500 más el cargo: 60.500. Una se revendió; se devuelve la otra con su cargo.
+        PagoDto cobrado = servicio.procesarPago(pedido("V-3f9a1c2b", 60500, "tok_test"), CLAVE);
+        ReembolsoDto pedido = new ReembolsoDto("V-3f9a1c2b", "Evento cancelado", 30250L);
+
+        PagoDto devuelto = servicio.reembolsar(cobrado.pagoId(), pedido);
+        PagoDto repetido = servicio.reembolsar(cobrado.pagoId(), pedido);
+
+        assertEquals("REEMBOLSADO", devuelto.estado());
+        assertEquals(60500, devuelto.monto());
+        assertEquals(30250, devuelto.montoReembolsado());
+        assertEquals(devuelto, repetido);
+        assertEquals(1, pasarela.reembolsos);
+        assertEquals(30250, pasarela.ultimoMontoDeReembolso);
+    }
+
+    @Test
+    void unPagoYaDevueltoNoSeDevuelveDeNuevoPorOtroMonto() {
+        PagoDto cobrado = servicio.procesarPago(pedido("V-3f9a1c2b", 60500, "tok_test"), CLAVE);
+        servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("V-3f9a1c2b", "Evento cancelado", 30250L));
+
+        // Otro monto no es un reintento sino otro pedido, y un pago se devuelve una sola vez.
+        ErroresDeNegocio.Conflicto entero = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("V-3f9a1c2b", "Evento cancelado", null)));
+
+        assertEquals(ServicioDePagos.PAGO_NO_REEMBOLSABLE, entero.tipo());
+        assertEquals(1, pasarela.reembolsos);
+        assertEquals(30250, servicio.obtener(cobrado.pagoId()).montoReembolsado());
+    }
+
+    @Test
+    void noSeDevuelveMasDeLoQueSeCobro() {
+        PagoDto cobrado = servicio.procesarPago(pedido("V-3f9a1c2b", 60500, "tok_test"), CLAVE);
+
+        ErroresDeNegocio.Conflicto demas = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.reembolsar(cobrado.pagoId(),
+                        new ReembolsoDto("V-3f9a1c2b", "Evento cancelado", 60501L)));
+
+        assertEquals(ServicioDePagos.PAGO_NO_REEMBOLSABLE, demas.tipo());
+        assertEquals(0, pasarela.reembolsos);
+        PagoDto sigue = servicio.obtener(cobrado.pagoId());
+        assertEquals("APROBADO", sigue.estado());
+        assertNull(sigue.montoReembolsado());
     }
 
     private static class PasarelaContada extends PagosFake {
         int cobros;
         int reembolsos;
         String ultimaClaveDeReembolso;
+        long ultimoMontoDeReembolso;
         boolean reembolsoSinRespuesta;
         Runnable mientrasCobra = () -> { };
         Runnable mientrasReembolsa = () -> { };
@@ -362,6 +423,7 @@ class ServicioDePagosTest {
             }
             reembolsos++;
             ultimaClaveDeReembolso = claveIdempotencia;
+            ultimoMontoDeReembolso = monto;
             mientrasReembolsa.run();
         }
 

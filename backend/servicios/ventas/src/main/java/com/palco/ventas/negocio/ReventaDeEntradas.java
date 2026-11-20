@@ -72,6 +72,20 @@ public class ReventaDeEntradas {
         return venta.getClaveIdempotencia().startsWith(PREFIJO_CLAVE);
     }
 
+    /**
+     * El {@code ventaId} con el que Pagos guardó el cobro de esta venta, que
+     * es el que Pagos exige para devolverlo. Una compra del catálogo la cobra
+     * Ventas con su propio id. Una compra en la reventa la cobra Reventa antes
+     * de que la venta exista, así que Pagos la guardó con el id de la
+     * publicación: el que está en la clave, después del prefijo. Sale de la
+     * clave y no de una columna nueva porque la clave ya lo tiene, también en
+     * las ventas que nacieron antes de esta regla.
+     */
+    static String ventaEnPagos(Venta venta) {
+        return esCompraEnLaReventa(venta) ? venta.getClaveIdempotencia().substring(PREFIJO_CLAVE.length())
+                : venta.getId();
+    }
+
     @Inject
     EntradaRepository entradas;
 

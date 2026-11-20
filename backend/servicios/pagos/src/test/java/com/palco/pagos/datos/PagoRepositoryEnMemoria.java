@@ -40,8 +40,8 @@ public class PagoRepositoryEnMemoria implements PagoRepository {
     }
 
     @Override
-    public boolean marcarReembolsado(String pagoId, String motivo, LocalDateTime ahora) {
-        return buscarPorId(pagoId).map(p -> p.reembolsar(motivo, ahora)).orElse(false);
+    public boolean marcarReembolsado(String pagoId, long monto, String motivo, LocalDateTime ahora) {
+        return buscarPorId(pagoId).map(p -> p.reembolsar(monto, motivo, ahora)).orElse(false);
     }
 
     public int cantidad() {

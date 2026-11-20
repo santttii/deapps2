@@ -104,7 +104,7 @@ class ReembolsoPendienteEnH2Test {
     void unaVentaAnuladaSinMarcaNoEstaPendiente() {
         // Es el caso de un reembolso que Pagos sí contestó: la anulación no pone la marca por sí sola.
         compraPagada("V-11111111", "P-11111111");
-        assertTrue(enTransaccion(() -> ventas.anularPorCancelacionDelEvento("V-11111111")));
+        assertTrue(enTransaccion(() -> ventas.anularPorCancelacionDelEvento("V-11111111", true)));
 
         assertTrue(pendientes().isEmpty());
         assertFalse(ventas.buscarPorId("V-11111111").orElseThrow().isReembolsoPendiente());
@@ -115,7 +115,7 @@ class ReembolsoPendienteEnH2Test {
         compraPagada("V-11111111", "P-11111111");
         compraPagada("V-22222222", "P-22222222");
         // Las dos cosas en la misma transacción, como en AnulacionDeCompras.
-        assertTrue(enTransaccion(() -> ventas.anularPorCancelacionDelEvento("V-11111111")
+        assertTrue(enTransaccion(() -> ventas.anularPorCancelacionDelEvento("V-11111111", true)
                 && ventas.marcarReembolsoPendiente("V-11111111")));
 
         List<Venta> pendientes = enTransaccion(() -> ventas.buscarReembolsosPendientes());
@@ -133,7 +133,7 @@ class ReembolsoPendienteEnH2Test {
         compraPagada("V-11111111", "P-11111111");
 
         em.getTransaction().begin();
-        assertTrue(ventas.anularPorCancelacionDelEvento("V-11111111"));
+        assertTrue(ventas.anularPorCancelacionDelEvento("V-11111111", true));
         assertTrue(ventas.marcarReembolsoPendiente("V-11111111"));
         em.getTransaction().rollback();
         em.clear();
@@ -149,7 +149,8 @@ class ReembolsoPendienteEnH2Test {
         compraPagada("V-11111111", "P-11111111");
         compraPagada("V-22222222", "P-22222222");
         for (String id : List.of("V-11111111", "V-22222222")) {
-            assertTrue(enTransaccion(() -> ventas.anularPorCancelacionDelEvento(id) && ventas.marcarReembolsoPendiente(id)));
+            assertTrue(enTransaccion(() -> ventas.anularPorCancelacionDelEvento(id, true)
+                    && ventas.marcarReembolsoPendiente(id)));
         }
 
         assertTrue(enTransaccion(() -> ventas.marcarReembolsoResuelto("V-11111111")));

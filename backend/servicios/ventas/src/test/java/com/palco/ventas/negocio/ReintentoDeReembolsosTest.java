@@ -26,6 +26,7 @@ import jakarta.ejb.TransactionAttributeType;
 import org.junit.jupiter.api.Test;
 
 import com.palco.ventas.LogCapturado;
+import com.palco.ventas.datos.EntradaRepository;
 import com.palco.ventas.datos.VentaRepository;
 import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.negocio.externos.Cobros;
@@ -36,37 +37,52 @@ import com.palco.ventas.negocio.externos.Cobros.Devolucion;
  * cancelarse un evento: cuándo saca la marca y cuándo la deja para la corrida
  * siguiente. Sin servidor: el repositorio y el cobro son dobles. Que repetir
  * un reembolso no devuelva dos veces lo comprueban los tests de Pagos; acá,
- * que se pide siempre el mismo pago de la misma venta.
+ * que se pide siempre el mismo pago, de la misma venta ante Pagos y por el
+ * mismo monto que pidió la anulación.
  */
 class ReintentoDeReembolsosTest {
 
     private final VentaRepository ventas = mock(VentaRepository.class);
+    private final EntradaRepository entradas = mock(EntradaRepository.class);
     private final Cobros cobros = mock(Cobros.class);
     private final ReintentoDeReembolsos barrido = new ReintentoDeReembolsos();
 
     ReintentoDeReembolsosTest() {
         barrido.ventas = ventas;
+        barrido.entradas = entradas;
         barrido.cobros = cobros;
     }
 
-    /** Una venta anulada por la cancelación de su evento, con su pago. El pago se pone por reflexión, como en los UPDATE. */
+    /**
+     * Una venta anulada por la cancelación de su evento, de 60.500 (dos entradas de 27.500 más el 10 %), con
+     * su pago. El monto y el pago se ponen por reflexión, como en los UPDATE.
+     */
     private static Venta anulada(String id, String pagoId) {
+        return conClave(id, pagoId, "clave-de-" + id);
+    }
+
+    private static Venta conClave(String id, String pagoId, String clave) {
         LocalDateTime creada = LocalDateTime.of(2026, 10, 23, 12, 0, 0);
-        Venta venta = new Venta(id, "user-a", "ev-1", "clave-de-" + id, creada, creada.plusMinutes(10));
+        Venta venta = new Venta(id, "user-a", "ev-1", clave, creada, creada.plusMinutes(10));
+        fijar(venta, "montoTotal", 60_500L);
+        fijar(venta, "pagoId", pagoId);
+        return venta;
+    }
+
+    private static void fijar(Venta venta, String campo, Object valor) {
         try {
-            var campo = Venta.class.getDeclaredField("pagoId");
-            campo.setAccessible(true);
-            campo.set(venta, pagoId);
+            var declarado = Venta.class.getDeclaredField(campo);
+            declarado.setAccessible(true);
+            declarado.set(venta, valor);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }
-        return venta;
     }
 
     @Test
     void siPagosLoDevuelveSeSacaLaMarcaYQuedaEnElLogSinOtroAviso() {
         when(ventas.buscarReembolsosPendientes()).thenReturn(List.of(anulada("V-1", "P-1")));
-        when(cobros.reembolsar("P-1", "V-1", AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.HECHA);
+        when(cobros.reembolsar("P-1", "V-1", 60_500, AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.HECHA);
 
         try (LogCapturado log = new LogCapturado(ReintentoDeReembolsos.class)) {
             barrido.reintentarReembolsos();
@@ -81,10 +97,10 @@ class ReintentoDeReembolsosTest {
     @Test
     void unRechazoDePagosNoSeReintentaYTambienSacaLaMarca() {
         // Reintentar cada minuto daría lo mismo: queda en un SEVERE para revisarlo a mano.
-        when(cobros.reembolsar("P-1", "V-1", AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.RECHAZADA);
+        when(cobros.reembolsar("P-1", "V-1", 60_500, AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.RECHAZADA);
 
         try (LogCapturado log = new LogCapturado(ReintentoDeReembolsos.class)) {
-            assertEquals(Devolucion.RECHAZADA, barrido.reintentar("V-1", "P-1"));
+            assertEquals(Devolucion.RECHAZADA, barrido.reintentar(anulada("V-1", "P-1")));
 
             assertTrue(log.lineas().stream().anyMatch(l -> l.contains("revisarlo a mano")),
                     String.valueOf(log.lineas()));
@@ -95,8 +111,8 @@ class ReintentoDeReembolsosTest {
     @Test
     void siPagosSigueSinContestarLaMarcaQuedaYSeSigueConLaProxima() {
         when(ventas.buscarReembolsosPendientes()).thenReturn(List.of(anulada("V-1", "P-1"), anulada("V-2", "P-2")));
-        when(cobros.reembolsar("P-1", "V-1", AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.SIN_RESPUESTA);
-        when(cobros.reembolsar("P-2", "V-2", AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.HECHA);
+        when(cobros.reembolsar("P-1", "V-1", 60_500, AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.SIN_RESPUESTA);
+        when(cobros.reembolsar("P-2", "V-2", 60_500, AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.HECHA);
 
         barrido.reintentarReembolsos();
 
@@ -108,8 +124,9 @@ class ReintentoDeReembolsosTest {
     @Test
     void unaFallaInesperadaConUnaVentaNoFrenaALasDemas() {
         when(ventas.buscarReembolsosPendientes()).thenReturn(List.of(anulada("V-1", "P-1"), anulada("V-2", "P-2")));
-        when(cobros.reembolsar("P-1", "V-1", AnulacionDeCompras.MOTIVO)).thenThrow(new IllegalStateException("raro"));
-        when(cobros.reembolsar("P-2", "V-2", AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.HECHA);
+        when(cobros.reembolsar("P-1", "V-1", 60_500, AnulacionDeCompras.MOTIVO))
+                .thenThrow(new IllegalStateException("raro"));
+        when(cobros.reembolsar("P-2", "V-2", 60_500, AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.HECHA);
 
         assertDoesNotThrow(barrido::reintentarReembolsos);
 
@@ -120,10 +137,35 @@ class ReintentoDeReembolsosTest {
     @Test
     void siNoSePuedeSacarLaMarcaNoLanza() {
         // Pagos ya contestó: la corrida siguiente lo pide otra vez y Pagos contesta lo mismo, sin devolver dos veces.
-        when(cobros.reembolsar("P-1", "V-1", AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.HECHA);
+        when(cobros.reembolsar("P-1", "V-1", 60_500, AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.HECHA);
         when(ventas.marcarReembolsoResuelto("V-1")).thenThrow(new EJBException("la base no responde"));
 
-        assertEquals(Devolucion.HECHA, assertDoesNotThrow(() -> barrido.reintentar("V-1", "P-1")));
+        assertEquals(Devolucion.HECHA, assertDoesNotThrow(() -> barrido.reintentar(anulada("V-1", "P-1"))));
+    }
+
+    // --- El mismo pedido que hizo la anulación ---
+
+    @Test
+    void elDeUnaCompraEnLaReventaSeVuelveAPedirConLaPublicacion() {
+        // Pagos guardó ese cobro con el id de la publicación: con el de la venta contestaría "es de otra venta".
+        Venta enLaReventa = conClave("V-2", "P-2", ReventaDeEntradas.PREFIJO_CLAVE + "R-1a2b3c4d");
+        when(ventas.buscarReembolsosPendientes()).thenReturn(List.of(enLaReventa));
+        when(cobros.reembolsar("P-2", "R-1a2b3c4d", 60_500, AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.HECHA);
+
+        barrido.reintentarReembolsos();
+
+        verify(cobros).reembolsar("P-2", "R-1a2b3c4d", 60_500, AnulacionDeCompras.MOTIVO);
+        verify(ventas).marcarReembolsoResuelto("V-2");
+    }
+
+    @Test
+    void aQuienRevendioSeLeVuelveAPedirSoloLoQueTodaviaTenia() {
+        when(entradas.precioDeLasRevendidas("V-1")).thenReturn(27_500L);
+        when(cobros.reembolsar("P-1", "V-1", 30_250, AnulacionDeCompras.MOTIVO)).thenReturn(Devolucion.HECHA);
+
+        assertEquals(Devolucion.HECHA, barrido.reintentar(anulada("V-1", "P-1")));
+
+        verify(cobros, never()).reembolsar("P-1", "V-1", 60_500, AnulacionDeCompras.MOTIVO);
     }
 
     @Test

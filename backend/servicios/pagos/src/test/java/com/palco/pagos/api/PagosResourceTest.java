@@ -60,7 +60,8 @@ class PagosResourceTest {
 
     @Test
     void laConsultaPorClaveDevuelveLoQueEncuentraElNegocio() {
-        PagoDto pago = new PagoDto("P-598c58a0", "V-3f9a1c2b", 60500, "APROBADO", null, "fake-" + CLAVE_EN_PAGOS);
+        PagoDto pago = new PagoDto("P-598c58a0", "V-3f9a1c2b", 60500, "APROBADO", null, "fake-" + CLAVE_EN_PAGOS,
+                null);
         PagosResource recurso = conNegocioQueTiene(pago);
 
         assertSame(pago, recurso.buscarPorClave(CLAVE_EN_PAGOS));

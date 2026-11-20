@@ -11,6 +11,7 @@ import jakarta.ejb.TransactionAttributeType;
 import jakarta.inject.Inject;
 
 import com.palco.common.Textos;
+import com.palco.ventas.datos.EntradaRepository;
 import com.palco.ventas.datos.VentaRepository;
 import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.negocio.externos.Cobros;
@@ -40,6 +41,13 @@ import com.palco.ventas.negocio.externos.Cobros;
  * anterior se haya aplicado sin que Ventas supiera la respuesta, el dinero
  * vuelve una sola vez.
  *
+ * El pedido es el mismo que hizo la anulación: la misma venta ante Pagos (el
+ * id de la publicación si la compra fue en la reventa,
+ * {@link ReventaDeEntradas#ventaEnPagos}) y el mismo monto, que se vuelve a
+ * calcular con {@link AnulacionDeCompras#montoADevolver} en lugar de
+ * guardarlo: con la venta anulada sus entradas revendidas ya no cambian, así
+ * que da lo mismo que la primera vez.
+ *
  * Mismo diseño que {@link DevolucionDeCupos}. Sin estado (stateless): no
  * guarda nada entre corridas; qué reembolsos faltan se lo pregunta cada vez a
  * la base. Es un {@code @Singleton} para que haya un solo barrido en el
@@ -59,6 +67,9 @@ public class ReintentoDeReembolsos {
 
     @Inject
     VentaRepository ventas;
+
+    @Inject
+    EntradaRepository entradas;
 
     /** Quién cobra: el mismo al que se le pidió el reembolso (lo elige {@code FabricaDeCobros}). */
     @Inject
@@ -81,7 +92,7 @@ public class ReintentoDeReembolsos {
         }
         for (Venta venta : pendientes) {
             try {
-                reintentar(venta.getId(), venta.getPagoId());
+                reintentar(venta);
             } catch (RuntimeException e) {
                 // Una falla inesperada con una venta no frena a las demás: la marca sigue y la toma la corrida siguiente.
                 LOG.warning("ReintentoDeReembolsos: la venta " + Textos.enUnaLinea(venta.getId())
@@ -90,9 +101,17 @@ public class ReintentoDeReembolsos {
         }
     }
 
-    /** Vuelve a pedir el reembolso de una venta. Devuelve cómo contestó Pagos; no lanza. */
-    Cobros.Devolucion reintentar(String ventaId, String pagoId) {
-        Cobros.Devolucion devolucion = cobros.reembolsar(pagoId, ventaId, AnulacionDeCompras.MOTIVO);
+    /**
+     * Vuelve a pedir el reembolso de una venta, igual que la anulación.
+     * Devuelve cómo contestó Pagos. Si Pagos falla no lanza; si falla la base
+     * al sumar las revendidas, sí, y la venta queda para la corrida siguiente.
+     */
+    Cobros.Devolucion reintentar(Venta venta) {
+        String ventaId = venta.getId();
+        String pagoId = venta.getPagoId();
+        long monto = AnulacionDeCompras.montoADevolver(venta.getMontoTotal(), entradas.precioDeLasRevendidas(ventaId));
+        Cobros.Devolucion devolucion = cobros.reembolsar(pagoId, ReventaDeEntradas.ventaEnPagos(venta), monto,
+                AnulacionDeCompras.MOTIVO);
         switch (devolucion) {
             case HECHA -> LOG.info("ReintentoDeReembolsos: Pagos devolvió el pago " + Textos.enUnaLinea(pagoId)
                     + " de la venta " + Textos.enUnaLinea(ventaId) + ", anulada por la cancelación de su evento."

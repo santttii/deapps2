@@ -49,18 +49,21 @@ public interface IPagos {
     PagoDto buscarPorClave(String claveIdempotencia);
 
     /**
-     * Devuelve un pago {@code APROBADO} entero y lo deja {@code REEMBOLSADO}.
-     * Lo pide el servicio que cobró cuando no pudo entregar lo que vendía: hoy,
-     * Reventa, cuando Ventas rechaza la transferencia de una entrada ya cobrada
-     * (limitación L2).
+     * Devuelve un pago {@code APROBADO}, una sola vez, y lo deja
+     * {@code REEMBOLSADO} con lo que se devolvió. Sin {@code monto} lo devuelve
+     * entero; con {@code monto}, esa parte. Lo piden Reventa, cuando Ventas
+     * rechaza la transferencia de una entrada ya cobrada (limitación L2, el
+     * pago entero), y Ventas, cuando se cancela un evento (el pago entero, o
+     * sin lo que corresponde a las entradas que el comprador ya revendió).
      *
-     * Es idempotente: si el pago ya está {@code REEMBOLSADO}, lo devuelve sin
-     * volver a pedirle nada a la pasarela. A la pasarela va con la clave
-     * {@code reembolso:<pagoId>}, así dos pedidos a la vez no devuelven dos
-     * veces. Lanza {@code NoEncontrado} si el pago no existe,
-     * {@code Conflicto} ({@code pago-no-reembolsable}) si no está aprobado o es
-     * de otra venta, y {@code SinRespuesta} si la pasarela no contesta: el pago
-     * sigue {@code APROBADO} y se puede repetir.
+     * Es idempotente: si el pago ya está {@code REEMBOLSADO} por ese mismo
+     * monto, lo devuelve sin volver a pedirle nada a la pasarela. A la pasarela
+     * va con la clave {@code reembolso:<pagoId>}, así dos pedidos a la vez no
+     * devuelven dos veces. Lanza {@code NoEncontrado} si el pago no existe,
+     * {@code Conflicto} ({@code pago-no-reembolsable}) si no está aprobado, es
+     * de otra venta, el monto pasa lo cobrado o ya se devolvió por otro monto,
+     * y {@code SinRespuesta} si la pasarela no contesta: el pago sigue
+     * {@code APROBADO} y se puede repetir.
      */
     PagoDto reembolsar(String pagoId, ReembolsoDto pedido);
 }

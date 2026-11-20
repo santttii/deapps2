@@ -118,20 +118,32 @@ public class ServicioDePagos implements IPagos {
         if (!pago.getVentaId().equals(pedido.ventaId())) {
             throw new ErroresDeNegocio.Conflicto(PAGO_NO_REEMBOLSABLE, "El pago " + pagoId + " es de otra venta.");
         }
-        // Un reintento de un reembolso que ya se hizo: vale el que quedó guardado.
+        // Sin monto, el pago entero. Con monto, esa parte: lo pide Ventas cuando se cancela un evento y quien
+        // compró ya había revendido alguna de sus entradas, que cobró en la reventa.
+        long aDevolver = pedido.monto() == null ? pago.getMonto() : pedido.monto();
+        // Un reintento de un reembolso que ya se hizo: vale el que quedó guardado. Si pide otro monto no es
+        // un reintento sino otro pedido, y un pago se devuelve una sola vez.
         if (pago.getEstado() == EstadoPago.REEMBOLSADO) {
+            if (pago.getMontoReembolsado() == null || pago.getMontoReembolsado() != aDevolver) {
+                throw new ErroresDeNegocio.Conflicto(PAGO_NO_REEMBOLSABLE, "El pago " + pagoId
+                        + " ya se devolvió por $" + pago.getMontoReembolsado() + ".");
+            }
             return aDto(pago);
         }
         if (pago.getEstado() != EstadoPago.APROBADO) {
             throw new ErroresDeNegocio.Conflicto(PAGO_NO_REEMBOLSABLE,
                     "Solo se devuelve un pago aprobado; el " + pagoId + " está " + pago.getEstado() + ".");
         }
+        if (aDevolver > pago.getMonto()) {
+            throw new ErroresDeNegocio.Conflicto(PAGO_NO_REEMBOLSABLE, "No se puede devolver más de lo que se"
+                    + " cobró: el pago " + pagoId + " es de $" + pago.getMonto() + ".");
+        }
 
         // Sin transacción abierta, como el cobro. Si la pasarela no contesta, SinRespuesta sale por acá
         // y el pago sigue APROBADO: repetir el pedido manda la misma clave y la pasarela no devuelve dos veces.
-        pasarela.reembolsar(pago.getIdExterno(), pago.getMonto(), PREFIJO_CLAVE_REEMBOLSO + pago.getId());
+        pasarela.reembolsar(pago.getIdExterno(), aDevolver, PREFIJO_CLAVE_REEMBOLSO + pago.getId());
 
-        if (!pagos.marcarReembolsado(pagoId, pedido.motivo().strip(), ahora())) {
+        if (!pagos.marcarReembolsado(pagoId, aDevolver, pedido.motivo().strip(), ahora())) {
             // Otro pedido lo marcó entre la lectura y acá. Si quedó REEMBOLSADO, es el mismo resultado.
             Pago releido = pagos.buscarPorId(pagoId).orElseThrow();
             if (releido.getEstado() != EstadoPago.REEMBOLSADO) {
@@ -141,7 +153,7 @@ public class ServicioDePagos implements IPagos {
             return aDto(releido);
         }
         LOG.info("Pago " + pagoId + " de la venta " + Textos.enUnaLinea(pago.getVentaId()) + ": REEMBOLSADO ($"
-                + pago.getMonto() + "). Motivo: " + Textos.enUnaLinea(pedido.motivo()));
+                + aDevolver + " de $" + pago.getMonto() + "). Motivo: " + Textos.enUnaLinea(pedido.motivo()));
         return aDto(pagos.buscarPorId(pagoId).orElseThrow());
     }
 
@@ -173,6 +185,6 @@ public class ServicioDePagos implements IPagos {
 
     static PagoDto aDto(Pago p) {
         return new PagoDto(p.getId(), p.getVentaId(), p.getMonto(), p.getEstado().name(), p.getMotivo(),
-                p.getIdExterno());
+                p.getIdExterno(), p.getMontoReembolsado());
     }
 }

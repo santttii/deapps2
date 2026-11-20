@@ -25,8 +25,9 @@ public interface PasarelaDePagos {
     ResultadoPasarela cobrar(String ventaId, long monto, String medioDePago, String token, String claveIdempotencia);
 
     /**
-     * Devuelve el cobro entero. Tiene que ser idempotente por
-     * {@code claveIdempotencia}: repetir el pedido no devuelve dos veces (Mercado
+     * Devuelve {@code monto} del cobro: el cobro entero o una parte. Tiene que
+     * ser idempotente por {@code claveIdempotencia}: repetir el pedido no
+     * devuelve dos veces (Mercado
      * Pago lo es con la cabecera {@code X-Idempotency-Key}). Si la pasarela no
      * contesta lanza {@code ErroresDeNegocio.SinRespuesta}, y se puede repetir.
      *

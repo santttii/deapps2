@@ -93,12 +93,13 @@ public class PagosResource {
      * {@code POST /api/v1/pagos/P-3f9a1c2b/reembolso} con
      * {@code {"ventaId": "R-3f9a1c2b", "motivo": "Ventas no transfirió la entrada"}}:
      * devuelve el pago entero y responde 200 con el pago {@code REEMBOLSADO}.
-     * Repetirlo responde lo mismo sin devolver dos veces. 404 si el pago no
-     * existe y 409 {@code pago-no-reembolsable} si no está aprobado o es de otra
-     * venta.
+     * Con {@code "monto"} en el cuerpo devuelve solo esa parte. Repetirlo
+     * responde lo mismo sin devolver dos veces. 404 si el pago no existe y 409
+     * {@code pago-no-reembolsable} si no está aprobado, es de otra venta o el
+     * monto no corresponde.
      *
      * Es una acción sobre un pago y no un recurso nuevo: un pago se devuelve
-     * una sola vez y entero, así que no hay una colección de reembolsos.
+     * una sola vez, entero o en parte, así que no hay una colección de reembolsos.
      */
     @POST
     @RolesAllowed("servicio")

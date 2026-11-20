@@ -52,16 +52,18 @@ public interface Cobros {
     Optional<ResultadoDeCobro> buscarCobro(String ventaId, String claveIdempotencia);
 
     /**
-     * Pide que se devuelva el pago de una venta. Lo usa la cancelación de un
-     * evento: la entrada se anula y el dinero vuelve.
+     * Pide que se devuelva el pago de una venta, entero o una parte. Lo usa la
+     * cancelación de un evento: la entrada se anula y el dinero vuelve.
      *
      * No lanza: devuelve {@link Devolucion#SIN_RESPUESTA} si no se sabe si se
      * devolvió, para que quien cancela decida qué hacer. Pagos devuelve un
-     * pago una sola vez, así que repetir el pedido es seguro.
+     * pago una sola vez, así que repetir el mismo pedido es seguro.
      *
      * @param pagoId el pago que se quiere devolver
-     * @param ventaId la venta de ese pago, que Pagos comprueba
+     * @param ventaId la venta con la que Pagos guardó ese pago, que Pagos comprueba. En una compra en la
+     *                reventa es el id de la publicación ({@code ReventaDeEntradas.ventaEnPagos})
+     * @param monto cuánto se devuelve, en pesos enteros: el pago entero o una parte
      * @param motivo para qué se devuelve; queda en el pago
      */
-    Devolucion reembolsar(String pagoId, String ventaId, String motivo);
+    Devolucion reembolsar(String pagoId, String ventaId, long monto, String motivo);
 }

@@ -20,7 +20,7 @@
 // El 14 espera a la conciliación de pagos, que corre una vez por minuto con 2 minutos de margen: tarda
 // entre 2 y 4 minutos. El 18 espera al barrido de devoluciones, que corre una vez por minuto: tarda hasta 1.
 // El 19 y el 20 esperan a la conciliación de reventas, que corre una vez por minuto con 2 minutos de margen:
-// entre 2 y 4 cada uno.
+// entre 2 y 4 cada uno. El 22 espera al barrido de cupos, que corre una vez por minuto: tarda hasta 1 más.
 //
 // Los valores se comparan antes y después (el cupo, los contadores del broker, el log); los ids salen de
 // las respuestas. Los contadores del broker son de todo el servidor: si otra persona compra mientras
@@ -1241,16 +1241,26 @@ async function escenario17() {
 // ===================================================================================== cancelación y reglas
 
 async function escenario22() {
-  informe.escenario(22, 'Cancelación de un evento: anula las compras, devuelve los pagos, retira la reventa y avisa (CA-11.x)');
+  informe.escenario(22, 'Cancelación de un evento: anula las compras, también la hecha en la reventa, devuelve cada pago a quien corresponde, retira la reventa y avisa (CA-11.x)');
   const OT = await login('otro.titular@palco.test');
   const OO = await login('otro.organizador@palco.test');
-  // Una compra de dos entradas, emitida, y una de ellas publicada en la reventa.
-  const v = (await abrir(pedidoDe(2))).json;
+  const conCargo = (precio) => precio + Math.round(precio * 0.1);
+  // Una compra de tres entradas, emitida: una queda publicada en la reventa, otra la compra otro.titular@palco.test
+  // en la reventa y la tercera sigue VALIDA. Al cancelar, cada lugar se devuelve una sola vez y a quien lo tiene.
+  const v = (await abrir(pedidoDe(3))).json;
   const p = (await pagar(v.id)).json;
   const emitidaV = await emitida(v.id);
-  informe.ok('la compra está EMITIDA con dos entradas', emitidaV?.entradas?.length === 2, emitidaV?.estado);
-  const publicada = await http('POST', '/api/v1/reventas', { token: T, cuerpo: { entradaId: emitidaV.entradas[0].id, precio: PRECIO } });
+  informe.ok('la compra está EMITIDA con tres entradas', emitidaV?.entradas?.length === 3, emitidaV?.estado);
+  const [laPublicada, laRevendida, laQueSigue] = emitidaV.entradas.map((e) => e.id);
+  const publicada = await http('POST', '/api/v1/reventas', { token: T, cuerpo: { entradaId: laPublicada, precio: PRECIO } });
   informe.igual('una de las entradas, publicada en la reventa', publicada.estado, 201);
+  const aRevender = (await http('POST', '/api/v1/reventas', { token: T, cuerpo: { entradaId: laRevendida, precio: PRECIO } })).json;
+  const compraR = await http('POST', `/api/v1/reventas/${aRevender?.id}/compra`, {
+    token: OT, clave: uuid(), cuerpo: { titular: titular('Luis Pérez'), medioDePago: 'tarjeta', token: 'tok_test' },
+  });
+  const c = compraR.json;
+  informe.ok('otra, comprada en la reventa por otro.titular@palco.test',
+    compraR.estado === 201 && /^V-[0-9a-f]{8}$/.test(c?.ventaId ?? ''), `${compraR.estado} ${compraR.texto.slice(0, 200)}`);
 
   const E = `/api/eventos/${EVENTO}/cancelacion`;
   esProblema(informe, await http('POST', E, { token: OO, cuerpo: { motivo: 'No es mío' } }), 404, 'no-encontrado', E);
@@ -1271,13 +1281,32 @@ async function escenario22() {
     return r?.estado === 'CANCELADA' ? r : null;
   }, { maximoMs: 30000 });
   informe.ok('por mensajería, la compra pasa a CANCELADA', anulada !== null, anulada?.estado);
-  informe.ok('y sus dos entradas, a ANULADA (también la que estaba publicada)',
-    anulada?.entradas?.every((e) => e.estado === 'ANULADA'), anulada?.entradas?.map((e) => e.estado).join(' '));
+  const estadoDe = (id) => anulada?.entradas?.find((e) => e.id === id)?.estado;
+  informe.ok('la publicada y la que seguía VALIDA pasan a ANULADA; la revendida queda VENDIDA',
+    estadoDe(laPublicada) === 'ANULADA' && estadoDe(laQueSigue) === 'ANULADA' && estadoDe(laRevendida) === 'VENDIDA',
+    anulada?.entradas?.map((e) => `${e.id} ${e.estado}`).join(' | '));
   const pago = await hasta(async () => {
     const r = (await http('GET', `/api/v1/pagos/${p.pagoId}`, { token: S })).json;
     return r?.estado === 'REEMBOLSADO' ? r : null;
   }, { maximoMs: 30000 });
   informe.ok('Pagos devolvió el cobro: REEMBOLSADO', pago !== null, pago?.estado);
+  informe.ok('por las dos entradas que todavía tenía, sin la revendida',
+    pago?.monto === conCargo(3 * PRECIO) && pago?.montoReembolsado === conCargo(3 * PRECIO) - conCargo(PRECIO),
+    `monto=${pago?.monto} montoReembolsado=${pago?.montoReembolsado}`);
+
+  const anuladaR = await hasta(async () => {
+    const r = (await ver(c.ventaId, OT)).json;
+    return r?.estado === 'CANCELADA' ? r : null;
+  }, { maximoMs: 30000 });
+  informe.ok('la compra hecha en la reventa también pasa a CANCELADA, con su entrada ANULADA',
+    anuladaR?.entradas?.[0]?.estado === 'ANULADA', `${anuladaR?.estado} ${anuladaR?.entradas?.map((e) => e.estado).join(' ')}`);
+  const pagoR = await hasta(async () => {
+    const r = (await http('GET', `/api/v1/pagos/${anuladaR?.pagoId}`, { token: S })).json;
+    return r?.estado === 'REEMBOLSADO' ? r : null;
+  }, { maximoMs: 30000 });
+  informe.ok('y su pago, que Reventa cobró con el id de la publicación, se devolvió entero',
+    pagoR?.ventaId === aRevender.id && pagoR?.montoReembolsado === conCargo(PRECIO), JSON.stringify(pagoR));
+
   const retirada = await hasta(async () => {
     const mias = (await http('GET', '/api/v1/reventas/mias', { token: T })).json ?? [];
     return mias.find((x) => x.id === publicada.json.id && x.estado === 'RETIRADA') ?? null;
@@ -1287,6 +1316,22 @@ async function escenario22() {
     (await http('GET', `/api/v1/reventas?eventoId=${EVENTO}`)).json?.length, 0);
   const aviso = await hasta(() => lineasCon(marca, 'Email para titular@palco.test', 'Se canceló')[0], { maximoMs: 30000 });
   informe.ok('al comprador le llega el aviso con el motivo', aviso?.includes('Prueba de integración'), aviso?.slice(0, 160) ?? 'sin email');
+  informe.ok('con lo que se le devolvió', aviso?.includes(`$${conCargo(3 * PRECIO) - conCargo(PRECIO)}`), aviso?.slice(0, 400) ?? 'sin email');
+  const avisoR = await hasta(() => lineasCon(marca, 'Email para otro.titular@palco.test', 'Se canceló')[0], { maximoMs: 30000 });
+  informe.ok('a quien compró en la reventa le llega el aviso de que se le devolvió lo que pagó',
+    avisoR?.includes(`Te devolvimos los $${conCargo(PRECIO)}`), avisoR?.slice(0, 400) ?? 'sin email');
+
+  // El cupo lo devuelve la compra original, entera; la que nació en la reventa no reservó ninguno. El barrido de
+  // cupos corre una vez por minuto.
+  informe.igual('Ventas anotó que la venta nacida en la reventa no devuelve cupo',
+    lineasCon(marca, `anulada la venta ${c.ventaId}`, 'Cupo: no se devuelve').length, 1);
+  const vendidasDelSector = async () => (await http('GET', `/api/eventos/${cancelado.json.slug}`)).json?.sectores
+    ?.find((x) => x.id === SECTOR)?.vendidas;
+  const enCero = await hasta(async () => ((await vendidasDelSector()) === 0 ? true : null), { maximoMs: 75000, cadaMs: 1000 });
+  informe.ok('el barrido de cupos deja las vendidas del sector en 0', enCero === true, `vendidas=${await vendidasDelSector()}`);
+  await esperar(2000);
+  informe.igual('sin ningún rechazo de cupo de Eventos por estas compras',
+    lineasCon(marca, 'rechazó la devolución del cupo').filter((l) => l.includes(v.id) || l.includes(c.ventaId)).length, 0);
 
   esProblema(informe, await abrir(pedidoDe(1), uuid(), OT), 409, 'evento-cancelado', '/api/v1/ventas');
 }

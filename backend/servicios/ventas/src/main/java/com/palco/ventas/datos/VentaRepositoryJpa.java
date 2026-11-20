@@ -182,14 +182,15 @@ public class VentaRepositoryJpa implements VentaRepository {
     }
 
     @Override
-    public boolean anularPorCancelacionDelEvento(String ventaId) {
+    public boolean anularPorCancelacionDelEvento(String ventaId, boolean devolverCupo) {
         // La condición va adentro del UPDATE: si el mensaje llega dos veces, la segunda no
         // cambia ninguna fila y no se vuelve a publicar el aviso ni a pedir el reembolso.
         return cambioUnaFila(em.createQuery("""
-                        update Venta v set v.estado = :cancelada, v.devolucionPendiente = true
+                        update Venta v set v.estado = :cancelada, v.devolucionPendiente = :devolverCupo
                         where v.id = :id
                           and v.estado in (:confirmada, :emitida)""")
                 .setParameter("id", ventaId)
+                .setParameter("devolverCupo", devolverCupo)
                 .setParameter("cancelada", EstadoVenta.CANCELADA)
                 .setParameter("confirmada", EstadoVenta.CONFIRMADA)
                 .setParameter("emitida", EstadoVenta.EMITIDA));
