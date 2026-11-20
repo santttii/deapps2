@@ -4,7 +4,8 @@
 #   secretos     gitleaks sobre todo el historial
 #   backend      mvn verify: tests unitarios y de integración del backend
 #   frontend     npm ci, lint y build
-#   integracion  docker compose up (Postgres + backend + nginx) y la prueba de integración contra eso
+#   integracion  docker compose up (Postgres + backend + nginx) y la prueba de integración contra eso,
+#                repartida en 4 jobs en paralelo (ver la matriz del job)
 #   e2e          docker compose up y las pruebas E2E del frontend (Playwright, Chromium) por https://localhost
 #
 # Los jobs de los otros frentes (mutación, Sonar, dependencias, ZAP) se suman como jobs nuevos en
@@ -97,8 +98,24 @@ jobs:
       - run: npm run build
 
   integracion:
-    name: Integración (docker compose)
+    name: 'Integración: ${{ matrix.grupo }}'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # Los escenarios 14, 19 y 20 esperan a procesos programados que corren una vez por minuto con 2 minutos
+      # de margen (la conciliación de pagos y la de reventas): cada uno tarda entre 2 y 4 minutos. Corren en
+      # jobs propios, cada uno con su sistema levantado, en paralelo con el resto: la integración tarda lo que
+      # el job más lento y no la suma. Cada escenario crea su propio evento, así que no dependen entre sí.
+      matrix:
+        include:
+          - grupo: general
+            escenarios: 1 2 3 4 5 6 7 8 9 10 11 12 13 15 16 17 18 21 22 23 24
+          - grupo: conciliacion-pagos
+            escenarios: '14'
+          - grupo: conciliacion-reventa-19
+            escenarios: '19'
+          - grupo: conciliacion-reventa-20
+            escenarios: '20'
     timeout-minutes: 40
     env:
       PALCO_DIR_LOGS: ./logs
@@ -144,15 +161,17 @@ jobs:
             echo "$ruta $codigo"
             test "$codigo" = 200
           done
-      - name: Prueba de integración (scripts/pruebas/escenarios.mjs)
-        run: node scripts/pruebas/escenarios.mjs
+      - name: Prueba de integración (scripts/pruebas/escenarios.mjs ${{ matrix.escenarios }})
+        run: node scripts/pruebas/escenarios.mjs ${{ matrix.escenarios }}
       - name: ETag, patrón State y asistente con IA (timeout y fallback)
+        if: matrix.grupo == 'general'
         run: |
           node scripts/pruebas/etag.mjs
           node scripts/pruebas/patron-state.mjs
           node scripts/pruebas/asistente.mjs
       # Va última porque reinicia el servidor: apaga el broker con un mensaje pendiente y comprueba que no se pierde.
       - name: Broker apagado sin perder mensajes (scripts/pruebas/broker-apagado.mjs)
+        if: matrix.grupo == 'general'
         run: node scripts/pruebas/broker-apagado.mjs
       - name: Control de logs (sin tokens ni DNI de prueba)
         if: always()
@@ -166,7 +185,7 @@ jobs:
       - uses: actions/upload-artifact@v5
         if: always()
         with:
-          name: integracion
+          name: integracion-${{ matrix.grupo }}
           path: |
             logs/
             compose.log
