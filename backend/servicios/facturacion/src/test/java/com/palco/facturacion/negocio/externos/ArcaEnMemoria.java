@@ -19,9 +19,17 @@ public class ArcaEnMemoria implements Arca {
     public final List<SolicitudDeCae> pedidos = new ArrayList<>();
     private long ultimo;
 
+    /** Si no es null, se corre una vez antes de responder: simula otra entrega que avanzó mientras tanto. */
+    public Runnable antesDeResponder;
+
     @Override
     public ComprobanteAutorizado autorizar(SolicitudDeCae solicitud) {
         pedidos.add(solicitud);
+        if (antesDeResponder != null) {
+            Runnable otra = antesDeResponder;
+            antesDeResponder = null;
+            otra.run();
+        }
         return switch (modo) {
             case NO_RESPONDE -> throw new ErroresDeNegocio.SinRespuesta("ARCA no respondió el pedido de CAE.");
             case RECHAZA -> throw new ErroresDeNegocio.ReglaIncumplida(TiposDeProblema.COMPROBANTE_RECHAZADO,

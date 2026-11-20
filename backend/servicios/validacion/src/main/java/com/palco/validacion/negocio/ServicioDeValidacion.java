@@ -96,6 +96,8 @@ public class ServicioDeValidacion implements IValidacion {
         String codigo = codigoQr.strip();
         String evento = eventoId.strip();
         String escaneadoPor = staff.id();
+        // El email va junto al id: el registro lo muestra, porque el organizador conoce la cuenta por él (DEF-32).
+        String escaneadoPorEmail = staff.email();
         // Antes que nada: solo escanea quien trabaja en esta puerta. No se llama a Ventas ni se registra.
         exigirPuerta(evento, staff);
 
@@ -106,7 +108,7 @@ public class ServicioDeValidacion implements IValidacion {
             // Se registra el intento: si la entrada sí quedó usada, el próximo escaneo responde YA_USADA
             // y este renglón explica por qué.
             escaneos.guardar(new Escaneo(nuevoId(), codigo, evento, ResultadoEscaneo.SIN_RESPUESTA, null,
-                    escaneadoPor, ahora()));
+                    escaneadoPor, escaneadoPorEmail, ahora()));
             throw sinRespuesta;
         }
 
@@ -115,7 +117,7 @@ public class ServicioDeValidacion implements IValidacion {
 
         ClienteDeVentas.Entrada entrada = uso.entrada();
         Escaneo escaneo = new Escaneo(nuevoId(), codigo, evento, uso.resultado(),
-                entrada == null ? null : entrada.id(), escaneadoPor, ahora());
+                entrada == null ? null : entrada.id(), escaneadoPor, escaneadoPorEmail, ahora());
         escaneos.guardar(escaneo);
 
         EntradaEscaneadaDto datos = entrada == null ? null
@@ -272,7 +274,7 @@ public class ServicioDeValidacion implements IValidacion {
 
     static EscaneoDto aDto(Escaneo e) {
         return new EscaneoDto(e.getId(), e.getEventoId(), parcial(e.getCodigoQr()), e.getResultado().name(),
-                e.getEntradaId(), e.getEscaneadoPor(), enUtc(e.getEscaneado()));
+                e.getEntradaId(), e.getEscaneadoPor(), e.getEscaneadoPorEmail(), enUtc(e.getEscaneado()));
     }
 
     /** El instante del reloj, en UTC y sin fracción de segundo: no depende de la zona horaria del servidor. */

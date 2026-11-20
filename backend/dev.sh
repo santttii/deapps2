@@ -17,4 +17,6 @@ if [ -z "${PALCO_SECRETO_SERVICIOS:-}" ]; then
 fi
 (umask 077 && printf '%s\n' "$PALCO_SECRETO_SERVICIOS" > servidor/target/secreto-servicios)
 
+# Sin SMTP el log es la bandeja de entrada de desarrollo: cada email entero, con el código (ver CorreoAlLog).
+export PALCO_CORREO_LOG_COMPLETO="${PALCO_CORREO_LOG_COMPLETO:-true}"
 exec servidor/target/server/bin/standalone.sh

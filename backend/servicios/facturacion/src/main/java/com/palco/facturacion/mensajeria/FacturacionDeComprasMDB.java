@@ -39,12 +39,26 @@ import com.palco.facturacion.negocio.IFacturacion;
  * Así no se le piden a ARCA dos facturas de la misma venta a la vez, y los
  * números salen en el orden en que llegan los mensajes.
  *
- * La transacción la maneja el contenedor. Si ARCA no responde o rechaza el
- * comprobante, se deshace con {@code setRollbackOnly()} en lugar de lanzar una
- * excepción (que dejaría una traza por intento): el mensaje vuelve al broker,
- * que lo reentrega a los 2 segundos y al quinto intento lo pasa a la cola de
- * mensajes fallidos (DLQ). No hay una cola de reintento propia: es la misma
- * política que tienen los demás consumidores ({@code configurar.cli}).
+ * La transacción la maneja el contenedor. Cuando la compra no se puede
+ * facturar, el mensaje vuelve al broker solo si reintentar puede servir:
+ * <ul>
+ * <li>ARCA no responde ({@code SinRespuesta}): no se sabe si autorizó, y otro
+ * intento puede andar. Se deshace con {@code setRollbackOnly()} en lugar de
+ * lanzar una excepción (que dejaría una traza por intento): el mensaje vuelve
+ * al broker, que lo reentrega a los 2 segundos y al quinto intento lo pasa a
+ * la cola de mensajes fallidos (DLQ). No hay una cola de reintento propia: es
+ * la misma política que tienen los demás consumidores
+ * ({@code configurar.cli}).</li>
+ * <li>ARCA rechaza el comprobante ({@code ReglaIncumplida},
+ * {@code comprobante-rechazado}): el pedido es el mismo en cada intento y ARCA
+ * lo rechazaría las cinco veces. El negocio ya anotó el rechazo con su motivo,
+ * así que el mensaje se confirma y no vuelve al broker: la consulta de la
+ * factura dice que ARCA la rechazó y el rechazo queda para revisarlo a mano
+ * (ver {@code ServicioDeFacturacion}).</li>
+ * <li>Cualquier otra falla (la base, por ejemplo, al guardar la factura o
+ * el rechazo) no se atrapa: sale del MDB, el contenedor deshace la
+ * transacción y el broker reintenta igual que cuando ARCA no responde.</li>
+ * </ul>
  */
 @MessageDriven(name = "FacturacionDeCompras", activationConfig = {
         @ActivationConfigProperty(propertyName = "destinationLookup", propertyValue = DestinosJms.TOPICO_COMPRA),
@@ -85,13 +99,19 @@ public class FacturacionDeComprasMDB implements MessageListener {
             // El id viene en el mensaje: va al log en un solo renglón (ver Textos.enUnaLinea).
             LOG.info("FacturacionDeCompras: procesado el mensaje de la venta " + Textos.enUnaLinea(mensaje.ventaId())
                     + " (factura " + factura.comprobante() + ").");
-        } catch (ErroresDeNegocio.SinRespuesta | ErroresDeNegocio.ReglaIncumplida e) {
-            // ARCA no respondió (se puede reintentar) o rechazó el comprobante (no se arregla
-            // reintentando, pero la compra no puede quedar sin factura: termina en la DLQ para revisarla).
+        } catch (ErroresDeNegocio.SinRespuesta e) {
+            // ARCA no respondió: otro intento puede andar. Vuelve al broker, que reintenta y,
+            // agotados los intentos, lo deja en la DLQ.
             LOG.warning("FacturacionDeCompras: no se pudo facturar la venta " + Textos.enUnaLinea(mensaje.ventaId())
                     + " (entrega " + LectorDeMensajes.numeroDeEntrega(recibido) + "), vuelve al broker. "
                     + Textos.enUnaLinea(e.getMessage()));
             contexto.setRollbackOnly();
+        } catch (ErroresDeNegocio.ReglaIncumplida e) {
+            // ARCA rechazó el comprobante (es la única ReglaIncumplida de emitirFactura). El negocio
+            // ya lo anotó y reintentar no lo arregla: el mensaje se confirma, sin setRollbackOnly().
+            LOG.info("FacturacionDeCompras: procesado el mensaje de la venta " + Textos.enUnaLinea(mensaje.ventaId())
+                    + " (entrega " + LectorDeMensajes.numeroDeEntrega(recibido)
+                    + "): ARCA rechazó la factura, quedó anotada y el mensaje no vuelve al broker.");
         }
     }
 }

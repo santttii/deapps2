@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import com.palco.common.Textos;
 import com.palco.common.email.Correos;
 import com.palco.common.email.Email;
+import com.palco.common.mensajeria.CompraAnuladaMensaje;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje.Entrada;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje.Titular;
@@ -136,6 +137,138 @@ class ServicioDeNotificacionesTest {
                 armado.correos.enviados.get(0).asunto());
         assertTrue(armado.correos.enviados.get(0).cuerpo().contains("en la reventa oficial"),
                 armado.correos.enviados.get(0).cuerpo());
+    }
+
+    @Test
+    void siUsuariosNoDaElEmailDeUnaReventaElLogDiceQueFueEnLaReventa() {
+        Armado armado = new Armado(null, null);
+
+        try (LogCapturado log = new LogCapturado(ServicioDeNotificaciones.class)) {
+            armado.servicio.enviarConfirmacionDeReventa(Ejemplos.pagoConfirmado());
+
+            assertEquals(1, log.lineas().size(), log.lineas().toString());
+            assertTrue(log.lineas().get(0).contains("tu compra en la reventa oficial V-3f9a1c2b"), log.lineas().get(0));
+        }
+        assertTrue(armado.correos.enviados.isEmpty());
+    }
+
+    @Test
+    void conUnaSolaEntradaElEmailLoDiceEnSingular() {
+        PagoConfirmadoMensaje deUna = new PagoConfirmadoMensaje("V-3f9a1c2b", "user-titular", "ev-1",
+                List.of(new Entrada("T-9c41d07e", "Campo", new Titular("Ana Gómez", Ejemplos.DNI_DE_ANA))),
+                30250, Instant.parse("2026-10-16T21:30:00Z"));
+
+        String cuerpo = ServicioDeNotificaciones.cuerpoDelEmail(deUna, "Ana", false);
+
+        assertTrue(cuerpo.contains("Entrada:\n  - Campo (Ana Gómez)\n"), cuerpo);
+        assertFalse(cuerpo.contains("Entradas ("), cuerpo);
+    }
+
+    @Test
+    void conVariasEntradasElEmailLasCuentaYPoneUnaPorRenglon() {
+        String cuerpo = ServicioDeNotificaciones.cuerpoDelEmail(Ejemplos.pagoConfirmado(), "Ana", false);
+
+        assertTrue(cuerpo.contains("Entradas (2):\n  - Platea B (Ana Gómez)\n  - Platea B (Luis Pérez)\n"), cuerpo);
+    }
+
+    // --- El aviso de la cancelación del evento ---
+
+    @Test
+    void conElEmailDelCompradorLaCancelacionSalePorCorreoYNoAlLog() {
+        Armado armado = new Armado("ana@palco.test", "Ana");
+
+        try (LogCapturado log = new LogCapturado(ServicioDeNotificaciones.class)) {
+            armado.servicio.enviarAlertaCancelacion(Ejemplos.compraAnulada(true));
+
+            assertTrue(log.lineas().isEmpty(), log.lineas().toString());
+        }
+        assertEquals(1, armado.correos.enviados.size());
+        Email email = armado.correos.enviados.get(0);
+        assertEquals("ana@palco.test", email.para());
+        assertEquals("Se canceló Marea Baja + invitados", email.asunto());
+        assertTrue(email.cuerpo().startsWith("Hola Ana: se canceló Marea Baja + invitados, así que tu compra "
+                + "V-3f9a1c2b quedó anulada y tus entradas ya no sirven."), email.cuerpo());
+        assertTrue(email.cuerpo().contains("Motivo: Suspendido por lluvia."), email.cuerpo());
+    }
+
+    @Test
+    void siUsuariosNoDaElEmailLaCancelacionQuedaEnElLogYElMensajeSeDaPorAtendido() {
+        // Igual que en la compra: un aviso que no sale no puede hacer que el mensaje se reintente.
+        Armado armado = new Armado(null, null);
+
+        try (LogCapturado log = new LogCapturado(ServicioDeNotificaciones.class)) {
+            armado.servicio.enviarAlertaCancelacion(Ejemplos.compraAnulada(false));
+
+            assertEquals(List.of("Aviso al comprador user-titular: se canceló Marea Baja + invitados (ev-6) y tu "
+                    + "compra V-3f9a1c2b quedó anulada. Pagado: $33000. Reembolso: pendiente."), log.lineas());
+        }
+        assertTrue(armado.correos.enviados.isEmpty());
+    }
+
+    @Test
+    void conElReembolsoHechoElEmailDiceQueLaPlataYaSeDevolvio() {
+        String cuerpo = ServicioDeNotificaciones.cuerpoDeLaCancelacion(Ejemplos.compraAnulada(true), "Ana");
+
+        assertTrue(cuerpo.contains("Te devolvimos los $33000 que habías pagado."), cuerpo);
+        assertFalse(cuerpo.contains("Estamos gestionando"), cuerpo);
+    }
+
+    @Test
+    void conElReembolsoPendienteElEmailNoPrometeUnaDevolucionQueNoSeHizo() {
+        // La entrada se anula aunque Pagos no haya contestado: decir que la plata ya volvió sería mentirle.
+        String cuerpo = ServicioDeNotificaciones.cuerpoDeLaCancelacion(Ejemplos.compraAnulada(false), "Ana");
+
+        assertTrue(cuerpo.contains("Estamos gestionando la devolución de los $33000 que habías pagado."), cuerpo);
+        assertFalse(cuerpo.contains("Te devolvimos"), cuerpo);
+    }
+
+    @Test
+    void sinMotivoElEmailNoDejaUnRenglonDeMotivoVacio() {
+        // El motivo es opcional en el contrato de COMPRA_ANULADA.
+        CompraAnuladaMensaje sinMotivo = new CompraAnuladaMensaje("V-3f9a1c2b", "user-titular", "ev-6",
+                "Marea Baja + invitados", null, 33000, true, Instant.parse("2026-11-05T14:20:31Z"));
+
+        String cuerpo = ServicioDeNotificaciones.cuerpoDeLaCancelacion(sinMotivo, "Ana");
+
+        assertFalse(cuerpo.contains("Motivo"), cuerpo);
+        assertFalse(cuerpo.contains("null"), cuerpo);
+        assertTrue(cuerpo.contains("tus entradas ya no sirven.\n\nTe devolvimos"), cuerpo);
+    }
+
+    @Test
+    void elLogDeLaCancelacionDiceSiElReembolsoSeHizo() {
+        assertTrue(ServicioDeNotificaciones.textoDeLaCancelacion(Ejemplos.compraAnulada(true))
+                .endsWith("Reembolso: hecho."));
+        assertTrue(ServicioDeNotificaciones.textoDeLaCancelacion(Ejemplos.compraAnulada(false))
+                .endsWith("Reembolso: pendiente."));
+    }
+
+    @Test
+    void elLogDeLaCancelacionSaleEnUnSoloRenglonAunqueElTituloTraigaUnaLineaDeLogFalsa() {
+        // El título lo escribe el organizador, y la validación del mensaje no mira los saltos de línea.
+        String renglonFalso = "2026-11-05 14:20:31,000 INFO  [com.palco.ventas.negocio.ServicioDeVentas]"
+                + " (falso) LINEA FALSA";
+        CompraAnuladaMensaje conSalto = new CompraAnuladaMensaje("V-3f9a1c2b", "user-titular", "ev-6",
+                "Marea Baja\n" + renglonFalso, null, 33000, false, Instant.parse("2026-11-05T14:20:31Z"));
+
+        String texto = ServicioDeNotificaciones.textoDeLaCancelacion(conSalto);
+
+        assertTrue(texto.chars().noneMatch(Textos::esDeControl), texto);
+        assertTrue(texto.contains("se canceló Marea Baja " + renglonFalso + " (ev-6)"), texto);
+    }
+
+    @Test
+    void unTituloConSaltoDeLineaNoLeAgregaCabecerasAlEmailDeLaCancelacion() {
+        // Con un salto de línea en el asunto, el título podría sumar una cabecera propia (un Bcc, por ejemplo).
+        Armado armado = new Armado("ana@palco.test", "Ana");
+        CompraAnuladaMensaje conSalto = new CompraAnuladaMensaje("V-3f9a1c2b", "user-titular", "ev-6",
+                "Marea Baja\r\nBcc: otro@palco.test", null, 33000, true, Instant.parse("2026-11-05T14:20:31Z"));
+
+        armado.servicio.enviarAlertaCancelacion(conSalto);
+
+        String asunto = armado.correos.enviados.get(0).asunto();
+        assertTrue(asunto.chars().noneMatch(Textos::esDeControl), asunto);
+        assertEquals("Se canceló Marea Baja  Bcc: otro@palco.test", asunto);
     }
 
     // ---------------------------------------------------------------------------------------------

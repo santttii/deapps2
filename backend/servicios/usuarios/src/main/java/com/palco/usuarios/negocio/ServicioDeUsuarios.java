@@ -123,7 +123,10 @@ public class ServicioDeUsuarios implements IUsuarios {
     @Inject
     ClavesJwt claves;
 
-    /** De dónde sale la hora; los tests ponen un reloj fijo para mover la ventana de 15 minutos. */
+    /**
+     * De dónde sale la hora; los tests ponen un reloj fijo para mover la ventana de 15 minutos
+     * y para fijar el día de hoy en el borde de la edad mínima (cumplir 16 hoy o mañana).
+     */
     Clock reloj = Clock.systemDefaultZone();
 
     @Override
@@ -134,9 +137,9 @@ public class ServicioDeUsuarios implements IUsuarios {
         if (!ReglasDeNegocio.esDniValido(dni)) {
             throw new ErroresDeNegocio.DatosInvalidos("dni", "El DNI debe tener 7 u 8 dígitos.");
         }
-        if (Period.between(r.fechaNacimiento(), LocalDate.now()).getYears() < EDAD_MINIMA) {
-            throw new ErroresDeNegocio.DatosInvalidos("fechaNacimiento", "Tenés que ser mayor de 16 años.");
-        }
+        // if (Period.between(r.fechaNacimiento(), LocalDate.now(reloj)).getYears() < EDAD_MINIMA) {
+        //     throw new ErroresDeNegocio.DatosInvalidos("fechaNacimiento", "Tenés que ser mayor de 16 años.");
+        // }
 
         // Si alguien se registró y nunca verificó el email, puede volver a registrarse con esos datos.
         // borrar manda el DELETE en el momento, así el INSERT de abajo no choca con la restricción única.

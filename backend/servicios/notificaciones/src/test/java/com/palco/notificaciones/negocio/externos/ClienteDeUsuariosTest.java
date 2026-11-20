@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.palco.common.seguridad.TokenDeServicio;
+import com.palco.notificaciones.LogCapturado;
 
 /**
  * Qué hace Notificaciones con cada respuesta de Usuarios al pedir el email del
@@ -86,6 +87,38 @@ class ClienteDeUsuariosTest {
 
         usuarios.responde(200, "<html>no es json</html>");
         assertTrue(usuarios.buscar("user-titular").isEmpty());
+    }
+
+    @Test
+    void siDespuesDelTokenNuevoSigueEn401DevuelveVacioSinUnTercerIntento() {
+        usuarios.responde(401, null);
+        usuarios.responde(401, null);
+
+        assertTrue(usuarios.buscar("user-titular").isEmpty());
+        verify(token).invalidar();
+        assertEquals(List.of("user-titular token-1", "user-titular token-2"), usuarios.llamadas);
+    }
+
+    @Test
+    void unaRespuesta200SinCuerpoNoSirveParaAvisar() {
+        usuarios.responde(200, null);
+        assertTrue(usuarios.buscar("user-titular").isEmpty());
+
+        usuarios.responde(200, "  ");
+        assertTrue(usuarios.buscar("user-titular").isEmpty());
+    }
+
+    @Test
+    void elLogDeLaFallaNombraAlUsuarioEnUnSoloRenglon() {
+        // El id viene en el mensaje del tópico: con un salto de línea adentro haría aparecer un renglón falso.
+        usuarios.responde(404, null);
+
+        try (LogCapturado log = new LogCapturado(ClienteDeUsuarios.class)) {
+            usuarios.buscar("user-1\n2026-11-05 14:20:31,000 INFO  [falso] LINEA FALSA");
+
+            assertEquals(List.of("Usuarios respondió 404 al pedir el email de user-1 2026-11-05 14:20:31,000 INFO  "
+                    + "[falso] LINEA FALSA: el aviso queda sin mandar."), log.lineas());
+        }
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.palco.reventa.negocio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -30,6 +32,7 @@ import com.palco.reventa.api.Dtos.NuevaPublicacionDto;
 import com.palco.reventa.api.Dtos.PublicacionDto;
 import com.palco.reventa.api.Dtos.TitularDto;
 import com.palco.reventa.datos.PublicacionRepository;
+import com.palco.reventa.dominio.EstadoPublicacion;
 import com.palco.reventa.dominio.Publicacion;
 import com.palco.reventa.negocio.externos.ClienteDeEventos;
 import com.palco.reventa.negocio.externos.ClienteDePagos;
@@ -173,6 +176,17 @@ class ServicioDeReventaTest {
 
         assertEquals(TiposDeProblema.ENTRADA_NO_DISPONIBLE, error.tipo());
         verify(ventas, never()).publicar(anyString(), anyString());
+    }
+
+    @Test
+    void unaEntradaConUnIdQueNoEsUnIdNoSeLePreguntaAVentas() {
+        // El id va en la ruta del pedido a Ventas: con una barra o un espacio podría apuntar a otra ruta.
+        for (String id : new String[] {"../T-1", "T 1", "", null, "T-" + "x".repeat(39)}) {
+            assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                    () -> servicio.publicar(VENDEDOR, new NuevaPublicacionDto(id, 50_000L)), "id: " + id);
+        }
+
+        verifyNoInteractions(ventas, eventos, publicaciones);
     }
 
     @Test
@@ -420,6 +434,70 @@ class ServicioDeReventaTest {
         CompraDto conDniMalo = new CompraDto(new TitularDto("Bruno Díaz", "40.111.222"), "tarjeta", "tok_test");
         assertThrows(ErroresDeNegocio.DatosInvalidos.class,
                 () -> servicio.comprar(COMPRADOR, "R-1", conDniMalo, CLAVE));
+    }
+
+    @Test
+    void unaPublicacionQueYaNoEstaActivaNoSeTomaNiSeCobra() {
+        // Vendida a otra persona, retirada por el vendedor o anulada: no llega ni a la toma.
+        for (EstadoPublicacion estado : new EstadoPublicacion[] {EstadoPublicacion.VENDIDA, EstadoPublicacion.RETIRADA,
+                EstadoPublicacion.ANULADA}) {
+            Publicacion cerrada = mock(Publicacion.class);
+            when(cerrada.getId()).thenReturn("R-1");
+            when(cerrada.getVendedorId()).thenReturn(VENDEDOR);
+            when(cerrada.getEventoId()).thenReturn("ev-1");
+            when(cerrada.getPrecio()).thenReturn(55_000L);
+            when(cerrada.getEstado()).thenReturn(estado);
+            when(cerrada.getCompradorId()).thenReturn("U-otro");
+            when(publicaciones.buscarPorId("R-1")).thenReturn(Optional.of(cerrada));
+
+            ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                    () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE), "estado: " + estado);
+
+            assertEquals(TiposDeProblema.PUBLICACION_NO_ACTIVA, error.tipo());
+            assertEquals("La publicación ya no está disponible.", error.getMessage());
+        }
+
+        verify(publicaciones, never()).tomar(anyString(), anyString(), anyString(), any(), any(), any());
+        verifyNoInteractions(pagos);
+    }
+
+    @Test
+    void unaIdempotencyKeyVaciaEnBlancoOConUnSaltoDeLineaEsDatosInvalidos() {
+        for (String clave : new String[] {"", "   ", "clave\nmala", "clave\tmala"}) {
+            ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                    () -> servicio.comprar(COMPRADOR, "R-1", compra(), clave), "clave: " + clave);
+            assertTrue(error.campos().containsKey("Idempotency-Key"), "campos: " + error.campos());
+        }
+
+        // Se corta antes de buscar la publicación: sin clave no hay compra que reconocer en un reintento.
+        verifyNoInteractions(publicaciones, pagos);
+    }
+
+    @Test
+    void laIdempotencyKeyLlegaHasta64Caracteres() {
+        // Con "R-xxxxxxxx:" adelante, 64 entran en las 80 de Pagos; una más ya no.
+        String larga = "k".repeat(ServicioDeReventa.LARGO_MAXIMO_CLAVE + 1);
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), larga));
+        assertTrue(error.campos().containsKey("Idempotency-Key"), "campos: " + error.campos());
+        verifyNoInteractions(publicaciones);
+
+        // Con 64 pasa la validación y la compra sigue: acá se corta porque la publicación no existe.
+        String justa = "k".repeat(ServicioDeReventa.LARGO_MAXIMO_CLAVE);
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.comprar(COMPRADOR, "R-1", compra(), justa));
+        verify(publicaciones).buscarPorId("R-1");
+    }
+
+    @Test
+    void unTitularConUnSaltoDeLineaEnElNombreEsDatosInvalidos() {
+        // El nombre va impreso en la entrada y en el log: tiene que ser una sola línea.
+        CompraDto conSalto = new CompraDto(new TitularDto("Bruno\nDíaz", "40111222"), "tarjeta", "tok_test");
+
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", conSalto, CLAVE));
+
+        assertTrue(error.campos().containsKey("titular.nombre"), "campos: " + error.campos());
+        verifyNoInteractions(publicaciones, pagos);
     }
 
     @Test

@@ -1162,6 +1162,12 @@ async function escenario16() {
   informe.ok('el registro de la puerta (rol organizer) tiene VALIDA y YA_USADA, del más nuevo al más viejo',
     registro.estado === 200 && deEstaEntrada.join(' ') === 'YA_USADA VALIDA', deEstaEntrada.join(' '));
   informe.ok('y no muestra el código completo', !registro.texto.includes(e.codigoQr), '');
+  // DEF-32: el panel muestra quién escaneó por su email, que es como la organizadora asigna la puerta. El id de la
+  // cuenta sigue en escaneadoPor, el mismo que trae la respuesta del escaneo.
+  const quienes = (registro.json ?? []).filter((x) => x.id === p.id || x.id === s.id)
+    .map((x) => `${x.escaneadoPorEmail} ${x.escaneadoPor === p.escaneadoPor ? 'con su id' : `con el id ${x.escaneadoPor}`}`);
+  informe.ok('y cada renglón trae el email de la cuenta que escaneó, además de su id',
+    quienes.length === 2 && quienes.every((q) => q === 'puerta@palco.test con su id'), quienes.join(', '));
 }
 
 async function escenario17() {

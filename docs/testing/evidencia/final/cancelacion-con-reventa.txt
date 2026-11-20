@@ -1,0 +1,125 @@
+Contra docker compose levantado desde una copia limpia de master en 6361574, que incluye da928f6 (la corrección de DEF-29 y DEF-31): PostgreSQL en el volumen datos, WildFly 41 con Artemis embebido y el ARCA simulado. jboss-cli por scripts/qa/jboss-cli-docker.sh; server.log leído de la carpeta montada (PALCO_DIR_LOGS=./logs); el secreto entre servicios, uno generado para esta corrida en PALCO_SECRETO_SERVICIOS.
+Comando: node scripts/pruebas/escenarios.mjs 22 17 19 20 (corren en el orden del guion: 17, 19, 20 y 22). Servidor: http://localhost:8085.
+
+Prueba de integración del backend de Palco. 20/11/2026, 12:12:45
+Servicios: api/usuarios/health 200 | api/eventos/health 200 | api/v1/health 200 | api/v1/pagos/health 200 | api/v1/validacion/health 200 | api/v1/reventas/health 200 | api/notificaciones/health 200 | api/v1/facturas/health 200 | api/v1/asistente/health 200
+Broker al empezar:  cola: agregados=0 pendientes=0 consumidores=15 | tópico: agregados=0 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=0 pendientes=0 | DLQ: pendientes=0
+Evento de la prueba: ev-f704eff4 (Integracion backend 1795187572012). Cada escenario crea el suyo.
+
+====================================================================================================
+ESCENARIO 17. Reventa de punta a punta: publicar dentro del rango, la compra de otra cuenta, la entrada nueva y su REVENTA_CONFIRMADA   (12:12:52)
+====================================================================================================
+   ok   422 precio-fuera-de-rango en Problem Details: 422 application/problem+json {"type":"/problemas/precio-fuera-de-rango","title":"Regla de negocio incumplida","status":422,"detail":"El precio tiene que estar entre $13750 y $30250.","instance":"/api/v1/reventas"}
+   ok   422 precio-fuera-de-rango en Problem Details: 422 application/problem+json {"type":"/problemas/precio-fuera-de-rango","title":"Regla de negocio incumplida","status":422,"detail":"El precio tiene que estar entre $13750 y $30250.","instance":"/api/v1/reventas"}
+   ok   404 no-encontrado en Problem Details: 404 application/problem+json {"type":"/problemas/no-encontrado","title":"No encontrado","status":404,"detail":"No existe esa entrada entre las tuyas.","instance":"/api/v1/reventas"}
+   ok   publicar al tope exacto (30250): 201 ACTIVA, con su precioMaximo: 201 {"entradaId":"T-1428d5de","estado":"ACTIVA","eventoId":"ev-f704eff4","id":"R-12fe28ee","precio":30250,"precioMaximo":30250,"publicada":"2026-11-20T15:12:55Z","sector":"Platea B","sectorId":"sec-cd98428a"}
+   ok   409 entrada-no-disponible en Problem Details: 409 application/problem+json {"type":"/problemas/entrada-no-disponible","title":"Conflicto","status":409,"detail":"La entrada no se puede revender: está PUBLICADA.","instance":"/api/v1/reventas"}
+   ok   en Ventas la entrada quedó PUBLICADA (se espera "PUBLICADA"): "PUBLICADA"
+   ok   GET /api/v1/reventas?eventoId= (sin token) la lista: 200
+   ok   publicada no sirve para entrar: NO_HABILITADA: {"entrada":null,"escaneado":"2026-11-20T15:12:56Z","escaneadoPor":"user-staff","eventoId":"ev-f704eff4","id":"ESC-d4b6528e","mensaje":"La entrada no está habili
+   ok   409 compra-propia en Problem Details: 409 application/problem+json {"type":"/problemas/compra-propia","title":"Conflicto","status":409,"detail":"No podés comprar tu propia publicación.","instance":"/api/v1/reventas/R-12fe28ee/compra"}
+   ok   402 pago-rechazado en Problem Details: 402 application/problem+json {"type":"/problemas/pago-rechazado","title":"Pago rechazado","status":402,"detail":"El pago fue rechazado (fondos_insuficientes). Probá con otro medio de pago.","instance":"/api/v1/reventas/R-12fe28ee/compra"}
+   ok   otra cuenta la compra: 201 con la publicación VENDIDA, la entrada nueva y su venta: 201 {"entrada":{"codigoQr":"4b95106c-bcf0-4470-b4e9-002b420ea4c9","eventoId":"ev-f704eff4","id":"T-d3b543e6","precioPagado":30250,"sectorId":"sec-cd98428a","titular":{"dni":"28698137","nombre":"Luis Pérez"}},"publicacion":{"entradaId":"T-1428d5de","estado":"VENDIDA","eventoId":"ev-f704eff4","id":"R-12fe
+   ok   repetida con la misma clave: la misma entrada, sin cobrar de nuevo: 201 T-d3b543e6
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está disponible.","instance":"/api/v1/reventas/R-12fe28ee/compra"}
+   ok   la entrada original quedó VENDIDA (se espera "VENDIDA"): "VENDIDA"
+   ok   la nueva es del comprador: VALIDA, a nombre del titular indicado: {"_links":{"self":{"href":"/api/v1/entradas/T-d3b543e6","method":"GET"}},"codigoQr":"4b95106c-bcf0-4470-b4e9-002b420ea4c9","emitida":"2026-11-20T15:12:56Z","estado":"VALIDA","eventoId":"ev-f704eff4","id":"T-d3b543e6","precioPagado":30250,"sector":"Platea B","sectorId":"sec-cd98428a","titular":{"dni":"28698137","nombre":"Luis Pérez"},"ventaId":"V-5a24b0b3"}
+   ok   404 no-encontrado en Problem Details: 404 application/problem+json {"type":"/problemas/no-encontrado","title":"No encontrado","status":404,"detail":"No existe esa entrada.","instance":"/api/v1/entradas/T-d3b543e6"}
+   ok   ya no figura entre las activas
+   ok   en "mis publicaciones" del vendedor figura VENDIDA (se espera "VENDIDA"): "VENDIDA"
+   ok   el código viejo no entra: NO_HABILITADA (se espera "NO_HABILITADA"): "NO_HABILITADA"
+   ok   el nuevo sí: VALIDA (se espera "VALIDA"): "VALIDA"
+   ok   la auditoría registró la venta nueva una vez, como REVENTA_CONFIRMADA: [{"compradorId":"user-otro-titular","eventoId":"ev-f704eff4","mensajeId":"ID:dd8c2c1d-e4f4-11f1-98d4-4ef0b9a3d607","montoTotal":33275,"recibidoEn":"2026-11-20T15:12:56Z","tipoEvento":"REVENTA_CONFIRMADA","ventaId":"V-5a24b0b3"}]
+   ok   el aviso al comprador dice que fue en la reventa oficial: 2026-11-20 15:12:56,580 INFO  [com.palco.common.email.CorreoAlLog] (Thread-4 (activemq-client-global)) Email para otro.titular@palco.test (Tu compra en la reventa de Palco está confirmada): Hola Juliá
+   ok   la venta nueva tiene su factura, por el precio de reventa más el cargo de servicio: {"cae":"79933371773006","compradorId":"user-otro-titular","comprobante":"00001-00000002","emitida":"2026-11-20T15:12:56Z","eventoId":"ev-f704eff4","fecha":"2026-11-20","importe":33275,"numero":2,"puntoDeVenta":1,"tipoComprobante":6,"vencimientoCae":"2026-11-30","ventaId":"V-5a24b0b3"}
+   ok   no fue a la cola de emisión (la entrada ya estaba emitida) (se espera 0): 0
+
+====================================================================================================
+ESCENARIO 19. Reventa con Pagos sin respuesta: nadie más compra ni retira, y la conciliación libera o transfiere   (12:12:57)
+====================================================================================================
+   ok   dos publicaciones ACTIVA del titular: R-3dcb5a66 R-1d28f259
+   ok   504 sin-respuesta en Problem Details: 504 application/problem+json {"type":"/problemas/sin-respuesta","title":"Sin respuesta","status":504,"detail":"El servicio de pagos no responde. Probá de nuevo.","instance":"/api/v1/reventas/R-3dcb5a66/compra"}
+   ok   504 sin-respuesta en Problem Details: 504 application/problem+json {"type":"/problemas/sin-respuesta","title":"Sin respuesta","status":504,"detail":"El servicio de pagos no responde. Probá de nuevo.","instance":"/api/v1/reventas/R-1d28f259/compra"}
+   ok   en Pagos queda aprobado el cobro de B con la clave de esa compra: 201 {"estado":"APROBADO","idExterno":"fake-R-1d28f259:f120d0c1-2f1f-4557-a311-2e7455f30030","monto":33275,"montoReembolsado":null,"motivo":null,"pagoId":"P-c268634f
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está disponible: otra persona la está comprando o ya la compró.","instance":"/api/v1/reventas/R-3dcb5a66/compra"}
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está activa, o alguien la está comprando en este momento.","instance":"/api/v1/reventas/R-3dcb5a66"}
+   dato  se espera a la conciliación de reventas (entre 2 y 4 minutos)
+   ok   la conciliación resolvió las dos: A activa: true, B: VENDIDA
+   ok   A: Pagos no tenía ningún cobro con esa clave y la publicación quedó libre: 2026-11-20 15:15:45,073 INFO  [com.palco.reventa.negocio.ConciliacionDeReventas] (EJB default - 2) ConciliacionDeReventas: la publicación R-3dcb5a66 tenía una compra sin terminar y Pagos no tiene ning
+   ok   A: ahora otra persona la compra: 201 {"entrada":{"codigoQr":"807bba1e-d5f0-47f9-8fa0-a921a72c0e49","eventoId":"ev-7a112c0d","id":"T-299f7bd8","precioPagado":30250,"sectorId":"sec-6c3e5a03","titular":{"dni":"28698146","nombre":"Luis Pérez
+   ok   B: la conciliación vio el pago aprobado, transfirió la entrada y la marcó VENDIDA: 2026-11-20 15:15:45,239 INFO  [com.palco.reventa.negocio.ConciliacionDeReventas] (EJB default - 2) ConciliacionDeReventas: la publicación R-1d28f259 tenía una compra sin terminar con el pago aprobado P-c268634f. La entra
+   ok   B: la entrada original quedó VENDIDA (se espera "VENDIDA"): "VENDIDA"
+   ok   B: el comprador tiene su entrada a nombre del titular de la compra, sin haber reintentado (el reintento la devuelve igual): 201 {"entrada":{"codigoQr":"bad3f4cf-cba3-42c3-ae85-0626654fd435","eventoId":"ev-7a112c0d","id":"T-b4cb73de","precioPagado":30250,"sectorId":"sec-6c3e5a03","titular":{"dni":"28698144","nombre":"Marta Ríos"}},"publicacion":{"
+   ok   B: la entrada nueva es VALIDA (se espera "VALIDA"): "VALIDA"
+   ok   B: no se cobró de nuevo (ninguna compra normal cerró B) (se espera 0): 0
+
+====================================================================================================
+ESCENARIO 20. Reventa cobrada y sin entrada: Ventas rechaza la transferencia, la publicación se anula y el pago se devuelve (L2)   (12:15:48)
+====================================================================================================
+   ok   dos publicaciones ACTIVA del titular: R-860cc1ef R-a78ff7ca
+   ok   Ventas devuelve la entrada de A a VALIDA por detrás de Reventa (se espera 200): 200
+   ok   A sigue ACTIVA en la reventa
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La entrada ya no está disponible. Te devolvimos el pago.","instance":"/api/v1/reventas/R-860cc1ef/compra"}
+   ok   el comprador sabe que le devolvieron el pago: La entrada ya no está disponible. Te devolvimos el pago.
+   ok   en Pagos el cobro de A quedó REEMBOLSADO, por el total cobrado: {"estado":"REEMBOLSADO","idExterno":"fake-R-860cc1ef:881384e8-71dd-4cf9-bf7d-08c78b0ab173","monto":33275,"montoReembolsado":33275,"motivo":null,"pagoId":"P-4439e3ad","ventaId":"R-860cc1ef"}
+   ok   A quedó ANULADA (se espera "ANULADA"): "ANULADA"
+   ok   A ya no aparece en la reventa del evento
+   ok   la entrada del vendedor sigue VALIDA y suya (se espera "VALIDA"): "VALIDA"
+   ok   Pagos devolvió el pago una sola vez (se espera 1): 1
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está disponible.","instance":"/api/v1/reventas/R-860cc1ef/compra"}
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está disponible.","instance":"/api/v1/reventas/R-860cc1ef/compra"}
+   ok   409 publicacion-no-activa en Problem Details: 409 application/problem+json {"type":"/problemas/publicacion-no-activa","title":"Conflicto","status":409,"detail":"La publicación ya no está activa, o alguien la está comprando en este momento.","instance":"/api/v1/reventas/R-860cc1ef"}
+   ok   el reintento no volvió a devolver ni a cobrar (se espera 1): 1
+   ok   504 sin-respuesta en Problem Details: 504 application/problem+json {"type":"/problemas/sin-respuesta","title":"Sin respuesta","status":504,"detail":"El servicio de pagos no responde. Probá de nuevo.","instance":"/api/v1/reventas/R-a78ff7ca/compra"}
+   ok   en Pagos queda aprobado el cobro de B (se espera "APROBADO"): "APROBADO"
+   ok   Ventas devuelve la entrada de B a VALIDA (se espera 200): 200
+   dato  se espera a la conciliación de reventas (entre 2 y 4 minutos)
+   ok   la conciliación anuló B: B: ANULADA
+   ok   la conciliación vio el pago aprobado, Ventas rechazó la transferencia y avisó que el pago se devuelve: 2026-11-20 15:18:45,380 WARNING [com.palco.reventa.negocio.ConciliacionDeReventas] (EJB default - 3) ConciliacionDeReventas: la publicación R-a78ff7ca tiene el pago aprobado P-5384ab54 del comprador user-otro-titular per
+   ok   en Pagos el cobro de B quedó REEMBOLSADO: {"estado":"REEMBOLSADO","idExterno":"fake-R-a78ff7ca:8576667f-4cfc-45ac-a53c-1cf34aa8485d","monto":33275,"montoReembolsado":33275,"motivo":null,"pagoId":"P-5384ab54","ventaId":"R-a78ff7ca"}
+
+====================================================================================================
+ESCENARIO 22. Cancelación de un evento: anula las compras, también la hecha en la reventa, devuelve cada pago a quien corresponde, retira la reventa y avisa (CA-11.x)   (12:18:47)
+====================================================================================================
+   ok   la compra está EMITIDA con tres entradas: EMITIDA
+   ok   una de las entradas, publicada en la reventa (se espera 201): 201
+   ok   otra, comprada en la reventa por otro.titular@palco.test: 201 {"entrada":{"codigoQr":"11173328-870f-4219-bdbb-c231e5cfdd74","eventoId":"ev-9dc592d1","id":"T-bc9bf908","precioPagado":27500,"sectorId":"sec-0bb7dbbf","titular":{"dni":"28698158","nombre":"Luis Pérez
+   ok   404 no-encontrado en Problem Details: 404 application/problem+json {"type":"/problemas/no-encontrado","title":"No encontrado","status":404,"detail":"No existe ese evento entre los tuyos.","instance":"/api/eventos/ev-9dc592d1/cancelacion"}
+   ok   403 sin-permiso en Problem Details: 403 application/problem+json {"type":"/problemas/sin-permiso","title":"Sin permiso","status":403,"detail":"No tenés permiso para hacer esto.","instance":"/api/eventos/ev-9dc592d1/cancelacion"}
+   ok   la dueña lo cancela: 200 con cancelado y el motivo: 200 {"cancelacionMotivo":"Prueba de integración","cancelado":true,"categoria":"Teatro","descripcion":"Evento de la prueba de integración del backend.","destacado":false,"fechaISO":"2027-12-31T20:00:00","i
+   ok   409 evento-cancelado en Problem Details: 409 application/problem+json {"type":"/problemas/evento-cancelado","title":"Conflicto","status":409,"detail":"El evento ya está cancelado.","instance":"/api/eventos/ev-9dc592d1/cancelacion"}
+   ok   sale del catálogo
+   ok   su detalle sigue respondiendo, marcado como cancelado: true
+   ok   por mensajería, la compra pasa a CANCELADA: CANCELADA
+   ok   la publicada y la que seguía VALIDA pasan a ANULADA; la revendida queda VENDIDA: T-0d51fd55 ANULADA | T-13764afa VENDIDA | T-cee0d124 ANULADA
+   ok   Pagos devolvió el cobro: REEMBOLSADO: REEMBOLSADO
+   ok   por las dos entradas que todavía tenía, sin la revendida: monto=90750 montoReembolsado=60500
+   ok   la compra hecha en la reventa también pasa a CANCELADA, con su entrada ANULADA: CANCELADA ANULADA
+   ok   y su pago, que Reventa cobró con el id de la publicación, se devolvió entero: {"estado":"REEMBOLSADO","idExterno":"fake-R-4ad49697:e760c1e8-f55a-46cb-9210-c4b68b287de2","monto":30250,"montoReembolsado":30250,"motivo":null,"pagoId":"P-11d7ba60","ventaId":"R-4ad49697"}
+   ok   Reventa retiró la publicación: RETIRADA: RETIRADA
+   ok   y ya no figura en la reventa del evento (se espera 0): 0
+   ok   al comprador le llega el aviso con el motivo: 2026-11-20 15:18:53,242 INFO  [com.palco.common.email.CorreoAlLog] (Thread-14 (activemq-client-global)) Email para titular@palco.test (Se canceló Integracion ba
+   ok   con lo que se le devolvió: 2026-11-20 15:18:53,242 INFO  [com.palco.common.email.CorreoAlLog] (Thread-14 (activemq-client-global)) Email para titular@palco.test (Se canceló Integracion backend 1795187927723): Hola Martina: se canceló Integracion backend 1795187927723, así que tu compra V-36725011 quedó anulada y tus entradas ya no sirven.  Motivo: Prueba de integración  Te devolvimos los $60500 que habías pagado. Según tu b
+   ok   a quien compró en la reventa le llega el aviso de que se le devolvió lo que pagó: 2026-11-20 15:18:52,435 INFO  [com.palco.common.email.CorreoAlLog] (Thread-14 (activemq-client-global)) Email para otro.titular@palco.test (Se canceló Integracion backend 1795187927723): Hola Julián: se canceló Integracion backend 1795187927723, así que tu compra V-063319b1 quedó anulada y tus entradas ya no sirven.  Motivo: Prueba de integración  Te devolvimos los $30250 que habías pagado. Según 
+   ok   Ventas anotó que la venta nacida en la reventa no devuelve cupo (se espera 1): 1
+   ok   el barrido de cupos deja las vendidas del sector en 0: vendidas=0
+   ok   sin ningún rechazo de cupo de Eventos por estas compras (se espera 0): 0
+   ok   409 evento-cancelado en Problem Details: 409 application/problem+json {"type":"/problemas/evento-cancelado","title":"Conflicto","status":409,"detail":"Ese evento se canceló: no se venden más entradas.","instance":"/api/v1/ventas"}
+
+Broker al terminar: cola: agregados=6 pendientes=0 consumidores=15 | tópico: agregados=30 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=10 pendientes=0 | DLQ: pendientes=0
+
+====================================================================================================
+RESUMEN
+====================================================================================================
+PASA   17. Reventa de punta a punta: publicar dentro del rango, la compra de otra cuenta, la entrada nueva y su REVENTA_CONFIRMADA  (24/24 comprobaciones)
+PASA   19. Reventa con Pagos sin respuesta: nadie más compra ni retira, y la conciliación libera o transfiere  (14/14 comprobaciones)
+PASA   20. Reventa cobrada y sin entrada: Ventas rechaza la transferencia, la publicación se anula y el pago se devuelve (L2)  (20/20 comprobaciones)
+PASA   22. Cancelación de un evento: anula las compras, también la hecha en la reventa, devuelve cada pago a quien corresponde, retira la reventa y avisa (CA-11.x)  (24/24 comprobaciones)
+
+TODO BIEN
+Código de salida: 0
+
+Del server.log de la corrida (logs/server.log, 1266 líneas al terminar): las dos anulaciones del escenario 22, cada una con la venta con la que se le pidió el reembolso a Pagos y lo que pasa con el cupo.
+2026-11-20 15:18:52,329 INFO  [com.palco.ventas.negocio.AnulacionDeCompras] (Thread-12 (activemq-client-global)) AnulacionDeCompras: anulada la venta V-063319b1 del evento ev-9dc592d1. Entradas anuladas: 1. Reembolso: hecho ($30250 de $30250, pedido a Pagos con la venta R-4ad49697). Cupo: no se devuelve, porque la venta nació en la reventa y el lugar lo devuelve la compra original.
+2026-11-20 15:18:52,766 INFO  [com.palco.ventas.negocio.AnulacionDeCompras] (Thread-12 (activemq-client-global)) AnulacionDeCompras: anulada la venta V-36725011 del evento ev-9dc592d1. Entradas anuladas: 2. Reembolso: hecho ($60500 de $90750, pedido a Pagos con la venta V-36725011). Cupo: queda para DevolucionDeCupos.
+Líneas SEVERE o ERROR en todo el server.log: 0.

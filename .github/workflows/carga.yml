@@ -1,0 +1,123 @@
+# Prueba de carga de Palco (scripts/carga/palco.js): 50 usuarios virtuales durante 5 minutos contra el sistema
+# entero levantado con docker compose, por nginx y HTTPS, como lo usa la gente. Criterio: p95 < 500 ms y menos de
+# 1 % de errores en cada endpoint crítico (el guion explica cuáles son y por qué).
+#
+# No corre en cada push: entre levantar el sistema, crear las cuentas y los 6 minutos de k6 tarda más de 15 minutos.
+# Corre con cada tag v* (la versión que se entrega) y a mano, desde la pestaña Actions.
+#
+# Deja el reporte en el resumen de la corrida y, como artefacto, el texto, el JSON con todos los números de k6, el
+# panel HTML de k6 y las estadísticas del pool de conexiones de la base después de la carga.
+
+name: Carga
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: carga-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  carga:
+    name: Carga (k6 contra docker compose)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # El log del servidor queda en ./logs: de ahí sale el código de verificación de las cuentas nuevas
+      # (sin SMTP, el email se escribe en el log).
+      PALCO_DIR_LOGS: ./logs
+      PALCO_LOG: logs/server.log
+      # La misma imagen con la que se probó el guion. La versión va fija: una nueva de k6 puede cambiar el reporte.
+      K6: grafana/k6:2.3.0
+      RESULTADOS: scripts/carga/resultados
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Imágenes del sistema y de k6 (con reintentos si falla la red)
+        # Las mismas descargas y los mismos reintentos que en el CI (ahí está el porqué).
+        run: |
+          for intento in 1 2 3 4; do
+            docker compose pull --ignore-buildable --quiet && docker pull --quiet "$K6" && docker compose build && exit 0
+            echo "Falló la descarga o el armado de las imágenes (intento $intento de 4)"
+            [ "$intento" -lt 4 ] && sleep $((intento * 30))
+          done
+          exit 1
+      - name: docker compose up (un comando, todo el sistema)
+        run: |
+          mkdir -p logs "$RESULTADOS" && chmod 777 logs
+          inicio=$(date +%s)
+          docker compose up --build --detach --wait --wait-timeout 900
+          echo "Levantado en $(( $(date +%s) - inicio )) segundos"
+      - name: Estadísticas del pool de conexiones de la base
+        # Para ver, al final, si la carga llegó a usar las 10 conexiones del pool PalcoDS que comparten los servicios
+        # y cuántos pedidos tuvieron que esperar una. WildFly las trae apagadas y prenderlas pide recargar el servidor
+        # (el atributo es "restart-required: all-services"): se hace ahora, antes de crear las cuentas. El comando
+        # reload espera a que el servidor vuelva; después se espera a que los 9 servicios contesten su /health.
+        run: |
+          docker compose exec -T backend /opt/palco/server/bin/jboss-cli.sh --connect \
+            --commands='/subsystem=datasources/data-source=PalcoDS:write-attribute(name=statistics-enabled,value=true),reload'
+          for intento in $(seq 1 60); do
+            docker compose exec -T backend /opt/palco/salud.sh && exit 0
+            sleep 5
+          done
+          echo 'El servidor no volvió a contestar después de recargarlo'
+          exit 1
+      - name: Cuentas de la prueba (una por usuario virtual)
+        run: node scripts/carga/cuentas.mjs 50
+      - name: Prueba de carga (k6, 50 usuarios virtuales durante 5 minutos)
+        # Con la red del runner, para llegar a nginx en https://localhost; con el usuario del runner, para poder
+        # escribir el reporte en la carpeta del repo. k6 termina con error si no se cumple algún umbral.
+        run: |
+          docker run --rm --network host --user "$(id -u):$(id -g)" -v "$PWD:/trabajo" -w /trabajo \
+            -e PALCO_URL=https://localhost -e PALCO_K6="$K6" \
+            -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT="$RESULTADOS/carga-k6.html" \
+            "$K6" run --no-usage-report scripts/carga/palco.js
+      - name: Pool de conexiones después de la carga
+        if: always()
+        run: |
+          docker compose exec -T backend /opt/palco/server/bin/jboss-cli.sh --connect \
+            --command='/subsystem=datasources/data-source=PalcoDS/statistics=pool:read-resource(include-runtime=true)' \
+            | tee "$RESULTADOS/pool.txt"
+      - name: Resumen de la corrida
+        if: always()
+        run: |
+          {
+            echo '### Prueba de carga (k6)'
+            for archivo in carga-k6.txt pool.txt; do
+              [ -f "$RESULTADOS/$archivo" ] || continue
+              [ "$archivo" = pool.txt ] && echo 'Pool de conexiones PalcoDS después de la carga:'
+              echo '```'
+              cat "$RESULTADOS/$archivo"
+              echo '```'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: reporte-carga
+          # Sin cuentas.json: no es parte del reporte.
+          path: |
+            scripts/carga/resultados/carga-k6.*
+            scripts/carga/resultados/pool.txt
+          if-no-files-found: ignore
+      - name: Log de los contenedores
+        if: failure()
+        run: docker compose ps && docker compose logs --no-color > compose-carga.log
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: compose-carga
+          path: |
+            compose-carga.log
+            logs/
+          if-no-files-found: ignore
+      - name: Bajar todo
+        if: always()
+        run: docker compose down -v

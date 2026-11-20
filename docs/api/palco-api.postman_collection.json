@@ -5113,11 +5113,12 @@
                 "exec": [
                   "pm.test('responde 200', () => pm.response.to.have.status(200));",
                   "const lista = pm.response.json();",
-                  "pm.test('incluye el escaneo VALIDA, sin el código completo', () => {",
+                  "pm.test('incluye el escaneo VALIDA con el email de quien escaneó, sin el código completo', () => {",
                   "  const fila = lista.find((e) => e.id === pm.collectionVariables.get('escaneoId'));",
                   "  pm.expect(fila, 'no está el escaneo').to.be.an('object');",
-                  "  pm.expect(fila).to.include.all.keys('id', 'eventoId', 'codigoParcial', 'resultado', 'entradaId', 'escaneadoPor', 'escaneado');",
+                  "  pm.expect(fila).to.include.all.keys('id', 'eventoId', 'codigoParcial', 'resultado', 'entradaId', 'escaneadoPor', 'escaneadoPorEmail', 'escaneado');",
                   "  pm.expect(fila.resultado).to.eql('VALIDA');",
+                  "  pm.expect(fila.escaneadoPorEmail, 'DEF-32: el email de la cuenta que escaneó').to.eql('puerta@palco.test');",
                   "  pm.expect(pm.response.text()).to.not.include(pm.collectionVariables.get('codigoQr'));",
                   "});"
                 ]

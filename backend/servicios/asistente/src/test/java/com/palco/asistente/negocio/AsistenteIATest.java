@@ -6,9 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -147,6 +152,39 @@ class AsistenteIATest {
         assertEquals(Origen.BLOQUEADA, r.origen());
         assertEquals("salida-con-datos-personales", r.motivo());
         assertFalse(r.texto().contains("30123456"));
+    }
+
+    @Test
+    void laLineaDeRegistroLlevaElIdDeQuienPreguntaYNingunEmail() {
+        asistente.modelo = modelo("Revisá la casilla de spam.", 0, false);
+        Logger log = Logger.getLogger(AsistenteIA.class.getName());
+        List<String> lineas = new ArrayList<>();
+        Handler capturador = new Handler() {
+            @Override
+            public void publish(LogRecord registro) {
+                lineas.add(registro.getMessage());
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        log.addHandler(capturador);
+        try {
+            asistente.responder("user-titular", "No me llegó la entrada a ana.perez@correo.com, ¿qué hago?");
+        } finally {
+            log.removeHandler(capturador);
+        }
+
+        assertEquals(1, lineas.size());
+        String linea = lineas.get(0);
+        assertTrue(linea.contains("usuario=user-titular "), linea);
+        assertTrue(linea.contains("[email oculto]"), linea);
+        assertFalse(linea.contains("@"), linea);
     }
 
     @Test

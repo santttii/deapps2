@@ -28,7 +28,8 @@ import com.palco.asistente.negocio.externos.ModeloDeLenguaje;
  *   <li>El modelo, con un tiempo máximo de 5 segundos. Si no responde a tiempo o falla, fallback:
  *       la respuesta frecuente que corresponda o, si no hay, ofrecer soporte.</li>
  *   <li>Guardrails de salida: una respuesta con datos personales no se muestra.</li>
- *   <li>Cada consulta deja una línea de registro (evidencia), con la pregunta enmascarada.</li>
+ *   <li>Cada consulta deja una línea de registro (evidencia), con el id interno de quien
+ *       pregunta (nunca su email) y la pregunta enmascarada.</li>
  * </ol>
  *
  * Stateless: cada pregunta llega completa y no se guarda conversación.

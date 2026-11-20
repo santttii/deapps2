@@ -1,0 +1,19 @@
+# Alertas de OWASP ZAP que Palco acepta, cada una con su justificación. Las leen ZAP (opción -c del baseline)
+# y scripts/qa/zap-resumen.mjs, que decide si la corrida pasa.
+#
+# Criterio de seguridad (eje D): ninguna alerta High y cada Medium justificada acá, una por una. Una High no
+# se acepta nunca, aunque figure en este archivo: se corrige. Una Low que no figura sale en el resumen como
+# "sin justificar", pero no corta la corrida.
+#
+# Formato de ZAP: cuatro columnas separadas por tabuladores, sin tabuladores adentro.
+#   1. el id de la regla de ZAP (pluginid)
+#   2. el nivel para ZAP: INFO, que deja la alerta en los reportes y la marca como aceptada
+#   3. el nombre exacto de la alerta entre paréntesis, como sale en el reporte. Una regla de ZAP puede dar
+#      varias alertas distintas (la 10055, la de la CSP, da una por problema) y se justifica cada una
+#   4. la justificación
+#
+# El escaneo de la API no recibe este archivo con -c: si recibe uno, zap-api-scan.py cambia la política
+# API-Minimal por todas las reglas activas y el escaneo deja de entrar en su tiempo. Sus alertas se comparan
+# igual con este archivo, en el resumen.
+10055	INFO	(CSP: style-src unsafe-inline)	framer-motion anima con el atributo style y React escribe estilos en línea: sin 'unsafe-inline' la app pierde las animaciones. Lo que ejecuta código sigue cerrado: script-src es 'self', sin 'unsafe-inline' ni 'unsafe-eval', y object-src es 'none'. Un estilo inyectado no corre JavaScript, y React escapa todo texto que muestra. Está anotado en frontend/docker/nginx.conf.
+10055	INFO	(CSP: Wildcard Directive)	La directiva amplia es img-src https: (la nombra el detalle de la alerta). Las fotos de los eventos se pueden guardar en el almacenamiento de Supabase, cuyo dominio depende del proyecto. Una imagen no ejecuta código y connect-src queda en 'self', así que una página no puede mandar datos a otro sitio con fetch. Si la alerta nombra otra directiva además de img-src, esta justificación no la cubre.

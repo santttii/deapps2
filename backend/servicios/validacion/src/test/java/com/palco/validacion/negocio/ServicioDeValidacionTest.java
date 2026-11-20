@@ -114,6 +114,7 @@ class ServicioDeValidacionTest {
         assertEquals(ResultadoEscaneo.VALIDA, escaneo.getResultado());
         assertEquals("T-9c41d07e", escaneo.getEntradaId());
         assertEquals(PUERTA, escaneo.getEscaneadoPor());
+        assertEquals("puerta@palco.test", escaneo.getEscaneadoPorEmail());
         assertEquals(LocalDateTime.of(2026, 11, 20, 21, 3, 12), escaneo.getEscaneado());
     }
 
@@ -164,7 +165,7 @@ class ServicioDeValidacionTest {
     @Test
     void unaEntradaYaUsadaMuestraElEscaneoQueLaUso() {
         Escaneo primero = new Escaneo("ESC-00000001", CODIGO, EVENTO, ResultadoEscaneo.VALIDA, "T-9c41d07e",
-                "U-otra-puerta", LocalDateTime.of(2026, 11, 20, 20, 41, 5));
+                "U-otra-puerta", "otra.puerta@palco.test", LocalDateTime.of(2026, 11, 20, 20, 41, 5));
         when(ventas.usar(CODIGO, EVENTO)).thenReturn(new Uso(ResultadoEscaneo.YA_USADA, null));
         when(escaneos.ultimoDelCodigo(CODIGO, ResultadoEscaneo.VALIDA)).thenReturn(Optional.of(primero));
 
@@ -184,7 +185,7 @@ class ServicioDeValidacionTest {
     @Test
     void siLaUsoUnEscaneoQueQuedoSinRespuestaLoAvisa() {
         Escaneo colgado = new Escaneo("ESC-00000002", CODIGO, EVENTO, ResultadoEscaneo.SIN_RESPUESTA, null,
-                PUERTA, LocalDateTime.of(2026, 11, 20, 21, 2, 40));
+                PUERTA, "puerta@palco.test", LocalDateTime.of(2026, 11, 20, 21, 2, 40));
         when(ventas.usar(CODIGO, EVENTO)).thenReturn(new Uso(ResultadoEscaneo.YA_USADA, null));
         when(escaneos.ultimoDelCodigo(CODIGO, ResultadoEscaneo.VALIDA)).thenReturn(Optional.empty());
         when(escaneos.ultimoDelCodigo(CODIGO, ResultadoEscaneo.SIN_RESPUESTA)).thenReturn(Optional.of(colgado));
@@ -220,18 +221,38 @@ class ServicioDeValidacionTest {
         assertEquals(ResultadoEscaneo.SIN_RESPUESTA, escaneo.getResultado());
         assertNull(escaneo.getEntradaId());
         assertEquals(PUERTA, escaneo.getEscaneadoPor());
+        assertEquals("puerta@palco.test", escaneo.getEscaneadoPorEmail());
     }
 
     @Test
     void elRegistroMuestraSoloElFinalDelCodigo() {
         Escaneo escaneo = new Escaneo("ESC-00000001", CODIGO, EVENTO, ResultadoEscaneo.VALIDA, "T-9c41d07e", PUERTA,
-                LocalDateTime.of(2026, 11, 20, 20, 41, 5));
+                "puerta@palco.test", LocalDateTime.of(2026, 11, 20, 20, 41, 5));
         when(escaneos.listarPorEvento(EVENTO, ServicioDeValidacion.MAXIMO_POR_CONSULTA)).thenReturn(List.of(escaneo));
 
         List<EscaneoDto> registro = validacion.listar(EVENTO, STAFF);
 
         assertEquals(List.of(new EscaneoDto("ESC-00000001", EVENTO, "…0b7a11", "VALIDA", "T-9c41d07e", PUERTA,
-                "2026-11-20T20:41:05Z")), registro);
+                "puerta@palco.test", "2026-11-20T20:41:05Z")), registro);
+    }
+
+    @Test
+    void elRegistroDelOrganizadorTraeElEmailDeQuienEscaneoYUnEscaneoViejoSoloSuId() {
+        // DEF-32: el organizador asigna la puerta por email y no conoce el id de la cuenta. Un escaneo
+        // guardado antes de que se registrara el email vuelve con el email en null y su id.
+        Escaneo nuevo = new Escaneo("ESC-00000002", CODIGO, EVENTO, ResultadoEscaneo.YA_USADA, null, PUERTA,
+                "puerta@palco.test", LocalDateTime.of(2026, 11, 20, 21, 0, 0));
+        Escaneo viejo = new Escaneo("ESC-00000001", CODIGO, EVENTO, ResultadoEscaneo.VALIDA, "T-9c41d07e", PUERTA,
+                null, LocalDateTime.of(2026, 11, 19, 20, 41, 5));
+        when(escaneos.listarPorEvento(EVENTO, ServicioDeValidacion.MAXIMO_POR_CONSULTA))
+                .thenReturn(List.of(nuevo, viejo));
+
+        List<EscaneoDto> registro = validacion.listar(EVENTO, DUENO);
+
+        assertEquals("puerta@palco.test", registro.get(0).escaneadoPorEmail());
+        assertEquals(PUERTA, registro.get(0).escaneadoPor());
+        assertNull(registro.get(1).escaneadoPorEmail());
+        assertEquals(PUERTA, registro.get(1).escaneadoPor());
     }
 
     @Test
@@ -292,7 +313,7 @@ class ServicioDeValidacionTest {
     @Test
     void unEscaneoDeUnEventoAjenoSeVeComoUnoQueNoExiste() {
         Escaneo escaneo = new Escaneo("ESC-00000001", CODIGO, EVENTO, ResultadoEscaneo.VALIDA, "T-1", PUERTA,
-                LocalDateTime.of(2026, 11, 20, 20, 41, 5));
+                "puerta@palco.test", LocalDateTime.of(2026, 11, 20, 20, 41, 5));
         when(escaneos.buscarPorId("ESC-00000001")).thenReturn(Optional.of(escaneo));
 
         assertEquals("ESC-00000001", validacion.obtener("ESC-00000001", STAFF).id());

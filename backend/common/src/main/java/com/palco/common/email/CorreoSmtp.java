@@ -1,7 +1,6 @@
 package com.palco.common.email;
 
 import java.util.Properties;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -87,9 +86,24 @@ public class CorreoSmtp implements Correos {
             entregar(armar(email));
         } catch (MessagingException | RuntimeException e) {
             // Un aviso que no sale no puede deshacer la operación que lo disparó: ver la nota de Correos.
-            LOG.log(Level.WARNING, "No se pudo mandar el email a " + Textos.enUnaLinea(email.para())
-                    + ". Motivo: " + e.getMessage(), e);
+            LOG.warning(Textos.enUnaLinea("No se pudo mandar el email a " + email.paraEnmascarado()
+                    + ". Motivo: " + motivo(e)));
         }
+    }
+
+    /**
+     * Por qué no salió el email, para el log: la excepción y las que trae
+     * adentro (el {@code toString} de {@link MessagingException} las suma), con
+     * cada dirección enmascarada. La respuesta del servidor suele repetir el
+     * destinatario ("550 5.1.1 &lt;ana@palco.test&gt;: no existe"), y el log
+     * no guarda el email de nadie.
+     *
+     * No se escribe la traza: lo que hace falta para arreglarlo (si falló la
+     * conexión, la contraseña o el destinatario) ya está en el motivo, y la
+     * traza repetiría ese mismo texto sin enmascarar.
+     */
+    static String motivo(Exception e) {
+        return Email.enmascarar(String.valueOf(e));
     }
 
     /** El mensaje MIME, ya con remitente, destinatario, asunto y cuerpo en UTF-8. */

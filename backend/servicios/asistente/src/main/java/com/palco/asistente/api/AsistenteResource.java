@@ -15,11 +15,15 @@ import jakarta.ws.rs.core.SecurityContext;
 
 import com.palco.asistente.negocio.IAsistente;
 import com.palco.asistente.negocio.Respuesta;
+import com.palco.common.seguridad.Sesion;
 
 /**
  * POST /api/v1/asistente/preguntas: una pregunta, una respuesta. Para cualquier usuario con
  * sesión. Siempre responde 200 con el origen de la respuesta (MODELO, FALLBACK o BLOQUEADA):
  * que el modelo no conteste no es un error para quien pregunta.
+ *
+ * Quien pregunta se identifica con su id interno (el claim "sub" del token), no con su email:
+ * el asistente lo escribe en el log de cada consulta, y el email es un dato personal.
  */
 @RequestScoped
 @Path("/preguntas")
@@ -45,7 +49,6 @@ public class AsistenteResource {
     @POST
     @RolesAllowed({ "user", "organizer", "staff" })
     public RespuestaDto preguntar(@Valid @NotNull(message = "Falta el cuerpo con la pregunta.") PreguntaDto cuerpo) {
-        String usuario = seguridad.getUserPrincipal() == null ? "?" : seguridad.getUserPrincipal().getName();
-        return RespuestaDto.de(asistente.responder(usuario, cuerpo.pregunta()));
+        return RespuestaDto.de(asistente.responder(Sesion.usuarioId(seguridad), cuerpo.pregunta()));
     }
 }

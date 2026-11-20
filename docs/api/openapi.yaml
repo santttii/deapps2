@@ -2290,7 +2290,7 @@ components:
         eventoId: { type: string, maxLength: 40, example: ev-1 }
         staffEmail: { type: string, format: email, description: Siempre en minúsculas, example: puerta@palco.test }
         asignadaPor: { type: string, description: El organizador que la asignó, example: user-organizador }
-        asignada: { type: string, format: date-time, description: Cuándo se asignó, en UTC }
+        asignada: { type: string, format: date-time, description: 'Cuándo se asignó, en UTC' }
 
     NuevoEscaneo:
       type: object
@@ -2342,7 +2342,15 @@ components:
           type: string
           enum: [VALIDA, YA_USADA, INEXISTENTE, OTRO_EVENTO, NO_HABILITADA, SIN_RESPUESTA]
         entradaId: { type: [string, 'null'] }
-        escaneadoPor: { type: string }
+        escaneadoPor: { type: string, description: 'Id de la cuenta que escaneó (claim "sub")', example: user-staff }
+        escaneadoPorEmail:
+          type: [string, 'null']
+          format: email
+          description: >
+            Email de la cuenta que escaneó (claim `upn` de su token), en minúsculas: es como el organizador la
+            asigna a la puerta y lo que muestra su panel. Es null en los escaneos guardados antes de que
+            Validación lo registrara (migración V4); para esos queda solo `escaneadoPor`.
+          example: puerta@palco.test
         escaneado: { type: string, format: date-time }
 
     Factura:

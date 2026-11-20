@@ -2,13 +2,20 @@ package com.palco.common.email;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
+import jakarta.mail.SendFailedException;
 import jakarta.mail.internet.MimeMessage;
 
 import org.junit.jupiter.api.Test;
@@ -69,6 +76,49 @@ class CorreoSmtpTest {
 
         assertDoesNotThrow(() -> smtp.enviar(new Email("ana@palco.test", "Asunto", "Cuerpo")));
         assertTrue(smtp.entregados.isEmpty());
+    }
+
+    @Test
+    void elWarningDeUnEnvioQueFallaNoTraeElEmailDeNadieNiLaTraza() {
+        // Así contesta un servidor que rechaza al destinatario: la dirección viene en la excepción de adentro.
+        SmtpDePrueba smtp = new SmtpDePrueba();
+        smtp.falla = new SendFailedException("Invalid Addresses",
+                new MessagingException("550 5.1.1 <ana.perez@palco.test>: Recipient address rejected"));
+        Logger log = Logger.getLogger(CorreoSmtp.class.getName());
+        List<LogRecord> registros = new ArrayList<>();
+        Handler capturador = new Handler() {
+            @Override
+            public void publish(LogRecord registro) {
+                registros.add(registro);
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        log.addHandler(capturador);
+        log.setUseParentHandlers(false);
+        try {
+            smtp.enviar(new Email("ana.perez@palco.test", "Tu código de Palco", "Tu código es 123456."));
+        } finally {
+            log.removeHandler(capturador);
+            log.setUseParentHandlers(true);
+        }
+
+        assertEquals(1, registros.size());
+        LogRecord registro = registros.get(0);
+        assertEquals(Level.WARNING, registro.getLevel());
+        String renglon = registro.getMessage();
+        assertTrue(renglon.startsWith("No se pudo mandar el email a a***@palco.test. Motivo: "), renglon);
+        assertTrue(renglon.contains("<a***@palco.test>: Recipient address rejected"), "queda el motivo: " + renglon);
+        assertFalse(renglon.contains("ana.perez"), renglon);
+        assertFalse(renglon.contains("123456"), renglon);
+        assertFalse(renglon.contains("\n"), renglon);
+        assertNull(registro.getThrown(), "sin la traza, que repetiría la dirección");
     }
 
     @Test

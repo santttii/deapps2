@@ -174,6 +174,11 @@ class ReventaDeEntradasEnH2Test {
                 new TitularDto("Bruno Díaz", "40111222"), 52_000, "P-reventa1");
     }
 
+    /** La transferencia a COMPRADOR con otro titular. */
+    private static TransferenciaDto transferenciaA(TitularDto titular) {
+        return new TransferenciaDto("R-00000010", ENTRADA_ID, VENDEDOR, COMPRADOR, titular, 52_000, "P-reventa1");
+    }
+
     @Test
     void publicarYRetirarCambianElEstadoYUnaAjenaEsNoEncontrada() {
         assertEquals("PUBLICADA", enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR)).estado());
@@ -237,6 +242,40 @@ class ReventaDeEntradasEnH2Test {
         assertEquals(1, ventas.buscarPorComprador(COMPRADOR).size());
         // Ni publica otra vez: el aviso, la auditoría y la factura salen una sola vez.
         assertEquals(1, reventasPublicadas.size());
+    }
+
+    @Test
+    void retirarUnaEntradaQueYaSeVendioEsUnConflictoYNoVuelveAValida() {
+        // Reventa pide retirar una publicación cuya entrada ya pasó al comprador: no puede volver al vendedor.
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+        enTransaccion(em, () -> reventa.transferir(transferencia("R-0000000f", COMPRADOR)));
+
+        ErroresDeNegocio.Conflicto conflicto = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> enTransaccion(em, () -> reventa.retirar(ENTRADA_ID, VENDEDOR)));
+
+        assertEquals(ReventaDeEntradas.ENTRADA_NO_PUBLICADA, conflicto.tipo());
+        assertEquals("La entrada no está publicada: está VENDIDA.", conflicto.getMessage());
+        assertEquals(EstadoEntrada.VENDIDA, estado(ENTRADA_ID));
+    }
+
+    @Test
+    void unTitularConUnSaltoDeLineaOUnDniMalEscritoNoRecibeLaEntrada() {
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+
+        TransferenciaDto conSalto = transferenciaA(new TitularDto("Bruno\nDíaz", "40111222"));
+        ErroresDeNegocio.DatosInvalidos nombre = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> enTransaccion(em, () -> reventa.transferir(conSalto)));
+        assertTrue(nombre.campos().containsKey("titular.nombre"), "campos: " + nombre.campos());
+
+        TransferenciaDto conPuntos = transferenciaA(new TitularDto("Bruno Díaz", "40.111.222"));
+        ErroresDeNegocio.DatosInvalidos dni = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> enTransaccion(em, () -> reventa.transferir(conPuntos)));
+        assertTrue(dni.campos().containsKey("titular.dni"), "campos: " + dni.campos());
+
+        // La entrada sigue publicada, sin venta nueva ni aviso: la puede comprar otra persona.
+        assertEquals(EstadoEntrada.PUBLICADA, estado(ENTRADA_ID));
+        assertTrue(ventas.buscarPorComprador(COMPRADOR).isEmpty());
+        assertTrue(reventasPublicadas.isEmpty());
     }
 
     @Test

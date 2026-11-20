@@ -12,6 +12,12 @@ import jakarta.validation.constraints.Size;
  * Lo que entra y sale de la API de usuarios. {@link UsuarioDto} coincide con el
  * tipo {@code Usuario} del frontend; las validaciones replican
  * {@code frontend/src/lib/validate.ts}.
+ *
+ * Cada anotación de validación lleva su propio {@code message}: es el texto
+ * que el 400 devuelve por campo. Sin él, Bean Validation usa su mensaje por
+ * defecto, que se traduce según el idioma del pedido o el del servidor: en la
+ * imagen de Docker, a un cliente que no manda {@code Accept-Language} le llega
+ * en inglés ("size must be between 0 and 200").
  */
 public final class Dtos {
 
@@ -50,10 +56,10 @@ public final class Dtos {
 
             @NotBlank(message = "Ingresá un email válido.")
             @Email(regexp = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", message = "Ingresá un email válido.")
-            @Size(max = 200)
+            @Size(max = 200, message = "El email tiene hasta 200 caracteres.")
             String email,
 
-            @Size(max = 30)
+            @Size(max = 30, message = "El teléfono tiene hasta 30 caracteres.")
             String telefono,
 
             @NotNull(message = "Mínimo 8 caracteres, con letras y números.")

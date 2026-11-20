@@ -13,8 +13,10 @@ import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
@@ -42,6 +44,10 @@ class RegistroYVerificacionTest {
     private static final String EMAIL = "ana@palco.test";
     private static final String DNI = "30123456";
     private static final String CODIGO = "123456";
+
+    /** Un día fijo, para que el borde de la edad mínima no dependa de cuándo corre el test. */
+    private static final LocalDate HOY = LocalDate.of(2026, 11, 27);
+    private static final ZoneId ZONA = ZoneId.of("America/Argentina/Buenos_Aires");
 
     private final UsuarioRepository usuarios = mock(UsuarioRepository.class);
     private final CodigoVerificacionRepository codigos = mock(CodigoVerificacionRepository.class);
@@ -132,6 +138,30 @@ class RegistroYVerificacionTest {
                 () -> servicio.registrar(menor));
 
         assertTrue(error.campos().containsKey("fechaNacimiento"));
+        verify(usuarios, never()).guardar(any());
+    }
+
+    // Borde de la edad mínima, con el día fijo: quien cumple 16 hoy ya puede registrarse y a quien
+    // le falta un día, todavía no. Los 16 van escritos acá y no como EDAD_MINIMA: si alguien cambia
+    // la regla, o el "<" por "<=", alguno de los dos falla.
+
+    @Test
+    void elDiaQueCumpleDieciseisYaPuedeRegistrarse() {
+        servicio.reloj = relojDelDia(HOY);
+
+        servicio.registrar(nacidoEl(HOY.minusYears(16)));
+
+        verify(usuarios).guardar(any(Usuario.class));
+    }
+
+    @Test
+    void aUnDiaDeCumplirDieciseisTodaviaNoPuedeRegistrarse() {
+        servicio.reloj = relojDelDia(HOY);
+
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.registrar(nacidoEl(HOY.minusYears(16).plusDays(1))));
+
+        assertEquals(Map.of("fechaNacimiento", "Tenés que ser mayor de 16 años."), error.campos());
         verify(usuarios, never()).guardar(any());
     }
 
@@ -297,6 +327,15 @@ class RegistroYVerificacionTest {
 
     private static RegistroDto registro(String email, String dni) {
         return new RegistroDto("Ana", "Gómez", dni, LocalDate.of(1995, 5, 17), email, null, "palco1234");
+    }
+
+    private static RegistroDto nacidoEl(LocalDate fechaNacimiento) {
+        return new RegistroDto("Ana", "Gómez", DNI, fechaNacimiento, EMAIL, null, "palco1234");
+    }
+
+    /** Un reloj parado al mediodía de {@code dia}, con la hora de Buenos Aires. */
+    private static Clock relojDelDia(LocalDate dia) {
+        return Clock.fixed(dia.atTime(12, 0).atZone(ZONA).toInstant(), ZONA);
     }
 
     private static String sha256(String texto) throws Exception {

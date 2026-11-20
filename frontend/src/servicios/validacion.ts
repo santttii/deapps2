@@ -31,7 +31,10 @@ export interface Escaneo {
   codigoParcial: string;
   resultado: ResultadoEscaneo;
   entradaId: string | null;
-  escaneadoPor: string;
+  escaneadoPor: string; // el id interno de la cuenta que escaneó
+  // Su email, que es como el organizador conoce a la cuenta (DEF-32). Es null en los escaneos
+  // guardados antes de que Validación lo registrara: para esos queda solo el id.
+  escaneadoPorEmail: string | null;
   escaneado: string;
 }
 

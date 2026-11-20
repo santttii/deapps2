@@ -366,9 +366,12 @@ corresponde, 403. Las cuentas de prueba son las mismas de la tabla de abajo.
 
 **Emails:** con un servidor SMTP configurado (`PALCO_SMTP_HOST` y las demás
 variables `PALCO_SMTP_*` de `backend/.env.example`) salen de verdad. Sin él
-quedan en el log del servidor, en un renglón con el formato
-`Email para <email> (<asunto>): <cuerpo>`. Así se lee, por ejemplo, el código de
-verificación del registro:
+quedan en el log del servidor. `backend/dev.sh` y el `docker-compose.yml` prenden el
+modo de desarrollo (`PALCO_CORREO_LOG_COMPLETO=true`), que escribe cada email entero en
+un renglón con el formato `Email para <email> (<asunto>): <cuerpo>`. Sin esa variable,
+como en un despliegue, el renglón solo dice a quién iba, enmascarado (`a***@ejemplo.com`),
+y el asunto: el cuerpo lleva nombres, titulares y códigos, que no van a un log. En el modo
+de desarrollo se lee, por ejemplo, el código de verificación del registro:
 
 ```
 Email para ana@ejemplo.com (Tu código de Palco): Hola Ana: tu código para verificar el email es 123456. Vence en 15 minutos.

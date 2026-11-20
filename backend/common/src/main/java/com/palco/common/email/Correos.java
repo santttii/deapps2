@@ -11,7 +11,7 @@ package com.palco.common.email;
  * excepciones si el correo no sale. Es a propósito. El email es un aviso, no
  * parte de la operación: que el servidor SMTP no conteste no puede deshacer un
  * registro ni una compra ya cobrada. Cuando no sale, queda un WARNING en el
- * log con el destinatario y el motivo.
+ * log con el destinatario enmascarado y el motivo.
  */
 public interface Correos {
 

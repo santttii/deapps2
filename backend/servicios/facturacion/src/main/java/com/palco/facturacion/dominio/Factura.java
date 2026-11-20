@@ -83,11 +83,6 @@ public class Factura {
         this.emitida = emitida;
     }
 
-    /** ¿Es de ese comprador? Una factura ajena se responde como si no existiera. */
-    public boolean esDe(String usuarioId) {
-        return compradorId.equals(usuarioId);
-    }
-
     public String getId() { return id; }
     public String getVentaId() { return ventaId; }
     public String getCompradorId() { return compradorId; }

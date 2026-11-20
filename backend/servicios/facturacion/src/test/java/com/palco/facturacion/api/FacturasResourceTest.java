@@ -26,13 +26,15 @@ import com.palco.facturacion.Ejemplos;
 import com.palco.facturacion.api.Dtos.FacturaDto;
 import com.palco.facturacion.datos.FacturaRepositoryEnMemoria;
 import com.palco.facturacion.negocio.ServicioDeFacturacionDePrueba;
+import com.palco.facturacion.negocio.TiposDeProblema;
 import com.palco.facturacion.negocio.externos.ArcaEnMemoria;
 
 /**
  * Lo que decide el recurso: a nombre de quién se consulta y qué rol pide.
  * Detrás está el negocio de verdad, con una factura guardada en memoria, así
- * se ve qué responde a cada uno. El 404 lo escribe {@code ManejadoresDeErrores}
- * a partir de {@code NoEncontrado}; el 401 y el 403 los da el servidor.
+ * se ve qué responde a cada uno. El 404 y el 409 los escribe
+ * {@code ManejadoresDeErrores} a partir de {@code NoEncontrado} y
+ * {@code Conflicto}; el 401 y el 403 los da el servidor.
  */
 class FacturasResourceTest {
 
@@ -70,6 +72,19 @@ class FacturasResourceTest {
     void unaVentaSinFacturaTodaviaEs404() {
         assertThrows(ErroresDeNegocio.NoEncontrado.class,
                 () -> recurso.obtener("V-recien-pagada", sesionDeUsuario(Ejemplos.COMPRADOR)));
+    }
+
+    @Test
+    void unaVentaQueArcaRechazoEsUnConflictoParaSuCompradorYUn404ParaOtro() {
+        repositorio.guardarRechazo(Ejemplos.rechazo("V-rechazada", Ejemplos.COMPRADOR));
+
+        // ManejadoresDeErrores lo escribe como 409 con type /problemas/comprobante-rechazado.
+        ErroresDeNegocio.Conflicto rechazada = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> recurso.obtener("V-rechazada", sesionDeUsuario(Ejemplos.COMPRADOR)));
+        assertEquals(TiposDeProblema.COMPROBANTE_RECHAZADO, rechazada.tipo());
+        assertThrows(ErroresDeNegocio.Conflicto.class, () -> recurso.obtener("V-rechazada", sesionDeServicio()));
+        assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> recurso.obtener("V-rechazada", sesionDeUsuario("user-otro")));
     }
 
     @Test

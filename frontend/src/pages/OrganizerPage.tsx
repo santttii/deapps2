@@ -558,7 +558,8 @@ export default function OrganizerPage() {
                               {/* El backend ya manda el código recortado, con los puntos suspensivos. */}
                               <td className="font-mono-label px-4 py-3 text-[11px]">{e.codigoParcial}</td>
                               <td className="px-4 py-3">{ETIQUETA_RESULTADO[e.resultado] ?? e.resultado}</td>
-                              <td className="px-4 py-3">{e.escaneadoPor}</td>
+                              {/* El email, que es como se asigna la puerta; un escaneo viejo sin email muestra el id. */}
+                              <td className="px-4 py-3">{e.escaneadoPorEmail ?? e.escaneadoPor}</td>
                               <td className="whitespace-nowrap px-4 py-3">{fechaHora(e.escaneado)}</td>
                             </tr>
                           ))}

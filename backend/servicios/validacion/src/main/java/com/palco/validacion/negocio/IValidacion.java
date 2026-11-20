@@ -34,7 +34,7 @@ public interface IValidacion {
      * {@code SinPermiso} ({@code puerta-no-asignada}) sin llamar a Ventas ni
      * registrar nada.
      *
-     * @param staff el usuario de puerta: su id queda en el registro
+     * @param staff el usuario de puerta: su id y su email quedan en el registro
      */
     ResultadoDeEscaneoDto escanear(String codigoQr, String eventoId, Solicitante staff);
 
