@@ -2,7 +2,8 @@
 # Los jobs corren en paralelo; si cualquiera falla, la corrida queda en rojo.
 #
 #   secretos     gitleaks sobre todo el historial
-#   backend      mvn verify: tests unitarios y de integración del backend
+#   backend      mvn verify: tests unitarios y de integración del backend, cobertura (JaCoCo) y
+#                análisis estático (PMD)
 #   frontend     npm ci, lint y build
 #   integracion  docker compose up (Postgres + backend + nginx) y la prueba de integración contra eso,
 #                repartida en 4 jobs en paralelo (ver la matriz del job)
@@ -78,6 +79,18 @@ jobs:
             backend/**/target/failsafe-reports/
             backend/**/target/site/jacoco*/
           if-no-files-found: ignore
+      - name: Resumen del análisis estático (PMD)
+        # Sin "|| true": si no hay ningún target/pmd.xml, PMD no corrió y el job tiene que quedar en rojo.
+        if: always()
+        working-directory: .
+        run: node scripts/qa/analisis-estatico.mjs backend >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: analisis-estatico
+          path: |
+            backend/**/target/pmd.xml
+            backend/**/target/reports/
 
   frontend:
     name: Frontend (lint y build)
@@ -134,13 +147,14 @@ jobs:
           echo "PALCO_SECRETO_SERVICIOS=$secreto" >> "$GITHUB_ENV"
           mkdir -p logs && chmod 777 logs
       - name: Imágenes del sistema (con reintentos si falla la red)
-        # Bajar una imagen de Docker Hub puede fallar por la red del runner. Se reintenta hasta 3 veces;
-        # un error del código falla igual las 3. Después, el up de abajo reusa estas imágenes.
+        # Bajar una imagen de Docker Hub puede fallar por la red del runner o por su límite de descargas,
+        # que se nota más con varios jobs bajando lo mismo a la vez. Se reintenta hasta 4 veces, esperando
+        # cada vez más (30, 60 y 90 s); un error del código falla igual las 4. El up de abajo reusa las imágenes.
         run: |
-          for intento in 1 2 3; do
+          for intento in 1 2 3 4; do
             docker compose pull --ignore-buildable --quiet && docker compose build && exit 0
-            echo "Falló la descarga o el armado de las imágenes (intento $intento de 3)"
-            [ "$intento" -lt 3 ] && sleep 15
+            echo "Falló la descarga o el armado de las imágenes (intento $intento de 4)"
+            [ "$intento" -lt 4 ] && sleep $((intento * 30))
           done
           exit 1
       - name: docker compose up (un comando, todo el sistema)
@@ -215,13 +229,14 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
       - name: Imágenes del sistema (con reintentos si falla la red)
-        # Bajar una imagen de Docker Hub puede fallar por la red del runner. Se reintenta hasta 3 veces;
-        # un error del código falla igual las 3. Después, el up de abajo reusa estas imágenes.
+        # Bajar una imagen de Docker Hub puede fallar por la red del runner o por su límite de descargas,
+        # que se nota más con varios jobs bajando lo mismo a la vez. Se reintenta hasta 4 veces, esperando
+        # cada vez más (30, 60 y 90 s); un error del código falla igual las 4. El up de abajo reusa las imágenes.
         run: |
-          for intento in 1 2 3; do
+          for intento in 1 2 3 4; do
             docker compose pull --ignore-buildable --quiet && docker compose build && exit 0
-            echo "Falló la descarga o el armado de las imágenes (intento $intento de 3)"
-            [ "$intento" -lt 3 ] && sleep 15
+            echo "Falló la descarga o el armado de las imágenes (intento $intento de 4)"
+            [ "$intento" -lt 4 ] && sleep $((intento * 30))
           done
           exit 1
       - name: docker compose up (un comando, todo el sistema)

@@ -8,7 +8,7 @@
     <artifactId>palco-backend</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>Palco — backend</name>
+    <name>Palco: backend</name>
 
     <modules>
         <module>common</module>
@@ -45,6 +45,8 @@
         <version.jacoco.plugin>0.8.16</version.jacoco.plugin>
         <version.war.plugin>3.5.1</version.war.plugin>
         <version.dependency.plugin>3.11.0</version.dependency.plugin>
+        <!-- Trae PMD 7.17.0, que ya entiende el código de Java 25 -->
+        <version.pmd.plugin>3.28.0</version.pmd.plugin>
     </properties>
 
     <dependencyManagement>
@@ -177,6 +179,37 @@
                         <phase>verify</phase>
                         <goals>
                             <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Análisis estático (PMD) del código de src/main/java de cada módulo, con "quickstart": el
+                 conjunto de reglas que PMD recomienda para empezar. En "verify" deja target/pmd.xml y
+                 target/reports/pmd.html; el CI los sube como artefacto y scripts/qa/analisis-estatico.mjs
+                 arma el resumen. Los hallazgos se informan pero no cortan el build, así se corrigen de a
+                 poco. Lo que sí lo corta es que PMD no pueda analizar el código (skipPmdError en false):
+                 un archivo que no entiende o una versión de Java que no conoce no puede quedar en verde. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <version>${version.pmd.plugin}</version>
+                <configuration>
+                    <!-- Sin esto PMD toma maven.compiler.source, que acá no está: se compila con release -->
+                    <targetJdk>${maven.compiler.release}</targetJdk>
+                    <rulesets>
+                        <ruleset>rulesets/java/quickstart.xml</ruleset>
+                    </rulesets>
+                    <failOnViolation>false</failOnViolation>
+                    <skipPmdError>false</skipPmdError>
+                    <!-- El reporte HTML no enlaza al código fuente (no se genera el sitio con JXR) -->
+                    <linkXRef>false</linkXRef>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>analisis-estatico</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
                         </goals>
                     </execution>
                 </executions>
