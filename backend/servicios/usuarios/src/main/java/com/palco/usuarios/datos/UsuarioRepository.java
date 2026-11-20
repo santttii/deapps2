@@ -1,5 +1,6 @@
 package com.palco.usuarios.datos;
 
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.ejb.Local;
@@ -25,6 +26,9 @@ public interface UsuarioRepository {
 
     /** La cuenta con ese DNI, que tiene que llegar solo con dígitos. */
     Optional<Usuario> buscarPorDni(String dni);
+
+    /** Las cuentas cuyo email termina en "@" y ese dominio, que tiene que llegar en minúsculas. */
+    List<Usuario> buscarPorDominioDeEmail(String dominio);
 
     /** Guarda una cuenta nueva. El INSERT sale al cerrar la transacción. */
     void guardar(Usuario usuario);

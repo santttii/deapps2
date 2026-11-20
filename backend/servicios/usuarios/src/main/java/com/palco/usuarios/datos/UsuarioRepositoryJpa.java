@@ -1,5 +1,6 @@
 package com.palco.usuarios.datos;
 
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.ejb.Stateless;
@@ -44,6 +45,14 @@ public class UsuarioRepositoryJpa implements UsuarioRepository {
                 .setParameter("dni", dni)
                 .getResultStream()
                 .findFirst();
+    }
+
+    @Override
+    public List<Usuario> buscarPorDominioDeEmail(String dominio) {
+        // Los emails se guardan en minúsculas; el dominio no lleva % ni _, que en LIKE son comodines.
+        return em.createQuery("select u from Usuario u where u.email like :patron order by u.email", Usuario.class)
+                .setParameter("patron", "%@" + dominio)
+                .getResultList();
     }
 
     @Override

@@ -42,6 +42,14 @@ class ContrasenasTest {
     }
 
     @Test
+    void elHashInutilizableTieneLasIteracionesDeSiempreYNoVerificaConNinguna() {
+        assertTrue(Contrasenas.INUTILIZABLE.startsWith("pbkdf2-sha256$" + Contrasenas.ITERACIONES + "$"),
+                "cuesta lo mismo que una cuenta nueva: el tiempo no la delata");
+        assertFalse(Contrasenas.verificar("palco1234", Contrasenas.INUTILIZABLE));
+        assertFalse(Contrasenas.verificar("", Contrasenas.INUTILIZABLE));
+    }
+
+    @Test
     void unHashMalFormadoNoVerificaNiRompe() {
         assertFalse(Contrasenas.verificar("palco1234", "texto-cualquiera"));
         assertFalse(Contrasenas.verificar("palco1234", "pbkdf2-sha256$abc$$"));

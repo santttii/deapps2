@@ -29,6 +29,17 @@ public final class Contrasenas {
     private static final int BITS_HASH = 256;
     private static final SecureRandom AZAR = new SecureRandom();
 
+    /**
+     * El hash de una cuenta que no tiene que poder entrar. Tiene el formato y las
+     * iteraciones de siempre, así verificarlo tarda lo mismo que con cualquier
+     * cuenta y el tiempo de respuesta no la distingue (por lo mismo que V5); pero
+     * el resultado esperado son 32 bytes en cero, y no se conoce ninguna
+     * contraseña que dé eso: buscarla es invertir PBKDF2.
+     */
+    public static final String INUTILIZABLE = PREFIJO + "$" + ITERACIONES + "$"
+            + Base64.getEncoder().encodeToString(new byte[BYTES_SAL]) + "$"
+            + Base64.getEncoder().encodeToString(new byte[BITS_HASH / 8]);
+
     private Contrasenas() {
     }
 

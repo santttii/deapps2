@@ -12,10 +12,15 @@
 
     <artifactId>palco-usuarios</artifactId>
     <packaging>war</packaging>
-    <name>Palco — ServicioDeUsuarios</name>
+    <name>Palco: ServicioDeUsuarios</name>
     <description>Registro, autenticación y roles (comprador, organizador, staff). Interfaz: IUsuarios.</description>
 
     <dependencies>
+        <dependency>
+            <!-- ConfigProvider, para leer palco.usuarios.cuentas-de-prueba. La versión y el scope los fija el pom padre. -->
+            <groupId>org.eclipse.microprofile.config</groupId>
+            <artifactId>microprofile-config-api</artifactId>
+        </dependency>
         <dependency>
             <!-- Dobles de prueba de lo que en producción pone el servidor: el EntityManager y las
                  claves JWT. Versión y alcance (test) vienen del pom padre. -->
