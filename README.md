@@ -22,8 +22,126 @@ El repo tiene dos partes:
   detrás de su gateway). Los servicios se hablan
   solo por REST, SOAP o JMS. El plan completo está en [`TODO.md`](TODO.md).
 
+## Levantar todo desde cero
+
+Con Docker alcanza: el sistema completo (la app, la base PostgreSQL, el broker JMS embebido en WildFly, el ARCA
+simulado por SOAP y la pasarela de pagos simulada) levanta con un solo comando, sin instalar Java, Maven ni Node y
+sin configurar nada.
+
+### Qué hace falta
+
+- **Docker con Compose v2 o más nuevo.** El comando es `docker compose`, con espacio (el viejo `docker-compose`, la
+  v1, no sirve); `docker compose version` dice cuál está instalada.
+  - **Windows 10 u 11:** Docker Desktop con el motor WSL 2, que es el que propone al instalarse (puede pedir
+    reiniciar y que la virtualización esté activada en el BIOS), y en modo contenedores Linux, que es el de fábrica.
+  - **macOS** (Intel o Apple Silicon): Docker Desktop.
+  - **Linux:** Docker Engine con el plugin de Compose (`docker-compose-plugin`), como lo instala la guía oficial
+    de Docker.
+  - Docker tiene que estar corriendo antes del comando: en Windows y macOS, con Docker Desktop abierto.
+- **Git**, para clonar.
+- **Memoria y disco:** conviene una máquina con 8 GB de RAM, para que Docker tenga unos 4, y unos 10 GB libres en
+  disco: la primera vez baja 1,9 GB de imágenes base y arma dos imágenes propias.
+- **Internet**, la primera vez: baja las imágenes de Docker Hub y las dependencias de Maven y de npm.
+- **Los puertos 80, 443 y 8080 libres.** Si alguno está ocupado, ver [Si algo traba](#si-algo-traba).
+
+### El comando
+
+En cualquier terminal (PowerShell, cmd, la Terminal de macOS o Bash: los comandos son los mismos):
+
+```
+git clone <dirección del repositorio> palco
+cd palco
+docker compose up --build --wait
+```
+
+Con una copia ya descargada, alcanza con abrir la terminal en la carpeta donde está `docker-compose.yml` y correr
+el último comando. Con `--wait`, el comando termina recién cuando los tres contenedores están sanos y deja la
+terminal libre: los contenedores siguen andando de fondo. Sin `--wait` se queda mostrando el log, y `Ctrl+C` los
+detiene.
+
+No hay que crear ningún `.env` ni definir secretos. El secreto entre servicios y la clave que firma las sesiones no
+están en el repo: el backend los genera en cada arranque, y el log lo avisa ("PALCO_SECRETO_SERVICIOS no vino en el
+entorno: se generó uno nuevo para este arranque."). Por eso, después de reiniciar el backend, las sesiones abiertas
+se cierran y hay que volver a entrar.
+
+### Cuánto tarda
+
+La primera vez baja unos 1,9 GB de imágenes base (PostgreSQL, Maven con el JDK 25, el JRE 25, Node y nginx) y arma
+las dos imágenes de Palco, con las dependencias de Maven y WildFly. Medido el 30/10/2026 en un entorno Linux de 4
+núcleos, con las imágenes base ya bajadas y sin caché de Maven: 112 s la imagen del backend, 30 s la del frontend y
+28 s hasta que los tres contenedores quedaron sanos, unos 3 minutos en total. La descarga depende de la conexión:
+con 50 Mbps, la cuenta da unos 5 minutos más. Las siguientes veces las imágenes ya están armadas y es solo el
+arranque. El CI lo levanta igual, de cero, en cada corrida ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+### Cómo saber que está listo
+
+El comando termina con una línea `Healthy` por contenedor (`palco-db-1`, `palco-backend-1` y `palco-web-1`), y
+`docker compose ps` los muestra `(healthy)`. El backend queda sano recién cuando los 9 servicios responden 200 en su
+`/health` ([`backend/docker/salud.sh`](backend/docker/salud.sh)). Si algo falla, el comando termina con un error
+que nombra el contenedor, y `docker compose logs backend` (o `db`, o `web`) muestra por qué.
+
+### Entrar
+
+Abrir **https://localhost**, así, con `localhost`: con `127.0.0.1` la app no puede llamar a la API.
+`http://localhost` redirige a HTTPS. El certificado es autofirmado y lo genera el contenedor `web` al arrancar, así
+que el navegador avisa que la conexión no es privada y hay que aceptarlo una vez: en Chrome y Edge, "Configuración
+avanzada" (o "Avanzado") y el enlace para seguir a localhost; en Firefox, "Avanzado…" y "Aceptar el riesgo y
+continuar"; en Safari, "Mostrar detalles" y "visitar este sitio web". Si lo pide otra vez después de un
+`docker compose down` y otro `up`, es porque el contenedor nuevo generó otro certificado.
+
+Se ve el catálogo con los seis eventos de prueba. También quedan:
+
+| Qué | Dónde |
+|---|---|
+| El estado de un servicio | https://localhost/api/eventos/health (cada servicio responde en `<su raíz>/health`, ver [Backend](#backend)) |
+| El WSDL del ARCA simulado | https://localhost/legado/arca?wsdl |
+| La API directa, solo desde esta máquina (Postman) | http://localhost:8080 |
+
+### Cuentas de prueba
+
+Todas con la contraseña **`palco1234`** (con Docker, la pantalla de ingreso no la muestra: solo lo hace con
+`npm run dev`):
+
+| Email | Para probar |
+|---|---|
+| `titular@palco.test` | Comprar, Mis entradas, la reventa y el asistente |
+| `otro.titular@palco.test` | Comprar en la reventa lo que publica `titular` |
+| `organizador@palco.test` | El panel `/organizador` (es el dueño de los seis eventos) |
+| `puerta@palco.test` | La validación en `/puerta` |
+
+Las seis cuentas y qué puede hacer cada una están en [Usuarios de prueba](#usuarios-de-prueba), y un recorrido de
+punta a punta, en [Recorrido sugerido de demo](#recorrido-sugerido-de-demo). Para pagar, cualquier tarjeta se
+aprueba, salvo una terminada en `0002` (se rechaza) o en `0504` (la pasarela no responde).
+
+### Bajarlo
+
+| Comando | Qué hace |
+|---|---|
+| `docker compose down` | Baja los contenedores y guarda los datos (la base y los mensajes pendientes del broker) para el próximo `up` |
+| `docker compose down -v` | Baja todo y borra los datos: el próximo `up` arranca de cero, con los datos de prueba |
+| `docker compose down -v --rmi all` | Además borra las imágenes de Palco y la de PostgreSQL, para liberar el disco |
+
+### Si algo traba
+
+| Qué se ve | Qué hacer |
+|---|---|
+| `port is already allocated`, `ports are not available` o `address already in use` | El 80, el 443 o el 8080 está ocupado. Crear en la raíz del repo un archivo `.env` (no se sube al repo; en el Bloc de notas, con "Todos los archivos", para que no quede `.env.txt`) con las cuatro líneas de abajo y volver a correr `docker compose up --build --wait`. La app queda en https://localhost:8443 y la API directa, en http://localhost:8081. Sirve igual en cualquier sistema y terminal, y también en Linux con Docker sin root, que no puede abrir puertos por debajo del 1024 |
+| `'compose' is not a docker command` o `unknown flag: --wait` | Falta el plugin de Compose o es una versión vieja: actualizar Docker Desktop o instalar el plugin (ver [Qué hace falta](#qué-hace-falta)) |
+| `Cannot connect to the Docker daemon` o `error during connect` | Docker no está corriendo: abrir Docker Desktop (en Linux, `sudo systemctl start docker`), esperar a que diga que está andando y repetir |
+| `permission denied` sobre `docker.sock` | En Linux: anteponer `sudo` o agregar el usuario al grupo `docker` y volver a iniciar sesión |
+| `toomanyrequests` al bajar las imágenes | Es el límite de descargas anónimas de Docker Hub, que se nota en redes compartidas: `docker login` con una cuenta gratuita y repetir |
+| Un contenedor `unhealthy` o `dependency failed to start` | `docker compose logs backend` (o el contenedor que nombre el error) muestra por qué |
+
+```
+PALCO_PUERTO_HTTP=8000
+PALCO_PUERTO_HTTPS=8443
+PALCO_URL_PUBLICA=https://localhost:8443
+PALCO_PUERTO_BACKEND=8081
+```
+
 ## Índice
 
+- [Levantar todo desde cero](#levantar-todo-desde-cero)
 - [Requisitos](#requisitos)
 - [Cómo correrlo](#cómo-correrlo)
 - [Scripts del frontend](#scripts-del-frontend)
@@ -40,6 +158,9 @@ El repo tiene dos partes:
 
 ## Requisitos
 
+Para levantar todo con Docker no hace falta nada de esto: ver
+[Levantar todo desde cero](#levantar-todo-desde-cero). Lo de abajo es para desarrollar sin Docker.
+
 - Frontend: Node.js `^20.19.0` o `>=22.12.0` (lo exige Vite 8) y npm
 - Backend: JDK 25 y Maven 3.9+ (en macOS: `brew install openjdk@25 maven`; en
   Windows, cualquier JDK 25, por ejemplo Temurin, con `JAVA_HOME` apuntando a
@@ -51,18 +172,8 @@ El repo tiene dos partes:
 
 ### Todo junto, con un solo comando (Docker)
 
-Solo hace falta Docker (Docker Desktop en Windows y macOS) con Compose v2. Desde la raíz del repo:
-
-```bash
-docker compose up --build
-```
-
-Queda andando en **https://localhost** (el certificado es autofirmado y se genera al arrancar: el navegador pide
-aceptarlo una vez; `http://localhost` redirige a HTTPS). Se entra con los [usuarios de prueba](#usuarios-de-prueba).
-La primera vez baja unos 1,9 GB de imágenes base y después arma el backend (dependencias de Maven y WildFly): medido
-el 30/10, con las imágenes ya bajadas, el armado tardó unos 2,5 minutos y el arranque 28 segundos. Las siguientes veces
-es solo el arranque. Está listo cuando `docker compose ps` muestra los tres contenedores `healthy` (con `docker compose
-up --build --wait` el comando termina recién ahí).
+Los requisitos, el comando, cuánto tarda, las cuentas de prueba y cómo bajarlo están en
+[Levantar todo desde cero](#levantar-todo-desde-cero).
 
 Levanta tres contenedores: `db` (PostgreSQL), `backend` (WildFly con los 9 servicios, el broker y el ARCA simulado)
 y `web` (nginx con el frontend, TLS y las cabeceras de seguridad, que pasa `/api` y `/legado` al backend). La API
@@ -73,8 +184,22 @@ en el repo: el secreto entre servicios y la clave de los tokens se generan en ca
 |---|---|
 | Bajar todo | `docker compose down` (con `-v` borra también la base y los mensajes que el broker tenía guardados) |
 | Ver el log del servidor | `docker compose logs -f backend` |
-| Correr la prueba de integración contra el compose | `PALCO_DIR_LOGS=./logs docker compose up -d --wait` y después `JBOSS_CLI=scripts/qa/jboss-cli-docker.sh PALCO_LOG=logs/server.log node scripts/pruebas/escenarios.mjs` |
-| Usar otros puertos (si el 80 o el 443 están ocupados) | `PALCO_PUERTO_HTTP=8000 PALCO_PUERTO_HTTPS=8443 PALCO_URL_PUBLICA=https://localhost:8443 docker compose up --build` |
+| Usar otros puertos (si el 80, el 443 o el 8080 están ocupados) | Un `.env` en la raíz con `PALCO_PUERTO_HTTP`, `PALCO_PUERTO_HTTPS`, `PALCO_URL_PUBLICA` y `PALCO_PUERTO_BACKEND` (ver [Si algo traba](#si-algo-traba)) |
+
+Para correr la prueba de integración contra el compose (en Bash, o en Git Bash en Windows, y con Node 18 o más
+nuevo), el secreto entre servicios se define antes del `up`: los guiones lo necesitan para pedir el token de rol
+`servicio`, y el que genera el backend no se muestra.
+
+```bash
+export PALCO_SECRETO_SERVICIOS="$(openssl rand -hex 32)"
+export PALCO_DIR_LOGS=./logs PALCO_LOG=logs/server.log JBOSS_CLI=scripts/qa/jboss-cli-docker.sh
+mkdir -p logs && chmod 777 logs        # el contenedor escribe server.log en esa carpeta
+docker compose up --build --wait
+node scripts/pruebas/escenarios.mjs
+```
+
+Los demás guiones y las pruebas de la interfaz, en "Cómo repetirlas contra el compose" de
+[`docs/testing/plan-de-pruebas.md`](docs/testing/plan-de-pruebas.md).
 
 Para desarrollar conviene lo de abajo (`npm run dev` y `./dev.sh`): recargan solos al cambiar el código.
 
@@ -284,7 +409,8 @@ Reventa piden el rol `user`. En producción se desactivan con
 
 También se pueden crear compradores desde `/registro`: el código de 6 dígitos
 llega por email o, sin SMTP, queda en el log del servidor (ver "Emails" más
-arriba). Con el email verificado, la cuenta ya puede comprar.
+arriba; con Docker, se busca "Email para" en `docker compose logs backend`). Con el
+email verificado, la cuenta ya puede comprar.
 
 ## Funcionalidades
 
