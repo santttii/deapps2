@@ -1,4 +1,4 @@
-# Plan de pruebas de Palco — primera versión
+# Plan de pruebas de Palco (primera versión)
 
 3.er Checkpoint (20/11/2026). Describe qué se prueba, cómo, dónde y con qué criterio se da por
 aprobado. Los resultados de esta versión salen de corridas reales sobre el código del checkpoint
@@ -46,7 +46,7 @@ con el emulador del navegador).
 | Integración con base | Repositorios y migraciones contra una base real (H2 en modo PostgreSQL), incluida la concurrencia | JUnit 5 + H2 | Tests `*EnH2Test` | Cada `mvn verify` y en el CI |
 | Integración de sistema | Recorridos completos por la API contra WildFly, la base y el broker, sin dobles | Node (`escenarios.mjs`) + jboss-cli | `scripts/pruebas/escenarios.mjs` (24 escenarios) | A mano y en el CI (job "Integración") |
 | Resiliencia | Timeout de 5 s con fallback, caída del broker, ETag | Node | `scripts/pruebas/asistente.mjs`, `broker-apagado.mjs`, `etag.mjs` | En el CI (job "Integración") y a mano |
-| IA | Set de evaluación de 20 casos (15 funcionales, 5 adversariales) con el modelo simulado; el adaptador del modelo real, sin red | JUnit 5 | `EvaluacionDelAsistenteTest`, `ModeloCompatibleOpenAITest` | Cada `mvn verify` |
+| IA | Set de evaluación de 26 casos (15 funcionales, 11 adversariales) con el modelo simulado; los guardrails, con intentos de inyección y preguntas legítimas que no se tienen que bloquear; el adaptador del modelo real, sin red | JUnit 5 | `EvaluacionDelAsistenteTest`, `GuardrailsTest`, `ModeloCompatibleOpenAITest` | Cada `mvn verify` |
 | API | Los endpoints de la API, en carpetas: casos felices y de error (validaciones, 401, 403, 404, 409, entre otros) | Postman / Newman | `docs/api/palco-api.postman_collection.json` (la genera `scripts/postman/generar.js`) | A mano |
 | Seguridad | Los 10 criterios SEC-xx (Dado / Cuando / Entonces) | Postman (carpeta 4, con el id SEC-… de cada criterio) + tests | Notion, etiqueta "seguridad" | A mano y con los tests |
 | Patrón State | Transiciones válidas e inválidas (409) de la venta | JUnit + Node | `EstadoDeVentaTest`, `scripts/pruebas/patron-state.mjs` | `mvn verify` y en el CI |
@@ -73,7 +73,7 @@ salen de estas técnicas:
 | 6 entradas por comprador y evento, sumando compras | Con 4, comprar 2 | Con 5, comprar 2; con 6, comprar 1: 409 `tope-por-evento` | `ServicioDeVentasTest#conElTopeJustoLaCompraSeAbre`, `#conLasDeOtrasComprasNoSePuedePasarDeSeisEntradasPorEvento`, `#conSeisEntradasYaNoPuedeComprarMasParaEseEvento`; escenario 23 |
 | Cierre de la reventa 3 horas antes del evento | Faltan 3 h 1 min: se publica | Faltan 3 h justas: 409 `reventa-cerrada` | `ServicioDeReventaTest#laReventaCierraTresHorasAntesDelEvento` |
 | Reserva de 10 minutos | Un segundo antes de vencer: se paga | En el segundo exacto: 409 `reserva-vencida` | `ServicioDeVentasTest#unSegundoAntesDeQueVenzaLaReservaTodaviaSePuedePagar`, `#conLaReservaVencidaNoSeCobra` |
-| 5 intentos de ingreso fallidos en 15 minutos | — | El sexto, aun con la contraseña correcta: 429 | `LimiteDeIntentosDeLoginTest#cincoFallidosYElSextoConLaClaveBuenaRecibe429`, `#laVentanaEsDeQuinceMinutos` |
+| 5 intentos de ingreso fallidos en 15 minutos | No aplica | El sexto, aun con la contraseña correcta: 429 | `LimiteDeIntentosDeLoginTest#cincoFallidosYElSextoConLaClaveBuenaRecibe429`, `#laVentanaEsDeQuinceMinutos` |
 
 - **Transición de estados.** La venta (patrón State): cada transición válida avanza y cada inválida responde 409
   (`EstadoDeVentaTest`, `scripts/pruebas/patron-state.mjs`).
@@ -114,7 +114,7 @@ todos los `health` en 200.
 - Los 24 escenarios de integración pasan completos.
 - La matriz de trazabilidad sin criterios en falla ni sin caso.
 - Las pruebas de resiliencia pasan completas.
-- El set de evaluación de la IA: al menos 18 de 20 y los 5 adversariales sin falla.
+- El set de evaluación de la IA: como mucho 2 fallas y ninguna adversarial (al menos 24 de 26, con los 11 adversariales bien).
 - El CI en verde sobre `master`.
 - Ningún defecto bloqueante abierto.
 
@@ -134,14 +134,16 @@ sistema se repiten completas, no solo la que falló.
 | Timeout de 5 s con fallback | El modelo tarda 8 s: responde el fallback a los 5 s | `node scripts/pruebas/asistente.mjs` | FALLBACK, motivo `timeout`, menos de 7 s |
 | Consumidor idempotente | Escenario 8 (mensaje repetido: una sola emisión) | `escenarios.mjs` | PASA |
 | DLQ | Escenario 12 (mensaje inválido: 5 entregas, la original y 4 reintentos, una cada 2 s, y después la DLQ) | `escenarios.mjs` | PASA |
+| Timeout del SOAP, DLQ y reproceso | ARCA sin responder: la compra se emite igual, cada pedido se corta a los 5 s, el mensaje de Facturación llega a la DLQ y, devuelto con `move-messages`, sale una sola factura | Contra el compose, con `palco.arca.simular-sin-respuesta=true` (sección 10.6 del documento único) | 29 de 29 |
 | Broker apagado sin perder mensajes | Mensaje pendiente, reinicio del servidor, se emite al volver | `node scripts/pruebas/broker-apagado.mjs` | 10 de 10 |
+| Broker con el contenedor recreado | Mensaje pendiente, `docker compose down` (sin `-v`) y `up`: se emite con el contenedor nuevo | Contra el compose (pasos en `scripts/LEEME.md`) | 16 de 16 |
 | Cancelación de un evento | Compras anuladas, pagos devueltos, reventa retirada y aviso | Escenario 22 | PASA |
 | Reglas entre compras | Tope de 6 por comprador y evento; un DNI por evento, también al pagar | Escenario 23 | PASA |
 | Idempotency-Key | Escenario 2 (misma clave no duplica) | `escenarios.mjs` | PASA |
 | ETag | En los 10 GET principales: 200 con ETag; 304 con `If-None-Match`; ETag nuevo si cambia | `node scripts/pruebas/etag.mjs` | 19 de 19 |
 | Problem Details | Escenarios 3, 4, 6, 13 a 17 y 19 a 24 (cada error con su `status`, `type`, `title` y `detail`) | `escenarios.mjs` | PASA |
 | IA por su gateway | Guardrails, timeout, fallback y apagado en vivo | `asistente.mjs` | 11 de 11 |
-| IA: set de evaluación | 20 casos | `mvn -pl servicios/asistente -am test` (desde `backend/`) | 20 de 20 |
+| IA: set de evaluación | 26 casos: 15 funcionales y 11 adversariales | `mvn -pl servicios/asistente -am test` (desde `backend/`) | 26 de 26; adversariales 11 de 11 |
 | Patrón State con 409 | Pagar o cancelar una venta paga; pagar una cancelada | `node scripts/pruebas/patron-state.mjs` | 10 de 10 |
 | Seguridad JWT y roles | Escenarios 5 y 21 | `escenarios.mjs` | PASA |
 
@@ -174,7 +176,7 @@ node scripts/pruebas/asistente.mjs
 (cd frontend && PALCO_E2E_URL=https://localhost PALCO_LOG="$(pwd)/../logs/server.log" npm run e2e)
 node scripts/pruebas/broker-apagado.mjs   # va última: reinicia el servidor
 
-docker compose down -v                    # al terminar; -v borra también la base
+docker compose down -v                    # al terminar; -v borra también la base y el journal del broker
 ```
 
 La suite de la interfaz lee del log el código de verificación de las cuentas que crea; por eso necesita
@@ -236,20 +238,23 @@ vuelve a fallar, pasa a *Reabierto* y sigue desde *En corrección*.
 ## 8. Resultados de esta versión
 
 Corrida del 19/11/2026 sobre el código del checkpoint, con WildFly 41, Java 25 y H2 (`backend/dev.sh`; la
-prueba del broker, con H2 en archivo para que la base sobreviva al reinicio):
+prueba del broker apagado, con H2 en archivo para que la base sobreviva al reinicio; la del contenedor recreado y la
+del ARCA sin responder, contra el compose):
 
 | Prueba | Resultado |
 |---|---|
-| Tests unitarios y de integración con base | 870 tests, 0 fallas |
+| Tests unitarios y de integración con base | 966 tests, 0 fallas; 115 del asistente |
 | Cobertura | 78,4 % de líneas, 74,1 % de ramas |
-| Set de evaluación de la IA | 20 de 20; adversariales 5 de 5 |
+| Set de evaluación de la IA | 26 de 26; adversariales 11 de 11 |
 | Asistente en vivo, con el modelo simulado | 11 de 11 |
 | Asistente con un proveedor por HTTP (API de chat de OpenAI, proveedor local de prueba) | 29 de 29 |
 | Broker apagado | 10 de 10; no se perdió ningún mensaje |
+| Broker con el contenedor recreado | 16 de 16; no se perdió ningún mensaje |
+| ARCA sin responder, DLQ y reproceso | 29 de 29; la compra no esperó a ARCA y la factura salió una vez |
 | ETag e `If-Match` | 19 de 19 |
 | Patrón State | 10 de 10 |
 | Escenarios de integración | 24 de 24; 379 de 379 comprobaciones |
-| Colección de Postman (Newman) | 166 requests, 541 tests, 0 fallas |
+| Colección de Postman (Newman) | 171 requests (los 166 de la colección y los cinco intentos de login previos de SEC-W04), 541 aserciones, 0 fallas |
 | Interfaz en el navegador (`frontend/e2e`, Playwright) | 17 de 17 |
 | Matriz de trazabilidad | 62 de 62 criterios con caso, todos en verde (regenerada el 19/11 con los reportes de `mvn` de ese día y esta corrida de los escenarios) |
 
@@ -264,9 +269,9 @@ La salida completa de cada corrida está en `docs/testing/evidencia/checkpoint-3
 |---|---|---|---|---|
 | Un cambio deja al servidor sin desplegar (pasó con DEF-01) | Media | Alto | Job "Integración" del CI: levanta el compose, espera los 9 `health` y corre los escenarios | No se mergea con el CI en rojo; se vuelve al último commit en verde y se corrige en una rama |
 | La interfaz cambia y el manual y sus capturas quedan atrás | Alta | Medio | Job "E2E" del CI (`npm run e2e` en `frontend/`) | Antes de cada entrega se recorre el manual y las capturas se rehacen con la base recién levantada |
-| Los datos que dejan las pruebas (ventas, eventos "Integracion backend…") ensucian la demo y las capturas | Alta | Medio | — | `docker compose down -v` y levantar de cero antes de la demo y de las capturas |
+| Los datos que dejan las pruebas (ventas, eventos "Integracion backend…") ensucian la demo y las capturas | Alta | Medio | Ninguna | `docker compose down -v` y levantar de cero antes de la demo y de las capturas |
 | Pruebas que dependen del tiempo (la conciliación corre una vez por minuto; el timeout es de 5 s) fallan en una máquina lenta | Media | Medio | Escenarios 14, 18, 19 y 20; `asistente.mjs` | Esperas con margen en los guiones; se repite el escenario solo (`node scripts/pruebas/escenarios.mjs 14`); los unitarios usan un reloj fijo |
-| Pruebas que detienen consumidores o sacan de servicio a Eventos (escenarios 8, 10, 11, 12, 14 y 18) molestan a quien comparte el servidor | Media | Medio | — | Cada integrante corre contra su propio compose, o solo los escenarios que no tocan el servidor (lista en el encabezado de `escenarios.mjs`) |
+| Pruebas que detienen consumidores o sacan de servicio a Eventos (escenarios 8, 10, 11, 12, 14 y 18) molestan a quien comparte el servidor | Media | Medio | Ninguna | Cada integrante corre contra su propio compose, o solo los escenarios que no tocan el servidor (lista en el encabezado de `escenarios.mjs`) |
 | El proveedor real del modelo de IA tarda o no contesta | Media | Bajo | `asistente.mjs` (sección C), `AsistenteIATest`, `ModeloCompatibleOpenAITest` | El gateway responde el fallback a los 5 s; la demo y el set de evaluación usan el modelo simulado |
 | Un secreto llega al repositorio | Baja | Alto | gitleaks (job "Secretos") y el control de logs del job "Integración" | Los secretos se generan en cada arranque o corrida; si uno se filtra, se rota |
 
@@ -302,4 +307,4 @@ quien la escribió.
 | Jue 26/11 | Se sube la Prueba del TP Obligatorio | Evidencia de esa corrida en `docs/testing/evidencia/` |
 | Vie 27/11 | Prueba del TP Obligatorio | Sistema completo funcionando; demo con las cuentas de prueba |
 | Jue 03/12 | Se sube la Entrega Final | Segunda versión del plan, la matriz y el manual, con la corrida final y los defectos cerrados |
-| Vie 04/12 | Final adelantado: defensa de la Entrega Final | — |
+| Vie 04/12 | Final adelantado: defensa de la Entrega Final | Sin pruebas nuevas |

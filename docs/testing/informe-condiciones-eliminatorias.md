@@ -1,9 +1,16 @@
 # Informe: avance de las condiciones eliminatorias (Prueba del TP)
 
+**Nota agregada el 19/11/2026.** Este es el informe del 30/10/2026 y queda como registro de ese día: el `master`
+que no levanta, los 8 servicios (hoy son 9, con el asistente), los defectos abiertos y la matriz en 22 de 61
+criterios describen el estado de entonces. Después se corrigieron DEF-01, DEF-03 y DEF-04, y DEF-02 quedó a
+verificar con `dev.sh`. El estado vigente de los defectos está en la sección 7 de `docs/testing/plan-de-pruebas.md`;
+los resultados del 3.er checkpoint, en su sección 8 y en `docs/testing/evidencia/checkpoint-3/`. D-2 (sección 8, punto
+5) quedó decidido en `docs/adr/ADR-005-broker-embebido.md`: el broker sigue embebido en WildFly y su journal va en el
+volumen `datos-servidor` del compose.
+
 - **Fecha:** 30/10/2026
 - **Rama:** `testing/condiciones-eliminatorias`, creada desde `master` en `f655139`
-- **Autor:** Joaquin Molina (QA lead), con asistencia de una herramienta de IA generativa
-- **Base:** "Plan de implementación — Prueba del TP Obligatorio (testing)", tareas P0 de los frentes F1, F5 y F6
+- **Base:** "Plan de implementación: Prueba del TP Obligatorio (testing)", tareas P0 de los frentes F1, F5 y F6
 
 ## 1. Resumen
 
@@ -20,7 +27,7 @@
 | ATR-02 Convención de trazabilidad | Documentación de pruebas | **Hecho** | Mismo documento, primera sección |
 | DOC-02 Matriz de trazabilidad | Documentación de pruebas | **Hecho el generador**: hoy 22 de 61 criterios con caso | `scripts/qa/matriz.mjs`, `docs/testing/evidencia/` |
 | DOC-05 Registro de defectos | Defectos conocidos registrados | **Abierto**: DEF-01 a DEF-04 hay que cargarlos en Notion | Sección 2 |
-| INF-09 Tag `v1.0-testing` | Tag a tiempo | Pendiente (va al final) | — |
+| INF-09 Tag `v1.0-testing` | Tag a tiempo | Pendiente (va al final) | Todavía no hay |
 
 **Lo más importante:** el `master` de hoy **no levanta**. Ningún servicio despliega (DEF-01), con `./dev.sh` y con
 Docker por igual. Los 761 tests de `mvn verify` pasan igual, porque ninguno arranca el servidor. El job

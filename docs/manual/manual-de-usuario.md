@@ -1,4 +1,4 @@
-# Manual de usuario de Palco — primera versión
+# Manual de usuario de Palco (primera versión)
 
 3.er Checkpoint (20/11/2026). Explica cómo usar Palco paso a paso: comprar una entrada, verla,
 revenderla, consultar al asistente, administrar eventos y validar entradas en la puerta. Las
@@ -87,7 +87,7 @@ docker compose logs backend | grep "Email para"
 hora, la línea del código de verificación dice:
 
 ```
-Email para ana@ejemplo.com — Tu código de Palco: Hola Ana: tu código para verificar el email es 482913. Vence en 15 minutos.
+Email para ana@ejemplo.com (Tu código de Palco): Hola Ana: tu código para verificar el email es 482913. Vence en 15 minutos.
 ```
 
 ## 3. Ver el catálogo

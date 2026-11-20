@@ -1,0 +1,67 @@
+Contra docker compose (PostgreSQL en el volumen datos, WildFly 41 con Artemis embebido y el ARCA simulado en /legado/arca). jboss-cli por scripts/qa/jboss-cli-docker.sh; pedidos con las ayudas de scripts/pruebas/lib.mjs; server.log leído del contenedor.
+Prueba: ARCA que no responde en 5 s (timeout, reintentos, fallback y DLQ) y reproceso de la DLQ. Servidor: http://localhost:8081. 2026-11-20T02:13:10.794Z
+
+ok   0. el ARCA simulado publica su WSDL (/legado/arca?wsdl): 200, operación FECAESolicitar
+ok      sin palco.facturacion.arca.espera-*-ms definidas: rigen 2000 ms para conectar y 5000 ms para leer: valores por defecto de FabricaDeArca
+ok      política del broker (address-setting=#): max-delivery-attempts=5, redelivery-delay=2000 ms, dead-letter-address=jms.queue.DLQ
+ok      la suscripción durable de Facturación tiene su consumidor y nada pendiente; la DLQ, ninguna copia suya: palco-facturacion.facturacion-compras-confirmadas: consumidores=1 pendientes=0 | DLQ con ese origen: 0
+ok   1. jboss-cli: /system-property=palco.arca.simular-sin-respuesta:add(value=true): success
+
+2. Compra y pago con ARCA sin responder
+ok      la compra se abre: 201 V-f977d589 EN_CHECKOUT
+ok      el pago responde 201 enseguida: no espera a ARCA: 201 en 129 ms
+ok      la venta vuelve CONFIRMADA, con las entradas por emitir: CONFIRMADA, PENDIENTE_EMISION
+ok      y se emite igual, sin esperar a la factura (fallback: la compra no depende de ARCA): EMITIDA a los 0.5 s del pago, entradas VALIDA
+ok      mientras tanto, GET /api/v1/facturas/{ventaId} no la tiene: 404 /problemas/no-encontrado
+
+3. Timeout, reintentos y DLQ (server.log)
+ok      el broker pasó el mensaje a la DLQ (AMQ222149): a los 34.7 s del pago (se mira cada 1 s)
+ok      Facturación lo intentó 5 veces y lo devolvió al broker cada vez: entregas: 1 2 3 4 5
+ok      el ARCA simulado recibió 5 pedidos, uno por entrega, y no hubo un sexto (reintento acotado): 5 pedidos; 1 pase a la DLQ
+ok      cada intento lo cortó el cliente SOAP a los 5 s (el simulado tarda 30 s): 5.0 s 5.0 s 5.0 s 5.0 s 5.0 s
+ok      con unos 2 s entre un intento y el siguiente (redelivery-delay): 2.0 s 2.0 s 2.0 s 2.0 s
+ok      del primer pedido a la DLQ, unos 33 s (5 x 5 s + 4 x 2 s): 33.2 s
+       log 02:13:25,516 WARNING [ArcaSimulado] (default task-9) ARCA simulado: modo sin respuesta (palco.arca.simular-sin-respuesta=true); el pedido no se atiende.
+       log 02:13:30,518 WARNING [ArcaSoap] (Thread-10 (activemq-client-global)) ARCA no respondió el pedido de CAE de la venta V-f977d589: Could not receive Message.
+       log 02:13:30,518 WARNING [FacturacionDeComprasMDB] (Thread-10 (activemq-client-global)) FacturacionDeCompras: no se pudo facturar la venta V-f977d589 (entrega 1), vuelve al broker. ARCA no respondió el pedido de CAE.
+       log 02:13:32,544 WARNING [ArcaSimulado] (default task-10) ARCA simulado: modo sin respuesta (palco.arca.simular-sin-respuesta=true); el pedido no se atiende.
+       log 02:13:37,549 WARNING [ArcaSoap] (Thread-14 (activemq-client-global)) ARCA no respondió el pedido de CAE de la venta V-f977d589: Could not receive Message.
+       log 02:13:37,549 WARNING [FacturacionDeComprasMDB] (Thread-14 (activemq-client-global)) FacturacionDeCompras: no se pudo facturar la venta V-f977d589 (entrega 2), vuelve al broker. ARCA no respondió el pedido de CAE.
+       log 02:13:39,590 WARNING [ArcaSimulado] (default task-8) ARCA simulado: modo sin respuesta (palco.arca.simular-sin-respuesta=true); el pedido no se atiende.
+       log 02:13:44,594 WARNING [ArcaSoap] (Thread-12 (activemq-client-global)) ARCA no respondió el pedido de CAE de la venta V-f977d589: Could not receive Message.
+       log 02:13:44,594 WARNING [FacturacionDeComprasMDB] (Thread-12 (activemq-client-global)) FacturacionDeCompras: no se pudo facturar la venta V-f977d589 (entrega 3), vuelve al broker. ARCA no respondió el pedido de CAE.
+       log 02:13:46,627 WARNING [ArcaSimulado] (default task-13) ARCA simulado: modo sin respuesta (palco.arca.simular-sin-respuesta=true); el pedido no se atiende.
+       log 02:13:51,631 WARNING [ArcaSoap] (Thread-13 (activemq-client-global)) ARCA no respondió el pedido de CAE de la venta V-f977d589: Could not receive Message.
+       log 02:13:51,631 WARNING [FacturacionDeComprasMDB] (Thread-13 (activemq-client-global)) FacturacionDeCompras: no se pudo facturar la venta V-f977d589 (entrega 4), vuelve al broker. ARCA no respondió el pedido de CAE.
+       log 02:13:53,681 WARNING [ArcaSimulado] (default task-14) ARCA simulado: modo sin respuesta (palco.arca.simular-sin-respuesta=true); el pedido no se atiende.
+       log 02:13:58,686 WARNING [ArcaSoap] (Thread-10 (activemq-client-global)) ARCA no respondió el pedido de CAE de la venta V-f977d589: Could not receive Message.
+       log 02:13:58,686 WARNING [FacturacionDeComprasMDB] (Thread-10 (activemq-client-global)) FacturacionDeCompras: no se pudo facturar la venta V-f977d589 (entrega 5), vuelve al broker. ARCA no respondió el pedido de CAE.
+       log 02:13:58,690 WARN AMQ222149: Sending message ... userID=f7ccd547-e487-11f1-b322-aee49dd36565 ... address=jms.topic.topico.compra-confirmada ... to Dead Letter Address jms.queue.DLQ from palco-facturacion.facturacion-compras-confirmadas
+ok      en la DLQ hay 1 mensaje con _AMQ_ORIG_QUEUE = palco-facturacion.facturacion-compras-confirmadas (count-messages y list-messages con filtro), el de la línea AMQ222149: 1 mensaje, tipoEvento PAGO_CONFIRMADO, ID:f7ccd547-e487-11f1-b322-aee49dd36565
+ok      un solo pase a la DLQ, el de Facturación: la emisión y la auditoría de esa compra no fallaron: 1 línea AMQ222149, desde palco-facturacion.facturacion-compras-confirmadas
+
+4. La factura, todavía no
+ok      GET /api/v1/facturas/{ventaId}: todavía no la tiene: 404 /problemas/no-encontrado
+ok      y la compra sigue EMITIDA, con su entrada VALIDA: EMITIDA VALIDA
+
+ok   5. jboss-cli: /system-property=palco.arca.simular-sin-respuesta:remove (ARCA vuelve a responder): success
+
+6. Reproceso de la DLQ (sección 10.6, con el filtro de la suscripción de Facturación)
+       el mensaje se devuelve a la suscripción durable desde runtime-queue=jms.queue.DLQ, con los nombres internos del broker
+       (en jms-queue=DLQ, other-queue-name es el nombre de una cola JMS y no alcanza a una suscripción):
+       /subsystem=messaging-activemq/server=default/runtime-queue=jms.queue.DLQ:move-messages(filter="_AMQ_ORIG_QUEUE='palco-facturacion.facturacion-compras-confirmadas'",other-queue-name=palco-facturacion.facturacion-compras-confirmadas)
+ok      move-messages devolvió 1 mensaje a la suscripción de Facturación: { "outcome" => "success", "result" => 1 }
+
+7. La factura se emite, una sola vez
+ok      GET /api/v1/facturas/{ventaId}: factura B de esa venta, por el total cobrado: 200 ya al volver jboss-cli del move-messages, tipo 6, importe 30250
+ok      con número y CAE de 14 dígitos: 00001-00000003 CAE 35133174151319 vence 2026-11-29
+ok      una sola factura en el log y un solo comprobante autorizado por el ARCA simulado: 1 y 1
+       log 02:14:22,416 INFO [ArcaSimulado] (default task-13) ARCA simulado: comprobante 6 1-3 autorizado para la venta V-f977d589, importe 30250.
+       log 02:14:22,431 INFO [ServicioDeFacturacion] (Thread-14 (activemq-client-global)) Factura 00001-00000003 de la venta V-f977d589, CAE 35133174151319.
+       log 02:14:22,432 INFO [FacturacionDeComprasMDB] (Thread-14 (activemq-client-global)) FacturacionDeCompras: procesado el mensaje de la venta V-f977d589 (factura 00001-00000003).
+ok      sin nuevas fallas ni pedidos sin respuesta: ninguna línea
+ok      consultada de nuevo es la misma (mismo número y CAE): 00001-00000003 35133174151319
+ok      la DLQ quedó sin la copia de Facturación y la suscripción sin pendientes: DLQ con ese origen: 0 | palco-facturacion.facturacion-compras-confirmadas pendientes: 0
+ok      el mensaje volvió solo a Facturación: la auditoría y el aviso no lo recibieron otra vez: auditoría messages-added 3 -> 3, 0 líneas de otros consumidores
+
+29 de 29 comprobaciones. LA COMPRA NO ESPERÓ A ARCA Y LA FACTURA SALIÓ UNA VEZ

@@ -1,10 +1,10 @@
-# Guía Postman — API de Palco
+# Guía Postman: API de Palco
 
 La colección `docs/api/palco-api.postman_collection.json` se corre entera, en orden y sin intervención, contra el backend local. Se puede repetir las veces que haga falta sin reiniciar el servidor.
 
 La colección no se edita a mano: la genera `scripts/postman/generar.js` (sección 12).
 
-Última comprobación: 19/11/2026, con Newman 6.2.3 contra WildFly en `http://localhost:8080`: las nueve carpetas, 166 requests de la corrida y 541 tests ejecutados, sin fallas. Las comprobaciones anteriores, del 14/10 y del 16/10/2026, están en las secciones 7 y 13.
+Última comprobación: 19/11/2026, con Newman 6.2.3 contra WildFly en `http://localhost:8080`: las nueve carpetas, 171 requests (los 166 de la colección y los cinco intentos de login previos de SEC-W04) y 541 aserciones, sin fallas. Las comprobaciones anteriores, del 14/10 y del 16/10/2026, están en las secciones 7 y 13.
 
 ## 1. Qué hace falta
 
@@ -68,7 +68,7 @@ La colección va de arriba hacia abajo: **1 Usuarios → 2 Eventos → 3 Diseño
 
 | Request | Con qué token | Responde | Por qué |
 |---|---|---|---|
-| "Login segunda cuenta compradora (200)" | — | 200 | Guarda `tokenOtroComprador` (`otro.titular@palco.test`) |
+| "Login segunda cuenta compradora (200)" | Ninguno | 200 | Guarda `tokenOtroComprador` (`otro.titular@palco.test`) |
 | "GET /v1/ventas/{id} de otro comprador (404)" | `tokenOtroComprador` | 404 `no-encontrado` | La venta del titular, pedida por otra cuenta. Ventas responde igual que a una venta que no existe, así no se puede saber si el id existe; el cuerpo trae solo los campos del error |
 | "GET /v1/ventas de otro comprador (200, sin ventas del titular)" | `tokenOtroComprador` | 200 | Ninguna de las ventas de `ventasDelTitular` aparece en la lista: de quién son lo dice el token |
 | "GET /v1/ventas con token de organizador (403)" | `tokenOrganizador` | 403 `sin-permiso` | Token válido, rol equivocado: es 403, no 401 |
@@ -141,7 +141,7 @@ No hay ids fijos: los `V-…`, `T-…`, `P-…`, `R-…` y los de los escaneos s
 2. Dejá todos los requests tildados y en el orden en que están. No hace falta poner demora ni iteraciones.
 3. `Run Palco API`.
 
-Tienen que ejecutarse al menos 166 requests (más si la emisión, la factura o la anulación tardan y su request se repite), con todos los tests en verde. Los 2 de "Pasos manuales" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
+Tienen que ejecutarse al menos los 166 requests de la colección (más si la emisión, la factura o la anulación tardan y su request se repite), con todos los tests en verde. Newman cuenta además los cinco intentos de login que SEC-W04 manda antes de enviarse: 171. Los 2 de "Pasos manuales" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
 
 La corrida se comprobó con Newman, que usa el mismo motor que el Runner.
 
@@ -296,7 +296,7 @@ El JSON de la colección sale de `scripts/postman/generar.js`: los requests, los
 node scripts/postman/generar.js
 ```
 
-Escribe `docs/api/palco-api.postman_collection.json` y dice cuántos requests tiene en total (hoy 167: los 165 de la corrida y los 2 de "Pasos manuales"). Con una ruta como argumento la escribe en otro lado, por ejemplo para compararla con la del repo. Los tokens quedan vacíos, porque los guardan los requests de login.
+Escribe `docs/api/palco-api.postman_collection.json` y dice cuántos requests tiene en total (hoy 168: los 166 de la corrida y los 2 de "Pasos manuales"). Con una ruta como argumento la escribe en otro lado, por ejemplo para compararla con la del repo. Los tokens quedan vacíos, porque los guardan los requests de login.
 
 Si se cambia algo desde la ventana de Postman, hay que pasarlo al generador: la próxima regeneración pisa el archivo.
 
@@ -310,7 +310,7 @@ Comprueba desde afuera los criterios de la matriz de seguridad de la clase 11 (`
 | "SEC GET /v1/ventas de A (200)" | A | Toma una compra de A con entradas y guarda sus ids | Pasa |
 | SEC-W01 y SEC-W01b | B | La entrada y la venta de A, pedidas por B: 404 `no-encontrado`, igual que si no existieran, y sin datos de la entrada en el cuerpo | Pasa |
 | SEC-W02 | B | Rol `user` en una operación de `organizer` (crear evento): 403 `sin-permiso` | Pasa |
-| SEC-W02b | — | Sin token: 401 `no-autenticado` con `WWW-Authenticate: Bearer` | Pasa |
+| SEC-W02b | Ninguna | Sin token: 401 `no-autenticado` con `WWW-Authenticate: Bearer` | Pasa |
 | SEC-W03a y SEC-W03b | B | Login con un email que no existe y con la clave mal: el mismo 401 con el mismo mensaje, así no se puede saber qué cuentas hay. El email inexistente es nuevo en cada corrida | Pasa |
 | SEC-W05a y SEC-W05b | A | Token con la firma alterada y token `alg=none` (sin firma, que dice ser de organizer): 401 | Pasa: 401 en `application/problem+json` (`/problemas/token-invalido`), con `WWW-Authenticate` y CORS |
 | SEC-W05c | A | La sesión dura 8 horas | Pasa. El criterio de la matriz pide una vigencia corta; el grupo decidió el 16/10 mantener 8 horas sin refresh token y justificarlo, y la prueba comprueba esa vigencia |

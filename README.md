@@ -1,7 +1,7 @@
 # Palco
 
 Plataforma de venta de entradas para eventos. Trabajo práctico académico: el
-diferencial de producto es el **anti-scalping** — entradas nominativas ligadas a un
+diferencial de producto es el **anti-scalping**: entradas nominativas ligadas a un
 DNI y un canal de reventa oficial con tope de precio de +10% sobre el precio original de la entrada.
 
 El repo tiene dos partes:
@@ -71,7 +71,7 @@ en el repo: el secreto entre servicios y la clave de los tokens se generan en ca
 
 | Para | Comando |
 |---|---|
-| Bajar todo | `docker compose down` (con `-v` borra también la base) |
+| Bajar todo | `docker compose down` (con `-v` borra también la base y los mensajes que el broker tenía guardados) |
 | Ver el log del servidor | `docker compose logs -f backend` |
 | Correr la prueba de integración contra el compose | `PALCO_DIR_LOGS=./logs docker compose up -d --wait` y después `JBOSS_CLI=scripts/qa/jboss-cli-docker.sh PALCO_LOG=logs/server.log node scripts/pruebas/escenarios.mjs` |
 | Usar otros puertos (si el 80 o el 443 están ocupados) | `PALCO_PUERTO_HTTP=8000 PALCO_PUERTO_HTTPS=8443 PALCO_URL_PUBLICA=https://localhost:8443 docker compose up --build` |
@@ -242,11 +242,11 @@ corresponde, 403. Las cuentas de prueba son las mismas de la tabla de abajo.
 **Emails:** con un servidor SMTP configurado (`PALCO_SMTP_HOST` y las demás
 variables `PALCO_SMTP_*` de `backend/.env.example`) salen de verdad. Sin él
 quedan en el log del servidor, en un renglón con el formato
-`Email para <email> — <asunto>: <cuerpo>`. Así se lee, por ejemplo, el código de
+`Email para <email> (<asunto>): <cuerpo>`. Así se lee, por ejemplo, el código de
 verificación del registro:
 
 ```
-Email para ana@ejemplo.com — Tu código de Palco: Hola Ana: tu código para verificar el email es 123456. Vence en 15 minutos.
+Email para ana@ejemplo.com (Tu código de Palco): Hola Ana: tu código para verificar el email es 123456. Vence en 15 minutos.
 ```
 
 El código para poner una contraseña nueva llega con el asunto "Volvé a poner tu
@@ -270,7 +270,8 @@ Desde `frontend/`:
 Todas las cuentas usan la contraseña `palco1234`. Las seis se cargan con las
 migraciones de Usuarios, con el email y la identidad verificados. Cada una
 tiene un solo rol: el organizador y la puerta no compran, porque Ventas y
-Reventa piden el rol `user`.
+Reventa piden el rol `user`. En producción se desactivan con
+`PALCO_USUARIOS_CUENTAS_DE_PRUEBA=false` (ver `backend/.env.example`).
 
 | Email | Rol | Qué puede hacer |
 |---|---|---|
@@ -304,8 +305,9 @@ compra en curso, que permite recargar el checkout sin perder la reserva.
 | `/organizador` | Panel del organizador: entradas vendidas, recaudado sin el cargo de servicio, cupo restante, entradas en reventa, mis eventos, ocupación por sector, reventa activa, accesos en puerta, equipo de puerta y **crear evento** | Rol `organizer` | API (Eventos, Ventas, Reventa y Validación) |
 | `/puerta` | Validación en puerta: elige uno de sus eventos y carga el código (se tipea o se pega; el visor de cámara es ilustrativo). Muestra el resultado (válida, ya usada, inexistente, de otro evento o no habilitada, y "sin respuesta" si Ventas no contesta) con el nombre y el DNI del titular, contadores y últimos escaneos | Rol `staff` | API (Validación) |
 
-Editar y cancelar un evento, subir su foto, recuperar la contraseña y ver las
-ventas por día existen en la API y todavía no tienen pantalla.
+Recuperar la contraseña y ver las ventas por día existen en la API y todavía no
+tienen pantalla. Editar y cancelar un evento y subir su foto se hacen desde el
+panel del organizador.
 
 Si no hay sesión, las rutas protegidas redirigen a `/ingresar?next=<ruta>` y
 vuelven a la ruta original después del login. Si la sesión no tiene el rol
@@ -365,7 +367,7 @@ Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anu
    vendidas, recaudado, ocupación por sector, reventa activa, accesos en puerta
    y equipo de puerta.
 10. Desde `/organizador`, tocar "+ Crear evento": cargar título, lugar, fecha,
-    descripción y sectores, y confirmar — el evento se crea en el backend y
+    descripción y sectores, y confirmar: el evento se crea en el backend y
     aparece en el catálogo y en "Mis eventos" con la foto de su categoría.
 
 ### Demo por consola, Postman y evidencia
