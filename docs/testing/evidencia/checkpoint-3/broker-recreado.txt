@@ -1,0 +1,25 @@
+Contra docker compose: la base en el volumen datos y standalone/data del WildFly (journal del broker y registro de transacciones) en el volumen datos-servidor. jboss-cli por scripts/qa/jboss-cli-docker.sh; pedidos y contadores con las ayudas de scripts/pruebas/lib.mjs.
+Prueba: recrear el contenedor del backend con un mensaje pendiente. Servidor: http://localhost:8081. 2026-11-20T01:46:58.387Z
+
+ok   0. contenedor del backend: 9f7cecc7edf6; standalone/data en el volumen: datos-servidor
+ok   1. stop-delivery del consumidor de la cola (EmisionDeEntradas)
+ok   2. el pago responde 201: 201
+ok      el mensaje quedó pendiente en la cola: cola: agregados=2 pendientes=1 consumidores=0 | tópico: agregados=3 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=1 pendientes=0 | DLQ: pendientes=0
+ok      y es persistente (JMSDeliveryMode = true)
+ok      la venta sigue CONFIRMADA, con las entradas sin emitir: CONFIRMADA, PENDIENTE_EMISION
+ok      el journal del broker está en standalone/data/activemq: bindings journal largemessages
+
+3. docker compose down (sin -v)...
+ok      docker compose down termina bien: código 0
+ok      no queda ningún contenedor del proyecto
+ok      quedan los volúmenes de la base y de standalone/data: datos datos-servidor
+
+4. docker compose up -d --wait...
+ok      docker compose up termina bien (los tres contenedores healthy): código 0
+ok      el contenedor del backend es otro: 9f7cecc7edf6 -> 22357d1bfd2a
+ok      el servidor responde
+ok   5. con el contenedor nuevo, la venta pasó a EMITIDA: EMITIDA, VALIDA
+ok      y su entrada está VALIDA con su código: VALIDA
+ok      la cola quedó sin pendientes y con consumidores: cola: agregados=1 pendientes=0 consumidores=15 | tópico: agregados=0 suscripciones=3 (durables=2) | suscripción durable de auditoría: agregados=0 pendientes=0 | DLQ: pendientes=0
+
+16 de 16 comprobaciones. NO SE PERDIÓ NINGÚN MENSAJE

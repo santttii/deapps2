@@ -17,6 +17,9 @@ RUN useradd --system --create-home --home-dir /opt/palco palco
 COPY --from=armado --chown=palco:palco /fuente/servidor/target/server /opt/palco/server
 COPY --chown=palco:palco docker/arrancar.sh docker/salud.sh /opt/palco/
 RUN chmod +x /opt/palco/arrancar.sh /opt/palco/salud.sh
+# standalone/data (journal del broker y registro de transacciones) va en un volumen del compose. Docker
+# crea el volumen con el dueño que tiene esta carpeta en la imagen: si fuera root, WildFly no podría escribir.
+RUN mkdir -p /opt/palco/server/standalone/data && chown palco:palco /opt/palco/server/standalone/data
 USER palco
 EXPOSE 8080
 # Sano cuando los 9 servicios contestan su /health (el primer arranque migra la base: tarda).

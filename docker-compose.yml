@@ -49,6 +49,10 @@ services:
       # El log del servidor, para scripts/pruebas (PALCO_LOG) y el control de logs. Por defecto en un
       # volumen; con PALCO_DIR_LOGS=./logs (una carpeta) queda en esa carpeta de esta máquina. Así lo usa el CI.
       - ${PALCO_DIR_LOGS:-logs}:/opt/palco/server/standalone/log
+      # El journal del broker (los mensajes que todavía no se consumieron) y el registro de transacciones.
+      # Tienen que durar lo mismo que la base: si se pierden al recrear el contenedor ("down" y "up", o una
+      # imagen nueva), una venta paga queda CONFIRMADA sin emitir. "docker compose down -v" los borra con la base.
+      - datos-servidor:/opt/palco/server/standalone/data
     depends_on:
       db:
         condition: service_healthy
@@ -72,4 +76,5 @@ services:
 
 volumes:
   datos:
+  datos-servidor:
   logs:
