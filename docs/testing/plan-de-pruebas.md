@@ -34,9 +34,9 @@ broker, `Idempotency-Key`, `ETag` y errores en Problem Details), la IA por su ga
 **Dentro del alcance:** los 9 servicios del backend (8 de negocio y el asistente), el ARCA simulado,
 la API REST, la mensajería JMS y el frontend web.
 
-**Fuera del alcance de esta versión:** pruebas de carga y de rendimiento, la pasarela de pago real
-(simulada, aceptado por la cátedra el 16/10) y navegadores móviles reales (el responsive se revisa
-con el emulador del navegador).
+**Fuera del alcance de esta versión:** la pasarela de pago real (simulada, aceptado por la cátedra el
+16/10) y navegadores móviles reales (el responsive se revisa con el emulador del navegador). Las pruebas de
+contrato y de carga están planificadas (sección 2) y no forman parte de los resultados de esta versión.
 
 ## 2. Niveles de prueba
 
@@ -53,6 +53,30 @@ con el emulador del navegador).
 | Frontend | Lint y compilación (tipos) | oxlint + tsc + Vite | `frontend/` | En el CI |
 | Interfaz (E2E) | Recorridos en el navegador contra el sistema levantado | Playwright | `frontend/e2e/` (`npm run e2e` en `frontend/`) | En el CI (job "E2E") y a mano antes de cada entrega |
 | Secretos | Que no haya credenciales en el historial | gitleaks | CI, job "Secretos" | En el CI |
+| Contrato REST | Que cada respuesta cumpla `docs/api/openapi.yaml`: códigos documentados, esquemas y `application/problem+json` en los errores, con casos que la herramienta genera desde el contrato | Schemathesis | Todavía no está en el repositorio | **Planificado**, contra el compose, antes de la Entrega Final (03/12) |
+| Contrato SOAP | Que el ARCA simulado cumpla `docs/api/arca.wsdl`: `FECAESolicitar` aprobado, rechazado (`Resultado` R) y con Fault, y que cada respuesta valide contra el esquema del WSDL | SoapUI | Todavía no está en el repositorio | **Planificado**, contra el compose, antes de la Entrega Final (03/12) |
+| Carga | Que el catálogo y la compra aguanten una salida a la venta: 50 usuarios virtuales durante 5 minutos | k6 | Todavía no está en el repositorio | **Planificado**, contra el compose, antes de la Entrega Final (03/12) |
+
+### Pruebas planificadas: contrato y carga
+
+Estas tres no se corrieron en esta versión y no tienen resultados en la sección 8. Lo que no cumpla su criterio se
+registra en `docs/testing/registro-de-defectos.md`.
+
+- **Contrato REST, con Schemathesis.** Contra el compose levantado, con `docs/api/openapi.yaml` (versión 1.3.0 de la
+  API) y un token por rol (`user`, `organizer` y `staff`, de las cuentas de prueba). Comprueba que cada código de
+  estado y cada cuerpo estén en el contrato y que los errores salgan en Problem Details. Las operaciones que cobran
+  usan los datos de la sección 3 (`tok_test`). Criterio: ninguna respuesta fuera del contrato; cada diferencia se
+  corrige en el código o en el contrato, o queda registrada.
+- **Contrato SOAP, con SoapUI.** Un proyecto con `docs/api/arca.wsdl` contra `/legado/arca`: un comprobante aprobado,
+  uno rechazado y uno con Fault, con la aserción de cumplimiento del esquema en cada respuesta, y la comprobación de
+  que el WSDL publicado (`/legado/arca?wsdl`) es el del repositorio.
+- **Carga, con k6.** 50 usuarios virtuales durante 5 minutos sobre `GET /api/eventos`, `GET /api/eventos/{slug}` y
+  abrir una compra (`POST /api/v1/ventas`) que después se cancela (`DELETE /api/v1/ventas/{id}`), para no agotar el
+  cupo. Cada usuario virtual tiene su propia cuenta, creada antes de la corrida como en los escenarios: con una sola
+  cuenta, el tope de 6 entradas por persona y evento cortaría las compras. Cada uno ingresa una sola vez, al
+  principio: el ingreso no se usa como carga, porque PBKDF2 es lento a propósito y 5 intentos fallidos en 15 minutos
+  dan 429. Umbrales: el 95 % de los pedidos en menos de 500 ms y menos del 1 % de errores. Corre en una máquina que no
+  se use para otra cosa mientras tanto.
 
 ### Técnicas de diseño de casos
 
@@ -116,7 +140,8 @@ todos los `health` en 200.
 - Las pruebas de resiliencia pasan completas.
 - El set de evaluación de la IA: como mucho 2 fallas y ninguna adversarial (al menos 24 de 26, con los 11 adversariales bien).
 - El CI en verde sobre `master`.
-- Ningún defecto bloqueante abierto.
+- Defectos abiertos dentro del máximo de la cátedra: 0 bloqueantes, 0 críticos y como mucho 3 mayores,
+  cada uno con su alternativa (`docs/testing/registro-de-defectos.md`).
 
 **De suspensión:** si el servidor no despliega (como DEF-01), se frenan las pruebas de sistema hasta
 corregirlo; las unitarias siguen.
@@ -212,28 +237,21 @@ Notificaciones (61 %), y son los próximos a reforzar.
 
 ## 7. Defectos
 
-Se registran en el tablero con su ID `DEF-xx`, severidad, pasos para reproducirlos y estado.
+Los defectos están en `docs/testing/registro-de-defectos.md`: cada uno con su severidad y prioridad, los pasos para
+reproducirlo, el resultado esperado y el obtenido, la evidencia, el estado y, si está cerrado, la causa raíz y el
+commit que lo corrige. Ahí están también la escala de severidades (la de la cátedra), la de prioridades y el ciclo de
+vida de un defecto.
 
-| ID | Defecto | Severidad | Estado |
+Al 20/11/2026 hay 33 registrados: 27 cerrados, 1 corregido que falta verificar en una máquina lenta (DEF-02) y 5
+abiertos. Los abiertos, contra el máximo que se admite al cierre (27/11):
+
+| Severidad | Abiertos | Máximo al cierre | Situación |
 |---|---|---|---|
-| DEF-01 | El master del 30/10 no desplegaba ningún servicio | Bloqueante | Corregido el 05/11 |
-| DEF-02 | Migraciones sobre H2 que se trababan en máquinas lentas | Menor | A verificar con `dev.sh` |
-| DEF-03 | La prueba de integración desactualizada con los emails nuevos | Mayor | Corregido el 05/11 |
-| DEF-04 | El registro de la puerta salía en orden inverso | Menor | Corregido el 11/11 (PR #4) |
-
-**Severidades:**
-
-| Severidad | Cuándo | Efecto en las pruebas |
-|---|---|---|
-| Bloqueante | El servidor no despliega o un flujo Must no se puede completar | Suspende las pruebas de sistema (sección 4) y frena la entrega |
-| Mayor | Falla un criterio de aceptación o una prueba automática queda en rojo, y hay forma de seguir | Se corrige antes de la entrega siguiente |
-| Menor | No rompe ningún criterio: un orden, un texto, una demora | Se agenda; no frena la entrega |
-
-**Ciclo de vida de un defecto:** *Nuevo* (quien lo encuentra lo carga con pasos, esperado, obtenido y
-evidencia) → *Confirmado* (alguien más lo reproduce con esos pasos; si no se reproduce, queda *Descartado* con el
-motivo) → *En corrección* (la persona dueña del módulo, en su rama) → *Corregido* (el cambio entra con un test que
-lo reproduce) → *Verificado* (se vuelve a correr la prueba que lo encontró y pasa) → *Cerrado*. Si la prueba
-vuelve a fallar, pasa a *Reabierto* y sigue desde *En corrección*.
+| Bloqueante | 0 | 0 | Dentro del máximo |
+| Crítica | 1: DEF-29, al cancelar un evento quien compró en la reventa no recibe la devolución | 0 | **Fuera del máximo**: se corrige antes del cierre |
+| Mayor | 1: DEF-30, la compra en la reventa no aplica un DNI por evento ni el tope de 6; tiene alternativa | 3, cada uno con su alternativa | Dentro del máximo |
+| Menor | 3: DEF-31 a DEF-33 | Sin máximo | Dentro del máximo |
+| Cosmética | 0 | Sin máximo | Dentro del máximo |
 
 ## 8. Resultados de esta versión
 
@@ -265,15 +283,44 @@ La salida completa de cada corrida está en `docs/testing/evidencia/checkpoint-3
 
 ## 9. Riesgos
 
-| Riesgo | Probabilidad | Impacto | Prueba que lo detecta | Contingencia |
-|---|---|---|---|---|
-| Un cambio deja al servidor sin desplegar (pasó con DEF-01) | Media | Alto | Job "Integración" del CI: levanta el compose, espera los 9 `health` y corre los escenarios | No se mergea con el CI en rojo; se vuelve al último commit en verde y se corrige en una rama |
-| La interfaz cambia y el manual y sus capturas quedan atrás | Alta | Medio | Job "E2E" del CI (`npm run e2e` en `frontend/`) | Antes de cada entrega se recorre el manual y las capturas se rehacen con la base recién levantada |
-| Los datos que dejan las pruebas (ventas, eventos "Integracion backend…") ensucian la demo y las capturas | Alta | Medio | Ninguna | `docker compose down -v` y levantar de cero antes de la demo y de las capturas |
-| Pruebas que dependen del tiempo (la conciliación corre una vez por minuto; el timeout es de 5 s) fallan en una máquina lenta | Media | Medio | Escenarios 14, 18, 19 y 20; `asistente.mjs` | Esperas con margen en los guiones; se repite el escenario solo (`node scripts/pruebas/escenarios.mjs 14`); los unitarios usan un reloj fijo |
-| Pruebas que detienen consumidores o sacan de servicio a Eventos (escenarios 8, 10, 11, 12, 14 y 18) molestan a quien comparte el servidor | Media | Medio | Ninguna | Cada integrante corre contra su propio compose, o solo los escenarios que no tocan el servidor (lista en el encabezado de `escenarios.mjs`) |
-| El proveedor real del modelo de IA tarda o no contesta | Media | Bajo | `asistente.mjs` (sección C), `AsistenteIATest`, `ModeloCompatibleOpenAITest` | El gateway responde el fallback a los 5 s; la demo y el set de evaluación usan el modelo simulado |
-| Un secreto llega al repositorio | Baja | Alto | gitleaks (job "Secretos") y el control de logs del job "Integración" | Los secretos se generan en cada arranque o corrida; si uno se filtra, se rota |
+Cada riesgo se califica por su probabilidad y su impacto. **Probabilidad:** qué tan posible es que pase en el sistema
+o en una entrega; un riesgo que ya pasó (se nombra el defecto) no baja de Media. **Impacto:** Alto si se pierde dinero
+o datos, se cae un flujo Must o se abre una falla de seguridad; Medio si se afecta una funcionalidad que tiene
+alternativa, una prueba o una entrega; Bajo si hay una alternativa automática. La prioridad sale de multiplicar los
+dos, con Alta = 3, Media = 2 y Baja = 1: 6 o 9 es prioridad **Alta**, 3 o 4 es **Media** y 1 o 2 es **Baja**.
+
+**Matriz de probabilidad por impacto:**
+
+| Probabilidad \ Impacto | Alto | Medio | Bajo |
+|---|---|---|---|
+| **Alta** | Ninguno | R-08, R-09 | Ninguno |
+| **Media** | R-01, R-02, R-03, R-04, R-05, R-06, R-07 | R-13, R-14, R-15, R-16, R-17, R-18 | R-19 |
+| **Baja** | R-10, R-11, R-12 | Ninguno | Ninguno |
+
+Prioridad Alta: R-01 a R-09. Media: R-10 a R-18. Baja: R-19. En la columna "Cobertura", **Parcial** y **Sin prueba**
+llevan la prueba que los cubriría.
+
+| ID | Riesgo | Probabilidad | Impacto | Prioridad | Pruebas que lo cubren | Cobertura | Contingencia |
+|---|---|---|---|---|---|---|---|
+| R-01 | Se cobra y la compra no se confirma, o se cobra dos veces, por un reintento, un corte o un doble clic (pasó con DEF-07) | Media | Alto | Alta | Escenario 2 (`Idempotency-Key`); escenario 14 (falla después del cobro y conciliación); `ClienteDePagosTest#unPagoDuplicadoNoEsUnRechazoSinoElCobroQueYaGuardoPagos`; `ComprasEnCursoTest#siDosPedidosConLaMismaClaveLleganALaVezValeLaVentaQueGuardoElOtro`; `ServicioDePagosTest#siDosPedidosIgualesLleganALaVezSeDevuelveElPagoQueGanoAlGuardar` | Cubierto | La conciliación de pagos resuelve cada minuto las compras con un cobro sin resultado; Pagos cobra una sola vez por clave |
+| R-02 | Un reembolso no le llega a quien pagó, al cancelarse un evento o en una compra en la reventa cobrada sin entrada (pasó con DEF-18; abierto: DEF-29) | Media | Alto | Alta | Escenarios 20 y 22; `CancelacionDeEventosTest`, `ReintentoDeReembolsosTest`, `ReembolsoPendienteEnH2Test` | **Parcial:** ninguna prueba cancela un evento con una entrada comprada en la reventa. Propuesta: el escenario 22 con una compra en la reventa (el pago de quien compró queda `REEMBOLSADO`) y un caso de `CancelacionDeEventosTest` con una venta de clave `reventa:` | `ReintentoDeReembolsos` vuelve a pedir cada minuto los que Pagos no contestó; un rechazo queda en un SEVERE para devolverlo a mano |
+| R-03 | La reventa pasa el tope, o una regla de compra se esquiva por otro camino (pasó con DEF-16; abierto: DEF-30) | Media | Alto | Alta | `ServicioDeReventaTest#losBordesDelRangoSeAceptanYUnPesoAfueraNo`, `#unaEntradaRevendidaConservaElTopeYElMinimoDelPrecioDeLista`; escenarios 17 y 23; `frontend/e2e/reventa.spec.ts` | **Parcial:** el DNI por evento y el tope de 6 se prueban solo en la compra del catálogo, y dos reventas seguidas de la misma entrada, solo con dobles. Propuesta: casos de `ServicioDeReventaTest` y del escenario 23 que compren en la reventa con 6 entradas ya compradas o con un DNI que ya tiene entrada (409 sin cobrar), y un escenario que revenda dos veces la misma entrada | Las reglas están en un solo lugar (`ReglasDeNegocio`); una regla nueva se aplica y se prueba en la compra del catálogo y en la de la reventa |
+| R-04 | Se pierde un mensaje: broker apagado, contenedor recreado o un consumidor que falla (pasó con DEF-27) | Media | Alto | Alta | `scripts/pruebas/broker-apagado.mjs` (en el CI); contenedor recreado (`scripts/LEEME.md`, `checkpoint-3/broker-recreado.txt`); escenarios 8 y 10 a 13 | Cubierto; el contenedor recreado, solo a mano. Propuesta: sumarlo al job "Integración" del CI (`docker compose down` sin `-v` y `up`, con un mensaje pendiente) | Mensajes persistentes y el journal en el volumen `datos-servidor` (ADR-005); lo que falla 5 veces queda en la DLQ y se reprocesa (documento único, 10.6) |
+| R-05 | Un cambio deja al servidor sin desplegar (pasó con DEF-01) | Media | Alto | Alta | Job "Integración" del CI: levanta el compose, espera los 9 `health` y corre los escenarios | Cubierto | No se mergea con el CI en rojo; se vuelve al último commit en verde y se corrige en una rama |
+| R-06 | Se despliega fuera de desarrollo con las cuentas de prueba activas, cuya contraseña es pública (pasó con DEF-26) | Media | Alto | Alta | `DesactivacionDeCuentasDePruebaEnH2Test` (con la variable en `false`, las seis cuentas no abren) | **Parcial:** nada comprueba la configuración de un despliegue. Propuesta: en cada despliegue, un ingreso con `organizador@palco.test` y la contraseña pública, que tiene que dar 401 | `PALCO_USUARIOS_CUENTAS_DE_PRUEBA=false` en todo entorno que no sea de desarrollo; el log avisa al arrancar si siguen activas |
+| R-07 | El sistema no aguanta una salida a la venta, con muchos compradores a la vez | Media | Alto | Alta | Concurrencia, no carga: `PublicacionesEnH2Test#dosComprasALaVezTomanLaPublicacionUnaSolaVez`, `ReventaDeEntradasEnH2Test#dosTransferenciasALaVezDeLaMismaEntradaDejanPasarUnaSola`, `UsoEnH2Test#dosEscaneosALaVezUsanLaEntradaUnaSolaVez` | **Sin prueba de carga.** Planificada con k6 (sección 2) | Hasta tener la medición, la demo corre con pocos usuarios; lo que k6 muestre fuera de los umbrales se registra como defecto con su causa |
+| R-08 | La interfaz cambia y el manual y sus capturas quedan atrás | Alta | Medio | Alta | Job "E2E" del CI (`npm run e2e` en `frontend/`) | Cubierto en los recorridos; las capturas se revisan a mano | Antes de cada entrega se recorre el manual y las capturas se rehacen con la base recién levantada |
+| R-09 | Los datos que dejan las pruebas (ventas, eventos "Integracion backend…") ensucian la demo y las capturas | Alta | Medio | Alta | Ninguna | **Sin prueba.** Propuesta: antes de la demo y de las capturas, un control con la base recién levantada: `GET /api/eventos` trae solo los seis eventos de prueba (`ev-1` a `ev-6`) | `docker compose down -v` y levantar de cero antes de la demo y de las capturas |
+| R-10 | Una entrada sirve dos veces en la puerta, o la valida quien no está asignado | Baja | Alto | Media | Escenarios 16 y 21; `UsoEnH2Test#dosEscaneosALaVezUsanLaEntradaUnaSolaVez`; `frontend/e2e/puerta.spec.ts` | Cubierto | El uso de la entrada es un UPDATE condicional en Ventas; si Ventas no responde, el escaneo queda `SIN_RESPUESTA` y no deja entrar (CA-13.4) |
+| R-11 | Alguien ve o cambia datos de otra persona | Baja | Alto | Media | Escenarios 5 y 21; carpeta 4 de Postman (criterios SEC-xx); CA-06.4 | Cubierto | Un recurso ajeno responde 404, como si no existiera; `@RolesAllowed` en cada operación |
+| R-12 | Un secreto llega al repositorio | Baja | Alto | Media | gitleaks (job "Secretos") y el control de logs del job "Integración" | Cubierto | Los secretos se generan en cada arranque o corrida; si uno se filtra, se rota |
+| R-13 | Un servicio o un sistema externo (Pagos, ARCA, Eventos) no responde y la compra se traba | Media | Medio | Media | Escenarios 14, 18, 19 y 20; ARCA sin responder, DLQ y reproceso (`checkpoint-3/arca-lento-dlq.txt`, a mano) | Cubierto | Cada llamada corta a los 5 s con su fallback; la factura se reintenta por el broker y, agotados los intentos, se reprocesa desde la DLQ |
+| R-14 | La API se aparta de su contrato (OpenAPI y WSDL) y rompe al frontend o a quien la use | Media | Medio | Media | La colección de Postman (códigos y Problem Details de cada endpoint) y los escenarios | **Parcial:** ninguna prueba compara cada respuesta con el esquema. Planificado: Schemathesis contra `openapi.yaml` y SoapUI contra `arca.wsdl` (sección 2) | El OpenAPI se actualiza con cada cambio de la API y la colección se regenera con `scripts/postman/generar.js` |
+| R-15 | Una inyección de prompt o un pedido de datos de terceros pasa el guardrail del asistente (pasó con DEF-25) | Media | Medio | Media | `GuardrailsTest`; el set de evaluación (`EvaluacionDelAsistenteTest`, 11 adversariales); `frontend/e2e/asistente.spec.ts` | Cubierto | El asistente solo lee, no ve datos de otros usuarios y su respuesta pasa por el guardrail de salida |
+| R-16 | Un procedimiento de operación del documento único no funciona como está escrito (pasó con DEF-28) | Media | Medio | Media | El reproceso de la DLQ hacia la suscripción de Facturación (`checkpoint-3/arca-lento-dlq.txt`, 29 de 29) | **Parcial:** el reproceso con filtro hacia la cola de emisión no se corrió. Propuesta: una prueba que lleve un `PAGO_CONFIRMADO` de la emisión a la DLQ y lo devuelva con los pasos de la sección 10.6 | Cada procedimiento se corre al menos una vez antes de una entrega y su salida queda en la evidencia |
+| R-17 | Pruebas que dependen del tiempo (la conciliación corre una vez por minuto; el timeout es de 5 s) fallan en una máquina lenta | Media | Medio | Media | Escenarios 14, 18, 19 y 20; `asistente.mjs` | Cubierto | Esperas con margen en los guiones; se repite el escenario solo (`node scripts/pruebas/escenarios.mjs 14`); los unitarios usan un reloj fijo |
+| R-18 | Pruebas que detienen consumidores o sacan de servicio a Eventos (escenarios 8, 10, 11, 12, 14 y 18) molestan a quien comparte el servidor | Media | Medio | Media | Ninguna | **Sin prueba.** Propuesta: al final de `escenarios.mjs`, comprobar con `jboss-cli` que todos los MDB quedaron entregando y que los 9 `health` responden 200; si no, la corrida termina en rojo | Cada integrante corre contra su propio compose, o solo los escenarios que no tocan el servidor (lista en el encabezado de `escenarios.mjs`) |
+| R-19 | El proveedor real del modelo de IA tarda o no contesta | Media | Bajo | Baja | `asistente.mjs` (sección C), `AsistenteIATest`, `ModeloCompatibleOpenAITest` | Cubierto | El gateway responde el fallback a los 5 s; la demo y el set de evaluación usan el modelo simulado |
 
 ## 10. Responsables y cronograma
 
