@@ -13,10 +13,14 @@ RUN --mount=type=cache,target=/root/.m2 \
 
 # Etapa 2: solo un JRE 25 y el servidor ya armado.
 FROM eclipse-temurin:25-jre
-RUN useradd --system --create-home --home-dir /opt/palco palco
+# WildFly corre con el usuario palco, sin privilegios. Su carpeta personal es /home/palco (ahí jboss-cli guarda
+# su historial) y no /opt/palco: así /opt/palco y los guiones de arranque y de salud quedan de root, y palco
+# puede ejecutarlos pero no cambiarlos ni reemplazarlos.
+RUN useradd --system --create-home palco
+# El servidor sí es de palco: WildFly escribe dentro de standalone (configuración, data, log, tmp y las marcas
+# de despliegue de deployments) y jboss-cli guarda en standalone.xml lo que cambia en caliente.
 COPY --from=armado --chown=palco:palco /fuente/servidor/target/server /opt/palco/server
-COPY --chown=palco:palco docker/arrancar.sh docker/salud.sh /opt/palco/
-RUN chmod +x /opt/palco/arrancar.sh /opt/palco/salud.sh
+COPY --chmod=755 docker/arrancar.sh docker/salud.sh /opt/palco/
 # standalone/data (journal del broker y registro de transacciones) va en un volumen del compose. Docker
 # crea el volumen con el dueño que tiene esta carpeta en la imagen: si fuera root, WildFly no podría escribir.
 RUN mkdir -p /opt/palco/server/standalone/data && chown palco:palco /opt/palco/server/standalone/data
