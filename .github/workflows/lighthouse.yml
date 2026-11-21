@@ -1,0 +1,107 @@
+# Lighthouse CI contra el sistema levantado con docker compose: accesibilidad (>= 90, error) y buenas prácticas
+# (>= 90, advertencia) de las pantallas públicas principales (catálogo, evento, ingresar, registro y recuperar la
+# contraseña), en perfil de teléfono (360 px) y de escritorio (1280 px). Las pantallas, los perfiles y las
+# aserciones, con el porqué de cada valor, están en .lighthouserc.cjs.
+#
+# Corre en cada push a master, en los tags v* y a mano. Los reportes HTML y JSON de cada pantalla quedan en el
+# artefacto reportes-lighthouse, y la tabla de puntajes en el resumen de la corrida.
+
+name: Lighthouse
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lighthouse-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lighthouse:
+    name: Lighthouse (mobile y desktop contra docker compose)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Versión fija: la misma con la que se comprueba a mano (comando en .lighthouserc.cjs).
+      LHCI: '@lhci/cli@0.16.0'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Imágenes del sistema (con reintentos si falla la red)
+        # Bajar una imagen de Docker Hub puede fallar por la red del runner o por su límite de descargas,
+        # que se nota más con varios jobs bajando lo mismo a la vez. Se reintenta hasta 4 veces, esperando
+        # cada vez más (30, 60 y 90 s); un error del código falla igual las 4. El up de abajo reusa las imágenes.
+        run: |
+          for intento in 1 2 3 4; do
+            docker compose pull --ignore-buildable --quiet && docker compose build && exit 0
+            echo "Falló la descarga o el armado de las imágenes (intento $intento de 4)"
+            [ "$intento" -lt 4 ] && sleep $((intento * 30))
+          done
+          exit 1
+      - name: docker compose up (un comando, todo el sistema)
+        id: sistema
+        run: |
+          inicio=$(date +%s)
+          docker compose up --build --detach --wait --wait-timeout 900
+          echo "Levantado en $(( $(date +%s) - inicio )) segundos" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Bajar Lighthouse CI
+        # Antes de las corridas, así el log de cada perfil muestra solo Lighthouse.
+        run: npx --yes "$LHCI" --version
+      # Cada perfil corre desde su carpeta de logs/lighthouse: ahí deja lhci sus archivos de trabajo
+      # (.lighthouseci/) y ahí escribe los reportes (upload.outputDir de .lighthouserc.cjs).
+      - name: Lighthouse en teléfono (mobile, 360 px)
+        env:
+          PALCO_LIGHTHOUSE_PERFIL: mobile
+        run: |
+          mkdir -p logs/lighthouse/mobile && cd logs/lighthouse/mobile
+          npx --yes "$LHCI" autorun --config="$GITHUB_WORKSPACE/.lighthouserc.cjs"
+      - name: Lighthouse en escritorio (desktop, 1280 px)
+        # Corre aunque falle el perfil mobile, así el artefacto trae los dos; si el sistema no levantó, no.
+        if: ${{ !cancelled() && steps.sistema.outcome == 'success' }}
+        env:
+          PALCO_LIGHTHOUSE_PERFIL: desktop
+        run: |
+          mkdir -p logs/lighthouse/desktop && cd logs/lighthouse/desktop
+          npx --yes "$LHCI" autorun --config="$GITHUB_WORKSPACE/.lighthouserc.cjs"
+      - name: Resumen de puntajes
+        # La tabla sale de los manifest.json que escribe lhci, uno por perfil.
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            const filas = ["| Perfil | Pantalla | Accesibilidad | Buenas prácticas |", "|---|---|---|---|"];
+            for (const perfil of ["mobile", "desktop"]) {
+              const manifiesto = `logs/lighthouse/${perfil}/manifest.json`;
+              if (!fs.existsSync(manifiesto)) continue;
+              for (const reporte of JSON.parse(fs.readFileSync(manifiesto, "utf8"))) {
+                const puntaje = (categoria) => Math.round((reporte.summary[categoria] ?? 0) * 100);
+                filas.push(`| ${perfil} | ${new URL(reporte.url).pathname} | ${puntaje("accessibility")} | ${puntaje("best-practices")} |`);
+              }
+            }
+            console.log("### Lighthouse\n\n" + filas.join("\n"));
+          ' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: reportes-lighthouse
+          path: logs/lighthouse/
+          if-no-files-found: ignore
+      - name: Log de los contenedores
+        if: failure()
+        run: docker compose ps && docker compose logs --no-color > compose-lighthouse.log
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: compose-lighthouse
+          path: compose-lighthouse.log
+          if-no-files-found: ignore
+      - name: Bajar todo
+        if: always()
+        run: docker compose down -v
