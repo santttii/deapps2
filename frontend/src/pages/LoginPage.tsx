@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSesion } from '../store/SesionContext';
 import { ErrorApi, mensajeDeError } from '../lib/api';
 import { esEmailValido, esPasswordValida, esRutaInterna } from '../lib/validate';
@@ -18,7 +18,14 @@ export default function LoginPage() {
   // El registro recibe el mismo next: quien crea la cuenta en medio de una compra vuelve a ella.
   const consultaNext = destino === '/' ? '' : `?next=${encodeURIComponent(destino)}`;
 
-  const [email, setEmail] = useState('');
+  // Quien recién cambió la contraseña (RecuperarPage) llega con su email en el state del router: se
+  // completa solo, se avisa que ya puede ingresar y el foco va a la contraseña.
+  const location = useLocation();
+  const estadoDeRuta = location.state as { passwordCambiada?: unknown } | null;
+  const emailRecuperado =
+    typeof estadoDeRuta?.passwordCambiada === 'string' ? estadoDeRuta.passwordCambiada : '';
+
+  const [email, setEmail] = useState(emailRecuperado);
   const [password, setPassword] = useState('');
   const [verPassword, setVerPassword] = useState(false);
   const [error, setError] = useState('');
@@ -75,6 +82,9 @@ export default function LoginPage() {
     setTimeout(() => setSacudir(false), 320);
   }
 
+  // Un error del ingreso reemplaza al aviso: no quedan dos mensajes a la vez.
+  const mostrarAviso = emailRecuperado !== '' && !error;
+
   return (
     <PageTransition>
       <div className="grid grid-cols-1 md:grid-cols-2 md:border-l md:border-r md:border-line">
@@ -84,6 +94,11 @@ export default function LoginPage() {
             onSubmit={onSubmit}
             className={`mt-6 flex max-w-sm flex-col gap-4 ${sacudir ? 'animate-shake' : ''}`}
           >
+            {mostrarAviso && (
+              <p id="aviso-password-cambiada" role="status" className="border-l-2 border-ink pl-2 text-xs text-ink">
+                Listo: cambiaste la contraseña. Ingresá con la nueva.
+              </p>
+            )}
             <Input
               label="Email"
               type="email"
@@ -99,6 +114,9 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
                 className="pr-24"
+                autoFocus={emailRecuperado !== ''}
+                // Con el foco en el campo, el lector de pantalla lee también el aviso.
+                aria-describedby={mostrarAviso ? 'aviso-password-cambiada' : undefined}
               />
               {/* Va pegado al borde de abajo del campo, que es lo último del bloque. */}
               <button
@@ -127,6 +145,9 @@ export default function LoginPage() {
             <Button type="submit" loading={ingresando} loadingText="Ingresando…">
               Ingresar
             </Button>
+            <Link to={`/recuperar${consultaNext}`} className="self-start text-xs text-accent underline">
+              ¿Olvidaste tu contraseña?
+            </Link>
           </form>
 
           {import.meta.env.DEV && (
@@ -142,7 +163,7 @@ export default function LoginPage() {
           )}
         </div>
 
-        <div className="bg-[#FBFAF8] p-8 md:p-14">
+        <div className="bg-panel p-8 md:p-14">
           <h2 className="text-2xl font-semibold tracking-tight text-ink">Crear cuenta</h2>
           <p className="mt-3 max-w-sm text-sm text-graphite">
             Registrate para comprar entradas nominativas y publicar en el canal de

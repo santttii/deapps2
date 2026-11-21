@@ -11,6 +11,7 @@ import MyTicketsPage from './pages/MyTicketsPage';
 import LoginPage from './pages/LoginPage';
 import ConfirmationPage from './pages/ConfirmationPage';
 import RegisterPage from './pages/RegisterPage';
+import RecuperarPage from './pages/RecuperarPage';
 import ResalePage from './pages/ResalePage';
 import OrganizerPage from './pages/OrganizerPage';
 import GatePage from './pages/GatePage';
@@ -24,6 +25,7 @@ const TITULOS: Record<string, string> = {
   '/asistente': 'Asistente',
   '/ingresar': 'Ingresar',
   '/registro': 'Crear cuenta',
+  '/recuperar': 'Recuperar la contraseña',
   '/reventa': 'Reventa oficial',
   '/organizador': 'Organizador',
   '/puerta': 'Validación en puerta',
@@ -110,6 +112,7 @@ export default function App() {
           />
           <Route path="/ingresar" element={<LoginPage />} />
           <Route path="/registro" element={<RegisterPage />} />
+          <Route path="/recuperar" element={<RecuperarPage />} />
           <Route
             path="/reventa"
             element={

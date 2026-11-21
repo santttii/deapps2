@@ -65,6 +65,26 @@ export function reenviarCodigo(email: string): Promise<void> {
   return pedir<void>('/api/usuarios/verificacion/reenvio', { metodo: 'POST', cuerpo: { email } });
 }
 
+// Pide el código para poner una contraseña nueva. El backend responde 204 exista o no la cuenta, y
+// tampoco avisa si se pide de nuevo antes de los 30 segundos: así no revela qué emails están registrados.
+export function pedirCodigoDeReinicio(email: string): Promise<void> {
+  return pedir<void>('/api/usuarios/password/olvide', { metodo: 'POST', cuerpo: { email: email.trim() } });
+}
+
+export interface DatosReinicio {
+  email: string;
+  codigo: string; // los 6 dígitos que llegaron por email
+  password: string;
+}
+
+// Cambia la contraseña con el código del email. No devuelve sesión: después se ingresa con la nueva.
+export function reiniciarPassword(datos: DatosReinicio): Promise<void> {
+  return pedir<void>('/api/usuarios/password/reinicio', {
+    metodo: 'POST',
+    cuerpo: { ...datos, email: datos.email.trim() },
+  });
+}
+
 export function obtenerPerfil(): Promise<Usuario> {
   return pedir<Usuario>('/api/usuarios/yo', { conSesion: true });
 }
