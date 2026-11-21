@@ -60,7 +60,7 @@ public final class Textos {
     public static String slug(String texto) {
         String s = normalizar(texto)
                 .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("(^-+|-+$)", "");
+                .replaceAll("^-+|-+$", "");
         return s.isEmpty() ? "evento" : s;
     }
 }

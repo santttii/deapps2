@@ -61,6 +61,9 @@ public class TokenDeServicio {
     /** Un token al que le queda menos que esto se renueva, para que no venza en medio de una llamada. */
     static final Duration MARGEN = Duration.ofSeconds(30);
 
+    /** Uno solo para toda la clase. Va antes de SECRETO porque leerSecreto lo usa al inicializarlo. */
+    private static final SecureRandom AZAR = new SecureRandom();
+
     private static final String SECRETO = leerSecreto(System.getenv("PALCO_SECRETO_SERVICIOS"));
     private static final Jsonb JSONB = JsonbBuilder.create();
 
@@ -164,7 +167,7 @@ public class TokenDeServicio {
             LOG.severe("Falta PALCO_SECRETO_SERVICIOS: este servicio no puede pedir tokens de servicio y, si es "
                     + "Usuarios, no los entrega. Hay que definirlo con el mismo valor en todos los servicios.");
             byte[] azar = new byte[32];
-            new SecureRandom().nextBytes(azar);
+            AZAR.nextBytes(azar);
             return HexFormat.of().formatHex(azar);
         }
         return configurado.strip();
