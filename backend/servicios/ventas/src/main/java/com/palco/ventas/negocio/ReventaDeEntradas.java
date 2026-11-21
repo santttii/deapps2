@@ -16,6 +16,7 @@ import com.palco.common.ErroresDeNegocio;
 import com.palco.common.ReglasDeNegocio;
 import com.palco.common.Textos;
 import com.palco.common.mensajeria.PublicadorPagoConfirmado;
+import com.palco.ventas.api.DtosDeReventa.ControlDeCompraDto;
 import com.palco.ventas.api.DtosDeReventa.EntradaEnReventaDto;
 import com.palco.ventas.api.DtosDeReventa.TransferenciaDto;
 import com.palco.ventas.api.DtosDeReventa.TransferenciaHechaDto;
@@ -135,6 +136,34 @@ public class ReventaDeEntradas {
     }
 
     /**
+     * Antes de cobrar una compra en la reventa, las dos reglas entre compras
+     * de una compra del catálogo ({@link ServicioDeVentas}), con los mismos
+     * errores:
+     * <ul>
+     * <li>el comprador no puede pasar de
+     * {@link ReglasDeNegocio#MAX_ENTRADAS_POR_EVENTO} entradas para el evento,
+     * sumando todas sus compras: 409 {@code tope-por-evento};</li>
+     * <li>el DNI del titular no puede tener ya una entrada en pie para ese
+     * evento: 409 {@code dni-con-entrada}.</li>
+     * </ul>
+     * La entrada que se revende no cuenta para el DNI: al transferirse deja
+     * de estar en pie, así que la persona a nombre de la que estaba puede
+     * comprarla. Las demás entradas de la venta del vendedor sí cuentan.
+     *
+     * No cambia nada. Lanza 404 si la entrada no es del vendedor.
+     */
+    public void controlarCompra(ControlDeCompraDto pedido) {
+        validarTitular(pedido.titular().nombre(), pedido.titular().dni());
+        Entrada entrada = entradaDe(pedido.entradaId(), pedido.vendedorId());
+        String eventoId = entrada.getVenta().getEventoId();
+        // Se compra una sola entrada: la que se revende.
+        ServicioDeVentas.exigirTopePorEvento(
+                ventas.entradasDelCompradorParaElEvento(pedido.compradorId(), eventoId, ahora()), 1);
+        ServicioDeVentas.exigirDnisSinEntrada(
+                ventas.dnisConOtraEntradaParaElEvento(eventoId, List.of(pedido.titular().dni()), entrada.getId()));
+    }
+
+    /**
      * Transfiere una entrada vendida en la reventa, todo en esta transacción:
      * la original pasa de {@code PUBLICADA} a {@code VENDIDA} y nace una venta
      * {@code EMITIDA} del comprador con una entrada nueva, {@code VALIDA}, con
@@ -151,6 +180,11 @@ public class ReventaDeEntradas {
      * (Reventa repite el pedido porque no supo la respuesta), la devuelve sin
      * cambiar nada. Lanza 404 si la entrada no es del vendedor y 409
      * {@code entrada-no-publicada} si no está publicada.
+     *
+     * No vuelve a mirar el tope ni el DNI: eso lo hace {@link #controlarCompra}
+     * antes del cobro, y la transferencia llega con el cobro ya hecho. Es el
+     * mismo criterio de la compra del catálogo, que mira el DNI antes de
+     * cobrar y no después: cortar acá dejaría el pago sin compra.
      */
     public TransferenciaHechaDto transferir(TransferenciaDto pedido) {
         String clave = PREFIJO_CLAVE + pedido.publicacionId();

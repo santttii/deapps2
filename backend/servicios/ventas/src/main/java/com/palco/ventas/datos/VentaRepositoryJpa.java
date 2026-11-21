@@ -277,15 +277,35 @@ public class VentaRepositoryJpa implements VentaRepository {
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public List<String> dnisConEntradaParaElEvento(String eventoId, Collection<String> dnis, String excepto) {
+        return dnisConEntrada(eventoId, dnis, excepto, null);
+    }
+
+    @Override
+    public List<String> dnisConOtraEntradaParaElEvento(String eventoId, Collection<String> dnis,
+            String entradaQueSeRevende) {
+        return dnisConEntrada(eventoId, dnis, null, entradaQueSeRevende);
+    }
+
+    /**
+     * Las dos consultas de la regla de un DNI por evento. {@code exceptoVenta}
+     * deja afuera una venta entera (la que se está comprando) y
+     * {@code exceptoEntrada}, una sola entrada (la que se revende); cualquiera
+     * de los dos puede ser null. Un id nunca es vacío, así que "" no excluye
+     * nada.
+     */
+    private List<String> dnisConEntrada(String eventoId, Collection<String> dnis, String exceptoVenta,
+            String exceptoEntrada) {
         if (dnis.isEmpty()) {
             return List.of();
         }
+        String excepto = exceptoVenta == null ? "" : exceptoVenta;
         Set<String> encontrados = new TreeSet<>(em.createQuery("""
                         select e.titularDni from Entrada e
-                        where e.venta.eventoId = :evento and e.venta.id <> :excepto
+                        where e.venta.eventoId = :evento and e.venta.id <> :excepto and e.id <> :exceptoEntrada
                           and e.titularDni in :dnis and e.estado in :enPie""", String.class)
                 .setParameter("evento", eventoId)
-                .setParameter("excepto", excepto == null ? "" : excepto)
+                .setParameter("excepto", excepto)
+                .setParameter("exceptoEntrada", exceptoEntrada == null ? "" : exceptoEntrada)
                 .setParameter("dnis", dnis)
                 .setParameter("enPie", List.of(EstadoEntrada.PENDIENTE_EMISION, EstadoEntrada.VALIDA,
                         EstadoEntrada.USADA, EstadoEntrada.PUBLICADA))
@@ -298,7 +318,7 @@ public class VentaRepositoryJpa implements VentaRepository {
                                             where v.eventoId = :evento and v.estado = :enCheckout
                                               and v.clavePago is not null)""", String.class)
                 .setParameter("dnis", dnis)
-                .setParameter("excepto", excepto == null ? "" : excepto)
+                .setParameter("excepto", excepto)
                 .setParameter("evento", eventoId)
                 .setParameter("enCheckout", EstadoVenta.EN_CHECKOUT)
                 .getResultList());

@@ -470,7 +470,16 @@ public class ServicioDeVentas implements IVentas {
      */
     private void exigirTopePorEvento(String compradorId, NuevaVentaDto nueva) {
         long pedidas = nueva.items().stream().mapToLong(ItemPedidoDto::cantidad).sum();
-        long tiene = ventas.entradasDelCompradorParaElEvento(compradorId, nueva.eventoId(), ahora());
+        exigirTopePorEvento(ventas.entradasDelCompradorParaElEvento(compradorId, nueva.eventoId(), ahora()), pedidas);
+    }
+
+    /**
+     * La regla del tope por evento, con las entradas que el comprador ya
+     * tiene y las que pide. Es estática y del paquete porque la compra en la
+     * reventa ({@link ReventaDeEntradas#controlarCompra}) aplica la misma
+     * regla, con el mismo error.
+     */
+    static void exigirTopePorEvento(long tiene, long pedidas) {
         if (tiene + pedidas > ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO) {
             long quedan = Math.max(0, ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO - tiene);
             throw new ErroresDeNegocio.Conflicto(TiposDeProblema.TOPE_POR_EVENTO,
@@ -487,7 +496,16 @@ public class ServicioDeVentas implements IVentas {
      * misma compra (DNI repetido adentro) la mira {@link #validar}.
      */
     private void exigirDnisSinEntrada(String eventoId, List<String> dnis, String excepto) {
-        List<String> conEntrada = ventas.dnisConEntradaParaElEvento(eventoId, dnis, excepto);
+        exigirDnisSinEntrada(ventas.dnisConEntradaParaElEvento(eventoId, dnis, excepto));
+    }
+
+    /**
+     * La regla de un DNI por evento, con los DNI que la consulta encontró con
+     * una entrada en pie. Es estática y del paquete por lo mismo que
+     * {@link #exigirTopePorEvento(long, long)}: la usa también la compra en la
+     * reventa.
+     */
+    static void exigirDnisSinEntrada(List<String> conEntrada) {
         if (!conEntrada.isEmpty()) {
             throw new ErroresDeNegocio.Conflicto(TiposDeProblema.DNI_CON_ENTRADA,
                     (conEntrada.size() == 1 ? "El DNI " + conEntrada.get(0) + " ya tiene"

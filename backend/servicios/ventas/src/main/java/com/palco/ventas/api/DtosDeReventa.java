@@ -78,6 +78,29 @@ public final class DtosDeReventa {
             String pagoId) {
     }
 
+    /**
+     * El control de una compra en la reventa, antes de cobrarla: qué entrada
+     * se compra (y de qué vendedor es), quién la compra y a nombre de quién va
+     * a quedar. No lleva el evento: sale de la entrada.
+     */
+    public record ControlDeCompraDto(
+            @NotBlank(message = "Falta la entrada.")
+            @Size(max = 40, message = "El id de la entrada tiene hasta 40 caracteres.")
+            String entradaId,
+
+            @NotBlank(message = "Falta el vendedor.")
+            @Size(max = 40, message = "El id del vendedor tiene hasta 40 caracteres.")
+            String vendedorId,
+
+            @NotBlank(message = "Falta el comprador.")
+            @Size(max = 40, message = "El id del comprador tiene hasta 40 caracteres.")
+            String compradorId,
+
+            @NotNull(message = "Falta el titular.")
+            @Valid
+            TitularDto titular) {
+    }
+
     /** La venta nueva del comprador y su entrada, ya {@code VALIDA} y con código QR. */
     public record TransferenciaHechaDto(String ventaId, EntradaDto entrada) {
     }

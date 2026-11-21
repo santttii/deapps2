@@ -203,6 +203,15 @@ public interface VentaRepository {
     List<String> dnisConEntradaParaElEvento(String eventoId, Collection<String> dnis, String excepto);
 
     /**
+     * La misma consulta que {@link #dnisConEntradaParaElEvento}, para una
+     * compra en la reventa: no mira la entrada {@code entradaQueSeRevende},
+     * que deja de estar en pie cuando se transfiere. Así la persona a nombre
+     * de la que estaba puede comprarla, y las demás entradas de esa misma
+     * venta siguen contando. Se suma a la transacción de quien la llama.
+     */
+    List<String> dnisConOtraEntradaParaElEvento(String eventoId, Collection<String> dnis, String entradaQueSeRevende);
+
+    /**
      * Las ventas con un intento de pago sin resultado que ya se pueden
      * conciliar: {@code EN_CHECKOUT}, con clave de pago, y cuyo último intento
      * empezó en {@code intentadosHasta} o antes (o no tiene fecha, porque es

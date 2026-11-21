@@ -20,6 +20,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 
+import com.palco.ventas.api.DtosDeReventa.ControlDeCompraDto;
 import com.palco.ventas.api.DtosDeReventa.EntradaEnReventaDto;
 import com.palco.ventas.api.DtosDeReventa.PedidoDeVendedorDto;
 import com.palco.ventas.api.DtosDeReventa.TransferenciaDto;
@@ -76,6 +77,24 @@ public class ReventaDeEntradasResource {
     public EntradaEnReventaDto retirar(
             @NotNull(message = "Falta el cuerpo de la solicitud.") @Valid PedidoDeVendedorDto pedido) {
         return reventa.retirar(pedido.entradaId(), pedido.vendedorId());
+    }
+
+    /**
+     * {@code POST /api/v1/operaciones-de-reventa/controles-de-compra}: antes
+     * de cobrar, Reventa pregunta si el comprador puede quedarse con la
+     * entrada. Responde 204 si puede y 409 {@code tope-por-evento} o
+     * {@code dni-con-entrada} si no, los mismos errores de una compra del
+     * catálogo. No cambia nada. Es POST y no GET para que el DNI del titular
+     * viaje en el cuerpo y no en la URL, que queda en los registros de acceso.
+     */
+    @POST
+    @Path("controles-de-compra")
+    @RolesAllowed("servicio")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response controlarCompra(
+            @NotNull(message = "Falta el cuerpo de la solicitud.") @Valid ControlDeCompraDto pedido) {
+        reventa.controlarCompra(pedido);
+        return Response.noContent().build();
     }
 
     /**

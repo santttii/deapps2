@@ -406,7 +406,7 @@ class ServicioDeVentasTest {
         verify(eventos).liberarCupo(ventaId, "ev-1", "sec-1-4", 2);
         // Y esta instancia no quedó atada a ninguna venta.
         assertFalse(servicio.cancelarCompra());
-        verify(ventas, never()).cancelar(anyString());
+        verify(ventas, never()).cancelar(any());
     }
 
     @Test
@@ -480,7 +480,7 @@ class ServicioDeVentasTest {
 
         // ComprasEnCurso la cancela para que el servidor la libere: no hay venta que cancelar.
         assertFalse(servicio.cancelarCompra());
-        verify(ventas, never()).cancelar(anyString());
+        verify(ventas, never()).cancelar(any());
 
         servicio.alDestruir();
         verifyNoInteractions(compras);
@@ -498,6 +498,15 @@ class ServicioDeVentasTest {
     }
 
     // ---- Cancelar ----
+
+    @Test
+    void cancelarUnaInstanciaQueNoAbrioNingunaCompraNoLeTocaNadaALaBase() {
+        // Sin una venta abierta, la instancia le pediría a la base cancelar la venta null. Se mira con
+        // verifyNoInteractions y no con never().cancelar(anyString()): anyString() no reconoce un null.
+        assertFalse(servicio.cancelarCompra());
+
+        verifyNoInteractions(ventas, eventos, compras);
+    }
 
     @Test
     void cancelarPasaLaVentaACanceladaYAvisaQueLaCanceloEstaLlamada() {

@@ -1,5 +1,6 @@
 package com.palco.ventas.negocio;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -36,6 +37,7 @@ import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.common.datos.BaseDeDatos;
 import com.palco.ventas.api.Dtos.LiquidacionDto;
 import com.palco.ventas.api.Dtos.TitularDto;
+import com.palco.ventas.api.DtosDeReventa.ControlDeCompraDto;
 import com.palco.ventas.api.DtosDeReventa.TransferenciaDto;
 import com.palco.ventas.api.DtosDeReventa.TransferenciaHechaDto;
 import com.palco.ventas.datos.EntradaRepositoryJpa;
@@ -174,6 +176,11 @@ class ReventaDeEntradasEnH2Test {
                 new TitularDto("Bruno Díaz", "40111222"), 52_000, "P-reventa1");
     }
 
+    /** La transferencia a COMPRADOR con otro titular. */
+    private static TransferenciaDto transferenciaA(TitularDto titular) {
+        return new TransferenciaDto("R-00000010", ENTRADA_ID, VENDEDOR, COMPRADOR, titular, 52_000, "P-reventa1");
+    }
+
     @Test
     void publicarYRetirarCambianElEstadoYUnaAjenaEsNoEncontrada() {
         assertEquals("PUBLICADA", enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR)).estado());
@@ -237,6 +244,40 @@ class ReventaDeEntradasEnH2Test {
         assertEquals(1, ventas.buscarPorComprador(COMPRADOR).size());
         // Ni publica otra vez: el aviso, la auditoría y la factura salen una sola vez.
         assertEquals(1, reventasPublicadas.size());
+    }
+
+    @Test
+    void retirarUnaEntradaQueYaSeVendioEsUnConflictoYNoVuelveAValida() {
+        // Reventa pide retirar una publicación cuya entrada ya pasó al comprador: no puede volver al vendedor.
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+        enTransaccion(em, () -> reventa.transferir(transferencia("R-0000000f", COMPRADOR)));
+
+        ErroresDeNegocio.Conflicto conflicto = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> enTransaccion(em, () -> reventa.retirar(ENTRADA_ID, VENDEDOR)));
+
+        assertEquals(ReventaDeEntradas.ENTRADA_NO_PUBLICADA, conflicto.tipo());
+        assertEquals("La entrada no está publicada: está VENDIDA.", conflicto.getMessage());
+        assertEquals(EstadoEntrada.VENDIDA, estado(ENTRADA_ID));
+    }
+
+    @Test
+    void unTitularConUnSaltoDeLineaOUnDniMalEscritoNoRecibeLaEntrada() {
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+
+        TransferenciaDto conSalto = transferenciaA(new TitularDto("Bruno\nDíaz", "40111222"));
+        ErroresDeNegocio.DatosInvalidos nombre = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> enTransaccion(em, () -> reventa.transferir(conSalto)));
+        assertTrue(nombre.campos().containsKey("titular.nombre"), "campos: " + nombre.campos());
+
+        TransferenciaDto conPuntos = transferenciaA(new TitularDto("Bruno Díaz", "40.111.222"));
+        ErroresDeNegocio.DatosInvalidos dni = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> enTransaccion(em, () -> reventa.transferir(conPuntos)));
+        assertTrue(dni.campos().containsKey("titular.dni"), "campos: " + dni.campos());
+
+        // La entrada sigue publicada, sin venta nueva ni aviso: la puede comprar otra persona.
+        assertEquals(EstadoEntrada.PUBLICADA, estado(ENTRADA_ID));
+        assertTrue(ventas.buscarPorComprador(COMPRADOR).isEmpty());
+        assertTrue(reventasPublicadas.isEmpty());
     }
 
     @Test
@@ -305,6 +346,116 @@ class ReventaDeEntradasEnH2Test {
         assertEquals(1, liquidacion.ventas());
         assertEquals(1, liquidacion.entradas());
         assertEquals(50_000, liquidacion.aLiquidarAlOrganizador());
+    }
+
+    // ---- El control antes de cobrar: el tope por evento y un DNI por evento (DEF-30) ----
+
+    /** Una venta emitida de ese comprador para ev-1, con una entrada por DNI: T-xxxxxxxx-1, T-xxxxxxxx-2... */
+    private void ventaEmitida(String ventaId, String compradorId, String... dnis) {
+        ventaEmitidaPara("ev-1", ventaId, compradorId, dnis);
+    }
+
+    private void ventaEmitidaPara(String eventoId, String ventaId, String compradorId, String... dnis) {
+        enTransaccion(em, () -> {
+            EntradaRepositoryJpa entradas = (EntradaRepositoryJpa) reventa.entradas;
+            Venta venta = new Venta(ventaId, compradorId, eventoId, UUID.randomUUID().toString(),
+                    AHORA.minusDays(2), AHORA.minusDays(2).plusMinutes(10));
+            venta.agregarItem("sec-1-1", "Campo", 50_000, dnis.length);
+            ventas.guardar(venta);
+            List<Entrada> nuevas = new ArrayList<>();
+            for (String dni : dnis) {
+                nuevas.add(new Entrada("T-" + ventaId.substring(2) + "-" + (nuevas.size() + 1),
+                        venta.getItems().get(0), "Titular " + dni, dni, nuevas.size() + 1));
+            }
+            entradas.guardar(nuevas);
+            ventas.confirmar(ventaId, "P-" + ventaId.substring(2), AHORA.minusDays(2));
+            return entradas.emitirPendientes(ventaId, AHORA.minusDays(2));
+        });
+    }
+
+    /** El control de una compra de esa entrada del vendedor, a nombre de ese DNI. */
+    private Void controlar(String entradaId, String compradorId, String dni) {
+        return enTransaccion(em, () -> {
+            reventa.controlarCompra(new ControlDeCompraDto(entradaId, VENDEDOR, compradorId,
+                    new TitularDto("Bruno Díaz", dni)));
+            return null;
+        });
+    }
+
+    @Test
+    void conCincoEntradasParaElEventoLaDeLaReventaEsLaSextaYPasa() {
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+        ventaEmitida("V-00000002", COMPRADOR, "40000001", "40000002", "40000003", "40000004", "40000005");
+
+        assertDoesNotThrow(() -> controlar(ENTRADA_ID, COMPRADOR, "40111222"));
+        // El control no cambia nada: la entrada sigue publicada y el comprador no tiene una venta más.
+        assertEquals(EstadoEntrada.PUBLICADA, estado(ENTRADA_ID));
+        assertEquals(1, ventas.buscarPorComprador(COMPRADOR).size());
+    }
+
+    @Test
+    void conSeisEntradasParaElEventoNoCompraOtraEnLaReventa() {
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+        ventaEmitida("V-00000002", COMPRADOR, "40000001", "40000002", "40000003", "40000004", "40000005",
+                "40000006");
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> controlar(ENTRADA_ID, COMPRADOR, "40111222"));
+
+        // El mismo error que una compra del catálogo.
+        assertEquals(TiposDeProblema.TOPE_POR_EVENTO, error.tipo());
+        assertEquals("Cada persona puede tener hasta 6 entradas por evento, sumando todas sus compras. Ya tenés 6:"
+                + " no podés comprar más para este evento.", error.getMessage());
+    }
+
+    @Test
+    void lasEntradasYLosDniDeOtroEventoNoCuentan() {
+        // El evento sale de la entrada que se revende (ev-1): seis entradas y el mismo DNI en ev-2 no la frenan.
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+        ventaEmitidaPara("ev-2", "V-00000002", COMPRADOR, "40000001", "40000002", "40000003", "40000004",
+                "40000005", "40111222");
+
+        assertDoesNotThrow(() -> controlar(ENTRADA_ID, COMPRADOR, "40111222"));
+    }
+
+    @Test
+    void unDniQueYaTieneEntradaParaElEventoNoRecibeLaDeLaReventa() {
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+        ventaEmitida("V-00000002", "U-otro", "40111222");
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> controlar(ENTRADA_ID, COMPRADOR, "40111222"));
+
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, error.tipo());
+        assertEquals("El DNI 40111222 ya tiene una entrada para este evento. Cada persona puede tener una sola"
+                + " entrada por evento.", error.getMessage());
+    }
+
+    @Test
+    void laEntradaQueSeRevendeNoCuentaParaElDniPeroLasOtrasDeEsaVentaSi() {
+        // La entrada que se revende está a nombre de 30111222: esa persona puede comprarla.
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+        assertDoesNotThrow(() -> controlar(ENTRADA_ID, COMPRADOR, "30111222"));
+
+        // Una venta del vendedor con dos entradas: se revende la de 30999888 y la de 30777666 queda en pie.
+        ventaEmitida("V-00000003", VENDEDOR, "30999888", "30777666");
+        enTransaccion(em, () -> reventa.publicar("T-00000003-1", VENDEDOR));
+        assertDoesNotThrow(() -> controlar("T-00000003-1", COMPRADOR, "30999888"));
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> controlar("T-00000003-1", COMPRADOR, "30777666"));
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, error.tipo());
+    }
+
+    @Test
+    void unaEntradaAjenaOUnDniMalEscritoNoSeControlan() {
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> enTransaccion(em, () -> {
+            reventa.controlarCompra(new ControlDeCompraDto(ENTRADA_ID, "U-otro", COMPRADOR,
+                    new TitularDto("Bruno Díaz", "40111222")));
+            return null;
+        }));
+        ErroresDeNegocio.DatosInvalidos dni = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> controlar(ENTRADA_ID, COMPRADOR, "40.111.222"));
+        assertTrue(dni.campos().containsKey("titular.dni"), "campos: " + dni.campos());
     }
 
     @Test
