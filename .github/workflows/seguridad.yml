@@ -1,0 +1,171 @@
+# Análisis de dependencias de Palco con Trivy. Corre con los mismos disparadores que ci.yml, en un
+# workflow aparte: se puede volver a correr solo (workflow_dispatch) cuando sale una vulnerabilidad nueva,
+# sin repetir el pipeline entero.
+#
+#   dependencias  trivy fs sobre el repo: los pom.xml del backend y frontend/package-lock.json, este con
+#                 las dependencias de desarrollo (vite, oxlint, playwright), que corren en el CI y en el
+#                 armado de la imagen. De los pom.xml Trivy solo cuenta lo que va con scope compile o
+#                 runtime: lo que pone WildFly (provided) y lo de los tests no está ahí, y por eso hacen
+#                 falta las imágenes.
+#   imagenes      las dos imágenes que arma docker-compose.yml, backend y web, con todo lo que llevan: los
+#                 paquetes del sistema de la imagen base, WildFly con sus módulos, los WAR con sus librerías
+#                 y nginx.
+#
+# Cuenta las vulnerabilidades CRITICAL y HIGH, tengan arreglo o no, y el job falla si queda alguna que no
+# esté en .trivyignore. Ahí va cada excepción con su justificación: por qué no aplica a Palco o qué la mitiga.
+# El archivo tiene que estar aunque no tenga ninguna: trivy-action falla si no encuentra el que se le pasa.
+# Cada escaneo deja su tabla en el resumen de la corrida y su reporte (tabla y SARIF) como artefacto.
+#
+# Las acciones van fijadas por el hash del commit de su versión y no por el tag, que se puede mover: en marzo
+# de 2026 le movieron los tags a trivy-action para que corriera código malicioso en los CI que la usaban.
+# La versión de Trivy también va fija; para subirla, cambiar TRIVY_VERSION.
+
+name: Seguridad
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seguridad-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_VERSION: v0.76.2
+  # Las suprimidas por .trivyignore también salen en la tabla, en su propia sección: así el reporte
+  # muestra qué se aceptó y no solo lo que quedó.
+  TRIVY_SHOW_SUPPRESSED: 'true'
+
+jobs:
+  dependencias:
+    name: Dependencias del repo (trivy fs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TRIVY_INCLUDE_DEV_DEPS: 'true'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - run: mkdir -p trivy
+      - name: Reporte SARIF
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
+          # La base de vulnerabilidades queda en .cache/trivy, dentro del repo: no se recorre.
+          skip-dirs: .cache
+          format: sarif
+          limit-severities-for-sarif: true
+          output: trivy/dependencias.sarif
+          exit-code: '0'
+      - name: Tabla (falla si hay alguna CRITICAL o HIGH sin justificar)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
+          skip-dirs: .cache
+          format: table
+          output: trivy/dependencias.txt
+          exit-code: '1'
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo '### Trivy: dependencias del repo (CRITICAL y HIGH)'
+            echo '```'
+            cat trivy/dependencias.txt 2>/dev/null || echo 'Trivy no llegó a escribir la tabla: ver el log del paso.'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        if: always()
+        with:
+          name: trivy-dependencias
+          path: trivy/
+          if-no-files-found: ignore
+
+  imagenes:
+    name: 'Imagen: ${{ matrix.servicio }} (trivy image)'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        servicio: [backend, web]
+    env:
+      SERVICIO: ${{ matrix.servicio }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: Armar la imagen con docker compose (con reintentos si falla la red)
+        # La misma imagen que levantan los jobs de ci.yml, armada desde docker-compose.yml. Bajar la imagen
+        # base de Docker Hub puede fallar por la red del runner o por su límite de descargas: se reintenta
+        # hasta 4 veces, como en ci.yml.
+        run: |
+          for intento in 1 2 3 4; do
+            docker compose build "$SERVICIO" && break
+            echo "Falló el armado de la imagen (intento $intento de 4)"
+            [ "$intento" -lt 4 ] || exit 1
+            sleep $((intento * 30))
+          done
+          # El nombre que le da compose a una imagen que arma: <proyecto>-<servicio> (palco-backend,
+          # palco-web). "config --images" no sirve: lista también las imágenes de las dependencias
+          # (db, y backend para web).
+          imagen="$(docker compose config --format json | jq -r .name)-$SERVICIO"
+          docker image inspect "$imagen" > /dev/null
+          echo "IMAGEN=$imagen" >> "$GITHUB_ENV"
+          mkdir -p trivy
+      - name: Reporte SARIF
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: image
+          image-ref: ${{ env.IMAGEN }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
+          format: sarif
+          limit-severities-for-sarif: true
+          output: trivy/imagen-${{ matrix.servicio }}.sarif
+          exit-code: '0'
+          # WildFly trae cientos de jar: la primera vez se baja también la base de Java de Trivy.
+          timeout: 15m
+      - name: Tabla (falla si hay alguna CRITICAL o HIGH sin justificar)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: image
+          image-ref: ${{ env.IMAGEN }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
+          format: table
+          output: trivy/imagen-${{ matrix.servicio }}.txt
+          exit-code: '1'
+          timeout: 15m
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo "### Trivy: imagen $SERVICIO ($IMAGEN, CRITICAL y HIGH)"
+            echo '```'
+            cat "trivy/imagen-$SERVICIO.txt" 2>/dev/null || echo 'Trivy no llegó a escribir la tabla: ver el log del paso.'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        if: always()
+        with:
+          name: trivy-imagen-${{ matrix.servicio }}
+          path: trivy/
+          if-no-files-found: ignore

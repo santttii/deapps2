@@ -1,0 +1,16 @@
+# Vulnerabilidades CRITICAL o HIGH que Trivy encuentra y que se aceptan, una por línea. Lo leen los dos
+# escaneos de .github/workflows/seguridad.yml (dependencias del repo e imágenes): lo que está acá no hace
+# fallar el workflow y sale aparte en la tabla del reporte, como suprimido.
+#
+# Si la vulnerabilidad tiene arreglo, lo primero es subir la versión (en el pom.xml, el package-lock.json o la
+# imagen base del Dockerfile). Se acepta acá solo si eso no se puede o si no aplica a Palco, y cada una lleva:
+#   - arriba, un comentario con dónde aparece (paquete, versión e imagen o archivo) y por qué se acepta:
+#     por qué no aplica a Palco o qué la mitiga;
+#   - una fecha de vencimiento (exp:), para que vuelva a fallar y se revise en vez de quedar aceptada para
+#     siempre.
+#
+# Por ejemplo:
+#   # libejemplo 1.2.3, imagen web: la falla está en una función que nginx no usa.
+#   CVE-0000-00000 exp:2027-03-31
+#
+# El archivo tiene que estar aunque no tenga ninguna: trivy-action falla si no encuentra el que se le pasa.
