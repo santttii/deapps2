@@ -109,11 +109,12 @@ contra el máximo.
 | DEF-60 | `POST /v1/operaciones-de-reventa/transferencias` responde 500 si un id del pedido trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Julián Zuchowicki | 21/11 | Corrección del 21/11 |
 | DEF-61 | `POST /v1/validacion/escaneos` responde 500 si el `codigoQr` trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Joaquin Molina | 21/11 | Corrección del 21/11 |
 | DEF-62 | Un 400 de validación lista los campos de `errores` en un orden que cambia entre pedidos iguales | Menor | Baja | Nuevo (reproducido) | Sebastian Deya | 21/11 | Pendiente |
+| DEF-63 | Una pregunta muy larga al asistente deja colgado el pedido: el enmascarado del email tarda con el cuadrado del largo | Crítica | Alta | Corregido, a verificar sobre el tag (contrato) | Valentina Frisoli | 21/11 | Corrección del 21/11 |
 
-Totales: 62 defectos. 28 cerrados, 15 corregidos que falta verificar (DEF-02, DEF-14, DEF-30, DEF-32, DEF-34, DEF-35,
-DEF-36, DEF-47, DEF-52, DEF-53, DEF-55, DEF-57, DEF-59, DEF-60 y DEF-61), 1 en corrección (DEF-33), 3 aceptados
-(DEF-38, DEF-39 y DEF-58) y 15 nuevos abiertos. Por severidad: 1 bloqueante, 6 críticos, 16 mayores, 31 menores y
-8 cosméticos.
+Totales: 63 defectos. 28 cerrados, 16 corregidos que falta verificar (DEF-02, DEF-14, DEF-30, DEF-32, DEF-34, DEF-35,
+DEF-36, DEF-47, DEF-52, DEF-53, DEF-55, DEF-57, DEF-59, DEF-60, DEF-61 y DEF-63), 1 en corrección (DEF-33),
+3 aceptados (DEF-38, DEF-39 y DEF-58) y 15 nuevos abiertos. Por severidad: 1 bloqueante, 7 críticos, 16 mayores,
+31 menores y 8 cosméticos.
 
 ## 3. Defectos abiertos y corregidos que falta verificar
 
@@ -762,6 +763,29 @@ carácter nulo U+0000**
   `.zap/reglas.tsv`.
 - **Corrección propuesta:** ordenar los campos antes de armar el mapa (por ejemplo, las violaciones ordenadas por su
   ruta). Es un cambio en `backend/common`, compartido, que se acuerda con su dueño.
+
+### DEF-63 · Crítica · Prioridad Alta · Corregido, a verificar sobre el tag
+
+**Una pregunta muy larga al asistente deja colgado el pedido: el enmascarado del email tarda con el cuadrado del
+largo**
+
+- **Pasos:** con sesión iniciada, mandar a `POST /api/v1/asistente/preguntas` una pregunta de decenas de miles de
+  caracteres sin arroba (por ejemplo, la misma letra repetida).
+- **Esperado:** respuesta enseguida: la pregunta pasa de 500 caracteres y se rechaza como demasiado larga.
+- **Obtenido:** el pedido no responde. Lo encontró la prueba de contrato (Schemathesis, workflow "Contrato"): dos
+  corridas seguidas cortaron por tiempo (15 s) en esa operación y el pedido nunca llegó al log del asistente.
+- **Causa raíz:** `revisarEntrada` rechaza la pregunta larga sin revisarla, pero `AsistenteIA.registrar` la pasaba
+  entera por `Guardrails.enmascarar` para escribirla en el log. La expresión del email (`[\w.+-]+@...`) intentaba
+  empezar en cada posición de una tira de letras y la recorría hasta el final: medido, 40.000 letras tardaban unos
+  6,6 segundos, y el tiempo crece con el cuadrado del largo.
+- **Por qué es Crítica:** es una falla de seguridad explotable: cualquier usuario con sesión podía ocupar los hilos
+  del servidor con unas pocas preguntas largas.
+- **Corrección (21/11):** la expresión del email solo empieza al principio de una tira de caracteres de email (un
+  lookbehind) y no vuelve atrás (cuantificadores posesivos): encuentra los mismos emails y 40.000 letras pasan en
+  2 ms. Además, `registrar` recorta la pregunta a 500 caracteres antes de enmascararla.
+- **Prueba que lo cubre:** `GuardrailsTest.unTextoEnormeSinArrobaSeEnmascaraEnMenosDeUnSegundo` (100.000 letras en
+  menos de un segundo; con la expresión anterior tardaba más de 40) y
+  `elEmailSeOcultaTambienEnMedioDeUnTexto`, y la corrida de Schemathesis del tag.
 
 ## 4. Defectos cerrados: bloqueantes, críticos y mayores
 
