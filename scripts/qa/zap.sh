@@ -19,7 +19,9 @@
 #
 # Los reportes (HTML, JSON y Markdown de cada escaneo) quedan en logs/zap, que git ignora. Al final,
 # scripts/qa/zap-resumen.mjs junta las alertas de los dos y aplica el criterio: falla con cualquier High y
-# con cada Medium que no esté justificada en .zap/reglas.tsv. El resumen queda en logs/zap/resumen.md.
+# con cada Medium que no esté justificada en .zap/reglas.tsv. Una instancia High solo se descuenta si figura
+# en ese archivo como falso positivo verificado, con su regla, método, URL y parámetro exactos; el resumen
+# la muestra aparte. El resumen queda en logs/zap/resumen.md.
 #
 # Variables, todas opcionales:
 #   PALCO_URL                 dónde pedir el login desde esta máquina. Sirve nginx o el backend, como en
@@ -86,10 +88,12 @@ chmod 777 "$SALIDA" 2>/dev/null || true   # ZAP escribe con el usuario zap del c
 # La carpeta como la entiende docker: en Git Bash, con la letra de la unidad.
 carpeta=$(cd "$SALIDA" && (pwd -W 2>/dev/null || pwd))
 
-# ZAP solo ve la carpeta montada: las reglas y la definición de la API van ahí. En la copia de la
-# definición, el único servidor es nginx dentro de la red del compose (el original nombra localhost:8080
-# y un ejemplo de producción, que ZAP también probaría).
-tr -d '\r' < .zap/reglas.tsv > "$SALIDA/reglas.tsv"
+# ZAP solo ve la carpeta montada: las reglas y la definición de la API van ahí. La copia de las reglas
+# va sin los falsos positivos verificados (segunda columna FALSO_POSITIVO): ZAP no conoce ese valor y
+# esos renglones los aplica solo el resumen, instancia por instancia. En la copia de la definición, el
+# único servidor es nginx dentro de la red del compose (el original nombra localhost:8080 y un ejemplo de
+# producción, que ZAP también probaría).
+tr -d '\r' < .zap/reglas.tsv | awk -F'\t' '$2 != "FALSO_POSITIVO"' > "$SALIDA/reglas.tsv"
 tr -d '\r' < docs/api/openapi.yaml | awk '
   /^servers:/ { print; print "  - url: https://web/api"; saltar = 1; next }
   saltar && /^[^ ]/ { saltar = 0 }

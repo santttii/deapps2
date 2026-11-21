@@ -2,18 +2,58 @@
 # y scripts/qa/zap-resumen.mjs, que decide si la corrida pasa.
 #
 # Criterio de seguridad (eje D): ninguna alerta High y cada Medium justificada acá, una por una. Una High no
-# se acepta nunca, aunque figure en este archivo: se corrige. Una Low que no figura sale en el resumen como
-# "sin justificar", pero no corta la corrida.
+# se acepta nunca por justificación: se corrige. Lo único que puede sacarla del conteo es que se compruebe que
+# no es una vulnerabilidad (un falso positivo), y eso se anota instancia por instancia, con el formato de más
+# abajo. Una Low que no figura sale en el resumen como "sin justificar", pero no corta la corrida.
 #
-# Formato de ZAP: cuatro columnas separadas por tabuladores, sin tabuladores adentro.
+# Alertas aceptadas (formato de ZAP): cuatro columnas separadas por tabuladores, sin tabuladores adentro.
 #   1. el id de la regla de ZAP (pluginid)
 #   2. el nivel para ZAP: INFO, que deja la alerta en los reportes y la marca como aceptada
 #   3. el nombre exacto de la alerta entre paréntesis, como sale en el reporte. Una regla de ZAP puede dar
 #      varias alertas distintas (la 10055, la de la CSP, da una por problema) y se justifica cada una
 #   4. la justificación
 #
+# Falsos positivos verificados: seis columnas separadas por tabuladores. Cada renglón cubre una sola
+# instancia: la regla, el método, la URL y el parámetro tienen que ser exactamente los del reporte. Si ZAP
+# encuentra la misma alerta en otra URL u otro parámetro, esa instancia cuenta como High y la corrida falla.
+#   1. el id de la regla de ZAP (pluginid)
+#   2. FALSO_POSITIVO. ZAP no conoce este valor: scripts/qa/zap.sh saca estos renglones de la copia que le
+#      pasa al baseline con -c, y los usa solo el resumen
+#   3. el nombre exacto de la alerta entre paréntesis
+#   4. el método y la URL exactos, separados por un espacio, como en el reporte (el host es web, el nombre de
+#      nginx en la red del compose, que es contra lo que corre ZAP)
+#   5. el parámetro exacto
+#   6. por qué no es una vulnerabilidad y cómo se comprobó
+# El resumen los muestra en su propia sección ("Falsos positivos verificados"), aparte de las alertas
+# aceptadas, y avisa si alguno no apareció en la corrida.
+#
+# Los cuatro de la regla 40018 (inyección SQL, comparación booleana) se comprobaron así. ZAP manda el valor
+# original, el valor con AND 1=1 y el valor con AND 1=2, y avisa si las dos primeras respuestas son iguales y
+# la tercera distinta. Compara el cuerpo entero, sin el código de estado. En los dos endpoints, lo que cambia
+# entre las respuestas es algo que no depende de ninguna consulta:
+#   - Registro: el reporte de la corrida muestra que el pedido original ya respondía 400 (alerta 100000 en
+#     POST /api/usuarios/registro, evidencia 400). Con los valores que ZAP arma desde el OpenAPI (password
+#     "John Doe", sin dígitos) la validación del DTO corta el pedido antes del negocio y de la base, y el 400
+#     lista los campos inválidos en "errores". ManejadoresDeErrores arma esa lista en el orden en que Hibernate
+#     Validator entrega las violaciones, que vienen en un conjunto sin orden fijo: el mismo pedido, repetido,
+#     puede listar los campos en otro orden. Se reprodujo con Hibernate Validator 9.1.1 (la versión del
+#     servidor) y el RegistroDto de Usuarios: el mismo registro, validado tres veces seguidas, devolvió los
+#     campos en órdenes distintos, y simulando las parejas AND verdadero y falso de ZAP sobre apellido, dni y
+#     telefono aparecieron casos con la primera respuesta igual a la original y la segunda distinta.
+#   - Asistente: la respuesta trae el campo milisegundos, el tiempo que tardó en contestar (System.nanoTime en
+#     AsistenteIA), que cambia de un pedido a otro aunque la pregunta sea la misma.
+# Y en ningún caso el valor llega a una consulta SQL armada con texto: Usuarios consulta solo con JPQL y
+# parámetros con nombre (createQuery con :email, :dni, :patron y :desde en UsuarioRepositoryJpa e
+# IntentoLoginRepositoryJpa; no hay createNativeQuery, Statement ni consultas concatenadas en
+# backend/servicios/usuarios/src/main), y el asistente no usa base de datos (no tiene persistence.xml,
+# EntityManager ni java.sql en backend/servicios/asistente/src/main).
+#
 # El escaneo de la API no recibe este archivo con -c: si recibe uno, zap-api-scan.py cambia la política
 # API-Minimal por todas las reglas activas y el escaneo deja de entrar en su tiempo. Sus alertas se comparan
 # igual con este archivo, en el resumen.
 10055	INFO	(CSP: style-src unsafe-inline)	framer-motion anima con el atributo style y React escribe estilos en línea: sin 'unsafe-inline' la app pierde las animaciones. Lo que ejecuta código sigue cerrado: script-src es 'self', sin 'unsafe-inline' ni 'unsafe-eval', y object-src es 'none'. Un estilo inyectado no corre JavaScript, y React escapa todo texto que muestra. Está anotado en frontend/docker/nginx.conf.
 10055	INFO	(CSP: Wildcard Directive)	La directiva amplia es img-src https: (la nombra el detalle de la alerta). Las fotos de los eventos se pueden guardar en el almacenamiento de Supabase, cuyo dominio depende del proyecto. Una imagen no ejecuta código y connect-src queda en 'self', así que una página no puede mandar datos a otro sitio con fetch. Si la alerta nombra otra directiva además de img-src, esta justificación no la cubre.
+40018	FALSO_POSITIVO	(SQL Injection)	POST https://web/api/usuarios/registro	apellido	El pedido no llega a la base: la validación del DTO lo corta con 400 y la diferencia entre AND 1=1 y AND 1=2 es el orden de los campos en "errores", que cambia entre pedidos iguales. Usuarios consulta solo con JPQL y parámetros con nombre; el apellido nunca forma parte del texto de una consulta (cómo se comprobó: encabezado de .zap/reglas.tsv).
+40018	FALSO_POSITIVO	(SQL Injection)	POST https://web/api/usuarios/registro	dni	El pedido no llega a la base: la validación del DTO lo corta con 400 y la diferencia entre AND 1=1 y AND 1=2 es el orden de los campos en "errores", que cambia entre pedidos iguales. El dni, cuando pasa la validación, se busca con el parámetro :dni de una consulta JPQL y antes se le sacan todos los caracteres que no son dígitos (cómo se comprobó: encabezado de .zap/reglas.tsv).
+40018	FALSO_POSITIVO	(SQL Injection)	POST https://web/api/usuarios/registro	telefono	El pedido no llega a la base: la validación del DTO lo corta con 400 y la diferencia entre "1"="1" y "1"="2" es el orden de los campos en "errores", que cambia entre pedidos iguales. El teléfono solo se guarda como atributo de la entidad (JPA lo manda como parámetro) y ninguna consulta lo usa (cómo se comprobó: encabezado de .zap/reglas.tsv).
+40018	FALSO_POSITIVO	(SQL Injection)	POST https://web/api/v1/asistente/preguntas	pregunta	El asistente no usa base de datos: la pregunta pasa por expresiones regulares (Guardrails) y por el modelo. La diferencia entre "1"="1 y "1"="2 es el campo milisegundos de la respuesta, el tiempo que tardó en contestar, que cambia de un pedido a otro (cómo se comprobó: encabezado de .zap/reglas.tsv).

@@ -9,7 +9,9 @@
 #
 # Los dos los corre scripts/qa/zap.sh, que también se puede correr a mano contra un compose levantado.
 # Criterio: ninguna alerta High y cada Medium justificada en .zap/reglas.tsv. Lo aplica
-# scripts/qa/zap-resumen.mjs: si no se cumple, el job falla. El resumen queda en el de la corrida y los
+# scripts/qa/zap-resumen.mjs: si no se cumple, el job falla. Una instancia High solo se descuenta si está
+# anotada en ese archivo como falso positivo verificado (regla, método, URL y parámetro exactos, con la
+# comprobación); el resumen la muestra en su propia sección. El resumen queda en el de la corrida y los
 # reportes HTML, JSON y Markdown de ZAP, como artifact.
 
 name: ZAP
@@ -47,7 +49,6 @@ jobs:
           secreto=$(openssl rand -hex 32)
           echo "::add-mask::$secreto"
           echo "PALCO_SECRETO_SERVICIOS=$secreto" >> "$GITHUB_ENV"
-          mkdir -p logs && chmod 777 logs
       - name: Imágenes del sistema (con reintentos si falla la red)
         # Las mismas descargas y los mismos reintentos que en la integración de ci.yml (ahí está el porqué).
         run: |
@@ -57,6 +58,15 @@ jobs:
             [ "$intento" -lt 4 ] && sleep $((intento * 30))
           done
           exit 1
+      - name: Carpeta de logs para WildFly
+        # WildFly escribe server.log en ./logs con el usuario palco del contenedor (backend/Dockerfile), que no es
+        # el usuario del runner. La carpeta sigue siendo del runner y pasa al grupo de palco con permisos 775:
+        # escriben los dos y el resto de los usuarios de la máquina, no. El grupo se lee de la imagen recién armada.
+        run: |
+          mkdir -p logs
+          grupo=$(docker compose run --rm --no-deps -T --entrypoint id backend -g)
+          sudo chgrp "$grupo" logs
+          chmod 775 logs
       - name: docker compose up (un comando, todo el sistema)
         run: |
           inicio=$(date +%s)
