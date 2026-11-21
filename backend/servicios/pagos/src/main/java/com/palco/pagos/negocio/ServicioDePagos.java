@@ -153,7 +153,7 @@ public class ServicioDePagos implements IPagos {
             }
             return aDto(releido);
         }
-        LOG.info("Pago " + pagoId + " de la venta " + Textos.enUnaLinea(pago.getVentaId()) + ": REEMBOLSADO ($"
+        LOG.info("Pago " + Textos.enUnaLinea(pagoId) + " de la venta " + Textos.enUnaLinea(pago.getVentaId()) + ": REEMBOLSADO ($"
                 + aDevolver + " de $" + pago.getMonto() + "). Motivo: " + Textos.enUnaLinea(pedido.motivo()));
         return aDto(pagos.buscarPorId(pagoId).orElseThrow());
     }
