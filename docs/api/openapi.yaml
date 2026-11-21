@@ -77,6 +77,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/RegistroPendiente' }
         '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /usuarios/verificacion:
     post:
@@ -104,6 +105,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /usuarios/verificacion/reenvio:
     post:
@@ -124,6 +126,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /usuarios/password/olvide:
     post:
@@ -144,6 +147,7 @@ paths:
         '204':
           description: Pedido recibido. Si la cuenta existe y está verificada, el código sale por email
         '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /usuarios/password/reinicio:
     post:
@@ -179,6 +183,7 @@ paths:
                 instance: /api/usuarios/password/reinicio
                 errores:
                   codigo: El código no es correcto.
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /usuarios/login:
     post:
@@ -207,6 +212,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
         '429':
           description: >
             Ese email tuvo 5 inicios de sesión fallidos en los últimos 15 minutos (`/problemas/demasiados-intentos`).
@@ -265,6 +271,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /usuarios/cuentas:
     get:
@@ -404,6 +411,7 @@ paths:
               schema: { $ref: '#/components/schemas/Problema' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /eventos/mios:
     get:
@@ -707,6 +715,7 @@ paths:
                 status: 412
                 detail: El evento cambió desde que lo cargaste. Volvé a cargarlo y repetí el cambio.
                 instance: /api/eventos/ev-1
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /eventos/{eventoId}/cancelacion:
     post:
@@ -762,11 +771,7 @@ paths:
                 status: 409
                 detail: El evento ya está cancelado.
                 instance: /api/eventos/ev-1/cancelacion
-        '415':
-          description: 'Sin `Content-Type: application/json` (`about:blank`)'
-          content:
-            application/problem+json:
-              schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /eventos/{eventoId}/sectores/{sectorId}/cupo:
     post:
@@ -810,6 +815,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /v1/ventas:
     post:
@@ -857,6 +863,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
         '422':
           description: >
             Viola una regla de negocio: más de 6 entradas (`/problemas/maximo-de-entradas`), DNI repetido
@@ -982,6 +989,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
         '504':
           description: >
             La pasarela no respondió a tiempo (`/problemas/sin-respuesta`). No se sabe si el cobro se hizo: hay que
@@ -1097,6 +1105,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
         '504': { $ref: '#/components/responses/SinRespuesta' }
 
     get:
@@ -1182,6 +1191,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
         '504': { $ref: '#/components/responses/SinRespuesta' }
 
   /v1/reventas:
@@ -1246,6 +1256,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
         '422':
           description: El precio está fuera del rango permitido (`/problemas/precio-fuera-de-rango`)
           content:
@@ -1358,6 +1369,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
         '504':
           description: >
             Eventos, Ventas o Pagos no respondieron a tiempo (`/problemas/sin-respuesta`). Si no respondió Eventos (la
@@ -1402,6 +1414,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
         '504':
           description: >
             Ventas no respondió (`/problemas/sin-respuesta`). El intento queda en el registro como `SIN_RESPUESTA`:
@@ -1653,6 +1666,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /v1/operaciones-de-reventa/entradas/{entradaId}:
     get:
@@ -1704,6 +1718,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /v1/operaciones-de-reventa/retiros:
     post:
@@ -1730,6 +1745,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /v1/operaciones-de-reventa/controles-de-compra:
     post:
@@ -1771,6 +1787,7 @@ paths:
                 status: 409
                 detail: El DNI 30123456 ya tiene una entrada para este evento. Cada persona puede tener una sola entrada por evento.
                 instance: /api/v1/operaciones-de-reventa/controles-de-compra
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /v1/operaciones-de-reventa/transferencias:
     post:
@@ -1803,6 +1820,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
   /v1/asistente/preguntas:
     post:
@@ -1921,6 +1939,7 @@ paths:
                 detail: Tenés que iniciar sesión.
                 instance: /api/v1/asistente/preguntas
         '403': { $ref: '#/components/responses/SinPermiso' }
+        '415': { $ref: '#/components/responses/TipoNoAdmitido' }
 
 components:
   securitySchemes:
@@ -2009,6 +2028,19 @@ components:
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problema' }
+    TipoNoAdmitido:
+      description: >
+        El cuerpo no vino como `application/json`: falta el `Content-Type` o es otro. Lo responde el servidor antes
+        de leer el cuerpo y `ManejadoresDeErrores` lo arma como cualquier error que es solo el código HTTP: Problem
+        Details con `type` `about:blank`, la frase del código como `title` y sin `detail`
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problema' }
+          example:
+            type: about:blank
+            title: Unsupported Media Type
+            status: 415
+            instance: /api/v1/ventas
     SinRespuesta:
       description: Un servicio del que depende la operación no respondió a tiempo (`/problemas/sin-respuesta`)
       content:
