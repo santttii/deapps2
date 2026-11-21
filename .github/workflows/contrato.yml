@@ -1,0 +1,186 @@
+# Pruebas de contrato de la API REST de Palco: que lo que responde el sistema sea lo que dice docs/api/openapi.yaml.
+# Corre con los mismos disparadores que ci.yml, en un workflow aparte: Schemathesis manda a cada operación pedidos
+# generados a partir del contrato, válidos e inválidos, y crea datos, así que usa su propio compose, como ZAP.
+#
+# Schemathesis (versión fija) lee docs/api/openapi.yaml, arma los pedidos de cada operación con los esquemas y los
+# ejemplos del contrato y revisa cada respuesta con tres controles:
+#   not_a_server_error            ninguna respuesta 5xx
+#   status_code_conformance       el código de la respuesta está documentado en esa operación
+#   response_schema_conformance   el cuerpo cumple el esquema documentado para ese código y tipo de contenido
+#
+# Corre una vez por rol, cada una con el token de su cuenta: con un solo rol, las operaciones de los demás solo
+# responderían 403 y su respuesta de éxito no se probaría nunca.
+#   comprador     titular@palco.test (user), todas las operaciones
+#   organizador   organizador@palco.test (organizer), las etiquetas eventos y validacion, y /v1/resumenes
+#   puerta        puerta@palco.test (staff), la etiqueta validacion
+#   servicio      el token de rol servicio que da el secreto de esta corrida, las operaciones entre servicios
+# Las tres cuentas son las de prueba (usuarios/.../V2__usuarios_de_prueba.sql). Si cualquier corrida encuentra una
+# respuesta fuera del contrato, el job falla. Los reportes (JUnit y HTML de cada corrida) quedan como artifact.
+#
+# El contrato SOAP de ARCA (simulado) lo prueba ContratoDelWsdlTest, en el mvn verify de ci.yml: que el WSDL que
+# publica el servicio sea el de docs/api/arca.wsdl y que las respuestas cumplan su esquema.
+#
+# A mano, con el sistema levantado (docker compose up --build --detach --wait): pip install schemathesis==4.32.7 y
+# el mismo schemathesis run del paso de abajo, con API=http://localhost:8080/api y el token de la cuenta en -H. En
+# Git Bash (Windows), con MSYS_NO_PATHCONV=1, así no convierte las rutas de --include-path en rutas de Windows.
+
+name: Contrato
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contrato-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  openapi:
+    name: Contrato REST (Schemathesis contra docs/api/openapi.yaml)
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      # El log del servidor queda en ./logs, para revisar que las pruebas no dejaron tokens escritos.
+      PALCO_DIR_LOGS: ./logs
+      # Versión fija: otra versión puede generar otros pedidos o sumar controles, y dos corridas dejarían de ser
+      # comparables. 4.32.7 es la última de la serie 4.32 y ya lee definiciones OpenAPI 3.1, como la nuestra.
+      SCHEMATHESIS: schemathesis==4.32.7
+      # El backend que publica el compose, solo en esta máquina (como en el job api de ci.yml). Es el primer
+      # servidor de docs/api/openapi.yaml.
+      API: http://localhost:8080/api
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Instalar Schemathesis
+        run: |
+          pip install --quiet "$SCHEMATHESIS"
+          schemathesis --version
+      - name: Secretos de esta corrida
+        # Nunca están en el repo: se generan acá y se le pasan al compose. Con el secreto se pide el token de servicio.
+        run: |
+          secreto=$(openssl rand -hex 32)
+          echo "::add-mask::$secreto"
+          echo "PALCO_SECRETO_SERVICIOS=$secreto" >> "$GITHUB_ENV"
+          mkdir -p logs contrato && chmod 777 logs
+      - name: Imágenes del sistema (con reintentos si falla la red)
+        # Las mismas descargas y los mismos reintentos que en la integración de ci.yml (ahí está el porqué).
+        run: |
+          for intento in 1 2 3 4; do
+            docker compose pull --ignore-buildable --quiet && docker compose build && exit 0
+            echo "Falló la descarga o el armado de las imágenes (intento $intento de 4)"
+            [ "$intento" -lt 4 ] && sleep $((intento * 30))
+          done
+          exit 1
+      - name: docker compose up (un comando, todo el sistema)
+        run: |
+          inicio=$(date +%s)
+          docker compose up --build --detach --wait --wait-timeout 900
+          echo "Levantado en $(( $(date +%s) - inicio )) segundos" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Schemathesis contra docs/api/openapi.yaml (una corrida por rol)
+        run: |
+          set +e
+          set -uo pipefail
+
+          # El token de una cuenta de prueba (la contraseña de las tres es palco1234).
+          sesion() {
+            curl -s --max-time 30 -X POST "$API/usuarios/login" -H 'Content-Type: application/json' \
+              -d "{\"email\":\"$1\",\"password\":\"palco1234\"}" | sed -nE 's/.*"token" *: *"([^"]+)".*/\1/p'
+          }
+
+          # Una corrida: el nombre, el token y los filtros de operaciones (sin filtros, todas).
+          fallas=0
+          correr() {
+            local nombre=$1 token=$2
+            shift 2
+            mkdir -p "contrato/$nombre"
+            echo "== $nombre"
+            if ! schemathesis run docs/api/openapi.yaml --url "$API" "$@" \
+                --checks not_a_server_error,status_code_conformance,response_schema_conformance \
+                --mode all --max-examples 25 --workers 4 --request-timeout 15 --generation-database none \
+                -H "Authorization: Bearer $token" --no-color \
+                --report junit,html --report-junit-path "contrato/$nombre/junit.xml" \
+                --report-html-path "contrato/$nombre/html" 2>&1 | tee "contrato/$nombre/salida.txt"; then
+              fallas=$((fallas + 1))
+            fi
+          }
+
+          # Las tres sesiones se inician antes de la primera corrida: Schemathesis también prueba el login, y cinco
+          # intentos fallidos con el mismo email lo bloquean 15 minutos. Duran 8 horas.
+          comprador=$(sesion titular@palco.test)
+          organizador=$(sesion organizador@palco.test)
+          puerta=$(sesion puerta@palco.test)
+          for token in "$comprador" "$organizador" "$puerta"; do
+            test -n "$token" || { echo "No se pudo iniciar sesión con una de las cuentas de prueba en $API"; exit 2; }
+            echo "::add-mask::$token"
+          done
+
+          correr comprador "$comprador"
+          # Las estadísticas del organizador (/v1/resumenes) tienen la etiqueta ventas: se suman por su ruta.
+          correr organizador "$organizador" --include-tag eventos --include-tag validacion \
+            --include-path /v1/resumenes
+          correr puerta "$puerta" --include-tag validacion
+
+          # El token de servicio dura 5 minutos: se pide justo antes de su corrida. Las operaciones de las etiquetas
+          # interno y pagos son todas de uso entre servicios; las demás de rol servicio se eligen por su ruta.
+          servicio=$(curl -s --max-time 30 -X POST "$API/usuarios/servicios/token" -H 'Content-Type: application/json' \
+            -d "{\"secreto\":\"$PALCO_SECRETO_SERVICIOS\"}" | sed -nE 's/.*"token" *: *"([^"]+)".*/\1/p')
+          test -n "$servicio" || { echo "No se pudo pedir el token de servicio en $API"; exit 2; }
+          echo "::add-mask::$servicio"
+          correr servicio "$servicio" --include-tag interno --include-tag pagos \
+            --include-path /usuarios/cuentas --include-path '/usuarios/{usuarioId}' \
+            --include-path '/eventos/{eventoId}/organizador' \
+            --include-path '/eventos/{eventoId}/sectores/{sectorId}/cupo' \
+            --include-path '/v1/facturas/{ventaId}'
+
+          # Los reportes muestran la cabecera Authorization como [Filtered]; igual, si un token apareciera en alguno,
+          # se tapa: se suben como artifact.
+          for token in "$comprador" "$organizador" "$puerta" "$servicio"; do
+            find contrato -type f -exec sed -i "s|$token|<token>|g" {} +
+          done
+
+          echo "Corridas con respuestas fuera del contrato: $fallas de 4"
+          test "$fallas" -eq 0
+      - name: Resumen de Schemathesis
+        # El resumen final de cada corrida: operaciones, fases, fallas por control y la semilla para repetirla.
+        if: always()
+        run: |
+          {
+            echo '### Contrato REST (Schemathesis)'
+            for corrida in comprador organizador puerta servicio; do
+              [ -f "contrato/$corrida/salida.txt" ] || continue
+              echo; echo "**$corrida**"; echo '```'
+              sed -n '/ SUMMARY /,$p' "contrato/$corrida/salida.txt"
+              echo '```'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Control de logs (sin tokens después de las pruebas)
+        # Cada pedido lleva el token y muchos son inválidos a propósito: ninguna respuesta de error tiene que
+        # haberlo escrito en el log.
+        if: always()
+        run: |
+          if grep -nE 'Bearer [A-Za-z0-9._-]{20,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ' logs/server.log; then
+            echo "El log del servidor tiene tokens"; exit 1
+          fi
+      - name: Estado de los contenedores
+        if: always()
+        run: docker compose ps && docker compose logs --no-color > compose-contrato.log
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: reporte-contrato
+          path: |
+            contrato/
+            logs/
+            compose-contrato.log
+          if-no-files-found: ignore
+      - name: Bajar todo
+        if: always()
+        run: docker compose down -v
