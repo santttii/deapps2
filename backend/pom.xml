@@ -47,6 +47,17 @@
         <version.dependency.plugin>3.11.0</version.dependency.plugin>
         <!-- Trae PMD 7.17.0, que ya entiende el código de Java 25 -->
         <version.pmd.plugin>3.28.0</version.pmd.plugin>
+        <!-- PIT (pruebas de mutación) y su plugin para correr los tests de la plataforma JUnit: con estas
+             versiones lee las clases de Java 25 y corre los tests de JUnit 6. -->
+        <version.pitest.plugin>1.30.2</version.pitest.plugin>
+        <version.pitest.junit5>1.2.3</version.pitest.junit5>
+
+        <!-- Qué muta PIT, cuánto tiene que matar y con cuántos hilos (ver el plugin en pluginManagement).
+             Se cambian con -D sin tocar el pom: -Dmutacion.clases=com.palco.*.negocio.* mide el negocio
+             aparte. -->
+        <mutacion.clases>com.palco.*.dominio.*</mutacion.clases>
+        <mutacion.minimo>60</mutacion.minimo>
+        <mutacion.hilos>2</mutacion.hilos>
     </properties>
 
     <dependencyManagement>
@@ -156,6 +167,55 @@
                     <groupId>org.wildfly.plugins</groupId>
                     <artifactId>wildfly-maven-plugin</artifactId>
                     <version>${version.wildfly.plugin}</version>
+                </plugin>
+                <!-- Pruebas de mutación (PIT). PIT cambia una cosa por vez en el código compilado (invierte
+                     una condición, borra una llamada, cambia lo que devuelve un método) y vuelve a correr los
+                     tests que pasan por esa línea. Si alguno falla, el mutante murió; si todos pasan,
+                     sobrevivió: la línea se ejecuta en los tests pero ninguno controla lo que hace.
+
+                     No está en <plugins>, así que no corre en "mvn verify": se pide aparte, y lo hace
+                     .github/workflows/mutacion.yml. Para correrlo a mano en un servicio, desde backend/ y con
+                     palco-common ya instalado (mvn install):
+                       mvn test-compile org.pitest:pitest-maven:mutationCoverage -pl servicios/ventas
+                     El reporte queda en target/pit-reports (index.html y mutations.xml).
+                     En Windows, la ruta de la carpeta del repo no puede tener tildes ni eñes (por ejemplo, una
+                     carpeta "Programación" en el camino): con una así, el proceso en el que PIT corre los tests
+                     no encuentra las clases del módulo, no corre ninguno y el puntaje sale 0 %. El CI corre en
+                     Linux y no tiene ese problema.
+
+                     Se muta el paquete de dominio de cada servicio, que es lo que mide la cátedra, y si quedan
+                     muertos menos del 60 % de sus mutantes el módulo falla. Los tests que corren son todos los
+                     del módulo y no solo los de ese paquete: una regla de una entidad también la controla un
+                     test del negocio. Un módulo sin paquete de dominio (common, el asistente, el ARCA
+                     simulado) no tiene nada que mutar: PIT no corre sus tests y el módulo no falla por eso. -->
+                <plugin>
+                    <groupId>org.pitest</groupId>
+                    <artifactId>pitest-maven</artifactId>
+                    <version>${version.pitest.plugin}</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.pitest</groupId>
+                            <artifactId>pitest-junit5-plugin</artifactId>
+                            <version>${version.pitest.junit5}</version>
+                        </dependency>
+                    </dependencies>
+                    <configuration>
+                        <targetClasses>
+                            <param>${mutacion.clases}</param>
+                        </targetClasses>
+                        <targetTests>
+                            <param>com.palco.*</param>
+                        </targetTests>
+                        <mutationThreshold>${mutacion.minimo}</mutationThreshold>
+                        <failWhenNoMutations>false</failWhenNoMutations>
+                        <threads>${mutacion.hilos}</threads>
+                        <outputFormats>
+                            <param>HTML</param>
+                            <param>XML</param>
+                        </outputFormats>
+                        <!-- Siempre en target/pit-reports, sin una carpeta por fecha: así el CI sabe dónde buscarlo -->
+                        <timestampedReports>false</timestampedReports>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
