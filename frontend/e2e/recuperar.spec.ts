@@ -144,7 +144,9 @@ test('recuperar: los dos pasos entran a 360, 768 y 1280 px sin desborde horizont
 
   for (const ancho of [360, 768, 1280]) {
     await page.setViewportSize({ width: ancho, height: 800 });
-    await page.goto('/recuperar');
+    // Una dirección distinta en cada ancho: la pantalla guarda el paso en el historial (así recargar no obliga a
+    // pedir otro código), y volver a la misma dirección el navegador lo toma como recargar y quedaría en el paso 2.
+    await page.goto(`/recuperar?ancho=${ancho}`);
     await expect(page.getByRole('heading', { name: 'Recuperar la contraseña' })).toBeVisible();
     const primero = await anchoDeLaPagina();
     expect.soft(primero.pagina, `primer paso a ${ancho} px`).toBeLessThanOrEqual(primero.visible);
