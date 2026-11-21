@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
@@ -25,10 +26,13 @@ import com.palco.asistente.negocio.externos.ModeloDeLenguaje;
  *       fallback sin llamar al modelo. Es el plan de apagado: se cambia sin redesplegar.</li>
  *   <li>Guardrails de entrada: largo, inyección de prompt, pedidos de datos de terceros, y
  *       enmascarar DNI, tarjetas y emails antes de que salgan hacia el modelo.</li>
- *   <li>El modelo, con un tiempo máximo de 5 segundos. Si no responde a tiempo o falla, fallback:
- *       la respuesta frecuente que corresponda o, si no hay, ofrecer soporte.</li>
- *   <li>Guardrails de salida: una respuesta con datos personales no se muestra.</li>
- *   <li>Cada consulta deja una línea de registro (evidencia), con la pregunta enmascarada.</li>
+ *   <li>El modelo, con un tiempo máximo de 5 segundos. Si no responde a tiempo, falla o no hay un
+ *       hilo libre para llamarlo, fallback: la respuesta frecuente que corresponda o, si no hay,
+ *       ofrecer soporte.</li>
+ *   <li>Guardrails de salida: una respuesta con datos personales o que copia las instrucciones no
+ *       se muestra.</li>
+ *   <li>Cada consulta deja una línea de registro (evidencia), con el id interno de quien
+ *       pregunta (nunca su email) y la pregunta enmascarada.</li>
  * </ol>
  *
  * Stateless: cada pregunta llega completa y no se guarda conversación.
@@ -82,7 +86,15 @@ public class AsistenteIA implements IAsistente {
             return new Respuesta(BLOQUEO, Origen.BLOQUEADA, revision.motivo(), false, ms(inicio));
         }
         String texto;
-        Future<String> pedido = ejecutor().submit(() -> modelo.completar(INSTRUCCIONES, revision.texto()));
+        Future<String> pedido;
+        try {
+            pedido = ejecutor().submit(() -> modelo.completar(INSTRUCCIONES, revision.texto()));
+        } catch (RejectedExecutionException e) {
+            // Sin un hilo libre para llamar al modelo (el servidor está saturado o se está apagando): para
+            // quien pregunta es una falla más del modelo, con el mismo fallback, y no una excepción.
+            LOG.warning("Asistente: no hay un hilo libre para llamar al modelo.");
+            return fallback(pregunta, "error-del-modelo", inicio);
+        }
         try {
             texto = pedido.get(tiempoMaximo.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
@@ -95,9 +107,14 @@ public class AsistenteIA implements IAsistente {
             Thread.currentThread().interrupt();
             return fallback(pregunta, "error-del-modelo", inicio);
         }
-        if (texto == null || texto.isBlank() || Guardrails.salidaConDatosPersonales(texto)) {
-            return new Respuesta(BLOQUEO, Origen.BLOQUEADA,
-                    texto == null || texto.isBlank() ? "respuesta-vacia" : "salida-con-datos-personales", true, ms(inicio));
+        if (texto == null || texto.isBlank()) {
+            return new Respuesta(BLOQUEO, Origen.BLOQUEADA, "respuesta-vacia", true, ms(inicio));
+        }
+        if (Guardrails.salidaConDatosPersonales(texto)) {
+            return new Respuesta(BLOQUEO, Origen.BLOQUEADA, "salida-con-datos-personales", true, ms(inicio));
+        }
+        if (Guardrails.salidaConInstrucciones(texto, INSTRUCCIONES)) {
+            return new Respuesta(BLOQUEO, Origen.BLOQUEADA, "salida-con-instrucciones", true, ms(inicio));
         }
         return new Respuesta(texto.strip(), Origen.MODELO, null, false, ms(inicio));
     }

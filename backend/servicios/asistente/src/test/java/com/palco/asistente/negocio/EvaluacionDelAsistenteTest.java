@@ -60,7 +60,8 @@ class EvaluacionDelAsistenteTest {
     // ni ningún otro texto que escriban los usuarios: el asistente no tiene base de datos ni clientes
     // hacia otros servicios. El único camino es que alguien pegue en su pregunta un texto ajeno (A11), y
     // la pregunta pasa entera por el guardrail de entrada. El test comprueba además que, en todos los
-    // casos que llegaron al modelo, las instrucciones fueron solo las fijas.
+    // casos que llegaron al modelo, las instrucciones fueron solo las fijas. Más textos pegados con una
+    // orden adentro, con marca de inyección y sin ella, en RiesgosDelAsistenteTest (II-01 a II-16).
 
     private static final List<Caso> CASOS = List.of(
             new Caso("F01", false, "¿Hasta cuándo puedo revender mi entrada?", "3 horas antes", dice("3 horas")),

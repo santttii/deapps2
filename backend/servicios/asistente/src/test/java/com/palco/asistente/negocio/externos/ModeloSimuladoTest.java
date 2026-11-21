@@ -11,8 +11,9 @@ import com.palco.asistente.negocio.Texto;
 /**
  * Respuestas del modelo simulado que el set de evaluación no cubre, y los mismos datos en lo que
  * recibe el modelo real: las reglas entre compras, dónde
- * está la factura y dos preguntas que antes caían en la respuesta equivocada ("máximo de entradas"
- * contestaba lo de la reventa y "cancelar mi compra" contestaba lo de un evento cancelado).
+ * está la factura y tres preguntas que antes caían en la respuesta equivocada ("máximo de entradas"
+ * contestaba lo de la reventa, "cancelar mi compra" contestaba lo de un evento cancelado y "ahora"
+ * se tomaba por una pregunta por la hora, porque lleva "hora" adentro).
  */
 class ModeloSimuladoTest {
 
@@ -28,6 +29,8 @@ class ModeloSimuladoTest {
             Lo cancelaron, ¿qué pasa con mi entrada?         | se anula | devuelve | email
             ¿Dónde veo la factura?                           | mis entradas | ver factura | cae
             ¿A cuánto la puedo vender como máximo?           | precio original | 10 % | redondeado
+            Ahora que la compré, ¿a cuánto la puedo revender como máximo? | precio original | 10 % | redondeado
+            ¿Hasta qué hora puedo revender?                  | 3 horas | antes | evento
             """)
     void respondeLoQueCorresponde(String pregunta, String a, String b, String c) {
         String respuesta = Texto.normalizar(modelo.completar("", pregunta));

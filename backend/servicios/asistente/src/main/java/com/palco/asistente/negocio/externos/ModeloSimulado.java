@@ -27,6 +27,8 @@ public class ModeloSimulado implements ModeloDeLenguaje {
     // Al normalizar, "comprá" queda "compra".
     private static final Pattern PEDIDO_DE_ACCION =
             Pattern.compile("(^|[:.]\\s*)(compra|publica|cancela|transferi|reserva)\\b");
+    // Una pregunta por el plazo: la palabra entera, porque "ahora" lleva adentro "hora".
+    private static final Pattern PLAZO = Pattern.compile("\\b(cuando|hora|horas)\\b");
 
     @Override
     public String nombre() {
@@ -45,7 +47,7 @@ public class ModeloSimulado implements ModeloDeLenguaje {
             return "Soy un asistente de solo lectura: no puedo comprar, publicar ni cancelar. "
                     + "Eso lo hacés vos desde la app, en el evento o en Mis entradas.";
         }
-        if (Texto.contieneAlguna(p, "revend", "reventa") && Texto.contieneAlguna(p, "hasta cuando", "cuando", "hora")) {
+        if (Texto.contieneAlguna(p, "revend", "reventa") && PLAZO.matcher(p).find()) {
             return "Podés revender hasta " + ReglasDeNegocio.HORAS_LIMITE_REVENTA + " horas antes del evento.";
         }
         // Antes que el tope de la reventa: "¿cuál es el máximo de entradas?" tiene la palabra "máximo".

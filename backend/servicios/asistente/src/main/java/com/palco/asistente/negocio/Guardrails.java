@@ -1,5 +1,6 @@
 package com.palco.asistente.negocio;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -11,12 +12,18 @@ import java.util.regex.Pattern;
  * (LLM01) y pedidos de datos de terceros.
  *
  * Salida: si la respuesta del modelo trae un DNI, un email o un número de tarjeta, no se
- * muestra (LLM02).
+ * muestra (LLM02); tampoco si copia las instrucciones del sistema (LLM07).
  */
 public final class Guardrails {
 
     /** Largo máximo de una pregunta. */
     public static final int LARGO_MAXIMO = 500;
+
+    /**
+     * Cuántas palabras seguidas iguales a las de las instrucciones hacen falta para decir que una
+     * respuesta las copia. La oración más corta de las instrucciones tiene 10.
+     */
+    public static final int PALABRAS_SEGUIDAS = 10;
 
     static final String DNI_OCULTO = "[dni oculto]";
     static final String TARJETA_OCULTA = "[tarjeta oculta]";
@@ -24,8 +31,9 @@ public final class Guardrails {
 
     // 13 a 19 dígitos, con espacios o guiones entre grupos: un número de tarjeta.
     private static final Pattern TARJETA = Pattern.compile("\\b(?:\\d[ -]?){12,18}\\d\\b");
-    // 7 u 8 dígitos sueltos, con o sin puntos: un DNI argentino.
-    private static final Pattern DNI = Pattern.compile("\\b\\d{1,2}\\.?\\d{3}\\.?\\d{3}\\b");
+    // 7 u 8 dígitos sueltos, con o sin puntos: un DNI argentino. Detrás de un signo $ es un precio
+    // ($1.000.000), no un DNI.
+    private static final Pattern DNI = Pattern.compile("(?<!\\$ ?)\\b\\d{1,2}\\.?\\d{3}\\.?\\d{3}\\b");
     private static final Pattern EMAIL = Pattern.compile("[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)+");
 
     // Inyección de prompt (LLM01). Los patrones se buscan sobre el texto normalizado (Texto.normalizar),
@@ -90,9 +98,10 @@ public final class Guardrails {
             "[\\[<{] ?/? ?(sistema|system|sys|inst|admin|administrador|developer|desarrollador|asistente|assistant) ?[\\]>}]"
             // Las marcas que separan los mensajes en el formato de chat de algunos modelos.
             + "|<\\|\\w+\\|>"
-            // Una etiqueta de rol con dos puntos al principio de la pregunta o de una oración: "SISTEMA: ...".
+            // Una etiqueta de rol con dos puntos al principio de la pregunta, de una oración o de un texto
+            // pegado (después de dos puntos o de unas comillas): "SISTEMA: ...", "el mail dice: 'SYSTEM: ...'".
             // En el medio de una oración es una duda: "el sistema: no me deja pagar".
-            + "|(^|[.!?] )\\W*(sistema|system|admin|administrador|developer|desarrollador) ?:"
+            + "|(^|[.!?:] |[\"'«“‘])\\W*(sistema|system|admin|administrador|developer|desarrollador) ?:"
             // Reglas o instrucciones "nuevas" puestas como encabezado: "nuevas reglas: ...".
             + "|\\b(nuevas|new) (reglas|instrucciones|indicaciones|rules|instructions) ?:");
 
@@ -162,5 +171,26 @@ public final class Guardrails {
     public static boolean salidaConDatosPersonales(String respuesta) {
         String texto = respuesta == null ? "" : respuesta;
         return TARJETA.matcher(texto).find() || DNI.matcher(texto).find() || EMAIL.matcher(texto).find();
+    }
+
+    /**
+     * true si la respuesta del modelo copia sus instrucciones y no se puede mostrar (LLM07): comparte
+     * con ellas {@link #PALABRAS_SEGUIDAS} palabras seguidas, sin mirar mayúsculas, tildes ni signos.
+     * Es el control de salida para una inyección que pasó la entrada. Decir lo mismo con otras palabras
+     * ("no tengo acceso a datos de otros usuarios") no es copiarlas.
+     */
+    public static boolean salidaConInstrucciones(String respuesta, String instrucciones) {
+        String texto = " " + String.join(" ", palabras(respuesta)) + " ";
+        List<String> propias = palabras(instrucciones);
+        for (int i = 0; i + PALABRAS_SEGUIDAS <= propias.size(); i++) {
+            if (texto.contains(" " + String.join(" ", propias.subList(i, i + PALABRAS_SEGUIDAS)) + " ")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static List<String> palabras(String texto) {
+        return Arrays.stream(Texto.normalizar(texto).split("[^\\p{L}\\p{N}]+")).filter(p -> !p.isEmpty()).toList();
     }
 }
