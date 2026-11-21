@@ -35,7 +35,8 @@ import com.palco.reventa.negocio.externos.PedidoNoEnviado;
  * ServicioDeReventa: publicar una entrada propia, retirarla y comprar una
  * publicación ajena, con las reglas de {@code ReglasDeNegocio} (precio entre
  * el 50% y el 110% del precio de lista del sector; la reventa cierra 3 horas
- * antes del evento).
+ * antes del evento; quien compra respeta el tope por evento y el DNI por
+ * evento, que controla Ventas).
  *
  * Stateless: cada pedido llega completo (quién, qué publicación, qué precio,
  * con qué tarjeta) y no hay una conversación que recordar entre un pedido y
@@ -158,6 +159,12 @@ public class ServicioDeReventa implements IReventa {
      * otros servicios y una transacción abierta no sirve de nada con ellos.
      *
      * <ol>
+     * <li>Se le pregunta a Ventas si el comprador puede quedarse con la
+     * entrada: las mismas reglas entre compras que una compra del catálogo
+     * (hasta 6 entradas por persona y evento, y un DNI por evento), con los
+     * mismos errores, 409 {@code tope-por-evento} y {@code dni-con-entrada}.
+     * Las reglas están en Ventas, que tiene las entradas; Reventa no las
+     * copia.</li>
      * <li>Se toma la publicación con un UPDATE condicional (sigue ACTIVA, pero
      * con la compra anotada): de dos compras a la vez, una sola llega a
      * cobrar.</li>
@@ -208,6 +215,19 @@ public class ServicioDeReventa implements IReventa {
                     "No podés comprar tu propia publicación.");
         }
         exigirReventaAbierta(publicacion.getEventoId());
+
+        // DEF-30: el tope por evento y el DNI por evento, antes de tomar y de cobrar. No se mira en el reintento
+        // de una compra que ya tomó la publicación con ese mismo DNI: su cobro pudo haber salido, y cortarla
+        // dejaría el pago sin compra (el mismo criterio de la compra del catálogo). Si el reintento trae otro
+        // DNI, sí se mira, porque la entrada quedaría a nombre de alguien sin controlar. Si Ventas dice que no,
+        // la toma sigue con el titular anterior y la cierra un reintento con ese titular o la conciliación.
+        boolean reintentoDeLaToma = compradorId.equals(publicacion.getCompradorId())
+                && clave.equals(publicacion.getClaveCompra())
+                && compra.titular().dni().equals(publicacion.getTitularDni());
+        if (!reintentoDeLaToma) {
+            ventas.controlarCompra(publicacion.getEntradaId(), publicacion.getVendedorId(), compradorId,
+                    new ClienteDeVentas.Titular(compra.titular().nombre().strip(), compra.titular().dni()));
+        }
 
         // La toma anota también el titular: si el cobro se hace y la compra no termina, la conciliación
         // transfiere la entrada a su nombre sin esperar al comprador.

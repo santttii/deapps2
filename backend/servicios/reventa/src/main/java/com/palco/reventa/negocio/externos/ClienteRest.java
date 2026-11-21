@@ -59,20 +59,35 @@ public class ClienteRest {
 
         /** El {@code type} del error (Problem Details), o null si el cuerpo no lo trae. */
         public String tipo() {
+            Problema problema = problema();
+            return problema == null ? null : problema.type();
+        }
+
+        /** El {@code detail} del error (Problem Details), o null si el cuerpo no lo trae. */
+        public String detalle() {
+            Problema problema = problema();
+            return problema == null ? null : problema.detail();
+        }
+
+        private Problema problema() {
             if (cuerpo == null || cuerpo.isBlank()) {
                 return null;
             }
             try {
-                Problema problema = JSONB.fromJson(cuerpo, Problema.class);
-                return problema == null ? null : problema.type();
+                return JSONB.fromJson(cuerpo, Problema.class);
             } catch (JsonbException e) {
                 return null;
             }
         }
     }
 
-    /** De un error de otro servicio solo se lee el {@code type}. */
-    public record Problema(String type) {
+    /**
+     * De un error de otro servicio se lee el {@code type} y el
+     * {@code detail}. El detalle solo se muestra cuando el error es una regla
+     * del otro servicio que Reventa devuelve tal cual (el tope por evento y
+     * el DNI por evento de Ventas).
+     */
+    public record Problema(String type, String detail) {
     }
 
     @Inject

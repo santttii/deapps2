@@ -25,6 +25,19 @@ public final class TiposDeProblema {
     /** 409: nadie compra su propia publicación. */
     public static final String COMPRA_PROPIA = "compra-propia";
 
+    /**
+     * 409: con esta compra el comprador pasaría de 6 entradas para el evento,
+     * sumando todas sus compras. La regla y el texto son de Ventas: es el
+     * mismo error de una compra del catálogo.
+     */
+    public static final String TOPE_POR_EVENTO = "tope-por-evento";
+
+    /**
+     * 409: el DNI del titular ya tiene una entrada para el evento. Como
+     * {@link #TOPE_POR_EVENTO}, la regla y el texto son de Ventas.
+     */
+    public static final String DNI_CON_ENTRADA = "dni-con-entrada";
+
     private TiposDeProblema() {
     }
 }

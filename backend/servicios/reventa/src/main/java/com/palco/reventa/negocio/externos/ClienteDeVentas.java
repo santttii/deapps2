@@ -8,12 +8,14 @@ import jakarta.inject.Inject;
 import jakarta.json.bind.JsonbException;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.ReglasDeNegocio;
 import com.palco.reventa.negocio.TiposDeProblema;
 import com.palco.reventa.negocio.externos.ClienteRest.Respuesta;
 
 /**
  * Lo que Reventa le pide a ServicioDeVentas, dueña de las entradas: leer una
- * entrada del vendedor, publicarla, retirarla y transferirla al comprador.
+ * entrada del vendedor, publicarla, retirarla, controlar antes de cobrar que
+ * el comprador pueda quedarse con ella y transferírsela.
  * Son las operaciones internas de {@code /api/v1/operaciones-de-reventa}, con
  * el token de servicio: Reventa no toca la tabla de entradas ni usa clases de
  * Ventas.
@@ -57,6 +59,9 @@ public class ClienteDeVentas {
             Titular titular, long precio, String pagoId) {
     }
 
+    public record PedidoDeControl(String entradaId, String vendedorId, String compradorId, Titular titular) {
+    }
+
     @Inject
     ClienteRest rest;
 
@@ -82,6 +87,41 @@ public class ClienteDeVentas {
                 ClienteRest.JSONB.toJson(new PedidoDeVendedor(entradaId, vendedorId)));
         return leer(respuesta, 200, Entrada.class, "retirar la entrada " + entradaId,
                 TiposDeProblema.PUBLICACION_NO_ACTIVA);
+    }
+
+    /**
+     * Antes de cobrar, las reglas entre compras de Ventas: el tope de 6
+     * entradas por persona y evento y un DNI por evento. Ventas responde 204
+     * si el comprador puede quedarse con la entrada. Si no, responde 409
+     * {@code tope-por-evento} o {@code dni-con-entrada}, que salen con el
+     * mismo tipo y el mismo detalle: es el error de una compra del catálogo,
+     * y el texto lo arma quien tiene la regla. No cambia nada en Ventas.
+     */
+    public void controlarCompra(String entradaId, String vendedorId, String compradorId, Titular titular) {
+        Respuesta respuesta = rest.llamar("POST", RAIZ + "/controles-de-compra", Map.of(), Map.of(),
+                ClienteRest.JSONB.toJson(new PedidoDeControl(entradaId, vendedorId, compradorId, titular)));
+        if (respuesta.estado() == 204) {
+            return;
+        }
+        String detalle = respuesta.detalle() == null || respuesta.detalle().isBlank() ? null : respuesta.detalle();
+        if (respuesta.estado() == 409 && ("/problemas/" + TiposDeProblema.TOPE_POR_EVENTO).equals(respuesta.tipo())) {
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.TOPE_POR_EVENTO, detalle != null ? detalle
+                    : "Cada persona puede tener hasta " + ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO
+                            + " entradas por evento, sumando todas sus compras: no podés comprar más para este evento.");
+        }
+        if (respuesta.estado() == 409 && ("/problemas/" + TiposDeProblema.DNI_CON_ENTRADA).equals(respuesta.tipo())) {
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.DNI_CON_ENTRADA, detalle != null ? detalle
+                    : "El DNI " + titular.dni() + " ya tiene una entrada para este evento. Cada persona puede tener"
+                            + " una sola entrada por evento.");
+        }
+        // Que la entrada ya no sea del vendedor (404) es que la publicación quedó vieja: no se vende.
+        if (respuesta.estado() == 404 && "/problemas/no-encontrado".equals(respuesta.tipo())) {
+            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.PUBLICACION_NO_ACTIVA,
+                    "La publicación ya no está disponible.");
+        }
+        LOG.warning("Ventas respondió " + respuesta.estado() + " al controlar la compra de la entrada " + entradaId
+                + ".");
+        throw new ErroresDeNegocio.SinRespuesta(VENTAS_NO_RESPONDE);
     }
 
     /**

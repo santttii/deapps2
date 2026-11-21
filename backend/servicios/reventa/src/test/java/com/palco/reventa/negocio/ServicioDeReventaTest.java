@@ -2,6 +2,7 @@ package com.palco.reventa.negocio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -30,6 +32,7 @@ import com.palco.reventa.api.Dtos.NuevaPublicacionDto;
 import com.palco.reventa.api.Dtos.PublicacionDto;
 import com.palco.reventa.api.Dtos.TitularDto;
 import com.palco.reventa.datos.PublicacionRepository;
+import com.palco.reventa.dominio.EstadoPublicacion;
 import com.palco.reventa.dominio.Publicacion;
 import com.palco.reventa.negocio.externos.ClienteDeEventos;
 import com.palco.reventa.negocio.externos.ClienteDePagos;
@@ -176,6 +179,17 @@ class ServicioDeReventaTest {
     }
 
     @Test
+    void unaEntradaConUnIdQueNoEsUnIdNoSeLePreguntaAVentas() {
+        // El id va en la ruta del pedido a Ventas: con una barra o un espacio podría apuntar a otra ruta.
+        for (String id : new String[] {"../T-1", "T 1", "", null, "T-" + "x".repeat(39)}) {
+            assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                    () -> servicio.publicar(VENDEDOR, new NuevaPublicacionDto(id, 50_000L)), "id: " + id);
+        }
+
+        verifyNoInteractions(ventas, eventos, publicaciones);
+    }
+
+    @Test
     void laReventaCierraTresHorasAntesDelEvento() {
         // A las 17:59 faltan 3 horas y 1 minuto: está abierta.
         relojALas(LocalDateTime.of(2026, 11, 20, 17, 59));
@@ -249,6 +263,160 @@ class ServicioDeReventaTest {
         assertEquals("qr-nuevo", hecha.entrada().codigoQr());
         verify(publicaciones).marcarVendida(eq("R-1"), eq(COMPRADOR), eq(CLAVE), eq("V-nueva"), eq("P-1"), any());
         verify(publicaciones, never()).liberar(anyString(), anyString());
+    }
+
+    // ---- Comprar: el tope por evento y un DNI por evento, que controla Ventas (DEF-30) ----
+
+    @Test
+    void antesDeTomarYDeCobrarVentasControlaAlCompradorYAlTitular() {
+        publicacionActivaTomable();
+        when(pagos.cobrar(anyString(), anyLong(), anyString(), anyString(), anyString()))
+                .thenReturn(new ClienteDePagos.Cobro("P-1", true, null));
+        when(ventas.transferir(anyString(), anyString(), anyString(), anyString(), any(), anyLong(), anyString()))
+                .thenReturn(transferencia());
+        when(publicaciones.marcarVendida(anyString(), anyString(), anyString(), anyString(), anyString(), any()))
+                .thenReturn(true);
+
+        servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE);
+
+        InOrder orden = inOrder(ventas, publicaciones, pagos);
+        orden.verify(ventas).controlarCompra("T-1", VENDEDOR, COMPRADOR,
+                new ClienteDeVentas.Titular("Bruno Díaz", "40111222"));
+        orden.verify(publicaciones).tomar(eq("R-1"), eq(COMPRADOR), eq(CLAVE), any(), any(), any());
+        orden.verify(pagos).cobrar(anyString(), anyLong(), anyString(), anyString(), anyString());
+    }
+
+    private void ventasRechazaElControl(String tipo, String detalle) {
+        org.mockito.Mockito.doThrow(new ErroresDeNegocio.Conflicto(tipo, detalle)).when(ventas)
+                .controlarCompra(anyString(), anyString(), anyString(), any());
+    }
+
+    private void noSeTomoNiSeCobroNiSeTransfirio() {
+        verify(publicaciones, never()).tomar(anyString(), anyString(), anyString(), any(), any(), any());
+        verifyNoInteractions(pagos, devoluciones);
+        verify(ventas, never()).transferir(anyString(), anyString(), anyString(), anyString(), any(), anyLong(),
+                anyString());
+    }
+
+    @Test
+    void unTitularQueYaTieneEntradaParaElEventoNoCompraEnLaReventa() {
+        publicacionActivaTomable();
+        String detalle = "El DNI 40111222 ya tiene una entrada para este evento. Cada persona puede tener una sola"
+                + " entrada por evento.";
+        ventasRechazaElControl(TiposDeProblema.DNI_CON_ENTRADA, detalle);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, error.tipo());
+        assertEquals(detalle, error.getMessage());
+        noSeTomoNiSeCobroNiSeTransfirio();
+    }
+
+    @Test
+    void unCompradorConSeisEntradasParaElEventoNoCompraOtraEnLaReventa() {
+        publicacionActivaTomable();
+        String detalle = "Cada persona puede tener hasta 6 entradas por evento, sumando todas sus compras. Ya tenés 6:"
+                + " no podés comprar más para este evento.";
+        ventasRechazaElControl(TiposDeProblema.TOPE_POR_EVENTO, detalle);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        assertEquals(TiposDeProblema.TOPE_POR_EVENTO, error.tipo());
+        assertEquals(detalle, error.getMessage());
+        noSeTomoNiSeCobroNiSeTransfirio();
+    }
+
+    @Test
+    void siVentasNoRespondeAlControlarNoSeTomaNiSeCobra() {
+        publicacionActivaTomable();
+        org.mockito.Mockito.doThrow(new ErroresDeNegocio.SinRespuesta("Ventas no responde")).when(ventas)
+                .controlarCompra(anyString(), anyString(), anyString(), any());
+
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        noSeTomoNiSeCobroNiSeTransfirio();
+    }
+
+    @Test
+    void elReintentoDeUnaCompraQueYaTomoLaPublicacionNoSeVuelveAControlar() {
+        // Pagos no respondió y la toma quedó: el cobro pudo haber salido. Aunque Ventas ahora dijera que no,
+        // el reintento con la misma clave termina la compra en lugar de dejar el pago sin entrada.
+        Publicacion tomada = mock(Publicacion.class);
+        when(tomada.getId()).thenReturn("R-1");
+        when(tomada.getEntradaId()).thenReturn("T-1");
+        when(tomada.getVendedorId()).thenReturn(VENDEDOR);
+        when(tomada.getEventoId()).thenReturn("ev-1");
+        when(tomada.getPrecio()).thenReturn(55_000L);
+        when(tomada.getEstado()).thenReturn(EstadoPublicacion.ACTIVA);
+        when(tomada.getCompradorId()).thenReturn(COMPRADOR);
+        when(tomada.getClaveCompra()).thenReturn(CLAVE);
+        // La toma quedó a nombre del mismo DNI que trae el reintento (el de compra()).
+        when(tomada.getTitularDni()).thenReturn("40111222");
+        when(tomada.getPublicada()).thenReturn(LocalDateTime.of(2026, 11, 19, 15, 0));
+        when(publicaciones.buscarPorId("R-1")).thenReturn(Optional.of(tomada));
+        when(publicaciones.tomar(eq("R-1"), eq(COMPRADOR), eq(CLAVE), any(), any(), any())).thenReturn(true);
+        ventasRechazaElControl(TiposDeProblema.TOPE_POR_EVENTO, "Ya tenés 6.");
+        when(pagos.cobrar(anyString(), anyLong(), anyString(), anyString(), anyString()))
+                .thenReturn(new ClienteDePagos.Cobro("P-1", true, null));
+        when(ventas.transferir(anyString(), anyString(), anyString(), anyString(), any(), anyLong(), anyString()))
+                .thenReturn(transferencia());
+        when(publicaciones.marcarVendida(anyString(), anyString(), anyString(), anyString(), anyString(), any()))
+                .thenReturn(true);
+
+        CompraHechaDto hecha = servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE);
+
+        assertEquals("V-nueva", hecha.ventaId());
+        verify(ventas, never()).controlarCompra(anyString(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void elReintentoConOtroDniSeControlaYSiVentasDiceQueNoLaTomaQuedaComoEstaba() {
+        // Mismo comprador y misma clave, pero a nombre de otro DNI: sin control, la entrada quedaría a nombre de
+        // alguien que nadie miró. Con el 409 la toma no se toca: sigue con el titular anterior y la cierra un
+        // reintento con ese titular o la conciliación.
+        Publicacion tomada = mock(Publicacion.class);
+        when(tomada.getId()).thenReturn("R-1");
+        when(tomada.getEntradaId()).thenReturn("T-1");
+        when(tomada.getVendedorId()).thenReturn(VENDEDOR);
+        when(tomada.getEventoId()).thenReturn("ev-1");
+        when(tomada.getEstado()).thenReturn(EstadoPublicacion.ACTIVA);
+        when(tomada.getCompradorId()).thenReturn(COMPRADOR);
+        when(tomada.getClaveCompra()).thenReturn(CLAVE);
+        when(tomada.getTitularDni()).thenReturn("30999888");
+        when(publicaciones.buscarPorId("R-1")).thenReturn(Optional.of(tomada));
+        ventasRechazaElControl(TiposDeProblema.DNI_CON_ENTRADA, "El DNI 40111222 ya tiene una entrada.");
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, error.tipo());
+        verify(ventas).controlarCompra("T-1", VENDEDOR, COMPRADOR,
+                new ClienteDeVentas.Titular("Bruno Díaz", "40111222"));
+        noSeTomoNiSeCobroNiSeTransfirio();
+        verify(publicaciones, never()).liberar(anyString(), anyString());
+    }
+
+    @Test
+    void otroCompradorConLaMismaClaveNoEsUnReintentoYSeControla() {
+        // La toma es de otra persona: para este comprador es una compra nueva, y se controla.
+        Publicacion tomada = mock(Publicacion.class);
+        when(tomada.getId()).thenReturn("R-1");
+        when(tomada.getEntradaId()).thenReturn("T-1");
+        when(tomada.getVendedorId()).thenReturn(VENDEDOR);
+        when(tomada.getEventoId()).thenReturn("ev-1");
+        when(tomada.getEstado()).thenReturn(EstadoPublicacion.ACTIVA);
+        when(tomada.getCompradorId()).thenReturn("U-otro");
+        when(tomada.getClaveCompra()).thenReturn(CLAVE);
+        when(publicaciones.buscarPorId("R-1")).thenReturn(Optional.of(tomada));
+        ventasRechazaElControl(TiposDeProblema.DNI_CON_ENTRADA, "El DNI 40111222 ya tiene una entrada.");
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, error.tipo());
+        noSeTomoNiSeCobroNiSeTransfirio();
     }
 
     @Test
@@ -420,6 +588,70 @@ class ServicioDeReventaTest {
         CompraDto conDniMalo = new CompraDto(new TitularDto("Bruno Díaz", "40.111.222"), "tarjeta", "tok_test");
         assertThrows(ErroresDeNegocio.DatosInvalidos.class,
                 () -> servicio.comprar(COMPRADOR, "R-1", conDniMalo, CLAVE));
+    }
+
+    @Test
+    void unaPublicacionQueYaNoEstaActivaNoSeTomaNiSeCobra() {
+        // Vendida a otra persona, retirada por el vendedor o anulada: no llega ni a la toma.
+        for (EstadoPublicacion estado : new EstadoPublicacion[] {EstadoPublicacion.VENDIDA, EstadoPublicacion.RETIRADA,
+                EstadoPublicacion.ANULADA}) {
+            Publicacion cerrada = mock(Publicacion.class);
+            when(cerrada.getId()).thenReturn("R-1");
+            when(cerrada.getVendedorId()).thenReturn(VENDEDOR);
+            when(cerrada.getEventoId()).thenReturn("ev-1");
+            when(cerrada.getPrecio()).thenReturn(55_000L);
+            when(cerrada.getEstado()).thenReturn(estado);
+            when(cerrada.getCompradorId()).thenReturn("U-otro");
+            when(publicaciones.buscarPorId("R-1")).thenReturn(Optional.of(cerrada));
+
+            ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                    () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE), "estado: " + estado);
+
+            assertEquals(TiposDeProblema.PUBLICACION_NO_ACTIVA, error.tipo());
+            assertEquals("La publicación ya no está disponible.", error.getMessage());
+        }
+
+        verify(publicaciones, never()).tomar(anyString(), anyString(), anyString(), any(), any(), any());
+        verifyNoInteractions(pagos);
+    }
+
+    @Test
+    void unaIdempotencyKeyVaciaEnBlancoOConUnSaltoDeLineaEsDatosInvalidos() {
+        for (String clave : new String[] {"", "   ", "clave\nmala", "clave\tmala"}) {
+            ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                    () -> servicio.comprar(COMPRADOR, "R-1", compra(), clave), "clave: " + clave);
+            assertTrue(error.campos().containsKey("Idempotency-Key"), "campos: " + error.campos());
+        }
+
+        // Se corta antes de buscar la publicación: sin clave no hay compra que reconocer en un reintento.
+        verifyNoInteractions(publicaciones, pagos);
+    }
+
+    @Test
+    void laIdempotencyKeyLlegaHasta64Caracteres() {
+        // Con "R-xxxxxxxx:" adelante, 64 entran en las 80 de Pagos; una más ya no.
+        String larga = "k".repeat(ServicioDeReventa.LARGO_MAXIMO_CLAVE + 1);
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), larga));
+        assertTrue(error.campos().containsKey("Idempotency-Key"), "campos: " + error.campos());
+        verifyNoInteractions(publicaciones);
+
+        // Con 64 pasa la validación y la compra sigue: acá se corta porque la publicación no existe.
+        String justa = "k".repeat(ServicioDeReventa.LARGO_MAXIMO_CLAVE);
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.comprar(COMPRADOR, "R-1", compra(), justa));
+        verify(publicaciones).buscarPorId("R-1");
+    }
+
+    @Test
+    void unTitularConUnSaltoDeLineaEnElNombreEsDatosInvalidos() {
+        // El nombre va impreso en la entrada y en el log: tiene que ser una sola línea.
+        CompraDto conSalto = new CompraDto(new TitularDto("Bruno\nDíaz", "40111222"), "tarjeta", "tok_test");
+
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", conSalto, CLAVE));
+
+        assertTrue(error.campos().containsKey("titular.nombre"), "campos: " + error.campos());
+        verifyNoInteractions(publicaciones, pagos);
     }
 
     @Test

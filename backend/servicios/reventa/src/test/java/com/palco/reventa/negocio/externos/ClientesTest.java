@@ -206,6 +206,58 @@ class ClientesTest {
     }
 
     @Test
+    void elControlDeLaCompraDevuelveElTopeYElDniConElTipoYElDetalleDeVentas() {
+        ClienteDeVentas ventas = new ClienteDeVentas();
+        ventas.rest = rest;
+        String ruta = ClienteDeVentas.RAIZ + "/controles-de-compra";
+        String tope = "Cada persona puede tener hasta 6 entradas por evento, sumando todas sus compras. Ya tenés 6:"
+                + " no podés comprar más para este evento.";
+        String dni = "El DNI 40111222 ya tiene una entrada para este evento. Cada persona puede tener una sola"
+                + " entrada por evento.";
+        when(rest.llamar(eq("POST"), eq(ruta), anyMap(), anyMap(), any()))
+                .thenReturn(new Respuesta(204, null),
+                        new Respuesta(409, "{\"type\":\"/problemas/tope-por-evento\",\"detail\":\"" + tope + "\"}"),
+                        new Respuesta(409, "{\"type\":\"/problemas/dni-con-entrada\",\"detail\":\"" + dni + "\"}"),
+                        new Respuesta(409, "{\"type\":\"/problemas/dni-con-entrada\"}"),
+                        new Respuesta(404, "{\"type\":\"/problemas/no-encontrado\"}"),
+                        new Respuesta(500, null));
+        ClienteDeVentas.Titular titular = new ClienteDeVentas.Titular("Bruno Díaz", "40111222");
+
+        // 204: puede comprar.
+        ventas.controlarCompra("T-1", "U-vendedor", "U-comprador", titular);
+
+        // 409 de una regla: el mismo tipo y el mismo texto que da Ventas.
+        ErroresDeNegocio.Conflicto llegoAlTope = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> ventas.controlarCompra("T-1", "U-vendedor", "U-comprador", titular));
+        assertEquals(TiposDeProblema.TOPE_POR_EVENTO, llegoAlTope.tipo());
+        assertEquals(tope, llegoAlTope.getMessage());
+        ErroresDeNegocio.Conflicto conEntrada = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> ventas.controlarCompra("T-1", "U-vendedor", "U-comprador", titular));
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, conEntrada.tipo());
+        assertEquals(dni, conEntrada.getMessage());
+        // Sin detalle, el tipo sigue siendo el de la regla y el texto lo arma Reventa con el DNI pedido.
+        ErroresDeNegocio.Conflicto sinDetalle = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> ventas.controlarCompra("T-1", "U-vendedor", "U-comprador", titular));
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, sinDetalle.tipo());
+        assertTrue(sinDetalle.getMessage().contains("40111222"), sinDetalle.getMessage());
+
+        // La entrada ya no es del vendedor: la publicación quedó vieja. Y un 500 es que Ventas no responde.
+        ErroresDeNegocio.Conflicto vieja = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> ventas.controlarCompra("T-1", "U-vendedor", "U-comprador", titular));
+        assertEquals(TiposDeProblema.PUBLICACION_NO_ACTIVA, vieja.tipo());
+        assertThrows(ErroresDeNegocio.SinRespuesta.class,
+                () -> ventas.controlarCompra("T-1", "U-vendedor", "U-comprador", titular));
+
+        // El DNI viaja en el cuerpo, no en la URL.
+        org.mockito.ArgumentCaptor<String> cuerpo = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(rest, times(6)).llamar(eq("POST"), eq(ruta), eq(Map.of()), anyMap(), cuerpo.capture());
+        for (String campo : new String[] {"\"entradaId\":\"T-1\"", "\"vendedorId\":\"U-vendedor\"",
+                "\"compradorId\":\"U-comprador\"", "\"dni\":\"40111222\""}) {
+            assertTrue(cuerpo.getValue().contains(campo), cuerpo.getValue());
+        }
+    }
+
+    @Test
     void eventosBuscaLaFechaDelEventoEnElCatalogo() {
         ClienteDeEventos eventos = new ClienteDeEventos();
         eventos.rest = rest;
