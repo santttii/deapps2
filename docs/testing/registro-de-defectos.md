@@ -105,10 +105,15 @@ contra el máximo.
 | DEF-56 | Los guiones de `docs/entrega3/evidencia/` usan por defecto un secreto entre servicios que el servidor ya no acepta | Cosmética | Baja | Nuevo (confirmado en el código) | Santiago Loto | 20/11 | Pendiente |
 | DEF-57 | El OpenAPI no documentaba `GET /eventos/imagenes/{id}` ni `GET /usuarios/cuentas`, y contaba la subida de fotos solo con Supabase | Menor | Media | Corregido, a verificar sobre el tag (contrato) | Sebastian Deya | 20/11 | Corrección del 20/11 |
 | DEF-58 | El token de sesión queda en `localStorage`, donde un script inyectado en la página podría leerlo | Menor | Baja | Aceptado (decisión de diseño, documento único 5.7) | Valentina Frisoli | 20/11 | Riesgo aceptado |
+| DEF-59 | `POST /usuarios/password/olvide` (y los demás endpoints que reciben un email) responde 500 si el email trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Sebastian Deya | 21/11 | Corrección del 21/11 |
+| DEF-60 | `POST /v1/operaciones-de-reventa/transferencias` responde 500 si un id del pedido trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Julián Zuchowicki | 21/11 | Corrección del 21/11 |
+| DEF-61 | `POST /v1/validacion/escaneos` responde 500 si el `codigoQr` trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Joaquin Molina | 21/11 | Corrección del 21/11 |
+| DEF-62 | Un 400 de validación lista los campos de `errores` en un orden que cambia entre pedidos iguales | Menor | Baja | Nuevo (reproducido) | Sebastian Deya | 21/11 | Pendiente |
 
-Totales: 58 defectos. 28 cerrados, 12 corregidos que falta verificar (DEF-02, DEF-14, DEF-30, DEF-32, DEF-34, DEF-35,
-DEF-36, DEF-47, DEF-52, DEF-53, DEF-55 y DEF-57), 1 en corrección (DEF-33), 3 aceptados (DEF-38, DEF-39 y DEF-58) y
-14 nuevos abiertos. Por severidad: 1 bloqueante, 6 críticos, 16 mayores, 27 menores y 8 cosméticos.
+Totales: 62 defectos. 28 cerrados, 15 corregidos que falta verificar (DEF-02, DEF-14, DEF-30, DEF-32, DEF-34, DEF-35,
+DEF-36, DEF-47, DEF-52, DEF-53, DEF-55, DEF-57, DEF-59, DEF-60 y DEF-61), 1 en corrección (DEF-33), 3 aceptados
+(DEF-38, DEF-39 y DEF-58) y 15 nuevos abiertos. Por severidad: 1 bloqueante, 6 críticos, 16 mayores, 31 menores y
+8 cosméticos.
 
 ## 3. Defectos abiertos y corregidos que falta verificar
 
@@ -682,6 +687,81 @@ solo con Supabase**
   los tokens, la de DEF-38.
 - **Corrección propuesta:** una cookie `HttpOnly`, `Secure` y `SameSite=Strict` que Usuarios emita al ingresar, junto
   con el token corto y revocable que propone DEF-38.
+
+### DEF-59 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
+
+**`POST /usuarios/password/olvide` (y los demás endpoints que reciben un email) responde 500 si el email trae el
+carácter nulo U+0000**
+
+- **Pasos:** el pedido que armó Schemathesis en el workflow "Contrato" (caso KU0Oyp): un cuerpo con
+  `"email": "ç\u0000"`.
+- **Esperado:** 400 en Problem Details.
+- **Obtenido:** 500 `/problemas/error-inesperado`.
+- **Causa raíz:** `ServicioDeUsuarios.normalizarEmail` pasaba el email tal cual a `buscarPorEmail`, y PostgreSQL no
+  acepta 0x00 en un parámetro de texto: la excepción no es de negocio y `ManejadoresDeErrores.Inesperado` la convierte
+  en 500. H2, la base de los tests, sí lo acepta.
+- **Por qué es Menor:** el pedido se rechaza igual, no cambia datos y ningún email válido tiene ese carácter. Está mal
+  el código de respuesta, y por eso falla la prueba de contrato.
+- **Corrección (21/11):** `normalizarEmail` rechaza con 400 `datos-invalidos` (campo `email`) un email con un carácter
+  de control (`Textos.esDeControl`). Quedan cubiertos registro, verificación, reenvío, ingreso, reinicio y
+  `GET /cuentas`; el teléfono del registro también da 400 y `GET /{usuarioId}` da 404 sin consultar. Contra el
+  compose, el mismo pedido ahora da 400.
+- **Prueba que lo cubre:** `ReinicioDePasswordTest` y `RegistroYVerificacionTest` (casos con el carácter nulo en el
+  email, el teléfono y el id), y la corrida de Schemathesis del tag.
+
+### DEF-60 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
+
+**`POST /v1/operaciones-de-reventa/transferencias` responde 500 si un id del pedido trae el carácter nulo U+0000**
+
+- **Pasos:** el pedido de Schemathesis del workflow "Contrato" (caso fll559): `compradorId` con `\u0000`.
+- **Esperado:** 400 en Problem Details.
+- **Obtenido:** 500 `/problemas/error-inesperado`.
+- **Causa raíz:** `ReventaDeEntradas.transferir` consultaba `buscarPorClave` antes de validar los ids, y PostgreSQL
+  rechaza 0x00 en un parámetro de texto. Las otras operaciones del recurso (consultar, publicar, retirar y
+  controles-de-compra) tenían el mismo problema.
+- **Por qué es Menor:** es una API interna (rol `servicio`), el pedido no cambia nada (la transacción se deshace) y
+  ningún id de Palco tiene ese carácter. Hace fallar la prueba de contrato.
+- **Corrección (21/11):** `exigirId` rechaza con 400 `datos-invalidos` un id con un carácter de control, antes de la
+  primera consulta de cada operación, con la misma regla que ya aplicaba `ServicioDeVentas` a una compra. Además,
+  `UsoDeEntradas.marcarUsada` da 404 sin consultar si el código QR trae un carácter de control.
+- **Prueba que lo cubre:** `ReventaDeEntradasEnH2Test` (ids con caracteres de control en cada operación) y
+  `UsoDeEntradasTest`, y la corrida de Schemathesis del tag.
+
+### DEF-61 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
+
+**`POST /v1/validacion/escaneos` responde 500 si el `codigoQr` trae el carácter nulo U+0000**
+
+- **Pasos:** el pedido de Schemathesis del workflow "Contrato" (caso sYpQOI, prueba con estado): staff asignado a
+  ev-4 y un `codigoQr` que empieza con `\u0000`.
+- **Esperado:** 400 en Problem Details.
+- **Obtenido:** 500 `/problemas/error-inesperado`.
+- **Causa raíz:** `ServicioDeValidacion.escanear` le pasaba el código a Ventas y después lo guardaba en la tabla
+  `escaneo`, y PostgreSQL rechaza 0x00 en un texto. Lo mismo con un `eventoId` así, con `GET /escaneos/{id}` y con el
+  email de `PUT` y `DELETE /puertas/{eventoId}/{email}`.
+- **Por qué es Menor:** ningún QR generado tiene ese carácter (es un UUID), no deja entrar a nadie y no registra nada.
+  Hace fallar la prueba de contrato.
+- **Corrección (21/11):** se rechazan con 400 `datos-invalidos` el código QR, el evento y el email que traigan un
+  carácter de control, antes de llamar a Ventas o de guardar; `GET /escaneos/{id}` con un carácter de control da 404
+  sin consultar. Contra el compose, el mismo pedido ahora da 400.
+- **Prueba que lo cubre:** `ServicioDeValidacionTest` (código, evento, id y email con el carácter nulo) y la corrida
+  de Schemathesis del tag.
+
+### DEF-62 · Menor · Prioridad Baja · Nuevo (reproducido)
+
+**Un 400 de validación lista los campos de `errores` en un orden que cambia entre pedidos iguales**
+
+- **Pasos:** mandar varias veces el mismo `POST /api/usuarios/registro` con dos o más campos inválidos (por ejemplo,
+  una contraseña corta y un email inválido).
+- **Esperado:** el mismo cuerpo de respuesta cada vez.
+- **Obtenido:** `ManejadoresDeErrores.Validacion` (`backend/common`) arma el mapa de errores recorriendo
+  `getConstraintViolations()`, que es un conjunto sin orden fijo: el mismo DTO validado tres veces seguidas devolvió
+  los campos en órdenes distintos.
+- **Por qué es Menor:** los mensajes son correctos y el frontend lee los campos por nombre. Pero la respuesta no es
+  determinista, y por eso el escaneo de ZAP da un falso positivo High de inyección SQL (regla 40018) en el registro:
+  compara respuestas que difieren solo en ese orden. Ese falso positivo está tratado y justificado en
+  `.zap/reglas.tsv`.
+- **Corrección propuesta:** ordenar los campos antes de armar el mapa (por ejemplo, las violaciones ordenadas por su
+  ruta). Es un cambio en `backend/common`, compartido, que se acuerda con su dueño.
 
 ## 4. Defectos cerrados: bloqueantes, críticos y mayores
 
