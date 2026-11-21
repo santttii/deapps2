@@ -220,10 +220,10 @@ export default function CatalogPage() {
       </div>
 
       {franjaReventa.length > 0 && (
-        <section className="bg-ink py-14">
+        <section className="bg-dark py-14">
           <div className="mx-auto max-w-[1240px] px-7">
             <span className="font-mono-label text-[11px] text-accentLt">Canal oficial</span>
-            <h2 className="mt-2 text-[clamp(26px,3vw,36px)] font-semibold tracking-tight text-paper">
+            <h2 className="mt-2 text-[clamp(26px,3vw,36px)] font-semibold tracking-tight text-onDarkStrong">
               Reventa entre hinchas, con techo
             </h2>
             <div className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-6">

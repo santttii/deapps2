@@ -6,7 +6,7 @@ interface BadgeProps {
 }
 
 const tones: Record<string, string> = {
-  accent: 'bg-accent text-white',
+  accent: 'bg-accent text-onAccent',
   ink: 'bg-ink text-paper',
   faint: 'border border-edge text-muted',
 };

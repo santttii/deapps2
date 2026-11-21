@@ -88,8 +88,11 @@ function CodigoQR({ entradaId, valor, size }: CodigoQRProps) {
         role="img"
         aria-label={`Código QR de la entrada ${entradaId}`}
       >
+        {/* Colores fijos a propósito: el código va oscuro sobre blanco en los tres temas, como
+            pide el estándar, porque no todos los lectores leen un QR invertido. #1A1917 es la
+            tinta del tema normal. */}
         <rect width={lado} height={lado} className="fill-white" />
-        <path d={trazo} className="fill-ink" />
+        <path d={trazo} className="fill-[#1A1917]" />
       </svg>
       <figcaption>
         <span className="font-mono-label block text-[10px] text-muted">Código para la puerta</span>

@@ -17,9 +17,9 @@ export default function Stepper({ pasos, activo, onVolver }: StepperProps) {
               type="button"
               disabled={!clickeable}
               onClick={() => clickeable && onVolver?.(i)}
-              className={`font-mono-label h-full w-full border border-l-0 first:border-l px-3 py-3 text-center text-[11px] ${
+              className={`font-mono-label h-full w-full border border-l-0 border-line first:border-l px-3 py-3 text-center text-[11px] ${
                 estado === 'activo'
-                  ? 'bg-accent text-white'
+                  ? 'bg-accent text-onAccent'
                   : estado === 'completo'
                     ? 'bg-ink text-paper'
                     : 'bg-fill text-faint'

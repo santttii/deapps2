@@ -14,9 +14,11 @@ const base =
   'inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-medium tracking-tight transition-transform duration-200 disabled:cursor-not-allowed disabled:opacity-40 min-h-[44px]';
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent text-white hover:-translate-y-0.5 hover:bg-accentDk active:translate-y-0',
+  primary: 'bg-accent text-onAccent hover:-translate-y-0.5 hover:bg-accentDk active:translate-y-0',
   secondary: 'border border-edge text-ink hover:-translate-y-0.5 active:translate-y-0',
-  ghost: 'border border-white text-white hover:bg-white hover:text-ink',
+  // El fantasma va solo sobre la superficie oscura (bg-dark), que es oscura en los tres temas: por
+  // eso el blanco es fijo y no cambia con el tema.
+  ghost: 'border border-white text-white hover:bg-white hover:text-dark',
 };
 
 export default function Button({

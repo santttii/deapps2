@@ -18,7 +18,7 @@ export default function ListingCard({ publicacion, evento, sector, onComprar, hr
   const porcentaje = (publicacion.precio / tope) * 100;
 
   return (
-    <div className="border border-darkLine bg-ink p-5 text-paper">
+    <div className="border border-darkLine bg-dark p-5 text-onDarkStrong">
       <p className="font-mono-label text-[10px] text-onDark">
         {sector.nombre} · {evento.titulo}
       </p>

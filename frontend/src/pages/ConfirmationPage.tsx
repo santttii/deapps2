@@ -128,7 +128,8 @@ export default function ConfirmationPage() {
       else setFase('demorada');
     };
 
-    consultar();
+    // consultar atrapa sus fallas (cuentan como una consulta más): la promesa no se rechaza y no hace falta esperarla.
+    void consultar();
     return () => {
       vigente = false;
       clearTimeout(temporizador);
@@ -176,7 +177,7 @@ export default function ConfirmationPage() {
               initial={{ scale: 0.4, opacity: 0 }}
               animate={{ scale: [0.4, 1.12, 1], opacity: 1 }}
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="flex h-12 w-12 items-center justify-center rounded-dot bg-accent text-white"
+              className="flex h-12 w-12 items-center justify-center rounded-dot bg-accent text-onAccent"
               aria-hidden="true"
             >
               ✓
