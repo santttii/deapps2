@@ -8,14 +8,53 @@ import Button from './Button';
 interface FacturaModalProps {
   // La compra de la que se muestra la factura; null con el modal cerrado.
   ventaId: string | null;
+  // Cuándo se hizo esa compra (la venta se creó). Con ella se distingue una factura en camino de
+  // una demorada; sin ella, la que no está se muestra siempre como en camino.
+  compradaISO?: string;
   onCerrar: () => void;
 }
 
 type Carga =
   | { fase: 'cargando' }
   | { fase: 'pendiente' }
+  | { fase: 'demorada' }
+  | { fase: 'rechazada' }
   | { fase: 'error'; mensaje: string }
   | { fase: 'lista'; factura: Factura };
+
+// Lo que se le dice a quien compró cuando la factura no está. Ninguno es un error suyo y las
+// entradas valen igual: la factura no es parte de la compra.
+const AVISOS = {
+  pendiente: 'La factura todavía se está generando con ARCA. Probá de nuevo en unos segundos.',
+  demorada:
+    'La factura está demorada y la estamos revisando. Va a aparecer acá apenas ARCA la autorice; tus entradas valen igual.',
+  rechazada:
+    'ARCA rechazó la factura de esta compra y la estamos revisando: no tenés que hacer nada. Tus entradas valen igual.',
+} as const;
+
+// Pasado este tiempo desde la compra, una factura que no está ya no es la espera normal: ARCA
+// responde en milisegundos y, si no contesta, el broker deja de reintentar en menos de un minuto y
+// el mensaje queda en la cola de fallidos (DLQ) hasta que se lo reprocese. Se cuenta desde que se
+// creó la venta (la fecha que tiene esta pantalla) y el pago llega después, por eso son minutos y
+// no segundos. Con ARCA andando, quien pagó tarde no ve el aviso: la factura sale enseguida.
+const MINUTOS_HASTA_DEMORA = 5;
+
+// Qué mostrar cuando la consulta no trae la factura. Facturación responde 409
+// comprobante-rechazado si ARCA la rechazó (volver a consultar no la va a traer) y 404 mientras no
+// hay factura: en camino, unos segundos después del pago, o demorada, si ARCA no respondió.
+function sinFactura(error: unknown, compradaISO: string | undefined): Carga {
+  if (error instanceof ErrorApi && error.estado === 409 && error.tipo === 'comprobante-rechazado') {
+    return { fase: 'rechazada' };
+  }
+  if (error instanceof ErrorApi && error.estado === 404) {
+    // Sin la fecha de la compra (o con una que no se entiende) queda NaN, la comparación da false y
+    // se muestra como en camino, igual que antes de conocerla.
+    const compra = compradaISO ? new Date(compradaISO).getTime() : Number.NaN;
+    const demorada = Date.now() - compra > MINUTOS_HASTA_DEMORA * 60_000;
+    return { fase: demorada ? 'demorada' : 'pendiente' };
+  }
+  return { fase: 'error', mensaje: mensajeDeError(error) };
+}
 
 // Los tipos de comprobante de ARCA que emite Palco. Uno que no esté acá se muestra con su código.
 const TIPOS: Record<number, string> = { 6: 'Factura B' };
@@ -25,9 +64,10 @@ const TIPOS: Record<number, string> = { 6: 'Factura B' };
 const dia = (aaaammdd: string) => fecha(`${aaaammdd}T12:00:00`);
 
 // La factura electrónica de una compra, como la guardó Facturación con el CAE de ARCA. Se pide
-// cada vez que se abre: si todavía se está generando, se puede volver a consultar. Quien lo usa le
-// pone de key la compra, así cada factura arranca de cero y no se ve un instante la anterior.
-export default function FacturaModal({ ventaId, onCerrar }: FacturaModalProps) {
+// cada vez que se abre: si todavía se está generando o está demorada, se puede volver a consultar;
+// si ARCA la rechazó, no, porque eso lo resuelve una persona. Quien lo usa le pone de key la compra,
+// así cada factura arranca de cero y no se ve un instante la anterior.
+export default function FacturaModal({ ventaId, compradaISO, onCerrar }: FacturaModalProps) {
   const [carga, setCarga] = useState<Carga>({ fase: 'cargando' });
   const [vueltas, setVueltas] = useState(0);
 
@@ -36,16 +76,11 @@ export default function FacturaModal({ ventaId, onCerrar }: FacturaModalProps) {
     let vigente = true;
     obtenerFactura(ventaId)
       .then((factura) => vigente && setCarga({ fase: 'lista', factura }))
-      .catch((error: unknown) => {
-        if (!vigente) return;
-        // 404: la factura se pide a ARCA por mensajería después del pago y puede tardar unos segundos.
-        if (error instanceof ErrorApi && error.estado === 404) setCarga({ fase: 'pendiente' });
-        else setCarga({ fase: 'error', mensaje: mensajeDeError(error) });
-      });
+      .catch((error: unknown) => vigente && setCarga(sinFactura(error, compradaISO)));
     return () => {
       vigente = false;
     };
-  }, [ventaId, vueltas]);
+  }, [ventaId, compradaISO, vueltas]);
 
   return (
     <Modal abierto={ventaId !== null} onCerrar={onCerrar} titulo="Factura de la compra">
@@ -54,22 +89,22 @@ export default function FacturaModal({ ventaId, onCerrar }: FacturaModalProps) {
           Buscando la factura…
         </p>
       )}
-      {(carga.fase === 'pendiente' || carga.fase === 'error') && (
+      {carga.fase !== 'cargando' && carga.fase !== 'lista' && (
         <div className="flex flex-col gap-4">
           <p role="alert" className="border-l-2 border-accent pl-2 text-sm text-ink">
-            {carga.fase === 'pendiente'
-              ? 'La factura todavía se está generando con ARCA. Probá de nuevo en unos segundos.'
-              : carga.mensaje}
+            {carga.fase === 'error' ? carga.mensaje : AVISOS[carga.fase]}
           </p>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setCarga({ fase: 'cargando' });
-              setVueltas((n) => n + 1);
-            }}
-          >
-            Volver a consultar
-          </Button>
+          {carga.fase !== 'rechazada' && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setCarga({ fase: 'cargando' });
+                setVueltas((n) => n + 1);
+              }}
+            >
+              Volver a consultar
+            </Button>
+          )}
         </div>
       )}
       {carga.fase === 'lista' && (

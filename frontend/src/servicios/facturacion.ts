@@ -18,7 +18,9 @@ export interface Factura {
 }
 
 // Responde 404 si la compra no tiene factura todavía (se está pidiendo a ARCA) o si no es del
-// comprador de la sesión: las dos se ven igual.
+// comprador de la sesión: las dos se ven igual. Si ARCA rechazó el comprobante de esa compra,
+// responde 409 con tipo 'comprobante-rechazado': volver a consultar no la va a traer, porque el
+// rechazo lo resuelve una persona.
 export async function obtenerFactura(ventaId: string): Promise<Factura> {
   return pedir<Factura>(`/api/v1/facturas/${encodeURIComponent(ventaId)}`, { conSesion: true });
 }
