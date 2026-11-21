@@ -16,6 +16,11 @@
 # El archivo tiene que estar aunque no tenga ninguna: trivy-action falla si no encuentra el que se le pasa.
 # Cada escaneo deja su tabla en el resumen de la corrida y su reporte (tabla y SARIF) como artefacto.
 #
+# Los reportes van a reporte-trivy/ y no a trivy/: cuando el binario de Trivy no está en la caché,
+# trivy-action (con setup-trivy) baja el script de instalación a ./trivy y al terminar borra esa carpeta
+# con todo lo que tenga. Así se perdía la carpeta de los reportes y el primer escaneo fallaba con "open
+# trivy/dependencias.sarif: no such file or directory" (corrida del 21/11).
+#
 # Las acciones van fijadas por el hash del commit de su versión y no por el tag, que se puede mover: en marzo
 # de 2026 le movieron los tags a trivy-action para que corriera código malicioso en los CI que la usaban.
 # La versión de Trivy también va fija; para subirla, cambiar TRIVY_VERSION.
@@ -46,12 +51,13 @@ jobs:
   dependencias:
     name: Dependencias del repo (trivy fs)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Dos escaneos de hasta 15 minutos cada uno (ver timeout en cada paso).
+    timeout-minutes: 35
     env:
       TRIVY_INCLUDE_DEV_DEPS: 'true'
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - run: mkdir -p trivy
+      - run: mkdir -p reporte-trivy
       - name: Reporte SARIF
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -65,8 +71,12 @@ jobs:
           skip-dirs: .cache
           format: sarif
           limit-severities-for-sarif: true
-          output: trivy/dependencias.sarif
+          output: reporte-trivy/dependencias.sarif
           exit-code: '0'
+          # Trivy corta a los 5 minutos si no se le dice otra cosa. Para entender los pom.xml baja de Maven
+          # Central los pom padres y los BOM que importan (WildFly, Jakarta EE), y con Maven Central lento
+          # no alcanza.
+          timeout: 15m
       - name: Tabla (falla si hay alguna CRITICAL o HIGH sin justificar)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -78,22 +88,23 @@ jobs:
           trivyignores: .trivyignore
           skip-dirs: .cache
           format: table
-          output: trivy/dependencias.txt
+          output: reporte-trivy/dependencias.txt
           exit-code: '1'
+          timeout: 15m
       - name: Resumen
         if: always()
         run: |
           {
             echo '### Trivy: dependencias del repo (CRITICAL y HIGH)'
             echo '```'
-            cat trivy/dependencias.txt 2>/dev/null || echo 'Trivy no llegó a escribir la tabla: ver el log del paso.'
+            cat reporte-trivy/dependencias.txt 2>/dev/null || echo 'Trivy no llegó a escribir la tabla: ver el log del paso.'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: always()
         with:
           name: trivy-dependencias
-          path: trivy/
+          path: reporte-trivy/
           if-no-files-found: ignore
 
   imagenes:
@@ -125,7 +136,7 @@ jobs:
           imagen="$(docker compose config --format json | jq -r .name)-$SERVICIO"
           docker image inspect "$imagen" > /dev/null
           echo "IMAGEN=$imagen" >> "$GITHUB_ENV"
-          mkdir -p trivy
+          mkdir -p reporte-trivy
       - name: Reporte SARIF
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -137,7 +148,7 @@ jobs:
           trivyignores: .trivyignore
           format: sarif
           limit-severities-for-sarif: true
-          output: trivy/imagen-${{ matrix.servicio }}.sarif
+          output: reporte-trivy/imagen-${{ matrix.servicio }}.sarif
           exit-code: '0'
           # WildFly trae cientos de jar: la primera vez se baja también la base de Java de Trivy.
           timeout: 15m
@@ -151,7 +162,7 @@ jobs:
           severity: CRITICAL,HIGH
           trivyignores: .trivyignore
           format: table
-          output: trivy/imagen-${{ matrix.servicio }}.txt
+          output: reporte-trivy/imagen-${{ matrix.servicio }}.txt
           exit-code: '1'
           timeout: 15m
       - name: Resumen
@@ -160,12 +171,12 @@ jobs:
           {
             echo "### Trivy: imagen $SERVICIO ($IMAGEN, CRITICAL y HIGH)"
             echo '```'
-            cat "trivy/imagen-$SERVICIO.txt" 2>/dev/null || echo 'Trivy no llegó a escribir la tabla: ver el log del paso.'
+            cat "reporte-trivy/imagen-$SERVICIO.txt" 2>/dev/null || echo 'Trivy no llegó a escribir la tabla: ver el log del paso.'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: always()
         with:
           name: trivy-imagen-${{ matrix.servicio }}
-          path: trivy/
+          path: reporte-trivy/
           if-no-files-found: ignore

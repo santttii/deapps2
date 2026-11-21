@@ -14,3 +14,43 @@
 #   CVE-0000-00000 exp:2027-03-31
 #
 # El archivo tiene que estar aunque no tenga ninguna: trivy-action falla si no encuentra el que se le pasa.
+
+# jackson-core 2.21.5 y jackson-databind 2.21.5, imagen backend: vienen dentro de los módulos de WildFly
+# 41.0.1 (modules/system/layers/base/com/fasterxml/jackson/core/...), no de una dependencia de Palco. Las
+# arreglan 2.21.6 y 2.21.7, que todavía no trae ningún WildFly 41; subir a WildFly 42 a una semana de la
+# entrega es un cambio de versión mayor del servidor, y no se hace ahora.
+# Las cinco son denegaciones de servicio que necesitan que Jackson deserialice un JSON que manda quien ataca.
+# En Palco eso no pasa, y está comprobado sobre la imagen (palco-backend, 21/11):
+#   - Ningún código de Palco importa com.fasterxml.jackson, y ninguna entidad tiene columnas JSON (lo único
+#     para lo que Hibernate usaría Jackson).
+#   - Todo cuerpo JSON lo lee com.palco.common.rest.JsonProvider con JSON-B (Yasson): WildFly carga el
+#     proveedor de Jackson en los 9 WAR (avisa WFLYRS0018 al arrancar), pero RESTEasy prefiere el
+#     proveedor de la aplicación. Con la imagen levantada, POST /api/usuarios/login con un JSON mal formado
+#     contesta el 400 de JsonProvider ("El cuerpo de la solicitud no es un JSON válido."), y con una
+#     propiedad desconocida contesta 401: Jackson la habría rechazado con 400, JSON-B la ignora.
+#   - Los recursos que reciben JSON aceptan solo application/json (@Consumes): con application/vnd.palco+json,
+#     application/merge-patch+json, application/json-patch+json o text/json el login contesta 415, así que
+#     ningún cuerpo llega al proveedor de Jackson, que acepta application/*+json. No hay ningún @PATCH.
+#   - Los clientes REST entre servicios leen la respuesta como String (readEntity(String.class)) y la
+#     convierten con JSON-B.
+# Además, CVE-2026-91776 exige @JsonTypeInfo con defaultImpl y CVE-2026-91777 exige @JsonIdentityInfo, y
+# CVE-2026-89425 solo se da con JsonFactory.createParser(DataInput): nada de eso está en Palco.
+CVE-2026-89407 exp:2026-12-31
+CVE-2026-89425 exp:2026-12-31
+CVE-2026-68497 exp:2026-12-31
+CVE-2026-91776 exp:2026-12-31
+CVE-2026-91777 exp:2026-12-31
+
+# guava 33.0.0-jre, imagen backend: viene dentro de los módulos de WildFly 41.0.1
+# (modules/system/layers/base/com/google/guava/main), no de una dependencia de Palco; la arregla 33.7.2.
+# Ningún código de Palco importa com.google.common. En la imagen dependen de ese módulo el broker de
+# mensajería (Artemis), OpenSAML y json-patch. La falla es un agotamiento de memoria al deserializar con
+# serialización de Java (ObjectInputStream) un CompactHashMap, CompactHashSet o MapMakerInternalMap
+# armado por quien ataca. En Palco no hay por dónde entrar ese flujo, comprobado sobre la imagen:
+#   - La mensajería es solo TextMessage con JSON: los lectores descartan cualquier otro tipo de mensaje sin
+#     leerlo, y ningún código usa ObjectMessage ni ObjectInputStream.
+#   - El broker y las conexiones JMS de los servicios van por in-vm. Las entradas remotas que trae WildFly
+#     (el acceptor HTTP de Artemis, EJB remoto e http-invoker) piden usuario del ApplicationRealm, y
+#     application-users.properties de la imagen no tiene ninguno.
+#   - No hay ningún @PATCH, así que json-patch no lee nada.
+CVE-2026-102554 exp:2026-12-31
