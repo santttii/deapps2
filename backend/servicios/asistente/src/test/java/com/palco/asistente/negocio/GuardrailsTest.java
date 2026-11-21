@@ -2,7 +2,10 @@ package com.palco.asistente.negocio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.Duration;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,6 +18,26 @@ class GuardrailsTest {
         String limpio = Guardrails.enmascarar("DNI 30.123.456, otro 40123456, tarjeta 4111-1111-1111-1111, mail a@b.com");
 
         assertEquals("DNI [dni oculto], otro [dni oculto], tarjeta [tarjeta oculta], mail [email oculto]", limpio);
+    }
+
+    /**
+     * Un texto enorme sin arroba se enmascara enseguida. Con la expresión anterior del email, 40.000 letras
+     * seguidas tardaban unos 6 segundos y el tiempo crecía con el cuadrado del largo: una pregunta así dejaba
+     * colgado el pedido.
+     */
+    @Test
+    void unTextoEnormeSinArrobaSeEnmascaraEnMenosDeUnSegundo() {
+        String enorme = "a".repeat(100_000);
+
+        String limpio = assertTimeoutPreemptively(Duration.ofSeconds(1), () -> Guardrails.enmascarar(enorme));
+
+        assertEquals(enorme, limpio);
+    }
+
+    @Test
+    void elEmailSeOcultaTambienEnMedioDeUnTexto() {
+        assertEquals("escribime a [email oculto] o a [email oculto], gracias",
+                Guardrails.enmascarar("escribime a juan.perez@palco.test o a ana@x.com.ar, gracias"));
     }
 
     @Test

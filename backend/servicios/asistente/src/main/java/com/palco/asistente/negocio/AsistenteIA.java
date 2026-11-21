@@ -133,7 +133,11 @@ public class AsistenteIA implements IAsistente {
     }
 
     private void registrar(String usuarioId, String pregunta, Respuesta r) {
-        String enmascarada = pregunta == null ? "" : Guardrails.enmascarar(pregunta).replaceAll("\\s+", " ");
+        // Al log va el principio de la pregunta: se recorta antes de enmascararla, porque una pregunta demasiado
+        // larga ya se rechazó sin revisarla y no tiene sentido recorrer entero un texto que puede ser enorme.
+        String principio = pregunta == null ? ""
+                : pregunta.substring(0, Math.min(pregunta.length(), Guardrails.LARGO_MAXIMO));
+        String enmascarada = Guardrails.enmascarar(principio).replaceAll("\\s+", " ");
         if (enmascarada.length() > 120) {
             enmascarada = enmascarada.substring(0, 120) + "…";
         }

@@ -34,9 +34,15 @@ public final class Guardrails {
     // 7 u 8 dígitos sueltos, con o sin puntos: un DNI argentino. Detrás de un signo $ es un precio
     // ($1.000.000), no un DNI.
     private static final Pattern DNI = Pattern.compile("(?<!\\$ ?)\\b\\d{1,2}\\.?\\d{3}\\.?\\d{3}\\b");
-    // El "++" final es posesivo: no guarda puntos de retroceso, así que un texto largo no desborda la pila.
-    // Encuentra lo mismo que "+", porque cada grupo arranca en un punto que [\w-] no toma.
-    private static final Pattern EMAIL = Pattern.compile("[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)++");
+    // Un email: la parte de antes de la arroba, la arroba y el dominio. Tres detalles hacen que el tiempo crezca
+    // en línea con el largo del texto y no con su cuadrado:
+    // - el lookbehind solo deja empezar al principio de una tira de caracteres de email; sin él, en un texto
+    //   largo sin arroba cada posición recorría la tira entera hasta el final (40.000 letras seguidas tardaban
+    //   unos 6 segundos);
+    // - el "++" de la parte de antes de la arroba es posesivo, así que no vuelve atrás al no encontrarla;
+    // - el "++" final tampoco guarda puntos de retroceso, así que un texto largo no desborda la pila.
+    // Encuentra lo mismo que la versión sin esos detalles: un email siempre empieza donde empieza la tira.
+    private static final Pattern EMAIL = Pattern.compile("(?<![\\w.+-])[\\w.+-]++@[\\w-]+(?:\\.[\\w-]+)++");
 
     // Inyección de prompt (LLM01). Los patrones se buscan sobre el texto normalizado (Texto.normalizar),
     // así que "IGNORÁ", "ignora" e "ignorá   tus" llegan iguales. Están agrupados por lo que busca quien
