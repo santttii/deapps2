@@ -4,6 +4,8 @@ import { defineConfig, devices } from '@playwright/test';
 //
 //   npm run e2e                                    contra el servidor de desarrollo de Vite
 //   PALCO_E2E_URL=https://localhost npm run e2e    contra el docker compose (así corre en el CI)
+//   PALCO_E2E_CANAL=msedge npm run e2e             con el Edge instalado en la máquina, en lugar del
+//                                                  Chromium que baja Playwright (el CI usa Chromium)
 //
 // Sin PALCO_E2E_URL se usa http://localhost:5173: si ya hay un `npm run dev` andando se reutiliza y,
 // si no, se levanta uno. Tiene que ser ese origen exacto porque el backend solo acepta pedidos de
@@ -43,7 +45,14 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // Edge y Chrome usan el mismo motor, así que las pruebas valen igual para los dos: el canal solo
+  // elige qué navegador instalado se abre.
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], channel: process.env.PALCO_E2E_CANAL || undefined },
+    },
+  ],
   webServer: URL_DE_LA_APP
     ? undefined
     : {
