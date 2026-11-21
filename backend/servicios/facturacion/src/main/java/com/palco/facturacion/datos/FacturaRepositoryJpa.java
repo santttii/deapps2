@@ -9,6 +9,7 @@ import jakarta.persistence.PersistenceException;
 
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.datos.BaseDeDatos;
+import com.palco.facturacion.dominio.ComprobanteRechazado;
 import com.palco.facturacion.dominio.Factura;
 
 /**
@@ -37,15 +38,34 @@ public class FacturaRepositoryJpa implements FacturaRepository {
 
     @Override
     public void guardar(Factura factura) {
+        insertar(factura, FACTURA_REPETIDA, "Esa venta ya tiene factura.");
+    }
+
+    @Override
+    public Optional<ComprobanteRechazado> buscarRechazoPorVenta(String ventaId) {
+        return em.createQuery("select r from ComprobanteRechazado r where r.ventaId = :venta",
+                        ComprobanteRechazado.class)
+                .setParameter("venta", ventaId)
+                .getResultStream()
+                .findFirst();
+    }
+
+    @Override
+    public void guardarRechazo(ComprobanteRechazado rechazo) {
+        insertar(rechazo, RECHAZO_REPETIDO, "Esa venta ya tiene un rechazo de ARCA anotado.");
+    }
+
+    /** Las dos tablas tienen una fila por venta: una venta repetida es un conflicto con ese tipo. */
+    private void insertar(Object nueva, String tipoSiSeRepite, String mensajeSiSeRepite) {
         try {
-            em.persist(factura);
+            em.persist(nueva);
             // Como el id lo asigna el código, el INSERT sale recién acá. Se fuerza ahora para
             // que una venta repetida falle dentro de este método y no al cerrar la transacción.
             em.flush();
         } catch (PersistenceException e) {
             // Solo una clave repetida es un conflicto; cualquier otra falla de la base sigue siendo un error.
             if (BaseDeDatos.esClaveDuplicada(e)) {
-                throw new ErroresDeNegocio.Conflicto(FACTURA_REPETIDA, "Esa venta ya tiene factura.");
+                throw new ErroresDeNegocio.Conflicto(tipoSiSeRepite, mensajeSiSeRepite);
             }
             throw e;
         }

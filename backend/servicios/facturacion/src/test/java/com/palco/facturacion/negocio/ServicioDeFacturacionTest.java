@@ -1,7 +1,9 @@
 package com.palco.facturacion.negocio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -16,14 +18,16 @@ import com.palco.common.ErroresDeNegocio;
 import com.palco.facturacion.Ejemplos;
 import com.palco.facturacion.api.Dtos.FacturaDto;
 import com.palco.facturacion.datos.FacturaRepositoryEnMemoria;
+import com.palco.facturacion.dominio.ComprobanteRechazado;
 import com.palco.facturacion.dominio.Factura;
 import com.palco.facturacion.negocio.externos.Arca.SolicitudDeCae;
 import com.palco.facturacion.negocio.externos.ArcaEnMemoria;
 
 /**
  * La emisión y la consulta de facturas, sin servidor ni base: el repositorio
- * es uno en memoria que rechaza una segunda factura de la misma venta, como la
- * base, y ARCA es uno en memoria que cuenta los pedidos.
+ * es uno en memoria que rechaza una segunda factura (o un segundo rechazo) de
+ * la misma venta, como la base, y ARCA es uno en memoria que cuenta los
+ * pedidos.
  */
 class ServicioDeFacturacionTest {
 
@@ -114,13 +118,67 @@ class ServicioDeFacturacionTest {
     }
 
     @Test
-    void siArcaRechazaElComprobanteLaFallaSaleYNoSeGuardaNada() {
+    void siArcaRechazaElComprobanteSeAnotaElRechazoConElMotivoYNoUnaFactura() {
         arca.modo = ArcaEnMemoria.Modo.RECHAZA;
 
         ErroresDeNegocio.ReglaIncumplida error = assertThrows(ErroresDeNegocio.ReglaIncumplida.class,
                 () -> servicio.emitirFactura(Ejemplos.pagoConfirmado()));
         assertEquals(TiposDeProblema.COMPROBANTE_RECHAZADO, error.tipo());
         assertEquals(0, repositorio.cantidad());
+
+        // DEF-33: queda anotado lo que se le pidió a ARCA y por qué no lo autorizó.
+        ComprobanteRechazado rechazo = repositorio.buscarRechazoPorVenta(Ejemplos.VENTA).orElseThrow();
+        assertEquals(1, repositorio.cantidadDeRechazos());
+        assertTrue(rechazo.getId().startsWith("R-"), rechazo.getId());
+        assertEquals(Ejemplos.COMPRADOR, rechazo.getCompradorId());
+        assertEquals("ev-1", rechazo.getEventoId());
+        assertEquals(60500, rechazo.getImporte());
+        assertEquals(LocalDate.of(2026, 10, 16), rechazo.getFecha());
+        assertEquals("ARCA rechazó el comprobante: importe inválido", rechazo.getMotivo());
+        assertEquals(LocalDateTime.of(2026, 10, 17, 1, 30, 5), rechazo.getRechazado());
+    }
+
+    @Test
+    void unMensajeRepetidoDeUnaVentaRechazadaNoLeVuelveAPedirAArca() {
+        arca.modo = ArcaEnMemoria.Modo.RECHAZA;
+        assertThrows(ErroresDeNegocio.ReglaIncumplida.class, () -> servicio.emitirFactura(Ejemplos.pagoConfirmado()));
+
+        // Aunque ARCA ahora contestara que sí: el pedido sería el mismo, y el rechazo ya está anotado.
+        arca.modo = ArcaEnMemoria.Modo.RESPONDE;
+        ErroresDeNegocio.ReglaIncumplida repetido = assertThrows(ErroresDeNegocio.ReglaIncumplida.class,
+                () -> servicio.emitirFactura(Ejemplos.pagoConfirmado()));
+
+        assertEquals(TiposDeProblema.COMPROBANTE_RECHAZADO, repetido.tipo());
+        assertEquals("ARCA rechazó el comprobante: importe inválido", repetido.getMessage());
+        assertEquals(1, arca.pedidos.size());
+        assertEquals(1, repositorio.cantidadDeRechazos());
+        assertEquals(0, repositorio.cantidad());
+    }
+
+    @Test
+    void siOtraEntregaAnotoElRechazoPrimeroValeElQueYaEstaba() {
+        // Lo anotó otra entrega de la misma venta entre la búsqueda y el pedido a ARCA.
+        arca.modo = ArcaEnMemoria.Modo.RECHAZA;
+        arca.antesDeResponder = () -> repositorio.guardarRechazo(Ejemplos.rechazo(Ejemplos.VENTA, Ejemplos.COMPRADOR));
+
+        ErroresDeNegocio.ReglaIncumplida error = assertThrows(ErroresDeNegocio.ReglaIncumplida.class,
+                () -> servicio.emitirFactura(Ejemplos.pagoConfirmado()));
+
+        assertEquals(TiposDeProblema.COMPROBANTE_RECHAZADO, error.tipo());
+        assertEquals(1, repositorio.cantidadDeRechazos());
+        assertEquals("R-0a1b2c3d", repositorio.buscarRechazoPorVenta(Ejemplos.VENTA).orElseThrow().getId());
+    }
+
+    @Test
+    void siArcaNoRespondeNoSeAnotaNingunRechazo() {
+        arca.modo = ArcaEnMemoria.Modo.NO_RESPONDE;
+
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> servicio.emitirFactura(Ejemplos.pagoConfirmado()));
+
+        // Otro intento puede andar: la consulta tiene que seguir diciendo "todavía no" (404).
+        assertEquals(0, repositorio.cantidadDeRechazos());
+        assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> servicio.consultarFacturaDelComprador(Ejemplos.COMPRADOR, Ejemplos.VENTA));
     }
 
     // ---- Consultar ----
@@ -153,5 +211,56 @@ class ServicioDeFacturacionTest {
 
         assertEquals(Ejemplos.COMPRADOR, servicio.consultarFactura(Ejemplos.VENTA).compradorId());
         assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.consultarFactura("V-sin-facturar"));
+    }
+
+    @Test
+    void elCompradorDeUnaVentaRechazadaRecibeUnConflictoComprobanteRechazadoYNoUn404() {
+        arca.modo = ArcaEnMemoria.Modo.RECHAZA;
+        assertThrows(ErroresDeNegocio.ReglaIncumplida.class, () -> servicio.emitirFactura(Ejemplos.pagoConfirmado()));
+
+        ErroresDeNegocio.Conflicto rechazada = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.consultarFacturaDelComprador(Ejemplos.COMPRADOR, Ejemplos.VENTA));
+
+        assertEquals(TiposDeProblema.COMPROBANTE_RECHAZADO, rechazada.tipo());
+        assertEquals("ARCA rechazó la factura de esta compra y la estamos revisando. Las entradas valen igual.",
+                rechazada.getMessage());
+        // El motivo de ARCA queda para quien lo revisa; no se le muestra al comprador.
+        assertFalse(rechazada.getMessage().contains("importe inválido"), rechazada.getMessage());
+    }
+
+    @Test
+    void otroUsuarioNoSeEnteraDeQueUnaVentaAjenaFueRechazada() {
+        repositorio.guardarRechazo(Ejemplos.rechazo(Ejemplos.VENTA, Ejemplos.COMPRADOR));
+
+        ErroresDeNegocio.NoEncontrado ajena = assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> servicio.consultarFacturaDelComprador("user-otro", Ejemplos.VENTA));
+        ErroresDeNegocio.NoEncontrado inexistente = assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> servicio.consultarFacturaDelComprador("user-otro", "V-no-existe"));
+
+        assertEquals(inexistente.getMessage(), ajena.getMessage());
+    }
+
+    @Test
+    void otroServicioTambienVeQueArcaRechazoLaFactura() {
+        repositorio.guardarRechazo(Ejemplos.rechazo(Ejemplos.VENTA, Ejemplos.COMPRADOR));
+
+        ErroresDeNegocio.Conflicto rechazada = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.consultarFactura(Ejemplos.VENTA));
+
+        assertEquals(TiposDeProblema.COMPROBANTE_RECHAZADO, rechazada.tipo());
+    }
+
+    @Test
+    void siLaVentaTieneFacturaYRechazoLaConsultaDevuelveLaFactura() {
+        // Un rechazo que después se resolvió a mano: la factura manda.
+        repositorio.guardarRechazo(Ejemplos.rechazo(Ejemplos.VENTA, Ejemplos.COMPRADOR));
+        repositorio.guardar(Ejemplos.factura(Ejemplos.VENTA, Ejemplos.COMPRADOR));
+
+        assertEquals("00001-00000007",
+                servicio.consultarFacturaDelComprador(Ejemplos.COMPRADOR, Ejemplos.VENTA).comprobante());
+        assertEquals("00001-00000007", servicio.consultarFactura(Ejemplos.VENTA).comprobante());
+        // Y una de otro comprador sigue sin verse.
+        assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> servicio.consultarFacturaDelComprador("user-otro", Ejemplos.VENTA));
     }
 }

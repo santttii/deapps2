@@ -9,6 +9,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import jakarta.persistence.EntityManager;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import com.palco.common.ErroresDeNegocio;
 import com.palco.common.datos.BaseDeDatos;
 import com.palco.facturacion.Ejemplos;
+import com.palco.facturacion.dominio.ComprobanteRechazado;
 import com.palco.facturacion.dominio.Factura;
 
 /**
@@ -31,8 +33,9 @@ import com.palco.facturacion.dominio.Factura;
  * PostgreSQL, con las mismas opciones que el datasource de WildFly en
  * desarrollo y el esquema que crea Flyway. Lo que se comprueba es que la
  * restricción única la pone la base: una segunda factura de la misma venta no
- * entra, ni por JDBC ni por el repositorio. Lo único que cambia respecto del
- * servidor es que la transacción la abre el test.
+ * entra, ni por JDBC ni por el repositorio, y lo mismo un segundo rechazo de
+ * ARCA. Lo único que cambia respecto del servidor es que la transacción la
+ * abre el test.
  */
 class FacturaEnH2Test {
 
@@ -52,6 +55,7 @@ class FacturaEnH2Test {
         fabrica = new PersistenceConfiguration("facturacion-h2")
                 .transactionType(PersistenceUnitTransactionType.RESOURCE_LOCAL)
                 .managedClass(Factura.class)
+                .managedClass(ComprobanteRechazado.class)
                 .property(PersistenceConfiguration.JDBC_URL, url)
                 // Las tablas las crea Flyway, igual que en el servidor.
                 .property(PersistenceConfiguration.SCHEMAGEN_DATABASE_ACTION, "none")
@@ -112,6 +116,57 @@ class FacturaEnH2Test {
         assertEquals(1, filas());
     }
 
+    @Test
+    void guardaElRechazoDeArcaYLoEncuentraPorVenta() {
+        em.getTransaction().begin();
+        repositorio.guardarRechazo(Ejemplos.rechazo(Ejemplos.VENTA, Ejemplos.COMPRADOR));
+        em.getTransaction().commit();
+        em.clear();
+
+        ComprobanteRechazado leido = repositorio.buscarRechazoPorVenta(Ejemplos.VENTA).orElseThrow();
+        assertEquals(Ejemplos.COMPRADOR, leido.getCompradorId());
+        assertEquals(60500, leido.getImporte());
+        assertEquals(LocalDate.of(2026, 10, 16), leido.getFecha());
+        assertEquals("ARCA rechazó el comprobante: importe inválido", leido.getMotivo());
+        assertEquals(LocalDateTime.of(2026, 10, 17, 1, 30, 5), leido.getRechazado());
+        assertTrue(repositorio.buscarRechazoPorVenta("V-otra").isEmpty());
+        // El rechazo no es una factura: la venta sigue sin factura.
+        assertTrue(repositorio.buscarPorVenta(Ejemplos.VENTA).isEmpty());
+    }
+
+    @Test
+    void unSegundoRechazoDeLaMismaVentaEsUnConflictoYNoSeGuarda() throws Exception {
+        em.getTransaction().begin();
+        repositorio.guardarRechazo(Ejemplos.rechazo(Ejemplos.VENTA, Ejemplos.COMPRADOR));
+        em.getTransaction().commit();
+
+        ComprobanteRechazado otro = new ComprobanteRechazado("R-99999999", Ejemplos.VENTA, Ejemplos.COMPRADOR, "ev-1",
+                60500, LocalDate.of(2026, 10, 16), "otro motivo", LocalDateTime.of(2026, 10, 17, 1, 31));
+        em.getTransaction().begin();
+        ErroresDeNegocio.Conflicto choque = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> repositorio.guardarRechazo(otro));
+        em.getTransaction().rollback();
+
+        assertEquals(FacturaRepository.RECHAZO_REPETIDO, choque.tipo());
+        assertEquals(1, filas("comprobante_rechazado"));
+    }
+
+    @Test
+    void unMotivoMasLargoQueLaColumnaSeGuardaRecortadoYUnImporteImposibleTambienEntra() {
+        // ARCA rechaza, entre otras cosas, un importe que no es mayor que 0: tiene que poder anotarse.
+        ComprobanteRechazado largo = new ComprobanteRechazado("R-0a1b2c3e", "V-largo", Ejemplos.COMPRADOR, "ev-1", 0,
+                LocalDate.of(2026, 10, 16), "x".repeat(ComprobanteRechazado.LARGO_MAXIMO_MOTIVO + 100),
+                LocalDateTime.of(2026, 10, 17, 1, 30, 5));
+        em.getTransaction().begin();
+        repositorio.guardarRechazo(largo);
+        em.getTransaction().commit();
+        em.clear();
+
+        ComprobanteRechazado leido = repositorio.buscarRechazoPorVenta("V-largo").orElseThrow();
+        assertEquals(ComprobanteRechazado.LARGO_MAXIMO_MOTIVO, leido.getMotivo().length());
+        assertEquals(0, leido.getImporte());
+    }
+
     private static void insertar(Connection conexion, String id) throws SQLException {
         try (PreparedStatement insert = conexion.prepareStatement(
                 "insert into facturacion.factura (id, venta_id, comprador_id, evento_id, tipo_comprobante, "
@@ -124,8 +179,12 @@ class FacturaEnH2Test {
     }
 
     private int filas() throws SQLException {
+        return filas("factura");
+    }
+
+    private int filas(String tabla) throws SQLException {
         try (Connection conexion = base.getConnection();
-                PreparedStatement consulta = conexion.prepareStatement("select count(*) from facturacion.factura");
+                PreparedStatement consulta = conexion.prepareStatement("select count(*) from facturacion." + tabla);
                 ResultSet fila = consulta.executeQuery()) {
             fila.next();
             return fila.getInt(1);

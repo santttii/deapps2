@@ -38,7 +38,10 @@ public class FacturasResource {
      * {@code GET /api/v1/facturas/V-3f9a1c2b}. El comprador ve solo la factura
      * de su compra (el "sub" del token tiene que ser el comprador de la venta);
      * otro servicio, cualquiera. 404 si la venta no tiene factura todavía, si
-     * no existe o si es de otro comprador: las tres responden igual.
+     * no existe o si es de otro comprador: las tres responden igual. 409
+     * ({@code /problemas/comprobante-rechazado}) si ARCA rechazó el comprobante
+     * de esa venta, solo a quien la puede ver: no es una factura en camino y
+     * volver a consultar no la va a traer.
      */
     @GET
     @RolesAllowed({ "user", ROL_SERVICIO })

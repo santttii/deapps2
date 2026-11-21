@@ -8,6 +8,7 @@ import java.util.List;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje.Entrada;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje.Titular;
+import com.palco.facturacion.dominio.ComprobanteRechazado;
 import com.palco.facturacion.dominio.Factura;
 
 /** Datos de ejemplo para los tests: el mismo mensaje que muestra el contrato de PAGO_CONFIRMADO. */
@@ -38,6 +39,13 @@ public final class Ejemplos {
     public static Factura factura(String ventaId, String compradorId) {
         return new Factura("F-0a1b2c3d", ventaId, compradorId, "ev-1", 6, 1, 7, "75123456789012",
                 LocalDate.of(2026, 10, 26), 60500, LocalDate.of(2026, 10, 16),
+                LocalDateTime.of(2026, 10, 17, 1, 30, 5));
+    }
+
+    /** Un rechazo de ARCA ya anotado de esa venta y ese comprador. */
+    public static ComprobanteRechazado rechazo(String ventaId, String compradorId) {
+        return new ComprobanteRechazado("R-0a1b2c3d", ventaId, compradorId, "ev-1", 60500,
+                LocalDate.of(2026, 10, 16), "ARCA rechazó el comprobante: importe inválido",
                 LocalDateTime.of(2026, 10, 17, 1, 30, 5));
     }
 }

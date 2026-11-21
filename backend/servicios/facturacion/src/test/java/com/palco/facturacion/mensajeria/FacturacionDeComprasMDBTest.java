@@ -36,9 +36,10 @@ import com.palco.facturacion.negocio.externos.ArcaEnMemoria;
  * Qué hace el consumidor con cada mensaje. El mensaje JMS y el contexto del
  * MDB son dobles; el negocio es el de verdad, con el repositorio y ARCA en
  * memoria: así se ve de punta a punta que una compra se factura una vez, que
- * un mensaje repetido no factura otra y que con ARCA caído el mensaje vuelve
- * al broker para el reintento. "Volver al broker" es {@code setRollbackOnly()}:
- * el contenedor deshace la transacción y Artemis reentrega.
+ * un mensaje repetido no factura otra, que con ARCA caído el mensaje vuelve
+ * al broker para el reintento y que un rechazo de ARCA no vuelve. "Volver al
+ * broker" es {@code setRollbackOnly()}: el contenedor deshace la transacción y
+ * Artemis reentrega.
  */
 class FacturacionDeComprasMDBTest {
 
@@ -102,13 +103,46 @@ class FacturacionDeComprasMDBTest {
     }
 
     @Test
-    void unComprobanteRechazadoTambienVuelveAlBrokerParaTerminarEnLaDlq() throws JMSException {
+    void unComprobanteRechazadoQuedaAnotadoYNoVuelveAlBroker() throws JMSException {
+        // DEF-33: antes volvía al broker, ARCA recibía cinco veces el mismo pedido y el mensaje
+        // terminaba en la DLQ sin que la consulta de la factura se enterara.
         arca.modo = ArcaEnMemoria.Modo.RECHAZA;
+        String json = Ejemplos.pagoConfirmado().aJson();
 
-        mdb.onMessage(mensajeDeTexto(Ejemplos.pagoConfirmado().aJson(), 1));
+        mdb.onMessage(mensajeDeTexto(json, 1));
 
-        verify(contexto).setRollbackOnly();
+        verify(contexto, never()).setRollbackOnly();
         assertEquals(0, repositorio.cantidad());
+        assertEquals(1, repositorio.cantidadDeRechazos());
+        assertEquals(1, arca.pedidos.size());
+
+        // Si el broker igual lo reentregara (la confirmación falló después de anotarlo), tampoco
+        // vuelve, y a ARCA no se le pregunta otra vez.
+        mdb.onMessage(mensajeDeTexto(json, 2));
+
+        verify(contexto, never()).setRollbackOnly();
+        assertEquals(1, repositorio.cantidadDeRechazos());
+        assertEquals(1, arca.pedidos.size());
+    }
+
+    @Test
+    void siLaBaseFallaAlAnotarElRechazoElMensajeSeReintentaYLaEntregaSiguienteLoAnota() throws JMSException {
+        // Un error técnico no es un rechazo de negocio: no se confirma el mensaje sin haber anotado nada.
+        arca.modo = ArcaEnMemoria.Modo.RECHAZA;
+        repositorio.fallaAlGuardarRechazo = new EJBException("la base no responde");
+        String json = Ejemplos.pagoConfirmado().aJson();
+        TextMessage primera = mensajeDeTexto(json, 1);
+
+        // Sale del MDB: el contenedor deshace la transacción y Artemis lo reentrega.
+        assertThrows(EJBException.class, () -> mdb.onMessage(primera));
+        assertEquals(0, repositorio.cantidadDeRechazos());
+
+        // Con la base de vuelta, la reentrega le pide a ARCA otra vez (no había quedado nada) y lo anota.
+        mdb.onMessage(mensajeDeTexto(json, 2));
+
+        verify(contexto, never()).setRollbackOnly();
+        assertEquals(1, repositorio.cantidadDeRechazos());
+        assertEquals(2, arca.pedidos.size());
     }
 
     @Test
