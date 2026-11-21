@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useApp } from '../store/AppContext';
 import { mensajeDeError } from '../lib/api';
 import { fecha as formatearFecha, fechaHora, money } from '../lib/format';
@@ -59,6 +59,29 @@ const numero = (n: number) => n.toLocaleString('es-AR');
 // Un evento que ya empezó no se puede editar ni cancelar: el servidor responde 409.
 const yaEmpezo = (ev: Evento) => new Date(ev.fechaISO).getTime() <= Date.now();
 
+// Contenedor de una tabla que en una pantalla angosta se desplaza de costado. Es un punto de tabulación solo
+// mientras la tabla no entra: así se la puede enfocar y mover con las flechas del teclado, como pide axe para
+// una región desplazable. Cuando entra entera no agrega una parada vacía al recorrer la página con Tab.
+function RegionDesplazable({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
+  const region = useRef<HTMLDivElement>(null);
+  const [desborda, setDesborda] = useState(false);
+  useEffect(() => {
+    const elemento = region.current;
+    if (!elemento) return;
+    // El desborde cambia con el ancho de la pantalla y con las filas que llegan: se miran la región y la tabla.
+    const observador = new ResizeObserver(() => setDesborda(elemento.scrollWidth > elemento.clientWidth));
+    observador.observe(elemento);
+    if (elemento.firstElementChild) observador.observe(elemento.firstElementChild);
+    return () => observador.disconnect();
+  }, []);
+  const tabulable = desborda ? 0 : undefined;
+  return (
+    <div ref={region} className="mt-4 overflow-x-auto border border-wire" tabIndex={tabulable} role="region" aria-label={etiqueta}>
+      {children}
+    </div>
+  );
+}
+
 // Panel del organizador. Todo lo que muestra sale del backend y es solo de sus eventos:
 // - lo vendido y lo recaudado, de Ventas (GET /api/v1/resumenes): solo compras pagadas, sin las
 //   de la reventa oficial;
@@ -111,16 +134,22 @@ export default function OrganizerPage() {
     if (idsDeEventos === null) return;
     const ids = idsDeEventos ? idsDeEventos.split(',') : [];
     let vigente = true;
-    Promise.allSettled(ids.map((id) => liquidacionDelEvento(id))).then((resultados) => {
-      if (!vigente) return;
-      const porEvento: Record<string, LiquidacionDeEvento> = {};
-      resultados.forEach((r, i) => {
-        if (r.status === 'fulfilled') porEvento[ids[i]] = r.value;
+    Promise.allSettled(ids.map((id) => liquidacionDelEvento(id)))
+      .then((resultados) => {
+        if (!vigente) return;
+        const porEvento: Record<string, LiquidacionDeEvento> = {};
+        resultados.forEach((r, i) => {
+          if (r.status === 'fulfilled') porEvento[ids[i]] = r.value;
+        });
+        const fallo = resultados.find((r) => r.status === 'rejected');
+        setLiquidaciones(porEvento);
+        setErrorVentas(fallo ? mensajeDeError(fallo.reason) : '');
+      })
+      // allSettled no rechaza; esto atrapa una falla al armar los totales, que se informa igual que la
+      // de un pedido: sin totales y con el error.
+      .catch((error: unknown) => {
+        if (vigente) setErrorVentas(mensajeDeError(error));
       });
-      const fallo = resultados.find((r) => r.status === 'rejected');
-      setLiquidaciones(porEvento);
-      setErrorVentas(fallo ? mensajeDeError(fallo.reason) : '');
-    });
     return () => {
       vigente = false;
     };
@@ -332,12 +361,7 @@ export default function OrganizerPage() {
           )}
           {eventos.length > 0 && (
             <>
-              <div
-                className="mt-4 overflow-x-auto border border-wire"
-                tabIndex={0}
-                role="region"
-                aria-label="Tabla de mis eventos"
-              >
+              <RegionDesplazable etiqueta="Tabla de mis eventos">
                 <table className="w-full min-w-[520px] text-sm">
                   <thead className="bg-fill">
                     <tr>
@@ -366,7 +390,7 @@ export default function OrganizerPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </RegionDesplazable>
               {/* Ventas deja afuera las compras en la reventa oficial: el lugar ya se cuenta, y se le
                   liquida al organizador, en la compra original. */}
               <p className="mt-2 text-xs text-muted">
@@ -529,12 +553,7 @@ export default function OrganizerPage() {
                         <p className="font-mono-label text-[10px] text-muted">por ingresar</p>
                       </div>
                     </div>
-                    <div
-                      className="mt-4 overflow-x-auto border border-wire"
-                      tabIndex={0}
-                      role="region"
-                      aria-label="Registro de la puerta"
-                    >
+                    <RegionDesplazable etiqueta="Registro de la puerta">
                       <table className="w-full min-w-[560px] text-sm">
                         <thead className="bg-fill">
                           <tr>
@@ -558,13 +577,14 @@ export default function OrganizerPage() {
                               {/* El backend ya manda el código recortado, con los puntos suspensivos. */}
                               <td className="font-mono-label px-4 py-3 text-[11px]">{e.codigoParcial}</td>
                               <td className="px-4 py-3">{ETIQUETA_RESULTADO[e.resultado] ?? e.resultado}</td>
-                              <td className="px-4 py-3">{e.escaneadoPor}</td>
+                              {/* El email, que es como se asigna la puerta; un escaneo viejo sin email muestra el id. */}
+                              <td className="px-4 py-3">{e.escaneadoPorEmail ?? e.escaneadoPor}</td>
                               <td className="whitespace-nowrap px-4 py-3">{fechaHora(e.escaneado)}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </RegionDesplazable>
                     {escaneos.length > ESCANEOS_EN_TABLA && (
                       <p className="mt-2 text-xs text-muted">
                         Se muestran los {ESCANEOS_EN_TABLA} más recientes de{' '}
