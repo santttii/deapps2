@@ -1,0 +1,183 @@
+# Estabilidad de la suite del backend. La cátedra pide 0 tests inestables: la suite corre 3 veces seguidas y da
+# idéntico resultado. Este workflow compila una vez, corre "mvn test" 3 veces seguidas en la misma máquina y guarda
+# los reportes de surefire de cada corrida en corridas/corrida-N; scripts/qa/estabilidad.mjs los compara test por
+# test (pasa, falla, error, saltado). El job queda en rojo si algún test da distinto en alguna corrida, si falló y
+# pasó al reintentarlo, o si alguna de las tres no terminó en verde.
+#
+# El resumen de la corrida (y el artifact estabilidad-resumen) tiene:
+#   estabilidad.md   los totales de cada corrida, los tests por módulo y la lista de los que cambian
+#   duraciones.md    cuánto tardó cada corrida de mvn test y con qué código terminó
+#   pipeline.md      cuánto tardó cada workflow ya terminado de este commit, también una corrida anterior de
+#                    este. Corren en paralelo, así que el pipeline dura lo que el más largo; la cátedra lo pide
+#                    en 15 minutos o menos
+# Los reportes de surefire de las tres corridas quedan en el artifact estabilidad-reportes.
+#
+# Corre a mano (Actions > Estabilidad > Run workflow, con la rama o el tag) y con los tags v*, como carga.yml:
+# tres corridas de toda la suite no hacen falta en cada push, y en el tag queda la evidencia. Con el tag recién
+# subido los demás workflows todavía están corriendo: para que pipeline.md los tenga, se vuelve a correr a mano
+# sobre el tag cuando terminan.
+#
+# A mano, en Git Bash desde backend/ (con JAVA_HOME en un JDK 25):
+#   for i in 1 2 3; do
+#     find . -type d -path '*/target/surefire-reports' -prune -exec rm -rf {} +
+#     mvn -B test -pl '!servidor' --fail-at-end
+#     mkdir -p /tmp/corridas/corrida-$i
+#     find . -type d -path '*/target/surefire-reports' -prune -exec cp -r --parents {} /tmp/corridas/corrida-$i \;
+#   done
+#   node ../scripts/qa/estabilidad.mjs /tmp/corridas/corrida-1 /tmp/corridas/corrida-2 /tmp/corridas/corrida-3
+
+name: Estabilidad
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: estabilidad-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    name: Suite del backend 3 veces seguidas
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read   # para leer cuánto tardaron los demás workflows de este commit
+    defaults:
+      run:
+        shell: bash   # con pipefail: un tee no tapa el error del comando que tiene antes
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Compilar (sin tests)
+        # Un error de compilación sale acá y no en las corridas, y la primera no carga con la compilación ni con
+        # la descarga de las dependencias: las tres miden lo mismo. Lo único que se puede bajar recién en la
+        # primera es surefire (el plugin y su proveedor de JUnit), que Maven resuelve al llegar a la fase test, y
+        # solo si no está en el caché de Maven. El servidor queda afuera, como en mutacion.yml: no tiene tests,
+        # solo junta los WAR de los demás para armar WildFly.
+        working-directory: backend
+        run: mvn -B test-compile -pl '!servidor'
+      - name: Tres corridas seguidas de mvn test
+        # Cada corrida empieza sin reportes viejos y, al terminar, sus surefire-reports se copian a
+        # corridas/corrida-N con la ruta de cada módulo. Si una corrida falla se hacen igual las otras, porque la
+        # comparación necesita las tres. Con --fail-at-end, si falla un test de un servicio los demás servicios
+        # corren igual; si falla uno de common, Maven saltea los servicios que dependen de él (todos menos el ARCA
+        # simulado) y sus tests salen como "no corrió". La duración y el código de salida de cada corrida quedan
+        # en su carpeta.
+        working-directory: backend
+        run: |
+          for i in 1 2 3; do
+            echo "::group::Corrida $i de 3"
+            find . -type d -path '*/target/surefire-reports' -prune -exec rm -rf {} +
+            destino="$GITHUB_WORKSPACE/corridas/corrida-$i"
+            mkdir -p "$destino"
+            inicio=$(date +%s)
+            codigo=0
+            mvn -B test -pl '!servidor' --fail-at-end || codigo=$?
+            echo "$(( $(date +%s) - inicio ))" > "$destino/duracion-segundos"
+            echo "$codigo" > "$destino/codigo-de-salida"
+            find . -type d -path '*/target/surefire-reports' -prune -exec cp -r --parents {} "$destino" \;
+            echo "::endgroup::"
+          done
+      - name: Comparar las corridas test por test (scripts/qa/estabilidad.mjs)
+        if: ${{ !cancelled() }}
+        run: >-
+          node scripts/qa/estabilidad.mjs corridas/corrida-1 corridas/corrida-2 corridas/corrida-3
+          --salida corridas/estabilidad.md
+      - name: Resumen de estabilidad
+        if: ${{ !cancelled() }}
+        run: |
+          if [[ -f corridas/estabilidad.md ]]; then
+            cat corridas/estabilidad.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Duración de cada corrida
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p corridas
+          total=0
+          {
+            echo '### Duración de cada corrida de mvn test'
+            echo
+            echo '| Corrida | Duración | Código de salida de mvn |'
+            echo '|---|---:|---:|'
+            for carpeta in corridas/corrida-*; do
+              [[ -f "$carpeta/duracion-segundos" ]] || continue
+              segundos=$(< "$carpeta/duracion-segundos")
+              total=$(( total + segundos ))
+              printf '| %s | %d min %02d s | %s |\n' "${carpeta#corridas/}" $(( segundos / 60 )) $(( segundos % 60 )) \
+                "$(< "$carpeta/codigo-de-salida")"
+            done
+            echo
+            printf 'Las corridas suman %d min %02d s.\n' $(( total / 60 )) $(( total % 60 ))
+          } | tee corridas/duraciones.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Duración de los workflows de este commit (el pipeline)
+        # Los que ya terminaron, con lo que tardó cada uno desde que arrancó hasta su último cambio de estado. Entran
+        # todos, también una corrida anterior de este workflow sobre el mismo commit (la del tag, cuando se vuelve a
+        # correr a mano): la tabla no deja afuera a ninguno. Es informativo: si no puede leer la lista, el paso
+        # queda marcado pero no pone en rojo la estabilidad.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p corridas
+          gh run list --commit "$GITHUB_SHA" --status completed --limit 100 \
+            --json workflowName,event,headBranch,conclusion,startedAt,updatedAt,url > corridas/workflows.json
+          node -e '
+            const workflows = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))
+              .map((w) => ({ ...w, segundos: Math.round((Date.parse(w.updatedAt) - Date.parse(w.startedAt)) / 1000) }))
+              .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+            const duracion = (s) => `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
+            console.log("### Duración de los workflows de este commit\n");
+            if (workflows.length === 0) {
+              console.log("Todavía no terminó ningún workflow de este commit: se vuelve a correr este a mano cuando terminen.");
+            } else {
+              console.log("Corren en paralelo: el pipeline dura lo que el más largo. La cátedra lo pide en 15 minutos o menos.\n");
+              console.log("| Workflow | Disparado por | Resultado | Duración | Hasta 15 min |");
+              console.log("|---|---|---|---:|---|");
+              for (const w of workflows) {
+                const columnas = [`[${w.workflowName}](${w.url})`, `${w.event} ${w.headBranch}`, w.conclusion,
+                  duracion(w.segundos), w.segundos <= 900 ? "sí" : "no"];
+                console.log(`| ${columnas.join(" | ")} |`);
+              }
+              const masLargo = workflows.reduce((a, b) => (b.segundos > a.segundos ? b : a));
+              console.log(`\nEl más largo es ${masLargo.workflowName} (${masLargo.event} ${masLargo.headBranch}): `
+                + `${duracion(masLargo.segundos)}.`);
+            }
+          ' corridas/workflows.json | tee corridas/pipeline.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        if: ${{ !cancelled() }}
+        with:
+          name: estabilidad-resumen
+          path: |
+            corridas/*.md
+            corridas/workflows.json
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        if: ${{ !cancelled() }}
+        with:
+          name: estabilidad-reportes
+          path: corridas/corrida-*/
+          if-no-files-found: ignore
+      - name: Las tres corridas terminaron en verde
+        # Idéntico resultado no alcanza: además tienen que pasar. Si mvn test falló en alguna, el job queda en rojo.
+        if: ${{ !cancelled() }}
+        run: |
+          fallo=0
+          for i in 1 2 3; do
+            codigo=$(cat "corridas/corrida-$i/codigo-de-salida" 2>/dev/null || echo 'sin dato')
+            if [[ "$codigo" != 0 ]]; then
+              echo "::error::mvn test terminó con código $codigo en la corrida $i"
+              fallo=1
+            fi
+          done
+          exit "$fallo"
