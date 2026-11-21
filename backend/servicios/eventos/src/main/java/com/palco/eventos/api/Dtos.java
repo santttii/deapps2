@@ -13,6 +13,12 @@ import jakarta.validation.constraints.Size;
 /**
  * Lo que entra y sale de la API de eventos. Los campos coinciden con el tipo
  * {@code Evento} del frontend ({@code frontend/src/types/index.ts}).
+ *
+ * Cada anotación de validación lleva su propio {@code message}: es el texto
+ * que el 400 devuelve por campo. Sin él, Bean Validation usa su mensaje por
+ * defecto, que se traduce según el idioma del pedido o el del servidor: en la
+ * imagen de Docker, a un cliente que no manda {@code Accept-Language} le llega
+ * en inglés ("size must be between 0 and 200").
  */
 public final class Dtos {
 
@@ -44,18 +50,26 @@ public final class Dtos {
     }
 
     public record NuevoSectorDto(
-            @NotBlank(message = "Ingresá el nombre del sector.") @Size(max = 120) String nombre,
+            @NotBlank(message = "Ingresá el nombre del sector.")
+            @Size(max = 120, message = "El nombre del sector tiene hasta 120 caracteres.")
+            String nombre,
             @Min(value = 1, message = "El precio tiene que ser mayor a 0.") long precio,
             @Min(value = 1, message = "El cupo tiene que ser mayor a 0.") int cupo) {
     }
 
     public record NuevoEventoDto(
-            @NotBlank(message = "Ingresá el título.") @Size(max = 200) String titulo,
+            @NotBlank(message = "Ingresá el título.")
+            @Size(max = 200, message = "El título tiene hasta 200 caracteres.")
+            String titulo,
             @NotBlank(message = "Elegí una categoría.") String categoria,
-            @NotBlank(message = "Ingresá el lugar.") @Size(max = 200) String venue,
+            @NotBlank(message = "Ingresá el lugar.")
+            @Size(max = 200, message = "El lugar tiene hasta 200 caracteres.")
+            String venue,
             @NotNull(message = "Ingresá la fecha.") LocalDateTime fechaISO,
-            @NotBlank(message = "Ingresá una descripción.") @Size(max = 2000) String descripcion,
-            @Size(max = 1000) String imagenUrl,
+            @NotBlank(message = "Ingresá una descripción.")
+            @Size(max = 2000, message = "La descripción tiene hasta 2000 caracteres.")
+            String descripcion,
+            @Size(max = 1000, message = "La URL de la imagen tiene hasta 1000 caracteres.") String imagenUrl,
             @NotEmpty(message = "Agregá al menos un sector.") List<@Valid NuevoSectorDto> sectores) {
     }
 
@@ -66,8 +80,10 @@ public final class Dtos {
      * evento completo.
      */
     public record SectorEditadoDto(
-            @Size(max = 40) String id,
-            @NotBlank(message = "Ingresá el nombre del sector.") @Size(max = 120) String nombre,
+            @Size(max = 40, message = "El id del sector tiene hasta 40 caracteres.") String id,
+            @NotBlank(message = "Ingresá el nombre del sector.")
+            @Size(max = 120, message = "El nombre del sector tiene hasta 120 caracteres.")
+            String nombre,
             @Min(value = 1, message = "El precio tiene que ser mayor a 0.") long precio,
             @Min(value = 1, message = "El cupo tiene que ser mayor a 0.") int cupo) {
     }
@@ -78,12 +94,18 @@ public final class Dtos {
      * tampoco el dueño.
      */
     public record EditarEventoDto(
-            @NotBlank(message = "Ingresá el título.") @Size(max = 200) String titulo,
+            @NotBlank(message = "Ingresá el título.")
+            @Size(max = 200, message = "El título tiene hasta 200 caracteres.")
+            String titulo,
             @NotBlank(message = "Elegí una categoría.") String categoria,
-            @NotBlank(message = "Ingresá el lugar.") @Size(max = 200) String venue,
+            @NotBlank(message = "Ingresá el lugar.")
+            @Size(max = 200, message = "El lugar tiene hasta 200 caracteres.")
+            String venue,
             @NotNull(message = "Ingresá la fecha.") LocalDateTime fechaISO,
-            @NotBlank(message = "Ingresá una descripción.") @Size(max = 2000) String descripcion,
-            @Size(max = 1000) String imagenUrl,
+            @NotBlank(message = "Ingresá una descripción.")
+            @Size(max = 2000, message = "La descripción tiene hasta 2000 caracteres.")
+            String descripcion,
+            @Size(max = 1000, message = "La URL de la imagen tiene hasta 1000 caracteres.") String imagenUrl,
             @NotEmpty(message = "El evento tiene que quedar con al menos un sector.")
             List<@Valid SectorEditadoDto> sectores) {
     }
@@ -93,7 +115,8 @@ public final class Dtos {
     }
 
     /** El motivo de la cancelación, opcional: es lo que se le cuenta al comprador. */
-    public record CancelacionDto(@Size(max = 500) String motivo) {
+    public record CancelacionDto(
+            @Size(max = 500, message = "El motivo tiene hasta 500 caracteres.") String motivo) {
     }
 
     /**
