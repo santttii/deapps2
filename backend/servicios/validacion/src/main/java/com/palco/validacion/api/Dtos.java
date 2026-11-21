@@ -69,6 +69,11 @@ public final class Dtos {
      * escaneado por error sigue sirviendo en el suyo, y el registro lo ven
      * más personas que las de esa puerta. Con el final alcanza para
      * reconocerlo; el código completo queda en la base.
+     *
+     * {@code escaneadoPor} es el id de la cuenta que escaneó y
+     * {@code escaneadoPorEmail}, su email, que es lo que muestra el panel del
+     * organizador (DEF-32). El email es null en los escaneos guardados antes de
+     * que se registrara: para esos queda solo el id.
      */
     public record EscaneoDto(
             String id,
@@ -77,6 +82,7 @@ public final class Dtos {
             String resultado,
             String entradaId,
             String escaneadoPor,
+            String escaneadoPorEmail,
             String escaneado) {
     }
 

@@ -44,6 +44,15 @@ public class Escaneo {
     @Column(name = "escaneado_por", nullable = false)
     private String escaneadoPor;
 
+    /**
+     * El email de quien escaneó: el claim "upn" del mismo token, en minúsculas.
+     * Es como el organizador conoce a la cuenta de puerta, porque la asigna por
+     * su email; el id solo no se entiende sin preguntarle a Usuarios (DEF-32).
+     * Es null únicamente en los escaneos guardados antes de V4.
+     */
+    @Column(name = "escaneado_por_email")
+    private String escaneadoPorEmail;
+
     /** En UTC y sin fracción de segundo. */
     @Column(nullable = false)
     private LocalDateTime escaneado;
@@ -62,13 +71,14 @@ public class Escaneo {
 
     /** {@code ahora} llega como parámetro (sale de un Clock en UTC): la entidad no mira el reloj del servidor. */
     public Escaneo(String id, String codigoQr, String eventoId, ResultadoEscaneo resultado, String entradaId,
-            String escaneadoPor, LocalDateTime ahora) {
+            String escaneadoPor, String escaneadoPorEmail, LocalDateTime ahora) {
         this.id = id;
         this.codigoQr = codigoQr;
         this.eventoId = eventoId;
         this.resultado = resultado;
         this.entradaId = entradaId;
         this.escaneadoPor = escaneadoPor;
+        this.escaneadoPorEmail = escaneadoPorEmail;
         this.escaneado = ahora;
     }
 
@@ -78,6 +88,7 @@ public class Escaneo {
     public ResultadoEscaneo getResultado() { return resultado; }
     public String getEntradaId() { return entradaId; }
     public String getEscaneadoPor() { return escaneadoPor; }
+    public String getEscaneadoPorEmail() { return escaneadoPorEmail; }
     public LocalDateTime getEscaneado() { return escaneado; }
     public Long getOrden() { return orden; }
 }
