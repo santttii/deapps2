@@ -11,6 +11,13 @@ info:
     en el log del servidor.
 
 
+    Con `docker compose`, el contenedor `web` (nginx, `frontend/docker/nginx.conf`) pasa `/api` al backend. Si el
+    backend está caído o no contesta, ese error lo arma nginx, también en Problem Details: 502 o 503 con
+    `/problemas/servidor-no-disponible` ("Servidor no disponible") y 504 con `/problemas/sin-respuesta` ("Sin
+    respuesta"), sin `instance`. Un error que manda el backend, como el 504 de un servicio que no le contestó,
+    pasa tal cual.
+
+
     Cada servicio es un WAR con su propia raíz: Usuarios en `/api/usuarios`, Eventos en `/api/eventos`, Ventas en
     `/api/v1` (recursos `ventas`, `entradas` y `resumenes`, y los internos de `operaciones-de-reventa`), Pagos en
     `/api/v1/pagos`, Validación en `/api/v1/validacion`, Reventa en `/api/v1/reventas`, Facturación en
@@ -22,8 +29,9 @@ info:
 
 
     Las operaciones de la etiqueta `interno` y las de `pagos` son de uso entre servicios: requieren un token de rol
-    `servicio` y el frontend nunca las llama. Lo mismo `GET /usuarios/{usuarioId}`, `GET /eventos/{eventoId}/organizador`
-    y `POST /eventos/{eventoId}/sectores/{sectorId}/cupo`, que van con la etiqueta de su servicio.
+    `servicio` y el frontend nunca las llama. Lo mismo `GET /usuarios/cuentas`, `GET /usuarios/{usuarioId}`,
+    `GET /eventos/{eventoId}/organizador` y `POST /eventos/{eventoId}/sectores/{sectorId}/cupo`, que van con la
+    etiqueta de su servicio.
     Notificaciones expone operaciones internas de desarrollo (`/api/notificaciones/pruebas/*`, `auditoria`) que no
     forman parte de este contrato.
 servers:
@@ -258,6 +266,41 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
 
+  /usuarios/cuentas:
+    get:
+      tags: [usuarios]
+      summary: El rol de una cuenta verificada, por su email (uso interno)
+      description: >
+        Requiere rol `servicio`. La llama Validación al asignar una puerta: solo se puede asignar una cuenta de personal
+        de puerta (rol `staff`). Devuelve el email, en minúsculas y sin espacios alrededor, y el rol: nada más de la
+        cuenta. Una cuenta que todavía no verificó su email responde 404, igual que un email sin cuenta o un pedido sin
+        `email`. Es una ruta literal y le gana a `/usuarios/{usuarioId}`.
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema: { type: string, format: email, example: puerta@palco.test }
+      responses:
+        '200':
+          description: La cuenta existe y verificó su email
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email, rol]
+                properties:
+                  email: { type: string, format: email, example: puerta@palco.test }
+                  rol: { type: string, enum: [user, organizer, staff] }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404':
+          description: >
+            No hay una cuenta verificada con ese email, o falta `email` (`/problemas/no-encontrado`, "No hay una cuenta
+            verificada con ese email.")
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+
   /usuarios/{usuarioId}:
     get:
       tags: [usuarios]
@@ -393,11 +436,15 @@ paths:
       summary: Subir la foto de un evento
       description: >
         Requiere rol `organizer`. El cuerpo es la imagen cruda, con su tipo en `Content-Type`, y no un
-        `multipart/form-data`: el único campo es el archivo. Devuelve la URL pública, que después se manda como
+        `multipart/form-data`: el único campo es el archivo. Devuelve la URL de la imagen, que después se manda como
         `imagenUrl` al crear o editar el evento. El nombre del archivo lo pone Eventos con un UUID y la extensión sale
-        del tipo. Se guarda en Supabase Storage (`PALCO_SUPABASE_URL`, `PALCO_SUPABASE_BUCKET` y
-        `PALCO_SUPABASE_CLAVE`); sin esa configuración responde 504 y el evento se puede crear igual, con la foto de
-        su categoría. Es una ruta fija y le gana a `/eventos/{evento}`: ningún evento recibe el slug `imagenes`.
+        del tipo. Dónde se guarda lo elige `FabricaDeAlmacen` con `PALCO_IMAGENES`: `supabase` la sube a Supabase
+        Storage (`PALCO_SUPABASE_URL`, `PALCO_SUPABASE_BUCKET` y `PALCO_SUPABASE_CLAVE`) y devuelve su URL pública;
+        `base` la guarda en la base de Palco y devuelve la URL relativa de `GET /eventos/imagenes/{id}`, que la sirve;
+        `ninguno` deshabilita la subida, que responde 504, y el evento se puede crear igual, con la foto de su
+        categoría. Sin `PALCO_IMAGENES`, o con un valor que no existe, se usa Supabase si están `PALCO_SUPABASE_URL`
+        y `PALCO_SUPABASE_CLAVE`, y si no, la base de Palco: es lo que pasa con `docker compose`, que no define esas
+        variables. Es una ruta fija y le gana a `/eventos/{evento}`: ningún evento recibe el slug `imagenes`.
       requestBody:
         required: true
         content:
@@ -417,8 +464,8 @@ paths:
           description: >
             La imagen llegó vacía, pasa de 2 MB o su contenido no es del tipo declarado: los primeros bytes tienen que
             ser los de un JPG, PNG o WEBP, así un .txt renombrado a .png no se guarda (`/problemas/datos-invalidos`,
-            `errores.imagen`, con el mismo texto que un tipo no aceptado). Con el almacén sin configurar, este control no
-            llega a correr y responde 504
+            `errores.imagen`, con el mismo texto que un tipo no aceptado). Con la subida deshabilitada
+            (`PALCO_IMAGENES=ninguno`), este control no llega a correr y responde 504
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
@@ -438,11 +485,58 @@ paths:
                 instance: /api/eventos/imagenes
         '504':
           description: >
-            No hay almacén configurado ("Todavía no se pueden subir imágenes: falta configurar el almacenamiento.") o
-            Supabase Storage no respondió (`/problemas/sin-respuesta`)
+            La subida está deshabilitada con `PALCO_IMAGENES=ninguno` ("Todavía no se pueden subir imágenes: falta
+            configurar el almacenamiento.") o Supabase Storage no respondió o rechazó la subida ("No se pudo guardar
+            la imagen. Probá de nuevo."), los dos con `/problemas/sin-respuesta`
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+
+  /eventos/imagenes/{id}:
+    get:
+      tags: [eventos]
+      summary: La foto de un evento guardada en la base de Palco
+      description: >
+        Pública, como el catálogo. Sirve las fotos que `POST /eventos/imagenes` guarda en la base de Palco (sin Supabase
+        Storage configurado, o con `PALCO_IMAGENES=base`): esa subida devuelve la URL relativa de esta ruta
+        (`/api/eventos/imagenes/{id}`).
+        El contenido de un id no cambia nunca, así que el navegador la puede guardar por un año sin volver a pedirla.
+        Un id que no tiene la forma de los de Palco (un UUID con la extensión `jpg`, `png` o `webp`) no se busca en la
+        base: responde 404, igual que uno que no existe.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: El UUID de la imagen con su extensión
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(jpg|png|webp)$'
+            example: 3f9a1c2b-7d4e-4f60-9a1b-2c3d4e5f6a7b.jpg
+      responses:
+        '200':
+          description: La imagen, con el tipo con el que se subió
+          headers:
+            Cache-Control:
+              schema: { type: string, example: 'public, max-age=31536000, immutable' }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        '404':
+          description: No existe una imagen con ese id, o el id no tiene la forma de uno (`/problemas/no-encontrado`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: /problemas/no-encontrado
+                title: No encontrado
+                status: 404
+                detail: No existe esa imagen.
+                instance: /api/eventos/imagenes/3f9a1c2b-7d4e-4f60-9a1b-2c3d4e5f6a7b.jpg
 
   /eventos/{eventoId}/organizador:
     get:
@@ -756,7 +850,10 @@ paths:
             El sector no tiene cupo suficiente (`/problemas/cupo-agotado`), el evento ya empezó
             (`/problemas/evento-finalizado`), la misma clave está en uso por un pedido que todavía no terminó
             (`/problemas/operacion-en-curso`) o la misma clave ya abrió una compra con otro pedido
-            (`/problemas/clave-reutilizada`)
+            (`/problemas/clave-reutilizada`). También, por las reglas entre compras (CA-05.10): con sus otras compras
+            del evento, pagadas o con la reserva vigente, el comprador pasaría de 6 entradas
+            (`/problemas/tope-por-evento`), o el DNI de un titular ya tiene una entrada para el evento o está en otra
+            compra del evento que se está cobrando (`/problemas/dni-con-entrada`)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
@@ -879,7 +976,9 @@ paths:
             La reserva venció (`/problemas/reserva-vencida`), la venta ya está paga (`/problemas/venta-ya-paga`) o hay
             otro pago en curso o sin resultado (`/problemas/operacion-en-curso`). Si la compra seguía vigente pero
             perdió su instancia, antes de responder `reserva-vencida` la venta pasa a `CANCELADA` y el cupo vuelve a
-            Eventos
+            Eventos. También `dni-con-entrada` si, desde que se abrió la compra, el DNI de alguno de sus titulares
+            quedó con una entrada para el evento o está en otra compra del evento que se está cobrando: no se cobra.
+            No se vuelve a mirar en el reintento del mismo cobro (la misma clave)
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
@@ -1249,14 +1348,22 @@ paths:
             La publicación ya no está activa (`/problemas/publicacion-no-activa`), es del mismo usuario
             (`/problemas/compra-propia`) o faltan menos de 3 horas para el evento (`/problemas/reventa-cerrada`).
             También `publicacion-no-activa` cuando se cobró y Ventas rechazó la transferencia: el `detail` dice
-            "Te devolvimos el pago" o, si Pagos no respondió al devolverlo, "El pago se va a devolver"
+            "Te devolvimos el pago" o, si Pagos no respondió al devolverlo, "El pago se va a devolver". Y
+            `tope-por-evento` si con esta entrada el comprador pasaría de 6 del evento, sumando sus compras, o
+            `dni-con-entrada` si el DNI del titular ya tiene una entrada para el evento (operación interna
+            `POST /v1/operaciones-de-reventa/controles-de-compra`): no se toma la publicación ni se cobra, y el
+            `detail` es el mismo de una compra del catálogo. Ese control no se repite cuando el mismo comprador
+            reintenta, con la misma clave y el mismo DNI, una compra que ya tomó la publicación: su cobro pudo haber
+            salido
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
         '504':
           description: >
-            Pagos o Ventas no respondieron a tiempo (`/problemas/sin-respuesta`). La publicación queda tomada y se
-            reintenta con la misma `Idempotency-Key`: no se cobra de nuevo.
+            Eventos, Ventas o Pagos no respondieron a tiempo (`/problemas/sin-respuesta`). Si no respondió Eventos (la
+            fecha del evento) o Ventas al controlar la compra, el pedido se corta antes de tomar la publicación y de
+            cobrar. Si no respondió Pagos al cobrar o Ventas al transferir, la publicación queda tomada y se reintenta
+            con la misma `Idempotency-Key`: no se cobra de nuevo.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
@@ -1422,9 +1529,10 @@ paths:
       tags: [validacion]
       summary: Asignar una cuenta a la puerta de un evento propio
       description: >
-        Requiere rol `organizer` y ser el dueño del evento. Repetirlo devuelve la misma asignación (es idempotente).
-        No se comprueba que el email sea de una cuenta `staff`: uno que no existe no deja escanear a nadie.
-        Desde el 23/10 (limitación L17).
+        Requiere rol `organizer` y ser el dueño del evento. Solo se asigna una cuenta de personal de puerta (CA-14.3):
+        Validación le pide el rol a Usuarios (`GET /usuarios/cuentas`, rol `servicio`) y responde 422
+        `no-es-de-puerta` si la cuenta no es `staff` o si no hay una cuenta verificada con ese email. Repetirlo
+        devuelve la misma asignación (es idempotente) sin volver a preguntar el rol. Desde el 23/10 (limitación L17).
       responses:
         '200':
           description: La asignación
@@ -1435,7 +1543,27 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
-        '504': { $ref: '#/components/responses/SinRespuesta' }
+        '422':
+          description: >
+            La cuenta no es de personal de puerta (`/problemas/no-es-de-puerta`): tiene otro rol ("Esa cuenta no es de
+            personal de puerta: no podría escanear. Asigná una cuenta de puerta.") o no hay una cuenta verificada con
+            ese email ("No hay una cuenta verificada con ese email.")
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: /problemas/no-es-de-puerta
+                title: Regla de negocio incumplida
+                status: 422
+                detail: 'Esa cuenta no es de personal de puerta: no podría escanear. Asigná una cuenta de puerta.'
+                instance: /api/v1/validacion/puertas/ev-1/titular@palco.test
+        '504':
+          description: >
+            Eventos (para saber el dueño del evento) o Usuarios (para saber el rol de la cuenta) no respondieron a
+            tiempo (`/problemas/sin-respuesta`). No se asigna nada
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
     delete:
       tags: [validacion]
       summary: Quitar una cuenta de la puerta de un evento propio
@@ -1460,7 +1588,12 @@ paths:
         Requiere rol `user` (solo la factura de una compra propia) o `servicio` (cualquiera). Las facturas no se
         piden por HTTP: Facturación consume el tópico `compraConfirmada` y le pide el CAE a ARCA (simulado) por SOAP
         (`/legado/arca?wsdl`). Por eso la factura aparece unos segundos después del pago. Una venta sin factura
-        todavía, inexistente o de otro comprador responde 404, igual en los tres casos.
+        todavía, inexistente o de otro comprador responde 404, igual en los tres casos; mientras ARCA no responde
+        también es 404, porque el broker reintenta y, si agota los intentos, la factura sale al reprocesar la DLQ.
+        Si ARCA rechazó el comprobante (`Resultado` R), Facturación anota el rechazo con su motivo en
+        `facturacion.comprobante_rechazado`, no reintenta (el pedido sería el mismo) y la consulta responde 409
+        `/problemas/comprobante-rechazado`, solo a quien puede ver esa venta: a otro comprador le sigue respondiendo
+        404. Si después la factura se emite, la consulta devuelve la factura.
       parameters:
         - $ref: '#/components/parameters/IfNoneMatch'
       responses:
@@ -1475,6 +1608,20 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermiso' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: >
+            ARCA rechazó el comprobante de esa venta (`/problemas/comprobante-rechazado`). Volver a consultar no la
+            trae: el rechazo lo resuelve una persona. El motivo de ARCA no viaja en la respuesta, queda en la base y en
+            el log.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: /problemas/comprobante-rechazado
+                title: Conflicto
+                status: 409
+                detail: ARCA rechazó la factura de esta compra y la estamos revisando. Las entradas valen igual.
+                instance: /api/v1/facturas/V-3f9a1c2b
 
   /v1/entradas/usos:
     post:
@@ -1583,6 +1730,47 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problema' }
+
+  /v1/operaciones-de-reventa/controles-de-compra:
+    post:
+      tags: [interno]
+      summary: Controlar una compra en la reventa antes de cobrarla
+      description: >
+        Uso interno, rol `servicio` (lo llama Reventa antes de tomar la publicación y cobrar). Aplica las dos reglas
+        entre compras de una compra del catálogo, con los mismos errores: hasta 6 entradas por comprador y evento,
+        sumando todas sus compras, y un DNI por evento. La entrada que se revende no cuenta para el DNI: al
+        transferirse deja de estar en pie, así que la persona a nombre de la que estaba puede comprarla. No cambia
+        nada. Es POST y no GET para que el DNI del titular viaje en el cuerpo y no en la URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ControlDeCompra' }
+      responses:
+        '204':
+          description: El comprador puede quedarse con la entrada
+        '400': { $ref: '#/components/responses/DatosInvalidos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404':
+          description: La entrada no existe o no es de ese vendedor (`/problemas/no-encontrado`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+        '409':
+          description: >
+            El comprador llegaría a más de 6 entradas del evento (`/problemas/tope-por-evento`) o el DNI del titular
+            ya tiene una entrada para el evento o está en una compra del evento que se está cobrando
+            (`/problemas/dni-con-entrada`)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problema' }
+              example:
+                type: /problemas/dni-con-entrada
+                title: Conflicto
+                status: 409
+                detail: El DNI 30123456 ya tiene una entrada para este evento. Cada persona puede tener una sola entrada por evento.
+                instance: /api/v1/operaciones-de-reventa/controles-de-compra
 
   /v1/operaciones-de-reventa/transferencias:
     post:
@@ -2045,8 +2233,11 @@ components:
       properties:
         imagenUrl:
           type: string
-          description: URL pública en Supabase Storage
-          example: https://proyecto.supabase.co/storage/v1/object/public/eventos/3f9a1c2b-7d4e-4b8a-9c1f-2e6d5a0b7c43.jpg
+          description: >
+            Guardada en la base de Palco, la URL relativa de `GET /eventos/imagenes/{id}` (la del ejemplo); subida a
+            Supabase Storage, su URL pública
+            (`https://proyecto.supabase.co/storage/v1/object/public/eventos/3f9a1c2b-7d4e-4b8a-9c1f-2e6d5a0b7c43.jpg`)
+          example: /api/eventos/imagenes/3f9a1c2b-7d4e-4b8a-9c1f-2e6d5a0b7c43.jpg
 
     Cancelacion:
       type: object
@@ -2290,7 +2481,7 @@ components:
         eventoId: { type: string, maxLength: 40, example: ev-1 }
         staffEmail: { type: string, format: email, description: Siempre en minúsculas, example: puerta@palco.test }
         asignadaPor: { type: string, description: El organizador que la asignó, example: user-organizador }
-        asignada: { type: string, format: date-time, description: Cuándo se asignó, en UTC }
+        asignada: { type: string, format: date-time, description: 'Cuándo se asignó, en UTC' }
 
     NuevoEscaneo:
       type: object
@@ -2329,7 +2520,7 @@ components:
                 resultado: { type: string, enum: [VALIDA, SIN_RESPUESTA] }
                 escaneadoPor: { type: string }
                 escaneado: { type: string, format: date-time }
-        escaneadoPor: { type: string, example: user-puerta }
+        escaneadoPor: { type: string, example: user-staff }
         escaneado: { type: string, format: date-time }
 
     Escaneo:
@@ -2342,7 +2533,15 @@ components:
           type: string
           enum: [VALIDA, YA_USADA, INEXISTENTE, OTRO_EVENTO, NO_HABILITADA, SIN_RESPUESTA]
         entradaId: { type: [string, 'null'] }
-        escaneadoPor: { type: string }
+        escaneadoPor: { type: string, description: 'Id de la cuenta que escaneó (claim "sub")', example: user-staff }
+        escaneadoPorEmail:
+          type: [string, 'null']
+          format: email
+          description: >
+            Email de la cuenta que escaneó (claim `upn` de su token), en minúsculas: es como el organizador la
+            asigna a la puerta y lo que muestra su panel. Es null en los escaneos guardados antes de que
+            Validación lo registrara (migración V4); para esos queda solo `escaneadoPor`.
+          example: puerta@palco.test
         escaneado: { type: string, format: date-time }
 
     Factura:
@@ -2378,6 +2577,16 @@ components:
       properties:
         entradaId: { type: string, maxLength: 40 }
         vendedorId: { type: string, maxLength: 40 }
+
+    ControlDeCompra:
+      type: object
+      description: Qué entrada se compra y de qué vendedor es, quién la compra y a nombre de quién va a quedar
+      required: [entradaId, vendedorId, compradorId, titular]
+      properties:
+        entradaId: { type: string, maxLength: 40, example: T-9c41d07e }
+        vendedorId: { type: string, maxLength: 40, example: user-titular }
+        compradorId: { type: string, maxLength: 40 }
+        titular: { $ref: '#/components/schemas/Titular' }
 
     Transferencia:
       type: object
