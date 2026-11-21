@@ -71,6 +71,8 @@ Escenario: CA-01.1 Registro y verificación del email
   Cuando envío POST /api/usuarios/registro con nombre "Carla", apellido "Integracion", DNI "30111222", email "nuevo@palco.test", teléfono "3415550000", fecha de nacimiento "1994-03-08" y contraseña "palco1234"
   Entonces la respuesta es 201
   Y la cuenta queda con rol "user" y el email sin verificar
+  Y sin servidor SMTP el email queda en el log del servidor como "Email para n***@palco.test (Tu código de Palco), sin el cuerpo: lo escribe PALCO_CORREO_LOG_COMPLETO=true.", sin el código
+  Pero con PALCO_CORREO_LOG_COMPLETO=true, que prenden backend/dev.sh y el docker-compose.yml, el renglón es "Email para nuevo@palco.test (Tu código de Palco): …" y trae el cuerpo con el código
   Cuando envío POST /api/usuarios/verificacion con ese email y el código de 6 dígitos que llegó por email
   Entonces la respuesta es 200 con un token de sesión
   Y la cuenta queda con el email y la identidad verificados
@@ -113,7 +115,7 @@ Escenario: CA-01.6 Falla externa: el servidor de correo no responde
   Dado que el servidor SMTP rechaza la conexión o no contesta en 5 segundos
   Cuando envío POST /api/usuarios/registro con los datos de CA-01.1
   Entonces la respuesta es 201 igual y la cuenta queda creada sin verificar
-  Y el log del servidor registra un WARNING "No se pudo mandar el email a nuevo@palco.test"
+  Y el log del servidor registra un WARNING "No se pudo mandar el email a n***@palco.test. Motivo: …", con la dirección enmascarada y sin la traza
   Y pasados 30 segundos POST /api/usuarios/verificacion/reenvio responde 204 y vuelve a mandar un código
   Pero antes de los 30 segundos responde 409 con type "/problemas/conflicto"
 ```
@@ -188,7 +190,7 @@ Escenario: CA-03.4 Falla externa: el servidor de correo no responde
   Dado que existe la cuenta verificada "nuevo@palco.test" y el servidor SMTP rechaza la conexión o no contesta en 5 segundos
   Cuando envío POST /api/usuarios/password/olvide con ese email
   Entonces la respuesta es 204 igual, sin esperar más de 5 segundos al servidor de correo
-  Y el log del servidor registra un WARNING "No se pudo mandar el email a nuevo@palco.test"
+  Y el log del servidor registra un WARNING "No se pudo mandar el email a n***@palco.test. Motivo: …", con la dirección enmascarada y sin la traza
   Y la contraseña no cambia
   Y pasados 30 segundos puedo pedir el código otra vez y se manda uno nuevo
 ```
@@ -321,6 +323,8 @@ Esquema del escenario: CA-05.10 Reglas entre compras: tope por evento y un DNI p
     | tengo 4 entradas pagadas para el evento                         | abro otra compra de 3 entradas para el mismo evento      | /problemas/tope-por-evento | Ya tenés 4: podés comprar 2 más.              |
     | otra cuenta tiene una entrada pagada con el DNI "30111222"      | abro una compra con un titular de DNI "30111222"         | /problemas/dni-con-entrada | El DNI 30111222 ya tiene una entrada para este evento. |
     | otra compra abierta con el DNI "30111222" se pagó antes que la mía | pago la mía, que tiene un titular con ese DNI          | /problemas/dni-con-entrada | El DNI 30111222 ya tiene una entrada para este evento. |
+    | tengo 6 entradas pagadas para el evento                         | compro en la reventa una entrada del mismo evento (POST /api/v1/reventas/{publicacionId}/compra) | /problemas/tope-por-evento | Ya tenés 6: no podés comprar más para este evento. |
+    | otra cuenta tiene una entrada pagada con el DNI "30111222", que no es la que se revende | compro en la reventa una entrada del mismo evento con un titular de DNI "30111222" | /problemas/dni-con-entrada | El DNI 30111222 ya tiene una entrada para este evento. |
 
 Escenario: CA-05.11 Falla externa: Usuarios no responde al abrir la compra
   Dado que inicié sesión como "titular@palco.test" y Usuarios no responde en 5 segundos
@@ -349,14 +353,15 @@ Esquema del escenario: CA-06.3 Falla externa: ARCA no responde o rechaza
   Dado que el ARCA simulado <falla>
   Cuando se confirma una compra
   Entonces el pago responde 201 y la compra pasa a EMITIDA igual, sin esperar a la factura
-  Y GET /api/v1/facturas/{ventaId} responde 404 con type "/problemas/no-encontrado": no se guarda ninguna factura con datos inventados
-  Y Facturación devuelve el mensaje al broker, que lo entrega hasta 5 veces con 2 segundos entre una y otra y después lo pasa a la DLQ
+  Y no se guarda ninguna factura con datos inventados
+  Y GET /api/v1/facturas/{ventaId} responde <consulta>
+  Y <mensaje>
 
   Ejemplos:
-    | falla                                                                          |
-    | no responde en 5 segundos (palco.arca.simular-sin-respuesta=true)              |
-    | responde con un SOAP Fault                                                     |
-    | rechaza el comprobante con una observación                                     |
+    | falla                                                             | consulta                                                                                                   | mensaje |
+    | no responde en 5 segundos (palco.arca.simular-sin-respuesta=true) | 404 con type "/problemas/no-encontrado"                                                                    | Facturación devuelve el mensaje al broker, que lo entrega hasta 5 veces con 2 segundos entre una y otra y después lo pasa a la DLQ |
+    | responde con un SOAP Fault                                        | 404 con type "/problemas/no-encontrado"                                                                    | Facturación devuelve el mensaje al broker, que lo entrega hasta 5 veces con 2 segundos entre una y otra y después lo pasa a la DLQ |
+    | rechaza el comprobante con una observación                        | 409 con type "/problemas/comprobante-rechazado" al comprador y a otra cuenta el mismo 404 que para una venta que no existe | Facturación anota el rechazo con su motivo y confirma el mensaje: no vuelve al broker ni pasa a la DLQ, y si llega otra vez no se le pide otro CAE a ARCA |
 
 Escenario: CA-06.4 Factura de otra persona
   Dado que inicié sesión como "otro.titular@palco.test"
@@ -899,19 +904,20 @@ escrito acá no pasa desapercibido.
 
 | Criterio | Tests |
 |---|---|
-| CA-01.1 | RegistroYVerificacionTest#registrarseGuardaLaCuentaYSuCodigoConElEmailNormalizadoYElDniSoloConDigitos, RegistroCompletoTest#unaCuentaQueCompletaElRegistroSaleConLaIdentidadVerificada |
+| CA-01.1 | RegistroYVerificacionTest#registrarseGuardaLaCuentaYSuCodigoConElEmailNormalizadoYElDniSoloConDigitos, RegistroCompletoTest#unaCuentaQueCompletaElRegistroSaleConLaIdentidadVerificada, CorreoAlLogTest#porDefectoQuedanElDestinatarioEnmascaradoYElAsuntoPeroNiElCuerpoNiElCodigo, CorreoAlLogTest#enElModoCompletoElRenglonEsElQueLeenLasPruebas |
 | CA-01.2 | RegistroYVerificacionTest#unEmailYaVerificadoEsUnDatoInvalidoDelCampoEmail, RegistroYVerificacionTest#unDniYaVerificadoEsUnDatoInvalidoDelCampoDni |
-| CA-01.3 | RegistroYVerificacionTest#unDniDeSeisDigitosSeRechazaSinTocarLaBase, RegistroYVerificacionTest#unMenorDeDieciseisSeRechaza, ReglasDeNegocioTest#unDniValidoSonSieteUOchoDigitosYNadaMas |
+| CA-01.3 | RegistroYVerificacionTest#unDniDeSeisDigitosSeRechazaSinTocarLaBase, RegistroYVerificacionTest#unMenorDeDieciseisSeRechaza, RegistroYVerificacionTest#elDiaQueCumpleDieciseisYaPuedeRegistrarse, RegistroYVerificacionTest#aUnDiaDeCumplirDieciseisTodaviaNoPuedeRegistrarse, ReglasDeNegocioTest#unDniValidoSonSieteUOchoDigitosYNadaMas |
 | CA-01.4 | RegistroYVerificacionTest#unCodigoIncorrectoSumaElIntentoYLoGuardaEnElMomento, RegistroYVerificacionTest#conCincoIntentosFallidosElCodigoYaNoSirve, RegistroYVerificacionTest#unCodigoVencidoSeRechaza |
-| CA-01.6 | CorreoSmtpTest#siElServidorNoRespondeElAvisoNoRompeLaOperacionQueLoDisparo, CorreoSmtpTest#laSesionTieneTiempoMaximoParaConectarLeerYEscribir, RegistroYVerificacionTest#reenviarAntesDeTreintaSegundosEsUnConflicto, RegistroYVerificacionTest#reenviarDespuesDeTreintaSegundosRenuevaElMismoCodigo |
+| CA-01.6 | CorreoSmtpTest#siElServidorNoRespondeElAvisoNoRompeLaOperacionQueLoDisparo, CorreoSmtpTest#elWarningDeUnEnvioQueFallaNoTraeElEmailDeNadieNiLaTraza, CorreoSmtpTest#laSesionTieneTiempoMaximoParaConectarLeerYEscribir, RegistroYVerificacionTest#reenviarAntesDeTreintaSegundosEsUnConflicto, RegistroYVerificacionTest#reenviarDespuesDeTreintaSegundosRenuevaElMismoCodigo |
 | CA-02.1 | TokensTest#laFirmaSeVerificaConLaClavePublicaReconstruidaDesdeElJwks |
 | CA-02.2 | ContrasenasTest#laContrasenaCorrectaVerificaYLaIncorrectaNo |
 | CA-02.3 | LimiteDeIntentosDeLoginTest#cincoFallidosYElSextoConLaClaveBuenaRecibe429, LimiteDeIntentosDeLoginTest#laVentanaEsDeQuinceMinutos, LimiteDeIntentosDeLoginTest#cuatroFallidosNoBloqueanYUnLoginCorrectoLosBorra |
 | CA-02.4 | TokensTest#unTokenModificadoNoVerifica |
+| CA-02.5 | LimiteDeIntentosDeLoginTest#unaCuentaSinVerificarConLaClaveBuenaRecibe409YNoSeLeDaSesion, LimiteDeIntentosDeLoginTest#unaCuentaSinVerificarConLaClaveMalaRecibeElMismo401YElIntentoCuenta |
 | CA-03.1 | ReinicioDePasswordTest#pedirloConUnaCuentaVerificadaGuardaElCodigoYMandaElEmail, ReinicioDePasswordTest#conElCodigoCorrectoCambiaLaContrasenaYBorraElCodigo |
 | CA-03.2 | ReinicioDePasswordTest#unEmailQueNoExisteNoMandaNadaYTampocoEsUnError |
 | CA-03.3 | ReinicioDePasswordTest#unCodigoIncorrectoSumaUnIntentoYNoCambiaNada, ReinicioDePasswordTest#despuesDeCincoIntentosFallidosElCodigoNoSirveMasAunqueSeAcierte, ReinicioDePasswordTest#unCodigoVencidoNoSirve |
-| CA-03.4 | CorreoSmtpTest#siElServidorNoRespondeElAvisoNoRompeLaOperacionQueLoDisparo, CorreoSmtpTest#laSesionTieneTiempoMaximoParaConectarLeerYEscribir, ReinicioDePasswordTest#pedirloDeNuevoEnSeguidaNoMandaOtroPeroTampocoEsUnError, ReinicioDePasswordTest#pasadaLaEsperaPedirloDeNuevoMandaOtroCodigo |
+| CA-03.4 | CorreoSmtpTest#siElServidorNoRespondeElAvisoNoRompeLaOperacionQueLoDisparo, CorreoSmtpTest#elWarningDeUnEnvioQueFallaNoTraeElEmailDeNadieNiLaTraza, CorreoSmtpTest#laSesionTieneTiempoMaximoParaConectarLeerYEscribir, ReinicioDePasswordTest#pedirloDeNuevoEnSeguidaNoMandaOtroPeroTampocoEsUnError, ReinicioDePasswordTest#pasadaLaEsperaPedirloDeNuevoMandaOtroCodigo |
 | CA-04.1 | ServicioDeEventosTest#elDetalleDevuelveElEventoConSusSectores, CupoEnH2Test#elListadoFiltraPorCategoriaYOrdenaPorFecha |
 | CA-04.3 | ServicioDeEventosTest#unSlugQueNoExisteEsNoEncontrado |
 | CA-05.3 | ServicioDeVentasTest#masDeSeisEntradasRompeLaReglaDelMaximoYNoSeTocaNada, ServicioDeVentasTest#seisEntradasEsElMaximoYSePuede, ServicioDeVentasTest#haceFaltaExactamenteUnTitularPorEntrada, ServicioDeVentasTest#dosEntradasNoPuedenIrAlMismoDni, ServicioDeVentasTest#siUnSectorNoTieneCupoSeDevuelveLoQueYaSeHabiaReservado, ClienteDeEventosTest#sinLugaresEsUnConflictoDeCupoAgotado |
@@ -921,11 +927,11 @@ escrito acá no pasa desapercibido.
 | CA-05.7 | ComprasEnCursoTest#unaVentaCanceladaOVencidaNoSePaga, ServicioDeVentasTest#conLaReservaVencidaNoSeCobra, ServicioDeVentasTest#unSegundoAntesDeQueVenzaLaReservaTodaviaSePuedePagar, VencimientoDeReservasTest#unaReservaVencidaPasaAVencidaYRecienDespuesSeDevuelveElCupoDeCadaSector, VentaTest#laReservaValeHastaElInstanteAnteriorAlVencimiento |
 | CA-05.8 | ComprasEnCursoTest#sinLaIdentidadVerificadaNoSeAbreLaCompra |
 | CA-05.9 | ServicioDeVentasTest#pagarCobraConfirmaLaVentaCreaLasEntradasYPublicaElMensajeUnaSolaVez, EmisionDeEntradasMDBTest#siElMensajeLlegaOtraVezNoHayNadaPendienteYSeConfirmaSinError, EmisionEnH2Test#emitirDosVecesLaMismaVentaNoCambiaNadaLaSegundaVez, EmisionDeEntradasMDBTest#unTextoQueNoEsUnPagoConfirmadoVuelveAlBrokerYNoTocaLaBase |
-| CA-05.10 | ServicioDeVentasTest#conLasDeOtrasComprasNoSePuedePasarDeSeisEntradasPorEvento, ServicioDeVentasTest#conElTopeJustoLaCompraSeAbre, ServicioDeVentasTest#conSeisEntradasYaNoPuedeComprarMasParaEseEvento, ServicioDeVentasTest#unDniQueYaTieneEntradaParaElEventoNoPuedeSerTitularDeOtra, ServicioDeVentasTest#antesDeCobrarSeVuelveAMirarElDniYSiOtraCompraLoUsoNoSeCobra, ComprasEnCursoTest#siOtraCompraUsoElDniDeUnTitularNoSeCobraYSeQuitaLaMarca, ConciliacionEnH2Test#lasEntradasDelCompradorCuentanLasEnCursoVigentesYLasPagadasMenosLasRevendidas, ConciliacionEnH2Test#unDniTieneEntradaSiEsTitularDeUnaEnPieOEstaEnUnaCompraQueSeEstaCobrando |
+| CA-05.10 | ServicioDeVentasTest#conLasDeOtrasComprasNoSePuedePasarDeSeisEntradasPorEvento, ServicioDeVentasTest#conElTopeJustoLaCompraSeAbre, ServicioDeVentasTest#conSeisEntradasYaNoPuedeComprarMasParaEseEvento, ServicioDeVentasTest#unDniQueYaTieneEntradaParaElEventoNoPuedeSerTitularDeOtra, ServicioDeVentasTest#antesDeCobrarSeVuelveAMirarElDniYSiOtraCompraLoUsoNoSeCobra, ComprasEnCursoTest#siOtraCompraUsoElDniDeUnTitularNoSeCobraYSeQuitaLaMarca, ConciliacionEnH2Test#lasEntradasDelCompradorCuentanLasEnCursoVigentesYLasPagadasMenosLasRevendidas, ConciliacionEnH2Test#unDniTieneEntradaSiEsTitularDeUnaEnPieOEstaEnUnaCompraQueSeEstaCobrando, ServicioDeReventaTest#antesDeTomarYDeCobrarVentasControlaAlCompradorYAlTitular, ServicioDeReventaTest#unCompradorConSeisEntradasParaElEventoNoCompraOtraEnLaReventa, ServicioDeReventaTest#unTitularQueYaTieneEntradaParaElEventoNoCompraEnLaReventa, ReventaDeEntradasEnH2Test#conSeisEntradasParaElEventoNoCompraOtraEnLaReventa, ReventaDeEntradasEnH2Test#conCincoEntradasParaElEventoLaDeLaReventaEsLaSextaYPasa, ReventaDeEntradasEnH2Test#unDniQueYaTieneEntradaParaElEventoNoRecibeLaDeLaReventa, ReventaDeEntradasEnH2Test#laEntradaQueSeRevendeNoCuentaParaElDniPeroLasOtrasDeEsaVentaSi, ReventaDeEntradasEnH2Test#lasEntradasYLosDniDeOtroEventoNoCuentan, ClientesTest#elControlDeLaCompraDevuelveElTopeYElDniConElTipoYElDetalleDeVentas |
 | CA-05.11 | ComprasEnCursoTest#siUsuariosNoRespondeNoSeAbreLaCompra, ClienteDeUsuariosTest#siUsuariosNoRespondeEsSinRespuesta |
 | CA-06.1 | ServicioDeFacturacionTest#unaCompraSeFacturaConElNumeroYElCaeQueDaArca, ArcaSimuladoTest#elPrimerComprobanteSeApruebaConElNumeroUnoYUnCaeDeCatorceDigitos, FacturasResourceTest#elCompradorVeLaFacturaDeSuCompra |
 | CA-06.2 | FacturacionDeComprasMDBTest#elMismoMensajeEntregadoDosVecesNoFacturaDosVeces, ServicioDeFacturacionTest#unMensajeRepetidoDevuelveLaMismaFacturaSinVolverAPedirleAArca, FacturaEnH2Test#unaSegundaFacturaDeLaMismaVentaEsUnConflictoYNoSeGuarda |
-| CA-06.3 | ServicioDeFacturacionTest#siArcaNoRespondeLaFallaSaleYNoSeGuardaNada, ServicioDeFacturacionTest#siArcaRechazaElComprobanteLaFallaSaleYNoSeGuardaNada, FacturacionDeComprasMDBTest#conArcaCaidoElMensajeVuelveAlBrokerYLaReentregaFactura, FacturacionDeComprasMDBTest#unComprobanteRechazadoTambienVuelveAlBrokerParaTerminarEnLaDlq, ArcaSoapTest#siArcaTardaMasQueElTiempoDeLecturaFallaSinEsperarlo, ArcaSoapTest#unSoapFaultEsSinRespuesta, FacturasResourceTest#unaVentaSinFacturaTodaviaEs404 |
+| CA-06.3 | ServicioDeFacturacionTest#siArcaNoRespondeLaFallaSaleYNoSeGuardaNada, ServicioDeFacturacionTest#siArcaNoRespondeNoSeAnotaNingunRechazo, ServicioDeFacturacionTest#siArcaRechazaElComprobanteSeAnotaElRechazoConElMotivoYNoUnaFactura, ServicioDeFacturacionTest#unMensajeRepetidoDeUnaVentaRechazadaNoLeVuelveAPedirAArca, ServicioDeFacturacionTest#siOtraEntregaAnotoElRechazoPrimeroValeElQueYaEstaba, ServicioDeFacturacionTest#elCompradorDeUnaVentaRechazadaRecibeUnConflictoComprobanteRechazadoYNoUn404, ServicioDeFacturacionTest#otroUsuarioNoSeEnteraDeQueUnaVentaAjenaFueRechazada, FacturacionDeComprasMDBTest#conArcaCaidoElMensajeVuelveAlBrokerYLaReentregaFactura, FacturacionDeComprasMDBTest#unComprobanteRechazadoQuedaAnotadoYNoVuelveAlBroker, FacturaEnH2Test#guardaElRechazoDeArcaYLoEncuentraPorVenta, FacturaEnH2Test#unSegundoRechazoDeLaMismaVentaEsUnConflictoYNoSeGuarda, ArcaSoapTest#siArcaTardaMasQueElTiempoDeLecturaFallaSinEsperarlo, ArcaSoapTest#unSoapFaultEsSinRespuesta, ArcaSoapTest#unRechazoDeArcaEsUnaReglaIncumplidaConLaObservacion, FacturasResourceTest#unaVentaSinFacturaTodaviaEs404, FacturasResourceTest#unaVentaQueArcaRechazoEsUnConflictoParaSuCompradorYUn404ParaOtro |
 | CA-06.4 | FacturasResourceTest#otroUsuarioNoVeUnaFacturaAjenaYRecibeElMismo404QueSiNoExistiera, ServicioDeFacturacionTest#unaFacturaAjenaRespondeLoMismoQueUnaQueNoExiste |
 | CA-07.1 | ComprasEnCursoTest#listarDevuelveLasComprasDelCompradorConSusEntradasYEnElOrdenDelRepositorio, ServicioDeVentasTest#unaEntradaEmitidaSaleConSuCodigoYLaFechaDeEmisionEnUtc |
 | CA-07.3 | ComprasEnCursoTest#laEntradaSoloLaVeQuienLaCompro, ComprasEnCursoTest#unaVentaAjenaRespondeLoMismoQueUnaQueNoExiste |
@@ -951,7 +957,7 @@ escrito acá no pasa desapercibido.
 | CA-10.7 | ServicioDeEventosTest#conUnEtagViejoEsPrecondicionFallidaYNoSeCambiaNada, ServicioDeEventosTest#unaVentaTambienCambiaElEventoQueLeyoElCliente, ServicioDeEventosTest#unEtagDebilNoAlcanzaParaEditar, FiltroDeEtagTest#ifMatchDebilVacioOConOtroValorNoCoincide |
 | CA-10.8 | ServicioDeEventosTest#unEventoCanceladoTampocoSeEdita, ServicioDeEventosTest#unEventoQueYaEmpezoNoSeEdita, ServicioDeEventosTest#unEventoCanceladoEsConflictoAunqueElEtagSeaViejo |
 | CA-10.9 | ServicioDeEventosTest#laFechaNuevaTambienTieneQueSerFutura, ServicioDeEventosTest#unSectorDeOtroEventoEsUnDatoInvalido |
-| CA-11.1 | ServicioDeEventosTest#cancelarMarcaElEventoYPublicaElMensajeConSuMotivo, CancelacionDeEventosTest#anulaCadaCompraPagadaPideSuReembolsoYPublicaSuAviso, PublicacionesEnH2Test#alCancelarseElEventoSeRetiranSusActivasSalvoLaQueSeEstaPagando |
+| CA-11.1 | ServicioDeEventosTest#cancelarMarcaElEventoYPublicaElMensajeConSuMotivo, CancelacionDeEventosTest#anulaCadaCompraPagadaPideSuReembolsoYPublicaSuAviso, PublicacionesEnH2Test#alCancelarseElEventoSeRetiranSusActivasSalvoLaQueSeEstaPagando, RetiroPorCancelacionTest#retiraLasPublicacionesDelEventoCanceladoConLaHoraEnUtcYDiceCuantas |
 | CA-11.2 | ServicioDeEventosTest#unEventoAjenoNoSePuedeCancelar |
 | CA-11.3 | ServicioDeEventosTest#unEventoCanceladoNoVendeMasEntradasPeroSiguePudiendoDevolverCupo, ClienteDeEventosTest#unEventoCanceladoEsUnConflictoDeEventoCanceladoYNoDeCupoAgotado |
 | CA-11.4 | CancelacionDeEventosTest#siPagosNoContestaElReembolsoLaVentaQuedaMarcadaEnLaMismaAnulacion, CancelacionDeEventosTest#siPagosNoDevuelveElDineroLaEntradaSeAnulaIgualYElAvisoLoDice, CancelacionDeEventosTest#unRechazoDePagosQuedaEnUnSevereParaRevisarloAMano, ReintentoDeReembolsosTest#siPagosLoDevuelveSeSacaLaMarcaYQuedaEnElLogSinOtroAviso, ReintentoDeReembolsosTest#siPagosSigueSinContestarLaMarcaQuedaYSeSigueConLaProxima, ReintentoDeReembolsosTest#unRechazoDePagosNoSeReintentaYTambienSacaLaMarca, ReembolsoPendienteEnH2Test#laMarcaSePoneEnLaAnulacionYElBarridoEncuentraLaVentaConSuPago |
