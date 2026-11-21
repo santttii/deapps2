@@ -63,6 +63,7 @@ public class PruebasDeMensajeria {
     @Resource(lookup = DestinosJms.TOPICO_COMPRA)
     Topic topico;
 
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.systemUTC();
 
     /** Publica un mensaje de ejemplo y lo devuelve. Sale del servidor cuando este método termina bien. */

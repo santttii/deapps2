@@ -20,6 +20,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.Textos;
 import com.palco.ventas.api.Dtos.EntradaDto;
 import com.palco.ventas.api.Dtos.NuevaVentaDto;
 import com.palco.ventas.api.Dtos.NuevoPagoDto;
@@ -286,7 +287,8 @@ public class ComprasEnCurso {
         if (cerrarLaCompra(ventaId)) {
             // Este pedido fue el que canceló la venta: le toca devolver el cupo, y recién ahora,
             // con la cancelación ya confirmada en la base.
-            LOG.info("Venta " + ventaId + " cancelada por su comprador: se devuelve el cupo a Eventos.");
+            // Al log va el id que se leyó de la base, no el que llegó en la URL.
+            LOG.info("Venta " + venta.getId() + " cancelada por su comprador: se devuelve el cupo a Eventos.");
             devolverCupo(venta);
             return;
         }
@@ -526,9 +528,11 @@ public class ComprasEnCurso {
      * pregunta a Pagos por esa clave. Deja un WARNING con la venta y la clave.
      */
     private static ErroresDeNegocio.Conflicto pagoSinResultado(String ventaId, String claveAnotada) {
-        LOG.warning("La venta " + ventaId + " quedó con un intento de pago sin resultado (clave " + claveAnotada
-                + ") y ya no se puede pagar: venció la reserva o no está la instancia de la compra. La cierra"
-                + " ConciliacionDePagos cuando Pagos diga cómo terminó el cobro con esa clave.");
+        // La venta y la clave llegaron en el pedido: van al log en un solo renglón (Textos.enUnaLinea).
+        LOG.warning("La venta " + Textos.enUnaLinea(ventaId) + " quedó con un intento de pago sin resultado (clave "
+                + Textos.enUnaLinea(claveAnotada) + ") y ya no se puede pagar: venció la reserva o no está la"
+                + " instancia de la compra. La cierra ConciliacionDePagos cuando Pagos diga cómo terminó el cobro"
+                + " con esa clave.");
         return new ErroresDeNegocio.Conflicto(TiposDeProblema.OPERACION_EN_CURSO, HAY_UN_PAGO_SIN_RESULTADO);
     }
 

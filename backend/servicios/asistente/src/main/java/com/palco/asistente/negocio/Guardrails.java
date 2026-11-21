@@ -34,7 +34,9 @@ public final class Guardrails {
     // 7 u 8 dígitos sueltos, con o sin puntos: un DNI argentino. Detrás de un signo $ es un precio
     // ($1.000.000), no un DNI.
     private static final Pattern DNI = Pattern.compile("(?<!\\$ ?)\\b\\d{1,2}\\.?\\d{3}\\.?\\d{3}\\b");
-    private static final Pattern EMAIL = Pattern.compile("[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)+");
+    // El "++" final es posesivo: no guarda puntos de retroceso, así que un texto largo no desborda la pila.
+    // Encuentra lo mismo que "+", porque cada grupo arranca en un punto que [\w-] no toma.
+    private static final Pattern EMAIL = Pattern.compile("[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)++");
 
     // Inyección de prompt (LLM01). Los patrones se buscan sobre el texto normalizado (Texto.normalizar),
     // así que "IGNORÁ", "ignora" e "ignorá   tus" llegan iguales. Están agrupados por lo que busca quien

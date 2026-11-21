@@ -77,6 +77,7 @@ public class ServicioDeReventa implements IReventa {
     DevolucionDeCobros devoluciones;
 
     /** De dónde sale el "ahora"; los tests lo reemplazan por un reloj fijo. */
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.systemUTC();
 
     @Override

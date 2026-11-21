@@ -39,6 +39,7 @@ public class ServicioDeAuditoria implements IAuditoria {
     RegistroDeAuditoriaRepository registros;
 
     /** De acá sale el "ahora". El servidor corre en hora argentina y la columna guarda hora universal (UTC). */
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.systemUTC();
 
     @Override

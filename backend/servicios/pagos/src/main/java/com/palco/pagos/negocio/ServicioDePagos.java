@@ -63,6 +63,7 @@ public class ServicioDePagos implements IPagos {
     PasarelaDePagos pasarela;
 
     /** De dónde sale el "ahora". No es estado: es fijo, y los tests lo reemplazan por un reloj detenido. */
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.systemUTC();
 
     @Override

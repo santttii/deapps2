@@ -65,8 +65,11 @@ public class AsistenteIA implements IAsistente {
     ManagedExecutorService ejecutorDelContenedor;
 
     // Se pueden reemplazar en los tests.
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     ExecutorService ejecutor;
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Duration tiempoMaximo = TIEMPO_MAXIMO;
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     BooleanSupplier habilitado = () -> Configuracion.leer(PROPIEDAD_HABILITADO, Boolean.class, true);
 
     @Override

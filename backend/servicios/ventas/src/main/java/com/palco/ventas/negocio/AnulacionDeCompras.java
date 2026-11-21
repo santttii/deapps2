@@ -104,6 +104,7 @@ public class AnulacionDeCompras {
     PublicadorDeCancelaciones cancelaciones;
 
     /** De dónde sale el instante de la anulación; los tests lo reemplazan por un reloj detenido. */
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.systemUTC();
 
     /**

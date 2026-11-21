@@ -34,6 +34,7 @@ public class RetiroPorCancelacion {
     PublicacionRepository publicaciones;
 
     /** No es privado para que el test fije la hora. */
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.systemUTC();
 
     /** Retira las publicaciones activas del evento cancelado y devuelve cuántas. */

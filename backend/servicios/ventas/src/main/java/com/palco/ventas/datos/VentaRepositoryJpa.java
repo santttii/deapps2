@@ -437,6 +437,13 @@ public class VentaRepositoryJpa implements VentaRepository {
                 .setParameter("id", ventaId));
     }
 
+    /**
+     * Trae de la base los renglones y las entradas (son perezosas) antes de que la venta salga de la
+     * transacción. size() se llama por ese efecto y no por el número. PersistenceUnitUtil.load no sirve
+     * acá: Hibernate 7.4 no inicializa con él las colecciones, y los tests en H2 fallan con
+     * LazyInitializationException.
+     */
+    @SuppressWarnings("java:S2201")
     private Venta cargada(Venta venta) {
         venta.getItems().size();
         venta.getEntradas().size();

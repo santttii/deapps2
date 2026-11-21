@@ -108,6 +108,7 @@ public class ServicioDeEventos implements IEventos {
     PublicadorDeCancelaciones cancelaciones;
 
     /** No es privado para que el test fije la hora. */
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.system(ZONA_DE_LOS_EVENTOS);
 
     @Override

@@ -53,6 +53,7 @@ public class DevolucionDeCobros {
     ClienteDePagos pagos;
 
     /** De dónde sale el "ahora"; los tests lo reemplazan por un reloj fijo. */
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.systemUTC();
 
     /** El motivo que viaja a Pagos y queda con el pago. Entra en las 200 posiciones de Pagos. */
