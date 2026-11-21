@@ -129,6 +129,38 @@ class RegistroYVerificacionTest {
         verify(usuarios, never()).buscarPorEmail(anyString());
     }
 
+    // PostgreSQL no acepta el carácter nulo (U+0000) en un texto: con él, la consulta o el INSERT
+    // fallaban y el registro terminaba en un 500. Ahora es un 400 del campo, sin tocar la base.
+
+    @Test
+    void unEmailConElCaracterNuloSeRechazaSinTocarLaBase() {
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.registrar(registro("ana\u0000@palco.test", DNI)));
+
+        assertEquals(Map.of("email", "Ingresá un email válido."), error.campos());
+        verify(usuarios, never()).buscarPorEmail(anyString());
+        verify(usuarios, never()).guardar(any());
+    }
+
+    @Test
+    void unTelefonoConElCaracterNuloSeRechazaSinGuardarLaCuenta() {
+        RegistroDto conNulo = new RegistroDto("Ana", "Gómez", DNI, LocalDate.of(1995, 5, 17), EMAIL,
+                "11\u00004444", "palco1234");
+
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.registrar(conNulo));
+
+        assertTrue(error.campos().containsKey("telefono"));
+        verify(usuarios, never()).guardar(any());
+    }
+
+    @Test
+    void unIdConElCaracterNuloNoExisteYNoSeBusca() {
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.obtener("user-\u0000"));
+
+        verify(usuarios, never()).buscarPorId(anyString());
+    }
+
     @Test
     void unMenorDeDieciseisSeRechaza() {
         RegistroDto menor = new RegistroDto("Ana", "Gómez", DNI, LocalDate.now().minusYears(15), EMAIL, null,
@@ -300,6 +332,14 @@ class RegistroYVerificacionTest {
         when(usuarios.buscarPorEmail("otra@palco.test")).thenReturn(Optional.of(sinVerificar));
         assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.rolDeLaCuenta("otra@palco.test"));
         assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.rolDeLaCuenta("nadie@palco.test"));
+    }
+
+    @Test
+    void elRolDeUnEmailConElCaracterNuloEsUn404SinBuscarlo() {
+        // GET /cuentas solo documenta 404 para un email sin cuenta: el carácter nulo no da un 400.
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.rolDeLaCuenta("puerta\u0000@palco.test"));
+
+        verify(usuarios, never()).buscarPorEmail(anyString());
     }
 
     // ---------------------------------------------------------------------------------------------

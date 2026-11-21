@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
+import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -127,6 +128,7 @@ public class ServicioDeUsuarios implements IUsuarios {
      * De dónde sale la hora; los tests ponen un reloj fijo para mover la ventana de 15 minutos
      * y para fijar el día de hoy en el borde de la edad mínima (cumplir 16 hoy o mañana).
      */
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.systemDefaultZone();
 
     @Override
@@ -139,6 +141,11 @@ public class ServicioDeUsuarios implements IUsuarios {
         }
         if (Period.between(r.fechaNacimiento(), LocalDate.now(reloj)).getYears() < EDAD_MINIMA) {
             throw new ErroresDeNegocio.DatosInvalidos("fechaNacimiento", "Tenés que ser mayor de 16 años.");
+        }
+        // El teléfono se guarda tal cual: con el carácter nulo adentro, el INSERT fallaría en PostgreSQL.
+        if (r.telefono() != null && r.telefono().codePoints().anyMatch(Textos::esDeControl)) {
+            throw new ErroresDeNegocio.DatosInvalidos("telefono",
+                    "El teléfono va en una sola línea, sin saltos de línea ni caracteres de control.");
         }
 
         // Si alguien se registró y nunca verificó el email, puede volver a registrarse con esos datos.
@@ -309,6 +316,11 @@ public class ServicioDeUsuarios implements IUsuarios {
 
     @Override
     public String rolDeLaCuenta(String email) {
+        // Es una consulta por parámetro: un email con un carácter de control no tiene cuenta, y se
+        // responde el mismo 404 que a uno que no está (el contrato no prevé un 400), sin buscarlo.
+        if (email != null && email.codePoints().anyMatch(Textos::esDeControl)) {
+            throw new ErroresDeNegocio.NoEncontrado("No hay una cuenta verificada con ese email.");
+        }
         return usuarios.buscarPorEmail(normalizarEmail(email == null ? "" : email))
                 .filter(Usuario::isEmailVerificado)
                 .map(u -> aDto(u).rol())
@@ -317,6 +329,11 @@ public class ServicioDeUsuarios implements IUsuarios {
 
     @Override
     public UsuarioDto obtener(String usuarioId) {
+        // Ningún id tiene un carácter de control, y el nulo (U+0000) haría fallar la consulta en
+        // PostgreSQL: un id así no existe, y se responde lo mismo que a uno que no está.
+        if (usuarioId == null || usuarioId.codePoints().anyMatch(Textos::esDeControl)) {
+            throw new ErroresDeNegocio.NoEncontrado("No existe el usuario.");
+        }
         return usuarios.buscarPorId(usuarioId)
                 .map(ServicioDeUsuarios::aDto)
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe el usuario."));
@@ -363,9 +380,12 @@ public class ServicioDeUsuarios implements IUsuarios {
      * Segundos hasta que el fallido más viejo de los que bloquean salga de la ventana,
      * redondeados hacia arriba: si se redondeara hacia abajo, quien respeta el
      * {@code Retry-After} llegaría un instante antes y volvería a recibir 429.
+     * Las dos horas salen del mismo reloj, así que se miden con el mismo desfasaje
+     * fijo (UTC): da la diferencia entre ellas tal cual, sin saltos de horario de verano.
      */
     static long segundosHastaLiberar(LocalDateTime fallidoMasViejo, LocalDateTime ahora) {
-        long milisegundos = Duration.between(ahora, fallidoMasViejo.plus(VENTANA_INTENTOS_LOGIN)).toMillis();
+        long milisegundos = Duration.between(ahora.atOffset(ZoneOffset.UTC),
+                fallidoMasViejo.plus(VENTANA_INTENTOS_LOGIN).atOffset(ZoneOffset.UTC)).toMillis();
         return Math.max(1, Math.ceilDiv(milisegundos, 1000));
     }
 
@@ -413,8 +433,24 @@ public class ServicioDeUsuarios implements IUsuarios {
         return "%06d".formatted(AZAR.nextInt(1_000_000));
     }
 
-    private static String normalizarEmail(String email) {
-        return email == null ? "" : email.strip().toLowerCase(Locale.ROOT);
+    /**
+     * El email como se guarda y se busca: sin espacios a los costados y en
+     * minúsculas. Es el único camino por el que un email que viene de afuera
+     * llega a una consulta (registro, verificación, reenvío, login, reinicio
+     * de la contraseña y la consulta de otros servicios).
+     *
+     * Un email con un carácter de control adentro se rechaza con un 400 antes
+     * de buscarlo: ninguno válido lo tiene, y PostgreSQL no acepta el carácter
+     * nulo (U+0000) en un texto, así que esa consulta terminaba en un 500.
+     * Qué cuenta como carácter de control es la regla de
+     * {@code Textos.esDeControl}, la misma que usa Ventas.
+     */
+    static String normalizarEmail(String email) {
+        String limpio = email == null ? "" : email.strip();
+        if (limpio.codePoints().anyMatch(Textos::esDeControl)) {
+            throw new ErroresDeNegocio.DatosInvalidos("email", "Ingresá un email válido.");
+        }
+        return limpio.toLowerCase(Locale.ROOT);
     }
 
     private static String sha256(String texto) {

@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -16,6 +18,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -119,6 +122,30 @@ class ReinicioDePasswordTest {
 
         assertTrue(correos.enviados.isEmpty());
         assertTrue(reinicios.guardados.isEmpty());
+    }
+
+    /**
+     * El cuerpo con el que el contrato (Schemathesis) obtuvo un 500: un email
+     * con el carácter nulo (U+0000), que PostgreSQL no acepta en un texto. La
+     * búsqueda fallaba en la base; ahora es un 400 del campo y no se busca.
+     * No revela nada: ningún email registrado puede tenerlo.
+     */
+    @Test
+    void unEmailConElCaracterNuloEsUnDatoInvalidoYNoSeBusca() {
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.pedirReinicioDePassword("ç\u0000"));
+
+        assertEquals(Map.of("email", "Ingresá un email válido."), error.campos());
+        verify(usuarios, never()).buscarPorEmail(anyString());
+        assertTrue(correos.enviados.isEmpty());
+    }
+
+    @Test
+    void reiniciarConUnEmailConElCaracterNuloEsUnDatoInvalidoYNoSeBusca() {
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.reiniciarPassword(new ReinicioDto("ana\u0000@palco.test", "123456", CLAVE_NUEVA)));
+
+        verify(usuarios, never()).buscarPorEmail(anyString());
     }
 
     @Test
