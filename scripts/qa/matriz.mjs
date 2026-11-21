@@ -84,7 +84,8 @@ for (const dir of valores('--junit')) {
       const nombre = atributos.match(/\bname="([^"]+)"/)?.[1];
       const clase = atributos.match(/\bclassname="([^"]+)"/)?.[1]?.split('.').pop();
       if (nombre && clase) {
-        const clave = `${clase}#${nombre.replace(/\(.*$/, '')}`;
+        // El método sin lo que va desde el primer paréntesis (los parámetros de un parametrizado).
+        const clave = `${clase}#${nombre.split('(')[0]}`;
         // Un parametrizado tiene varias filas con el mismo método: si una falla, cuenta como falla.
         if (unitarios.get(clave) !== 'falla') unitarios.set(clave, resultado);
       }

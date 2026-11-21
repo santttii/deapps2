@@ -8,7 +8,25 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const BASE = (process.env.PALCO_URL ?? 'http://localhost:8080').replace(/\/$/, '');
+/**
+ * La dirección del servidor: la de PALCO_URL o la local. Se valida una sola vez, acá: tiene que ser una URL http o
+ * https. Todos los pedidos de las pruebas salen de BASE, así que una dirección mal escrita o con otro esquema corta
+ * antes del primer pedido. Queda sin la barra del final, porque las rutas empiezan con "/".
+ */
+function direccionDelServidor() {
+  const texto = process.env.PALCO_URL ?? 'http://localhost:8080';
+  let url;
+  try {
+    url = new URL(texto);
+  } catch {
+    throw new Error(`PALCO_URL no es una dirección válida: ${texto}`);
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`PALCO_URL tiene que ser http o https, no ${url.protocol}`);
+  }
+  return `${url.origin}${url.pathname}`.replace(/\/$/, '');
+}
+export const BASE = direccionDelServidor();
 const WINDOWS = process.platform === 'win32';
 
 /** La raíz del repo: dos carpetas arriba de este archivo (scripts/pruebas/). */

@@ -20,7 +20,7 @@ const pct = (cubiertas, total) => (total === 0 ? 'No aplica' : `${((100 * cubier
 const filas = [];
 const total = { li: 0, lc: 0, ri: 0, rc: 0 };
 
-for (const csv of buscarCsv(raiz).sort()) {
+for (const csv of buscarCsv(raiz).sort((a, b) => a.localeCompare(b))) {
   const modulo = path.relative(raiz, csv).split(path.sep).slice(0, -4).join('/');
   let li = 0, lc = 0, ri = 0, rc = 0;
   for (const linea of fs.readFileSync(csv, 'utf8').trim().split('\n').slice(1)) {

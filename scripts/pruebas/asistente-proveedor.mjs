@@ -37,7 +37,10 @@ const TOPE = regla('TOPE_REVENTA_PORCENTAJE');
 const MAXIMO = regla('MAX_ENTRADAS_POR_ORDEN');
 
 const DNI = /\b\d{1,2}\.?\d{3}\.?\d{3}\b/;
-const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+// Un email solo empieza donde empieza una tira de letras, cifras, puntos, + y -: sin la condición del principio, cada
+// posición de una tira larga sin arroba se probaría como comienzo y la búsqueda tardaría más que en proporción al
+// largo. Encuentra lo mismo, porque desde cualquier posición de la tira se llega a la misma arroba.
+const EMAIL = /(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
 
 let bien = 0, total = 0;
 function comprobar(texto, ok, detalle = '') {
@@ -176,7 +179,13 @@ async function terminar(codigo) {
   else await modo('normal').catch(() => {});
   process.exit(codigo);
 }
-process.on('SIGINT', () => { terminar(130); });
+// Con Ctrl+C se deja todo como estaba; si eso mismo falla, se sale igual con el código de la interrupción.
+process.on('SIGINT', () => {
+  terminar(130).catch((e) => {
+    console.log(`\nNo se pudo terminar en orden: ${e.message}`);
+    process.exit(130);
+  });
+});
 
 // ------------------------------------------------------------------------------------- la prueba
 

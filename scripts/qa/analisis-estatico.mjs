@@ -22,7 +22,7 @@ const texto = (s) =>
   s.trim().replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
     .replace(/&amp;/g, '&').replace(/\|/g, '\\|').replace(/\s+/g, ' ');
 
-const reportes = buscarReportes(raiz).sort();
+const reportes = buscarReportes(raiz).sort((a, b) => a.localeCompare(b));
 if (reportes.length === 0) {
   // Sin reportes, PMD no corrió: se falla para que el CI no muestre en verde un análisis que no se hizo.
   console.log('No hay reportes de PMD: corré "mvn verify" en backend/ primero.');
