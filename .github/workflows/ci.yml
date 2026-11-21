@@ -4,6 +4,8 @@
 #   secretos     gitleaks sobre todo el historial
 #   backend      mvn verify: tests unitarios y de integración del backend, cobertura (JaCoCo) y
 #                análisis estático (PMD)
+#   sonar        mvn verify y el análisis de SonarCloud (backend, frontend, pruebas e infraestructura) con la
+#                cobertura de JaCoCo; qué se analiza y cómo está en sonar-project.properties
 #   frontend     npm ci, lint y build
 #   integracion  docker compose up (Postgres + backend + nginx) y la prueba de integración contra eso,
 #                repartida en 4 jobs en paralelo (ver la matriz del job)
@@ -11,8 +13,11 @@
 #   api          docker compose up y la colección de Postman con Newman contra el backend: las nueve carpetas
 #                y los "Pasos manuales", con el código de verificación que sale en el log del servidor
 #
-# Los jobs de los otros frentes (mutación, Sonar, dependencias, ZAP) se suman como jobs nuevos en
-# este mismo archivo, sin tocar estos.
+# Los demás análisis van en workflows aparte de esta carpeta, que se pueden volver a correr solos:
+#   seguridad.yml  dependencias del repo e imágenes con Trivy
+#   zap.yml        escaneo de seguridad con OWASP ZAP contra el sistema levantado
+#   mutacion.yml   pruebas de mutación del backend (PIT)
+#   carga.yml      prueba de carga con k6; corre solo con los tags v* y a mano
 
 name: CI
 
@@ -23,6 +28,8 @@ on:
   pull_request:
   workflow_dispatch:
 
+# El token de GitHub de cada job solo puede leer el repo: ningún job escribe en él. Cada job lo repite, así un
+# job nuevo que necesite más permisos los pide para sí y no para todo el workflow.
 permissions:
   contents: read
 
@@ -35,13 +42,17 @@ jobs:
     name: Secretos (gitleaks)
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0   # todo el historial, no solo el último commit
       - name: Instalar gitleaks
+        # --proto =https: GitHub redirige la descarga a otro servidor y curl sigue la redirección (-L) solo si
+        # también es https, con TLS 1.2 o más nuevo.
         run: |
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz \
+          curl --proto '=https' --tlsv1.2 -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz \
             | tar xz -C /usr/local/bin gitleaks
           gitleaks version
       - name: gitleaks sobre todo el historial
@@ -56,6 +67,8 @@ jobs:
     name: Backend (mvn verify)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: backend
@@ -94,10 +107,56 @@ jobs:
             backend/**/target/pmd.xml
             backend/**/target/reports/
 
+  sonar:
+    name: SonarCloud (análisis estático y cobertura)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Un pull request que viene de un fork no recibe los secretos del repo: sin SONAR_TOKEN el análisis no se
+    # puede publicar y el job fallaría por eso y no por el código. Ahí no corre; en los demás casos, siempre.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Todo el historial: SonarCloud lo usa para saber qué código es nuevo y de qué commit es cada línea.
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: mvn verify (lo mismo que el job backend)
+        # El escáner necesita en esta misma máquina lo que deja el verify: las clases compiladas, las dependencias
+        # en ~/.m2 y el jacoco.xml de cada módulo (las rutas están en sonar-project.properties). Por eso compila y
+        # corre los tests acá en vez de esperar al job backend, y los dos van en paralelo.
+        working-directory: backend
+        run: mvn -B verify
+      - name: Análisis de SonarCloud
+        # La acción oficial, fijada al commit de la versión v8.4.1: un tag se puede mover, un commit no. Es el escáner
+        # general y no el de Maven porque el análisis abarca también el frontend, scripts/ y la infraestructura; lo
+        # que el de Maven sacaría del pom (clases, bibliotecas y cobertura) está en sonar-project.properties. Publica
+        # el análisis; el Quality Gate lo calcula SonarCloud y se ve en el proyecto y en cada pull request.
+        uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: Dónde ver el resultado
+        if: always()
+        run: |
+          {
+            echo '### SonarCloud'
+            echo 'Quality Gate, hallazgos y cobertura: https://sonarcloud.io/project/overview?id=santttii_deapps2'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   frontend:
     name: Frontend (lint y build)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: frontend
@@ -108,7 +167,10 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
+      # Sin los scripts de instalación de las dependencias (preinstall, postinstall): ninguna los necesita en
+      # Linux (el único del package-lock es el de fsevents, que es solo de macOS) y así un paquete comprometido
+      # no corre nada al instalarse.
+      - run: npm ci --ignore-scripts
       - run: npm run lint
       - run: npm run build
 
@@ -132,6 +194,8 @@ jobs:
           - grupo: conciliacion-reventa-20
             escenarios: '20'
     timeout-minutes: 40
+    permissions:
+      contents: read
     env:
       PALCO_DIR_LOGS: ./logs
       PALCO_LOG: logs/server.log
@@ -214,6 +278,8 @@ jobs:
     name: E2E (Playwright contra docker compose)
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    permissions:
+      contents: read
     env:
       # El log del servidor queda en ./logs: de ahí las pruebas leen el código de verificación de las
       # cuentas nuevas (sin SMTP, el email se escribe en el log).
@@ -226,10 +292,13 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Dependencias del frontend y Chromium
+        # Como en el job frontend, sin scripts de instalación. Chromium lo baja el Playwright que instaló npm ci,
+        # con la versión exacta del package-lock: por node_modules/.bin y no con npx, que si no lo encontrara
+        # bajaría la última versión.
         working-directory: frontend
         run: |
-          npm ci
-          npx playwright install --with-deps chromium
+          npm ci --ignore-scripts
+          ./node_modules/.bin/playwright install --with-deps chromium
       - name: Imágenes del sistema (con reintentos si falla la red)
         # Bajar una imagen de Docker Hub puede fallar por la red del runner o por su límite de descargas,
         # que se nota más con varios jobs bajando lo mismo a la vez. Se reintenta hasta 4 veces, esperando
@@ -281,11 +350,14 @@ jobs:
     # Con su propio sistema levantado, en paralelo con los demás: la colección deja datos (eventos, compras,
     # una puerta asignada, una cuenta verificada) que no tienen que cruzarse con los escenarios de integración.
     timeout-minutes: 40
+    permissions:
+      contents: read
     env:
       # El log del servidor queda en ./logs: de ahí salen el email y el código de verificación de los
       # "Pasos manuales" (sin SMTP, el email se escribe en el log).
       PALCO_DIR_LOGS: ./logs
-      # La versión de Newman con la que se comprobó la colección a mano (docs/api/GUIA_POSTMAN.md).
+      # La versión exacta de Newman con la que se comprobó la colección a mano (docs/api/GUIA_POSTMAN.md). npx la
+      # baja con --ignore-scripts: ninguna de sus dependencias tiene scripts de instalación.
       NEWMAN: newman@6.2.3
     steps:
       - uses: actions/checkout@v5
@@ -315,7 +387,7 @@ jobs:
           echo "Levantado en $(( $(date +%s) - inicio )) segundos" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Bajar Newman
         # Antes de la corrida, así la cuenta de los 30 segundos de los "Pasos manuales" empieza con el primer request.
-        run: npx --yes "$NEWMAN" --version
+        run: npx --yes --ignore-scripts "$NEWMAN" --version
       - name: Colección de Postman (las nueve carpetas)
         # La colección apunta a http://localhost:8080, donde el compose publica el backend (solo en esta máquina):
         # Newman le pega directo, como a dev.sh en la comprobación de la guía. Solo se le pasa el secreto entre
@@ -324,7 +396,7 @@ jobs:
         run: |
           set -o pipefail   # que el paso falle si falla Newman, aunque tee termine bien
           date +%s > newman/inicio
-          npx --yes "$NEWMAN" run docs/api/palco-api.postman_collection.json \
+          npx --yes --ignore-scripts "$NEWMAN" run docs/api/palco-api.postman_collection.json \
             --env-var "secretoServicios=$PALCO_SECRETO_SERVICIOS" \
             --reporters cli,junit --reporter-junit-export newman/coleccion.xml \
             --color off | tee newman/coleccion.txt
@@ -347,13 +419,13 @@ jobs:
           # El reenvío pide 30 segundos desde el registro, que es el primer request de la corrida.
           espera=$(( $(cat newman/inicio) + 35 - $(date +%s) ))
           if [ "$espera" -gt 0 ]; then sleep "$espera"; fi
-          npx --yes "$NEWMAN" run newman/pasos-manuales.json --folder 'MANUAL · Reenviar código (204)' \
+          npx --yes --ignore-scripts "$NEWMAN" run newman/pasos-manuales.json --folder 'MANUAL · Reenviar código (204)' \
             --reporters cli,junit --reporter-junit-export newman/reenvio.xml \
             --color off | tee newman/reenvio.txt
           # El reenvío reemplaza el código del registro: vale el del último email de esa cuenta.
           codigo=$(sed -nE "s/.*Email para $email \(.*el email es ([0-9]{6})\..*/\1/p" logs/server.log | tail -n 1)
           test -n "$codigo" || { echo "No está el código de $email en logs/server.log"; exit 1; }
-          npx --yes "$NEWMAN" run newman/pasos-manuales.json --folder 'MANUAL · Verificar email (200)' \
+          npx --yes --ignore-scripts "$NEWMAN" run newman/pasos-manuales.json --folder 'MANUAL · Verificar email (200)' \
             --env-var "codigoVerificacion=$codigo" \
             --reporters cli,junit --reporter-junit-export newman/verificacion.xml \
             --color off | tee newman/verificacion.txt
