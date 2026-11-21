@@ -31,3 +31,9 @@ target/
 frontend/test-results/
 frontend/playwright-report/
 *.patch
+
+# Prueba de carga (scripts/carga): las cuentas de cada corrida y el reporte de k6
+scripts/carga/resultados/
+
+# Pruebas de contrato (Schemathesis): la caché que deja cada corrida local
+.schemathesis/
