@@ -1,0 +1,44 @@
+/*
+ * Las dos tipografías de Palco, servidas desde el propio sitio: Archivo (títulos e interfaz) e
+ * IBM Plex Mono (datos). Son los mismos archivos woff2 que entrega Google Fonts, sin cambios, en el
+ * subconjunto latino (alcanza para el español: tildes, eñe, signos de apertura y el símbolo del euro).
+ * Las dos tienen licencia SIL Open Font License 1.1, que permite redistribuirlas: los textos están en
+ * OFL-archivo.txt y OFL-ibm-plex-mono.txt, al lado de este archivo.
+ *
+ * Por qué no se piden a Google Fonts: esa hoja de estilos es dinámica (cambia según el navegador que
+ * la pide), así que no admite el atributo integrity (Subresource Integrity) y ZAP la marca con la
+ * alerta 90003. Servidas desde acá, no dependen de otro sitio ni le avisan a otro sitio quién visita
+ * Palco.
+ *
+ * Archivo es una fuente variable: un solo archivo cubre los pesos 400 a 700.
+ */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url('/fuentes/archivo-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fuentes/ibm-plex-mono-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fuentes/ibm-plex-mono-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

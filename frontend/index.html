@@ -10,14 +10,12 @@
       content="Palco: venta de entradas nominativas con reventa oficial y tope de precio de +10%. Proyecto académico con eventos ficticios."
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <!-- Las fuentes se piden desde acá y no con @import en el CSS: así el navegador las
-         descubre al leer el HTML, sin esperar a bajar la hoja de estilos. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
-    />
+    <!-- Las fuentes las sirve el propio sitio (ver public/fuentes/fuentes.css). Se piden desde acá
+         y no con @import en el CSS: así el navegador las descubre al leer el HTML, sin esperar a
+         bajar la hoja de estilos de la app. La de los textos se precarga porque aparece en toda
+         pantalla; una fuente precargada necesita crossorigin aunque sea del mismo sitio. -->
+    <link rel="preload" href="/fuentes/archivo-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/fuentes/fuentes.css" />
     <title>Palco</title>
   </head>
   <body>
