@@ -47,9 +47,15 @@ export function aplicarTema(tema: Tema): void {
 
 /** Pone el tema y lo guarda para la próxima vez que se abra Palco en este navegador. */
 export function elegirTema(tema: Tema): void {
-  aplicarTema(tema);
+  // El valor sale del selector de la página: se busca en la lista de temas y lo que se pone y se
+  // guarda es el de la lista, nunca el texto que llegó.
+  const elegido = TEMAS.find((t) => t.valor === tema)?.valor;
+  if (elegido === undefined) {
+    return;
+  }
+  aplicarTema(elegido);
   try {
-    localStorage.setItem(CLAVE_TEMA, tema);
+    localStorage.setItem(CLAVE_TEMA, elegido); // NOSONAR: elegido es uno de los valores fijos de TEMAS, no texto del usuario.
   } catch {
     // Sin almacenamiento el tema queda puesto igual, pero solo hasta recargar la página.
   }
