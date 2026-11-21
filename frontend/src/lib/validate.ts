@@ -11,8 +11,15 @@ export function soloDigitosDNI(valor: string): string {
   return valor.replace(/\D/g, '').slice(0, 8);
 }
 
+// usuario@dominio, sin espacios, con una sola arroba y con un punto en el dominio que no sea ni su primer ni su
+// último carácter. Es lo mismo que /^[^\s@]+@[^\s@]+\.[^\s@]+$/, sin la expresión que ante un texto largo que no
+// es un email prueba cada punto del dominio como el separador y tarda más que en proporción al largo.
 export function esEmailValido(valor: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor.trim());
+  const email = valor.trim();
+  const partes = email.split('@');
+  if (partes.length !== 2 || /\s/.test(email)) return false;
+  const [usuario, dominio] = partes;
+  return usuario.length > 0 && dominio.slice(1, -1).includes('.');
 }
 
 export function esPasswordValida(valor: string): boolean {

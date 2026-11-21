@@ -8,8 +8,8 @@ interface ProgressBarProps {
 }
 
 export default function ProgressBar({ porcentaje, altura = 6, sobreOscuro = false, etiqueta = 'Progreso' }: ProgressBarProps) {
+  // Un porcentaje de más de 100 se ve como la barra llena, del mismo color.
   const clamped = Math.max(0, Math.min(100, porcentaje));
-  const excedido = porcentaje > 100;
   return (
     <div
       className={`w-full overflow-hidden ${sobreOscuro ? 'bg-darkLine' : 'bg-fill'}`}
@@ -21,7 +21,7 @@ export default function ProgressBar({ porcentaje, altura = 6, sobreOscuro = fals
       aria-valuemax={100}
     >
       <div
-        className={`h-full ${excedido ? 'bg-accent' : 'bg-accent'} transition-[width] duration-600`}
+        className="h-full bg-accent transition-[width] duration-600"
         style={{ width: `${clamped}%` }}
       />
     </div>

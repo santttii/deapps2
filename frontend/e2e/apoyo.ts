@@ -45,8 +45,11 @@ export const sufijo = () => randomUUID().slice(0, 8);
 /** Un DNI de 8 dígitos al azar: una persona tiene una sola cuenta y una sola entrada por evento. */
 export const dniAlAzar = () => String(30_000_000 + Math.floor(Math.random() * 60_000_000));
 
-/** El DNI como lo muestra la app: 30123456 → 30.123.456. */
-export const formatearDni = (dni: string) => dni.replace(/(\d+)(\d{3})(\d{3})$/, '$1.$2.$3');
+/**
+ * El DNI como lo muestra la app: 30123456 → 30.123.456. El primer grupo va acotado a 1 o 2 cifras (un DNI tiene 7
+ * u 8): con \d+, ante una tira larga de cifras que no está al final del texto, cada comienzo posible la recorre entera.
+ */
+export const formatearDni = (dni: string) => dni.replace(/(\d{1,2})(\d{3})(\d{3})$/, '$1.$2.$3');
 
 /** Una fecha y hora a tantos días de hoy, en el formato del backend (hora de Argentina, sin zona). */
 export function fechaDentroDe(dias: number): string {

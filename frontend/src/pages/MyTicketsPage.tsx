@@ -98,7 +98,8 @@ export default function MyTicketsPage() {
         if (vigente) setCarga({ fase: 'error', mensaje: mensajeDeError(error) });
       }
     };
-    consultar();
+    // consultar atrapa sus fallas y las deja en la pantalla: la promesa no se rechaza y no hace falta esperarla.
+    void consultar();
     return () => {
       vigente = false;
       clearTimeout(temporizador);

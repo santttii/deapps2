@@ -25,6 +25,14 @@ interface FalloDeCarga {
   mensaje: string;
 }
 
+// El texto sin los puntos del final (el aviso pone el suyo). Se recorre desde el final en vez de usar /\.+$/,
+// que con un texto largo lleno de puntos prueba cada uno como el comienzo de los del final.
+function sinPuntosFinales(texto: string): string {
+  let fin = texto.length;
+  while (fin > 0 && texto[fin - 1] === '.') fin--;
+  return texto.slice(0, fin);
+}
+
 export default function EventPage() {
   const { slug } = useParams();
   const { state, dispatch, usuarioActual } = useApp();
@@ -79,7 +87,7 @@ export default function EventPage() {
   const esComprador = !usuarioActual || usuarioActual.rol === 'user';
   const puedeComprar = esComprador && !cancelado;
   const avisoDeRol = cancelado
-    ? `Este evento se canceló${evento?.cancelacionMotivo ? `: ${evento.cancelacionMotivo.trim().replace(/\.+$/, '')}` : ''}. Ya no se venden entradas y a quienes compraron se les devuelve el pago.`
+    ? `Este evento se canceló${evento?.cancelacionMotivo ? `: ${sinPuntosFinales(evento.cancelacionMotivo.trim())}` : ''}. Ya no se venden entradas y a quienes compraron se les devuelve el pago.`
     : usuarioActual && !esComprador
       ? `Las compras se hacen con una cuenta de comprador. Ingresaste como ${nombreDelRol(usuarioActual.rol)}.`
       : '';

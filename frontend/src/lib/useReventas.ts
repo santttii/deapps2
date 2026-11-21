@@ -46,8 +46,8 @@ export function useReventas(eventoIds: string[], conPropias = false): Reventas {
     const pedidoDePropias: Promise<Publicacion[]> = conPropias
       ? listarMisPublicaciones().catch(() => [])
       : Promise.resolve([]);
-    Promise.all([Promise.allSettled(ids.map((id) => listarReventas(id))), pedidoDePropias]).then(
-      ([resultados, mias]) => {
+    Promise.all([Promise.allSettled(ids.map((id) => listarReventas(id))), pedidoDePropias])
+      .then(([resultados, mias]) => {
         if (!vigente) return;
         const fallo = resultados.find((r) => r.status === 'rejected');
         setRespuesta({
@@ -56,8 +56,12 @@ export function useReventas(eventoIds: string[], conPropias = false): Reventas {
           propias: mias.length > 0 ? new Set(mias.map((p) => p.id)) : SIN_PROPIAS,
           error: fallo ? mensajeDeError(fallo.reason) : '',
         });
-      },
-    );
+      })
+      // Los pedidos no rechazan (allSettled y el catch de /mias); esto atrapa una falla al armar la
+      // respuesta, que si no dejaría la pantalla cargando para siempre: se muestra como error.
+      .catch((error: unknown) => {
+        if (vigente) setRespuesta({ pedido, publicaciones: SIN_PUBLICACIONES, propias: SIN_PROPIAS, error: mensajeDeError(error) });
+      });
     return () => {
       vigente = false;
     };

@@ -325,7 +325,8 @@ export default function CheckoutPage() {
       setSegundosRestantes(restantes);
       if (restantes === 0 && !pagando && !cerrandoPorPlazo.current) {
         cerrandoPorPlazo.current = true;
-        cerrarPorPlazo(orden.id);
+        // No se espera: cerrarPorPlazo atrapa sus propias fallas y las muestra, así que la promesa no se rechaza.
+        void cerrarPorPlazo(orden.id);
       }
     }, 1000);
     return () => clearInterval(intervalo);
