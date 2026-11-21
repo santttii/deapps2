@@ -1,0 +1,137 @@
+# Pruebas de seguridad de Palco contra el sistema levantado con docker compose: lo que puede intentar alguien con
+# una cuenta común, un cliente HTTP y un navegador, sin acceso al servidor. Corre con los mismos disparadores que
+# ci.yml, en un workflow aparte: crea datos y manda pedidos manipulados, así que usa su propio compose, y se puede
+# volver a correr solo.
+#
+#   scripts/pruebas/seguridad.mjs   por la API: tokens JWT manipulados (vencido, de otro emisor, sin vencimiento,
+#                                   alg none, firma alterada, otra clave, HS256), mass assignment, XSS almacenado
+#                                   y XXE contra el SOAP del ARCA simulado (/legado/arca)
+#   frontend/e2e/xss.spec.ts        en Chromium, por nginx y HTTPS: el HTML guardado en un evento se muestra como
+#                                   texto en el panel, el catálogo y el detalle (también corre en el job e2e de
+#                                   ci.yml, con las demás pruebas E2E)
+#
+# La clave JWT de la corrida se genera acá y se le pasa al compose y al guion: con ella el guion firma tokens como
+# el servidor (vencidos, de otro emisor, sin vencimiento) y así comprueba que el 401 es por eso y no por la firma.
+# La salida de las dos pruebas queda en seguridad.txt, en el resumen de la corrida y en el artefacto
+# "pruebas-seguridad": es la evidencia que va en docs/testing/evidencia/final/seguridad.txt.
+
+name: Pruebas de seguridad
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pruebas-seguridad-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruebas:
+    name: Pruebas de seguridad (API y navegador contra docker compose)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      # El log del servidor queda en ./logs: de ahí salen el código de verificación de la cuenta nueva (sin SMTP,
+      # el email se escribe en el log) y la prueba de que el ARCA simulado no atendió los sobres con DOCTYPE.
+      PALCO_DIR_LOGS: ./logs
+      PALCO_LOG: logs/server.log
+      RESULTADOS: resultados-seguridad
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Secretos y clave JWT de esta corrida
+        # Nunca están en el repo: se generan acá y se le pasan al compose y a las pruebas. La clave va en PKCS#8 y
+        # base64, como la lee ServicioDeUsuarios; es el mismo comando de backend/.env.example.
+        run: |
+          secreto=$(openssl rand -hex 32)
+          clave=$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+            | openssl pkcs8 -topk8 -nocrypt -outform DER | base64 -w0)
+          echo "::add-mask::$secreto"
+          echo "::add-mask::$clave"
+          echo "PALCO_SECRETO_SERVICIOS=$secreto" >> "$GITHUB_ENV"
+          echo "PALCO_JWT_CLAVE_PRIVADA=$clave" >> "$GITHUB_ENV"
+          mkdir -p logs "$RESULTADOS" && chmod 777 logs
+      - name: Dependencias del frontend y Chromium
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Imágenes del sistema (con reintentos si falla la red)
+        # Las mismas descargas y los mismos reintentos que en la integración de ci.yml (ahí está el porqué).
+        run: |
+          for intento in 1 2 3 4; do
+            docker compose pull --ignore-buildable --quiet && docker compose build && exit 0
+            echo "Falló la descarga o el armado de las imágenes (intento $intento de 4)"
+            [ "$intento" -lt 4 ] && sleep $((intento * 30))
+          done
+          exit 1
+      - name: docker compose up (un comando, todo el sistema)
+        id: sistema
+        run: |
+          inicio=$(date +%s)
+          docker compose up --build --detach --wait --wait-timeout 900
+          echo "Levantado en $(( $(date +%s) - inicio )) segundos" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Por la API (scripts/pruebas/seguridad.mjs)
+        run: |
+          set -o pipefail   # que el paso falle si falla el guion, aunque tee termine bien
+          node scripts/pruebas/seguridad.mjs | tee "$RESULTADOS/seguridad.txt"
+      - name: En el navegador (frontend/e2e/xss.spec.ts)
+        # Corre aunque falle el paso anterior: son pruebas independientes y la evidencia lleva las dos.
+        if: ${{ !cancelled() && steps.sistema.outcome == 'success' }}
+        working-directory: frontend
+        env:
+          # La app por nginx, con su certificado autofirmado; la API, por el mismo origen.
+          PALCO_E2E_URL: https://localhost
+          # apoyo.ts resuelve PALCO_LOG desde frontend/: va con la ruta entera, como en el job e2e de ci.yml.
+          PALCO_LOG: ${{ github.workspace }}/logs/server.log
+        run: |
+          set -o pipefail
+          { echo; echo '== frontend/e2e/xss.spec.ts'; npx playwright test e2e/xss.spec.ts; } \
+            | tee -a "../$RESULTADOS/seguridad.txt"
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo '### Pruebas de seguridad'
+            if [ -f "$RESULTADOS/seguridad.txt" ]; then
+              echo '```'
+              sed -n '/^RESUMEN$/,$p' "$RESULTADOS/seguridad.txt"
+              echo '```'
+            else
+              echo 'Las pruebas no dejaron salida: ver el log de los pasos anteriores.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Control de logs (sin tokens, tampoco los manipulados)
+        # El guion manda tokens vencidos, sin firma y con la firma cambiada: ninguno tiene que quedar en el log.
+        if: always()
+        run: |
+          if grep -nE 'Bearer [A-Za-z0-9._-]{20,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ' logs/server.log; then
+            echo "El log del servidor tiene tokens"; exit 1
+          fi
+      - name: Estado de los contenedores
+        if: always()
+        run: docker compose ps && docker compose logs --no-color > compose-seguridad.log
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: pruebas-seguridad
+          path: |
+            ${{ env.RESULTADOS }}/
+            frontend/playwright-report/
+            frontend/test-results/
+            logs/
+            compose-seguridad.log
+          if-no-files-found: ignore
+      - name: Bajar todo
+        if: always()
+        run: docker compose down -v
