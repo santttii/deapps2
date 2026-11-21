@@ -15,6 +15,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -179,6 +180,49 @@ class ReventaDeEntradasEnH2Test {
     /** La transferencia a COMPRADOR con otro titular. */
     private static TransferenciaDto transferenciaA(TitularDto titular) {
         return new TransferenciaDto("R-00000010", ENTRADA_ID, VENDEDOR, COMPRADOR, titular, 52_000, "P-reventa1");
+    }
+
+    // ---- Caracteres de control en los ids ----
+    // PostgreSQL no acepta el carácter nulo (U+0000) en un texto: la primera consulta fallaba y la
+    // transferencia terminaba en un 500. H2 sí lo acepta, así que acá se prueba que el id se rechaza
+    // con un 400 del campo antes de llegar a la base, y que la entrada no cambia.
+
+    @Test
+    void elPedidoDelContratoConIdsConCaracteresDeControlEsUn400DeLaPublicacion() {
+        // Los datos del cuerpo con el que Schemathesis obtuvo el 500; el comprador va recortado, con su nulo.
+        // Sin el control, H2 lo dejaba pasar hasta el nombre del titular (U+0093) y en PostgreSQL fallaba antes.
+        TransferenciaDto delContrato = new TransferenciaDto("¤2񱜤\u009d", "servicio", "񁼉",
+                "󶨭7=h񟴀\u0000Î¢,", new TitularDto("\u0093", "29888777"), 66_381_373,
+                "󤏚");
+
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> enTransaccion(em, () -> reventa.transferir(delContrato)));
+
+        assertEquals(Set.of("publicacionId"), error.campos().keySet());
+    }
+
+    @Test
+    void unCompradorConElCaracterNuloEsUn400YLaEntradaSigueEnLaReventa() {
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> enTransaccion(em, () -> reventa.transferir(transferencia("R-00000020", "U-\u0000"))));
+
+        assertEquals(Set.of("compradorId"), error.campos().keySet());
+        assertEquals(EstadoEntrada.PUBLICADA, estado(ENTRADA_ID));
+        assertTrue(reventasPublicadas.isEmpty());
+    }
+
+    @Test
+    void unaEntradaOUnVendedorConElCaracterNuloSonUn400EnCadaOperacion() {
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class, () -> reventa.consultar("T-\u0000", VENDEDOR));
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, "U-\u0000")));
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> enTransaccion(em, () -> reventa.retirar("T-\u0000", VENDEDOR)));
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class, () -> reventa.controlarCompra(
+                new ControlDeCompraDto(ENTRADA_ID, VENDEDOR, "U-\u0000", new TitularDto("Bruno Díaz", "40111222"))));
+        assertEquals(EstadoEntrada.VALIDA, estado(ENTRADA_ID));
     }
 
     @Test

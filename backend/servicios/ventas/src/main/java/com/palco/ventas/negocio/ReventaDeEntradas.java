@@ -101,6 +101,7 @@ public class ReventaDeEntradas {
     PublicadorPagoConfirmado publicador;
 
     /** De dónde sale el "ahora" (UTC); los tests lo reemplazan por un reloj fijo. */
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.systemUTC();
 
     /** La entrada como la necesita la reventa. Una entrada ajena y una que no existe responden lo mismo: 404. */
@@ -153,6 +154,7 @@ public class ReventaDeEntradas {
      * No cambia nada. Lanza 404 si la entrada no es del vendedor.
      */
     public void controlarCompra(ControlDeCompraDto pedido) {
+        exigirId("compradorId", pedido.compradorId());
         validarTitular(pedido.titular().nombre(), pedido.titular().dni());
         Entrada entrada = entradaDe(pedido.entradaId(), pedido.vendedorId());
         String eventoId = entrada.getVenta().getEventoId();
@@ -187,6 +189,10 @@ public class ReventaDeEntradas {
      * cobrar y no después: cortar acá dejaría el pago sin compra.
      */
     public TransferenciaHechaDto transferir(TransferenciaDto pedido) {
+        // Antes de la primera consulta, que ya usa la publicación y el comprador.
+        exigirId("publicacionId", pedido.publicacionId());
+        exigirId("compradorId", pedido.compradorId());
+        exigirId("pagoId", pedido.pagoId());
         String clave = PREFIJO_CLAVE + pedido.publicacionId();
         Optional<Venta> yaHecha = ventas.buscarPorClave(pedido.compradorId(), clave);
         if (yaHecha.isPresent()) {
@@ -229,6 +235,8 @@ public class ReventaDeEntradas {
 
     /** La entrada, si existe y es de ese vendedor. Una ajena responde igual que una que no existe. */
     private Entrada entradaDe(String entradaId, String vendedorId) {
+        exigirId("entradaId", entradaId);
+        exigirId("vendedorId", vendedorId);
         return entradas.buscarPorId(entradaId)
                 .filter(e -> e.getVenta().getCompradorId().equals(vendedorId))
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe esa entrada."));
@@ -237,6 +245,19 @@ public class ReventaDeEntradas {
     private static TransferenciaHechaDto resultado(Venta venta) {
         Entrada entrada = venta.getEntradas().get(0);
         return new TransferenciaHechaDto(venta.getId(), ServicioDeVentas.aDto(entrada));
+    }
+
+    /**
+     * Un id que llega en el pedido, antes de usarlo en una consulta: sin
+     * caracteres de control (la regla de {@code Textos.esDeControl}, la misma
+     * de los ids de una compra del catálogo). Ningún id que genera Palco los
+     * tiene, y PostgreSQL no acepta el carácter nulo (U+0000) en un texto: la
+     * consulta fallaba y el pedido terminaba en un 500 en lugar de un 400.
+     */
+    private static void exigirId(String campo, String id) {
+        if (id == null || id.codePoints().anyMatch(Textos::esDeControl)) {
+            throw new ErroresDeNegocio.DatosInvalidos(campo, "El id no puede tener caracteres de control.");
+        }
     }
 
     /** Las mismas reglas que un titular del catálogo: el nombre en una línea y el DNI de ReglasDeNegocio. */

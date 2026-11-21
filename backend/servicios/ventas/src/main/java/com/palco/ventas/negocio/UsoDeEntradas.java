@@ -4,6 +4,7 @@ import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.Textos;
 import com.palco.ventas.api.Dtos.EntradaDto;
 import com.palco.ventas.datos.EntradaRepository;
 import com.palco.ventas.dominio.Entrada;
@@ -44,6 +45,11 @@ public class UsoDeEntradas {
      * está publicada o vendida en la reventa, o anulada.
      */
     public EntradaDto marcarUsada(String codigoQr, String eventoId) {
+        // Ningún código que genera Ventas tiene caracteres de control, y PostgreSQL no acepta el
+        // carácter nulo (U+0000) en un texto: sin buscarlo, es un código que no existe (404).
+        if (codigoQr.codePoints().anyMatch(Textos::esDeControl)) {
+            throw new ErroresDeNegocio.NoEncontrado("No existe una entrada con ese código.");
+        }
         Entrada entrada = entradas.buscarPorCodigoQr(codigoQr)
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe una entrada con ese código."));
         // El evento de una entrada no cambia nunca, así que leerlo antes del UPDATE es seguro.

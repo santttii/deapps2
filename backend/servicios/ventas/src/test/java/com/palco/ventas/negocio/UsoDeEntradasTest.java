@@ -56,6 +56,13 @@ class UsoDeEntradasTest {
     }
 
     @Test
+    void unCodigoConElCaracterNuloEsUn404SinBuscarlo() {
+        // PostgreSQL no acepta el carácter nulo (U+0000) en un texto: la búsqueda terminaba en un 500.
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> usos.marcarUsada("\u0000" + CODIGO, EVENTO));
+        verify(entradas, never()).buscarPorCodigoQr(anyString());
+    }
+
+    @Test
     void unCodigoQueNoExisteEsUn404() {
         when(entradas.buscarPorCodigoQr(CODIGO)).thenReturn(Optional.empty());
 
