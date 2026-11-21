@@ -22,8 +22,11 @@ import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.palco.common.Textos;
+import com.palco.common.mensajeria.CompraAnuladaMensaje;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.notificaciones.Ejemplos;
+import com.palco.notificaciones.LogCapturado;
 import com.palco.notificaciones.api.Dtos.RegistroDeAuditoriaDto;
 import com.palco.notificaciones.datos.RegistroDeAuditoriaRepository;
 import com.palco.notificaciones.dominio.RegistroDeAuditoria;
@@ -114,6 +117,73 @@ class ServicioDeAuditoriaTest {
             String json = jsonb.toJson(dto);
             assertTrue(json.contains("\"recibidoEn\":\"2026-10-16T21:30:05Z\""), json);
             assertTrue(json.contains("\"ventaId\":\"V-3f9a1c2b\""), json);
+        }
+    }
+
+    @Test
+    void sinRegistrosElListadoQuedaVacio() {
+        when(registros.ultimos(50)).thenReturn(List.of());
+
+        assertEquals(List.of(), servicio.listar());
+    }
+
+    // --- Las compras anuladas por la cancelación del evento ---
+
+    @Test
+    void laAnulacionQuedaComoCompraAnuladaConElMontoQueSeHabiaPagado() {
+        CompraAnuladaMensaje mensaje = Ejemplos.compraAnulada(true);
+        servicio.reloj = Clock.fixed(Instant.parse("2026-11-05T14:20:32.500Z"),
+                ZoneId.of("America/Argentina/Buenos_Aires"));
+
+        servicio.registrarAnulacion(ID_DEL_MENSAJE, mensaje, mensaje.aJson());
+
+        RegistroDeAuditoria fila = filaGuardada();
+        assertEquals(ID_DEL_MENSAJE, fila.getMensajeId());
+        assertEquals("COMPRA_ANULADA", fila.getTipoEvento());
+        assertEquals("V-3f9a1c2b", fila.getVentaId());
+        assertEquals("user-titular", fila.getCompradorId());
+        assertEquals("ev-6", fila.getEventoId());
+        assertEquals(33000, fila.getMontoTotal());
+        assertEquals(mensaje.aJson(), fila.getCuerpo());
+        // La misma hora que una compra: en UTC y truncada a segundos.
+        assertEquals(LocalDateTime.parse("2026-11-05T14:20:32"), fila.getRecibidoEn());
+    }
+
+    @Test
+    void siElBrokerReentregaLaMismaAnulacionNoLaRegistraDosVecesYLoDejaEnElLog() {
+        when(registros.existe(ID_DEL_MENSAJE)).thenReturn(true);
+
+        try (LogCapturado log = new LogCapturado(ServicioDeAuditoria.class)) {
+            servicio.registrarAnulacion(ID_DEL_MENSAJE, Ejemplos.compraAnulada(true), "{}");
+
+            assertEquals(List.of("El mensaje " + ID_DEL_MENSAJE
+                    + " ya estaba registrado (reentrega del broker): no se repite."), log.lineas());
+        }
+        verify(registros, never()).guardar(any());
+    }
+
+    @Test
+    void siLaBaseRechazaElInsertDeUnaAnulacionLaFallaSaleDeRegistrarAnulacion() {
+        doThrow(new PersistenceException("la base no responde")).when(registros).guardar(any());
+
+        assertThrows(PersistenceException.class,
+                () -> servicio.registrarAnulacion(ID_DEL_MENSAJE, Ejemplos.compraAnulada(false), "{}"));
+    }
+
+    @Test
+    void elAvisoDeLaReentregaSaleEnUnSoloRenglonAunqueElIdTraigaUnSaltoDeLinea() {
+        // El id lo pone el broker, pero lo que se escribe en el log no depende de eso.
+        String conSalto = "ID:1\n2026-11-05 14:20:31,000 INFO  [falso] LINEA FALSA";
+        when(registros.existe(conSalto)).thenReturn(true);
+
+        try (LogCapturado log = new LogCapturado(ServicioDeAuditoria.class)) {
+            servicio.registrar(conSalto, "PAGO_CONFIRMADO", Ejemplos.pagoConfirmado(), "{}");
+            servicio.registrarAnulacion(conSalto, Ejemplos.compraAnulada(true), "{}");
+
+            assertEquals(2, log.lineas().size(), log.lineas().toString());
+            for (String linea : log.lineas()) {
+                assertTrue(linea.chars().noneMatch(Textos::esDeControl), linea);
+            }
         }
     }
 

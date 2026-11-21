@@ -5,14 +5,26 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.jms.JMSContext;
+import jakarta.jms.JMSProducer;
+import jakarta.jms.Topic;
+
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.mensajeria.DestinosJms;
+import com.palco.common.mensajeria.MensajeInvalido;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.common.mensajeria.PublicadorPagoConfirmado;
 
@@ -74,5 +86,27 @@ class PruebasDeMensajeriaTest {
 
         // Llegó a publicar antes de fallar: lo que se prueba en vivo es que ese mensaje no sale.
         assertEquals(1, publicados.size());
+    }
+
+    @Test
+    void elMensajeInvalidoVaSoloAlTopicoConSuTipoDeEventoYNoPasaElContrato() {
+        // El contexto JMS y el tópico son dobles: que el mensaje llegue a la DLQ se prueba en vivo.
+        JMSContext contexto = mock(JMSContext.class);
+        JMSProducer productor = mock(JMSProducer.class);
+        when(contexto.createProducer()).thenReturn(productor);
+        when(productor.setProperty(anyString(), anyString())).thenReturn(productor);
+        pruebas.contexto = contexto;
+        pruebas.topico = mock(Topic.class);
+
+        pruebas.publicarMensajeInvalido();
+
+        // Con el tipoEvento lo dejan pasar los filtros de los MDB: sin él no le llegaría a nadie.
+        verify(productor).setProperty(DestinosJms.PROPIEDAD_TIPO_EVENTO, DestinosJms.PAGO_CONFIRMADO);
+        ArgumentCaptor<String> texto = ArgumentCaptor.forClass(String.class);
+        verify(productor).send(eq(pruebas.topico), texto.capture());
+        // Tiene que ser algo que los consumidores rechacen: si no, no habría reintentos que mirar.
+        assertThrows(MensajeInvalido.class, () -> PagoConfirmadoMensaje.desdeJson(texto.getValue()));
+        // No pasa por el publicador real, que se negaría a mandarlo.
+        assertTrue(publicados.isEmpty());
     }
 }
