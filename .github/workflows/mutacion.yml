@@ -1,0 +1,61 @@
+# Pruebas de mutación del backend (PIT). Mismos disparadores que ci.yml, en un workflow aparte: tarda más que
+# los tests y así no demora el resto del pipeline.
+#
+# PIT muta el paquete de dominio de cada servicio (com.palco.*.dominio.*) y corre los tests del módulo contra
+# cada mutante. La cátedra pide que mueran al menos el 60 %: si un módulo queda debajo, la corrida queda en
+# rojo. La configuración está en backend/pom.xml (el plugin pitest-maven en pluginManagement) y el resumen
+# por módulo lo arma scripts/qa/mutacion.mjs.
+
+name: Mutación
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutacion-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pit:
+    name: Mutación (PIT sobre el dominio)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: mvn install (sin tests)
+        # Primero se arma todo: un error de compilación sale acá y no mezclado con PIT. El servidor queda
+        # afuera porque no tiene código propio que mutar y armarlo baja WildFly entero; PMD también, porque
+        # ya corre en ci.yml.
+        run: mvn -B install -DskipTests -Dpmd.skip=true -pl '!servidor'
+      - name: PIT en cada módulo
+        # --fail-at-end: si un módulo queda debajo del mínimo, igual se miden los demás y el resumen los
+        # muestra a todos. Cuatro hilos, uno por núcleo del runner.
+        run: >-
+          mvn -B --fail-at-end test-compile org.pitest:pitest-maven:mutationCoverage
+          -pl '!servidor' -Dmutacion.hilos=4
+      - name: Resumen de mutación
+        # Sin "|| true": si no hay reportes o algún módulo queda debajo del mínimo, el paso queda en rojo.
+        if: always()
+        working-directory: .
+        run: node scripts/qa/mutacion.mjs backend >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: reportes-mutacion
+          path: backend/**/target/pit-reports/
+          if-no-files-found: ignore
