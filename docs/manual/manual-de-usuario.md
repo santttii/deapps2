@@ -22,6 +22,7 @@ capturas son de la aplicación real, tomadas el 18/11/2026.
 14. [Cerrar sesión](#14-cerrar-sesión)
 15. [Errores frecuentes y qué hacer](#15-errores-frecuentes-y-qué-hacer)
 16. [Preguntas frecuentes](#16-preguntas-frecuentes)
+17. [Cambiar el tema: normal, claro u oscuro](#17-cambiar-el-tema-normal-claro-u-oscuro)
 
 ## 1. Qué es Palco
 
@@ -133,6 +134,31 @@ queda bloqueado hasta que pasen.
 
 Si alguien intenta ingresar antes de verificar su email, Palco se lo avisa con el enlace **Verificar mi
 email**, que lleva al segundo paso.
+
+### Recuperar la contraseña
+
+Quien olvidó la contraseña toca **¿Olvidaste tu contraseña?**, debajo del botón **Ingresar**. Son dos
+pasos:
+
+1. **Email:** se escribe el email de la cuenta y se toca **Enviar código**. Palco responde siempre lo
+   mismo, tenga o no una cuenta ese email: así nadie puede averiguar qué emails están registrados. Si
+   la cuenta existe y ya verificó el email, le llega un código de 6 dígitos que vence a los 15 minutos.
+2. **Contraseña nueva:** se escribe el código en **Código de 6 dígitos** y la contraseña nueva dos
+   veces (al menos 8 caracteres, con letras y números), y se toca **Cambiar contraseña**. Si el código
+   no es correcto, venció o se escribió mal cinco veces, Palco lo avisa debajo del código; **reenviar
+   código** manda uno nuevo (se habilita a los 30 segundos). Para corregir el email, se toca el paso
+   **1 · Email**.
+
+Con la contraseña cambiada, Palco vuelve a **Ya tengo cuenta** con el email escrito y el aviso **Listo:
+cambiaste la contraseña. Ingresá con la nueva.** La contraseña anterior deja de servir. Si el ingreso
+estaba bloqueado por los intentos fallidos, con la contraseña nueva se puede ingresar enseguida.
+
+En el entorno de prueba el código se lee en el log, como el de verificación (ver la sección 2). La
+línea dice:
+
+```
+Email para ana@ejemplo.com (Volvé a poner tu contraseña de Palco): Hola Ana: tu código para poner una contraseña nueva es 482913. Vence en 15 minutos. Si no lo pediste, no hace falta que hagas nada.
+```
 
 ## 6. Comprar: los titulares
 
@@ -395,3 +421,32 @@ lugares reservados y sin pagar, esos lugares se liberan.
 | ¿Qué pasa si se vence la reserva de diez minutos? | Los lugares se liberan y hay que empezar la compra de nuevo. |
 | ¿Qué llevo a la puerta? | El QR de la entrada y el DNI del titular. |
 | ¿Qué pasa si cancelan el evento? | Las entradas se anulan, se devuelve el pago, las publicaciones en la reventa se retiran y se manda un email. |
+
+## 17. Cambiar el tema: normal, claro u oscuro
+
+Palco se puede ver con tres temas. El tema cambia los colores de todas las pantallas; lo que se
+muestra y cómo se usa siguen igual.
+
+| Tema | Cómo se ve |
+|---|---|
+| Normal | El aspecto de siempre de Palco: fondo crema y texto casi negro. Es el que aparece la primera vez. |
+| Claro | Fondo blanco y grises fríos, con el texto un poco más marcado. |
+| Oscuro | Fondo oscuro y texto claro, para usar Palco de noche o con poca luz. |
+
+Para cambiarlo:
+
+1. Arriba a la derecha, en el encabezado, está la lista **Tema**. En el celular puede quedar en un
+   segundo renglón, debajo de los enlaces.
+2. Elegir **Normal**, **Claro** u **Oscuro**. Los colores cambian en el momento, sin recargar la
+   página y sin perder lo que se estaba haciendo (por ejemplo, los datos de una compra a medio
+   completar).
+
+Con el teclado, se llega a la lista con **Tab** y se elige el tema con las flechas.
+
+Palco recuerda el tema elegido en ese navegador: al recargar la página o al volver a abrir Palco sigue
+el mismo. No hace falta haber ingresado, y el tema no queda en la cuenta: en otro navegador o en otra
+computadora aparece el normal. Si el navegador no deja guardar datos de los sitios, el tema elegido
+dura hasta que se recarga la página.
+
+El código QR de las entradas se ve siempre negro sobre blanco, con cualquier tema, para que el lector
+de la puerta lo lea igual.
