@@ -60,12 +60,15 @@ jobs:
           echo "::add-mask::$clave"
           echo "PALCO_SECRETO_SERVICIOS=$secreto" >> "$GITHUB_ENV"
           echo "PALCO_JWT_CLAVE_PRIVADA=$clave" >> "$GITHUB_ENV"
-          mkdir -p logs "$RESULTADOS" && chmod 777 logs
+          mkdir -p "$RESULTADOS"
       - name: Dependencias del frontend y Chromium
+        # Como en los jobs frontend y e2e de ci.yml: sin scripts de instalación (el único paquete del package-lock
+        # que tiene uno es fsevents, que es para macOS y en Linux no se instala) y Playwright por node_modules/.bin,
+        # con la versión exacta del package-lock. Con npx, si no lo encontrara, bajaría la última versión.
         working-directory: frontend
         run: |
-          npm ci
-          npx playwright install --with-deps chromium
+          npm ci --ignore-scripts
+          ./node_modules/.bin/playwright install --with-deps chromium
       - name: Imágenes del sistema (con reintentos si falla la red)
         # Las mismas descargas y los mismos reintentos que en la integración de ci.yml (ahí está el porqué).
         run: |
@@ -75,6 +78,15 @@ jobs:
             [ "$intento" -lt 4 ] && sleep $((intento * 30))
           done
           exit 1
+      - name: Carpeta de logs para WildFly
+        # WildFly escribe server.log en ./logs con el usuario palco del contenedor (backend/Dockerfile), que no es
+        # el usuario del runner. La carpeta sigue siendo del runner y pasa al grupo de palco con permisos 775:
+        # escriben los dos y el resto de los usuarios de la máquina, no. El grupo se lee de la imagen recién armada.
+        run: |
+          mkdir -p logs
+          grupo=$(docker compose run --rm --no-deps -T --entrypoint id backend -g)
+          sudo chgrp "$grupo" logs
+          chmod 775 logs
       - name: docker compose up (un comando, todo el sistema)
         id: sistema
         run: |
@@ -96,7 +108,7 @@ jobs:
           PALCO_LOG: ${{ github.workspace }}/logs/server.log
         run: |
           set -o pipefail
-          { echo; echo '== frontend/e2e/xss.spec.ts'; npx playwright test e2e/xss.spec.ts; } \
+          { echo; echo '== frontend/e2e/xss.spec.ts'; ./node_modules/.bin/playwright test e2e/xss.spec.ts; } \
             | tee -a "../$RESULTADOS/seguridad.txt"
       - name: Resumen
         if: always()

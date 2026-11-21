@@ -211,7 +211,6 @@ jobs:
           secreto=$(openssl rand -hex 32)
           echo "::add-mask::$secreto"
           echo "PALCO_SECRETO_SERVICIOS=$secreto" >> "$GITHUB_ENV"
-          mkdir -p logs && chmod 777 logs
       - name: Imágenes del sistema (con reintentos si falla la red)
         # Bajar una imagen de Docker Hub puede fallar por la red del runner o por su límite de descargas,
         # que se nota más con varios jobs bajando lo mismo a la vez. Se reintenta hasta 4 veces, esperando
@@ -223,6 +222,15 @@ jobs:
             [ "$intento" -lt 4 ] && sleep $((intento * 30))
           done
           exit 1
+      - name: Carpeta de logs para WildFly
+        # WildFly escribe server.log en ./logs con el usuario palco del contenedor (backend/Dockerfile), que no es
+        # el usuario del runner. La carpeta sigue siendo del runner y pasa al grupo de palco con permisos 775:
+        # escriben los dos y el resto de los usuarios de la máquina, no. El grupo se lee de la imagen recién armada.
+        run: |
+          mkdir -p logs
+          grupo=$(docker compose run --rm --no-deps -T --entrypoint id backend -g)
+          sudo chgrp "$grupo" logs
+          chmod 775 logs
       - name: docker compose up (un comando, todo el sistema)
         run: |
           inicio=$(date +%s)
@@ -310,9 +318,17 @@ jobs:
             [ "$intento" -lt 4 ] && sleep $((intento * 30))
           done
           exit 1
+      - name: Carpeta de logs para WildFly
+        # WildFly escribe server.log en ./logs con el usuario palco del contenedor (backend/Dockerfile), que no es
+        # el usuario del runner. La carpeta sigue siendo del runner y pasa al grupo de palco con permisos 775:
+        # escriben los dos y el resto de los usuarios de la máquina, no. El grupo se lee de la imagen recién armada.
+        run: |
+          mkdir -p logs
+          grupo=$(docker compose run --rm --no-deps -T --entrypoint id backend -g)
+          sudo chgrp "$grupo" logs
+          chmod 775 logs
       - name: docker compose up (un comando, todo el sistema)
         run: |
-          mkdir -p logs && chmod 777 logs
           docker compose up --build --detach --wait --wait-timeout 900
       - name: Pruebas E2E (npm run e2e)
         working-directory: frontend
@@ -370,7 +386,7 @@ jobs:
           secreto=$(openssl rand -hex 32)
           echo "::add-mask::$secreto"
           echo "PALCO_SECRETO_SERVICIOS=$secreto" >> "$GITHUB_ENV"
-          mkdir -p logs newman && chmod 777 logs
+          mkdir -p newman
       - name: Imágenes del sistema (con reintentos si falla la red)
         # Las mismas descargas y los mismos reintentos que en la integración (ahí está el porqué).
         run: |
@@ -380,6 +396,15 @@ jobs:
             [ "$intento" -lt 4 ] && sleep $((intento * 30))
           done
           exit 1
+      - name: Carpeta de logs para WildFly
+        # WildFly escribe server.log en ./logs con el usuario palco del contenedor (backend/Dockerfile), que no es
+        # el usuario del runner. La carpeta sigue siendo del runner y pasa al grupo de palco con permisos 775:
+        # escriben los dos y el resto de los usuarios de la máquina, no. El grupo se lee de la imagen recién armada.
+        run: |
+          mkdir -p logs
+          grupo=$(docker compose run --rm --no-deps -T --entrypoint id backend -g)
+          sudo chgrp "$grupo" logs
+          chmod 775 logs
       - name: docker compose up (un comando, todo el sistema)
         run: |
           inicio=$(date +%s)

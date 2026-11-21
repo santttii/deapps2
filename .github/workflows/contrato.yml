@@ -60,8 +60,10 @@ jobs:
         with:
           python-version: '3.12'
       - name: Instalar Schemathesis
+        # Solo paquetes ya armados (wheels): con --only-binary pip no ejecuta el setup.py de ningún paquete al
+        # instalar. Schemathesis 4.32.7 y todas sus dependencias publican wheel para Linux y Python 3.12.
         run: |
-          pip install --quiet "$SCHEMATHESIS"
+          pip install --quiet --only-binary :all: "$SCHEMATHESIS"
           schemathesis --version
       - name: Secretos de esta corrida
         # Nunca están en el repo: se generan acá y se le pasan al compose. Con el secreto se pide el token de servicio.
@@ -69,7 +71,7 @@ jobs:
           secreto=$(openssl rand -hex 32)
           echo "::add-mask::$secreto"
           echo "PALCO_SECRETO_SERVICIOS=$secreto" >> "$GITHUB_ENV"
-          mkdir -p logs contrato && chmod 777 logs
+          mkdir -p contrato
       - name: Imágenes del sistema (con reintentos si falla la red)
         # Las mismas descargas y los mismos reintentos que en la integración de ci.yml (ahí está el porqué).
         run: |
@@ -79,6 +81,15 @@ jobs:
             [ "$intento" -lt 4 ] && sleep $((intento * 30))
           done
           exit 1
+      - name: Carpeta de logs para WildFly
+        # WildFly escribe server.log en ./logs con el usuario palco del contenedor (backend/Dockerfile), que no es
+        # el usuario del runner. La carpeta sigue siendo del runner y pasa al grupo de palco con permisos 775:
+        # escriben los dos y el resto de los usuarios de la máquina, no. El grupo se lee de la imagen recién armada.
+        run: |
+          mkdir -p logs
+          grupo=$(docker compose run --rm --no-deps -T --entrypoint id backend -g)
+          sudo chgrp "$grupo" logs
+          chmod 775 logs
       - name: docker compose up (un comando, todo el sistema)
         run: |
           inicio=$(date +%s)

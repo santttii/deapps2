@@ -54,9 +54,18 @@ jobs:
             [ "$intento" -lt 4 ] && sleep $((intento * 30))
           done
           exit 1
+      - name: Carpeta de logs para WildFly
+        # WildFly escribe server.log en ./logs con el usuario palco del contenedor (backend/Dockerfile), que no es
+        # el usuario del runner. La carpeta sigue siendo del runner y pasa al grupo de palco con permisos 775:
+        # escriben los dos y el resto de los usuarios de la máquina, no. El grupo se lee de la imagen recién armada.
+        run: |
+          mkdir -p logs
+          grupo=$(docker compose run --rm --no-deps -T --entrypoint id backend -g)
+          sudo chgrp "$grupo" logs
+          chmod 775 logs
       - name: docker compose up (un comando, todo el sistema)
         run: |
-          mkdir -p logs "$RESULTADOS" && chmod 777 logs
+          mkdir -p "$RESULTADOS"
           inicio=$(date +%s)
           docker compose up --build --detach --wait --wait-timeout 900
           echo "Levantado en $(( $(date +%s) - inicio )) segundos"
