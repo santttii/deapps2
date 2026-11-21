@@ -36,4 +36,22 @@ class EmailTest {
         assertEquals("", email.asunto());
         assertEquals("", email.cuerpo());
     }
+
+    @Test
+    void elDestinatarioEnmascaradoDejaLaPrimeraLetraYElDominio() {
+        assertEquals("a***@palco.test", new Email("ana.perez+compras@palco.test", "a", "b").paraEnmascarado());
+        assertEquals("a***@palco.test, j***@palco.test",
+                new Email("ana@palco.test, juan@palco.test", "a", "b").paraEnmascarado());
+        assertEquals("p***@palco.test", new Email("postman-1a2b3c@palco.test", "a", "b").paraEnmascarado());
+    }
+
+    @Test
+    void enUnTextoSeEnmascaraCadaDireccionYElRestoQuedaIgual() {
+        // Así viene la respuesta de un servidor SMTP que rechaza al destinatario.
+        assertEquals("550 5.1.1 <a***@palco.test>: Recipient address rejected; copia a j***@otro.test",
+                Email.enmascarar("550 5.1.1 <ana@palco.test>: Recipient address rejected; copia a juan@otro.test"));
+        assertEquals("Couldn't connect to host, port: smtp.palco.test, 587",
+                Email.enmascarar("Couldn't connect to host, port: smtp.palco.test, 587"));
+        assertEquals("", Email.enmascarar(null));
+    }
 }
