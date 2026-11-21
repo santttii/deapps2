@@ -77,6 +77,23 @@ const problema = (codigo, tipo) => [
   '});',
 ];
 
+/**
+ * Un error que es solo el código HTTP (405, 415): Problem Details con type about:blank y sin detail, porque el
+ * mensaje de esa excepción es un texto interno del servidor y no uno escrito para el usuario.
+ */
+const problemaSoloElCodigo = (codigo) => [
+  estado(codigo),
+  esProblema,
+  "pm.test('type about:blank: el problema es el código mismo', () => {",
+  '  const p = pm.response.json();',
+  "  pm.expect(p.type).to.eql('about:blank');",
+  `  pm.expect(p.status).to.eql(${codigo});`,
+  "  pm.expect(p, 'el texto interno del servidor no llega al cliente').to.not.have.property('detail');",
+  '});',
+];
+
+const sinCuerpo = "pm.test('no trae cuerpo', () => pm.expect(pm.response.text()).to.eql(''));";
+
 /** Sigue la corrida en otro request (o la termina, con null). Sirve en el Runner y en Newman. */
 const saltarA = (destino) => [
   'if (pm.execution && pm.execution.setNextRequest) {',
@@ -180,7 +197,11 @@ const eventoParaComprar = (nombre, titulo, variableEvento, variableSector, titul
     ],
   });
 
-const login = (nombre, cuenta, rol, variable, descripcion) => pedido(nombre, 'POST', url('baseUsuarios', ['login']), {
+/**
+ * Inicia sesión con una cuenta de prueba y guarda su token. Con variableId guarda también el id de la cuenta, que
+ * piden las operaciones entre servicios (el vendedor y el comprador de la reventa, el dueño de un evento).
+ */
+const login = (nombre, cuenta, rol, variable, descripcion, variableId) => pedido(nombre, 'POST', url('baseUsuarios', ['login']), {
   descripcion,
   cabeceras: [JSON_CT],
   cuerpo: cuenta,
@@ -196,8 +217,18 @@ const login = (nombre, cuenta, rol, variable, descripcion) => pedido(nombre, 'PO
     `  pm.expect(sesion.usuario.rol).to.eql('${rol}');`,
     '});',
     `pm.collectionVariables.set('${variable}', sesion.token);`,
+    ...(variableId ? [`pm.collectionVariables.set('${variableId}', sesion.usuario.id);`] : []),
   ],
 });
+
+/** El token de rol servicio, pedido con el secreto compartido. Dura 5 minutos: se pide justo antes de usarlo. */
+const tokenDeServicio = (descripcion) => pedido('Token de servicio (200) guarda tokenServicio', 'POST',
+  url('baseUsuarios', ['servicios', 'token']), {
+    descripcion,
+    cabeceras: [JSON_CT],
+    cuerpo: { secreto: '{{secretoServicios}}' },
+    tests: [estado(200), "pm.collectionVariables.set('tokenServicio', pm.response.json().token);"],
+  });
 
 // ---------------------------------------------------------------------------------------------
 // 1 Usuarios
@@ -205,8 +236,9 @@ const login = (nombre, cuenta, rol, variable, descripcion) => pedido(nombre, 'PO
 const PRIMERO_DE_EVENTOS = 'Listar eventos (200) guarda slug';
 
 const usuarios = carpeta('1 Usuarios (implementado)',
-  'Registro, login, perfil y claves públicas. Corre entera sin intervención. La subcarpeta "Pasos manuales" queda '
-  + 'fuera de la corrida: necesita el código de verificación, que solo sale en el log del servidor.',
+  'Registro, verificación del email, login, perfil, las consultas de usuarios entre servicios (rol servicio) y '
+  + 'claves públicas. Corre entera sin intervención. La subcarpeta "Pasos manuales" queda fuera de la corrida: '
+  + 'necesita los códigos de verificación y de cambio de contraseña, que solo salen en el log del servidor.',
   [
     pedido('Registro (201)', 'POST', url('baseUsuarios', ['registro']), {
       descripcion: 'Registra una cuenta nueva. El email y el DNI se generan en cada corrida, así el request se puede '
@@ -248,9 +280,28 @@ const usuarios = carpeta('1 Usuarios (implementado)',
         "pm.test('no entrega un token', () => pm.expect(pm.response.json()).to.not.have.property('token'));",
       ],
     }),
+    pedido('Reenviar código antes de los 30 segundos (409)', 'POST', url('baseUsuarios', ['verificacion', 'reenvio']), {
+      descripcion: 'La cuenta de "Registro (201)" pide otro código enseguida: entre un código y el siguiente tienen '
+        + 'que pasar 30 segundos. Responde 409 sin mandar nada, así que no corre la espera: "MANUAL · Reenviar código '
+        + '(204)" sigue contando desde el registro.',
+      cabeceras: [JSON_CT],
+      cuerpo: { email: '{{emailRegistro}}' },
+      tests: problema(409, 'conflicto'),
+    }),
+    pedido('Verificar una cuenta ya verificada (409)', 'POST', url('baseUsuarios', ['verificacion']), {
+      descripcion: 'titular@palco.test ya verificó su email: verificarla otra vez responde 409 sin mirar el código y '
+        + 'sin entregar una sesión. La verificación que sale bien necesita el código del log: está en "Pasos manuales".',
+      cabeceras: [JSON_CT],
+      cuerpo: { email: TITULAR.email, codigo: '000000' },
+      tests: [
+        ...problema(409, 'conflicto'),
+        "pm.test('no entrega un token', () => pm.expect(pm.response.json()).to.not.have.property('token'));",
+      ],
+    }),
     login('Login (200) guarda token', TITULAR, 'user', 'token',
-      'Inicia sesión con la cuenta de prueba de comprador y guarda el token en {{token}}. Como toda cuenta que '
-      + 'completó el registro, tiene la identidad verificada y puede comprar.'),
+      'Inicia sesión con la cuenta de prueba de comprador y guarda el token en {{token}} y el id de la cuenta en '
+      + '{{titularId}}. Como toda cuenta que completó el registro, tiene la identidad verificada y puede comprar.',
+      'titularId'),
     pedido('Login incorrecto (401)', 'POST', url('baseUsuarios', ['login']), {
       cabeceras: [JSON_CT],
       cuerpo: { email: TITULAR.email, password: 'incorrecta1' },
@@ -282,6 +333,61 @@ const usuarios = carpeta('1 Usuarios (implementado)',
       cuerpo: { secreto: 'no-es-el-secreto' },
       tests: problema(401, 'no-autenticado'),
     }),
+    tokenDeServicio('Con el secreto con el que arrancó el servidor (variable secretoServicios): el token de rol '
+      + 'servicio para las dos consultas entre servicios que siguen.'),
+    pedido('GET /usuarios/{usuarioId}, rol servicio (200)', 'GET', url('baseUsuarios', ['{{titularId}}']), {
+      descripcion: 'Un usuario por su id, para otros servicios: Notificaciones lo pide para saber a qué email avisar. '
+        + 'Es titular@palco.test, con el id que guardó su login.',
+      cabeceras: [bearer('tokenServicio')],
+      tests: [
+        estado(200),
+        esJson,
+        "pm.test('es titular@palco.test, sin la contraseña', () => {",
+        '  const u = pm.response.json();',
+        "  pm.expect(u).to.include.all.keys('id', 'nombre', 'apellido', 'dni', 'email', 'rol', 'identidadVerificada');",
+        "  pm.expect(u.id).to.eql(pm.collectionVariables.get('titularId'));",
+        `  pm.expect(u.email).to.eql('${TITULAR.email}');`,
+        "  pm.expect(u).to.not.have.any.keys('password', 'passwordHash');",
+        '});',
+      ],
+    }),
+    pedido('GET /usuarios/{usuarioId} con rol user (403)', 'GET', url('baseUsuarios', ['{{titularId}}']), {
+      descripcion: 'El mismo pedido con el token del propio titular: buscar un usuario por su id es solo para otros '
+        + 'servicios. Una persona ve sus datos en GET /yo.',
+      cabeceras: [bearer('token')],
+      tests: problema(403, 'sin-permiso'),
+    }),
+    pedido('GET /usuarios/cuentas?email, rol servicio (200)', 'GET',
+      url('baseUsuarios', ['cuentas'], [{ key: 'email', value: STAFF.email }]), {
+        descripcion: 'El rol de una cuenta verificada, por su email: Validación lo pregunta antes de asignar una '
+          + 'cuenta a la puerta de un evento. Devuelve solo el email y el rol.',
+        cabeceras: [bearer('tokenServicio')],
+        tests: [
+          estado(200),
+          esJson,
+          "pm.test('solo el email y el rol: staff', () => {",
+          `  pm.expect(pm.response.json()).to.eql({ email: '${STAFF.email}', rol: 'staff' });`,
+          '});',
+        ],
+      }),
+    pedido('GET /usuarios/cuentas?email de una cuenta sin verificar (404)', 'GET',
+      url('baseUsuarios', ['cuentas'], [{ key: 'email', value: '{{emailRegistro}}' }]), {
+        descripcion: 'La cuenta de "Registro (201)" existe pero no verificó su email: responde igual que un email sin '
+          + 'cuenta.',
+        cabeceras: [bearer('tokenServicio')],
+        tests: problema(404, 'no-encontrado'),
+      }),
+    pedido('POST /jwks (405)', 'POST', url('baseUsuarios', ['jwks']), {
+      descripcion: 'La clave pública es pública y de solo lectura, así que no tiene un error propio: el error es el '
+        + 'método equivocado. Responde 405 en Problem Details, con type about:blank, y la cabecera Allow dice qué '
+        + 'método sí se acepta.',
+      cabeceras: [JSON_CT],
+      cuerpo: {},
+      tests: [
+        ...problemaSoloElCodigo(405),
+        "pm.test('Allow incluye GET', () => pm.expect(pm.response.headers.get('Allow')).to.include('GET'));",
+      ],
+    }),
     pedido('JWKS claves públicas (200)', 'GET', url('baseUsuarios', ['jwks']), {
       descripcion: 'La clave pública con la que los demás servicios verifican los tokens.',
       tests: [
@@ -301,7 +407,10 @@ const usuarios = carpeta('1 Usuarios (implementado)',
       'No corren solos. Necesitan el código de 6 dígitos, que es aleatorio y solo sale en el log del servidor '
       + '("Código de verificación para <email>: 123456"). Pasos: correr "Registro (201)", buscar el código en el log, '
       + 'cargarlo en la variable codigoVerificacion de la colección y enviar "Verificar email (200)". '
-      + '"Reenviar código (204)" exige que hayan pasado 30 segundos desde el registro o el último reenvío.',
+      + '"Reenviar código (204)" exige que hayan pasado 30 segundos desde el registro o el último reenvío. Con la '
+      + 'cuenta ya verificada se prueba el cambio de contraseña: "Pedir el código para cambiar la contraseña (204)", '
+      + 'buscar en el log el código nuevo, cargarlo en la variable codigoReinicio, enviar "Reiniciar la contraseña '
+      + '(204)" y después "Login con la contraseña nueva (200)".',
       [
         pedido('MANUAL · Reenviar código (204)', 'POST', url('baseUsuarios', ['verificacion', 'reenvio']), {
           descripcion: 'Pide un código nuevo para la cuenta de "Registro (201)". Si pasaron menos de 30 segundos '
@@ -323,6 +432,33 @@ const usuarios = carpeta('1 Usuarios (implementado)',
             "  pm.expect(sesion.token).to.be.a('string').and.not.empty;",
             "  pm.expect(sesion.usuario.email).to.eql(pm.collectionVariables.get('emailRegistro'));",
             '  pm.expect(sesion.usuario.identidadVerificada).to.eql(true);',
+            '});',
+          ],
+        }),
+        pedido('MANUAL · Pedir el código para cambiar la contraseña (204)', 'POST',
+          url('baseUsuarios', ['password', 'olvide']), {
+            descripcion: 'Después de "Verificar email (200)". Una cuenta verificada recibe el código para poner una '
+              + 'contraseña nueva: sale en el log del servidor, en el email "Volvé a poner tu contraseña de Palco". Vence '
+              + 'en 15 minutos.',
+            cabeceras: [JSON_CT],
+            cuerpo: { email: '{{emailRegistro}}' },
+            tests: [estado(204), sinCuerpo],
+          }),
+        pedido('MANUAL · Reiniciar la contraseña (204)', 'POST', url('baseUsuarios', ['password', 'reinicio']), {
+          descripcion: 'Antes de enviarlo, cargá en la variable codigoReinicio el código que salió en el log. Cambia la '
+            + 'contraseña a Nueva12345 y responde 204 sin cuerpo: no inicia la sesión.',
+          cabeceras: [JSON_CT],
+          cuerpo: { email: '{{emailRegistro}}', codigo: '{{codigoReinicio}}', password: 'Nueva12345' },
+          tests: [estado(204), sinCuerpo],
+        }),
+        pedido('MANUAL · Login con la contraseña nueva (200)', 'POST', url('baseUsuarios', ['login']), {
+          descripcion: 'Con la contraseña que puso el reinicio, la cuenta inicia sesión.',
+          cabeceras: [JSON_CT],
+          cuerpo: { email: '{{emailRegistro}}', password: 'Nueva12345' },
+          tests: [
+            estado(200),
+            "pm.test('es la sesión de la cuenta registrada', () => {",
+            "  pm.expect(pm.response.json().usuario.email).to.eql(pm.collectionVariables.get('emailRegistro'));",
             '});',
           ],
         }),
@@ -352,7 +488,8 @@ const sectorConVendidas = (vendidas) => [
 ];
 
 const eventos = carpeta('2 Eventos (implementado)',
-  'Catálogo público, alta de eventos (rol organizer) y cambio de cupo (rol servicio). Corre entera sin '
+  'Catálogo público, alta de eventos (rol organizer), y el dueño de un evento y el cambio de cupo (rol servicio). '
+  + 'Corre entera sin '
   + 'intervención: pide sus propios tokens. El cupo se prueba sobre el evento que crea la misma carpeta, así '
   + 'no cambia el de los eventos de la demo.',
   [
@@ -382,6 +519,15 @@ const eventos = carpeta('2 Eventos (implementado)',
         '});',
       ],
     }),
+    pedido('Filtrar por una categoría que no existe (400)', 'GET',
+      url('baseEventos', [], [{ key: 'categoria', value: 'NoExiste' }]), {
+        descripcion: 'Una categoría que no es Deportes, Música, Fiesta ni Teatro no devuelve una lista vacía: responde '
+          + '400 y dice que el problema es la categoría.',
+        tests: [
+          ...problema(400, 'datos-invalidos'),
+          "pm.test('errores nombra la categoría', () => pm.expect(pm.response.json().errores).to.have.property('categoria'));",
+        ],
+      }),
     pedido('Detalle por slug (200)', 'GET', url('baseEventos', ['{{slug}}']), {
       tests: [
         estado(200),
@@ -401,7 +547,8 @@ const eventos = carpeta('2 Eventos (implementado)',
       tests: problema(401, 'no-autenticado'),
     }),
     login('Login organizador (200) guarda tokenOrganizador', ORGANIZADOR, 'organizer', 'tokenOrganizador',
-      'Crear eventos exige rol organizer: se usa la cuenta de prueba de organizador, con su propio token.'),
+      'Crear eventos exige rol organizer: se usa la cuenta de prueba de organizador, con su propio token. El id de la '
+      + 'cuenta queda en {{organizadorId}}: es el dueño del evento que se crea.', 'organizadorId'),
     pedido('Crear evento, rol organizer (201) guarda eventoCreadoId', 'POST', url('baseEventos'), {
       descripcion: 'Crea un evento de prueba con un sector de 100 lugares. Cada corrida agrega uno al catálogo '
         + '("Evento de prueba Postman", con fecha 31/12/2027 para que quede último): no hay operación para borrarlo; '
@@ -471,6 +618,30 @@ const eventos = carpeta('2 Eventos (implementado)',
         "pm.collectionVariables.set('tokenServicio', respuesta.token);",
       ],
     }),
+    pedido('GET /eventos/{eventoId}/organizador, rol servicio (200)', 'GET',
+      url('baseEventos', ['{{eventoCreadoId}}', 'organizador']), {
+        descripcion: 'Quién es el dueño de un evento, para otros servicios: Validación y Ventas lo preguntan antes de '
+          + 'mostrarle a un organizador el registro de la puerta o el resumen de ventas. El evento recién creado es de '
+          + 'organizador@palco.test.',
+        cabeceras: [bearer('tokenServicio')],
+        tests: [
+          estado(200),
+          esJson,
+          "pm.test('el dueño es la cuenta que lo creó', () => {",
+          '  pm.expect(pm.response.json()).to.eql({',
+          "    eventoId: pm.collectionVariables.get('eventoCreadoId'),",
+          "    organizadorId: pm.collectionVariables.get('organizadorId'),",
+          '  });',
+          '});',
+        ],
+      }),
+    pedido('GET /eventos/{eventoId}/organizador con token de organizador (403)', 'GET',
+      url('baseEventos', ['{{eventoCreadoId}}', 'organizador']), {
+        descripcion: 'El dueño de un evento no se muestra fuera de los servicios, tampoco a quien lo creó: el catálogo '
+          + 'público no lo tiene y el panel usa GET /eventos/mios.',
+        cabeceras: [bearer('tokenOrganizador')],
+        tests: problema(403, 'sin-permiso'),
+      }),
     cupo('Cambiar cupo con token de organizador (403)', 'tokenOrganizador', 2, {
       descripcion: 'El cupo solo lo cambia el rol servicio.',
       tests: problema(403, 'sin-permiso'),
@@ -622,7 +793,8 @@ const ventas = carpeta('3 Diseño v1 (Ventas implementado)',
   + 'propio login y crea el evento en el que compra, con un sector Platea B a 27.500 como el de la demo. Los ids '
   + 'salen de las respuestas, y las claves de idempotencia y los DNI de los titulares se generan en cada corrida. '
   + 'La primera entrada y su código quedan en entradaId y codigoQr para la validación en puerta (carpeta 5), el '
-  + 'evento en eventoId y la venta en ventaId para la factura (carpeta 7).',
+  + 'código de la segunda en codigoQrLuis (carpeta 5), el evento en eventoId y la venta en ventaId para la factura '
+  + '(carpeta 7).',
   [
     login('Login comprador (200) guarda token', TITULAR, 'user', 'token',
       'Comprar exige rol user y la identidad verificada: se usa la cuenta de prueba titular@palco.test.'),
@@ -821,6 +993,8 @@ const ventas = carpeta('3 Diseño v1 (Ventas implementado)',
         "pm.test('conserva el id del pago', () => pm.expect(v.pagoId).to.eql(pm.collectionVariables.get('pagoId')));",
         ...entradasDeLaVenta('VALIDA'),
         ...soloSelf,
+        '// El código de la entrada de Luis queda para la carpeta 5, que la marca usada con POST /v1/entradas/usos.',
+        "pm.collectionVariables.set('codigoQrLuis', v.entradas[1].codigoQr);",
       ],
     }),
     pedido('GET /v1/ventas mis compras (200)', 'GET', url('baseApi', ['ventas']), {
@@ -1185,7 +1359,10 @@ const validacion = carpeta('5 Validación en puerta (implementado)',
   + 'la del evento de la compra ({{eventoId}}). Después escanea en la puerta de otro evento (no entra y la entrada '
   + 'sigue sirviendo), en la suya (VALIDA, y Ventas la marca USADA) y una vez más (YA_USADA, con el uso anterior). '
   + 'Todo escaneo responde 201: lo que se crea es el renglón del registro; si la persona entra lo dicen resultado y '
-  + 'puedeEntrar. Corre entera sin intervención, después de la carpeta 3.',
+  + 'puedeEntrar. También prueba el equipo de puerta (una cuenta de comprador no se puede asignar) y las puertas '
+  + 'propias del staff, la operación interna de Ventas que usa la entrada (POST /v1/entradas/usos, con la otra '
+  + 'entrada de la compra) y, al final, que sin la puerta asignada ya no se escanea. Corre entera sin intervención, '
+  + 'después de la carpeta 3.',
   [
     login('Login staff (200) guarda tokenStaff', STAFF, 'staff', 'tokenStaff',
       'Escanear exige rol staff: se usa la cuenta de prueba de puerta.'),
@@ -1209,6 +1386,52 @@ const validacion = carpeta('5 Validación en puerta (implementado)',
           '});',
         ],
       }),
+    pedido('PUT /v1/validacion/puertas/{eventoId}/{email} de una cuenta que no es de puerta (422)', 'PUT',
+      url('baseValidacion', ['puertas', '{{eventoId}}', TITULAR.email]), {
+        descripcion: 'Solo se asigna una cuenta de personal de puerta: titular@palco.test es de comprador y no podría '
+          + 'escanear. Validación le pregunta el rol a Usuarios (GET /usuarios/cuentas) y responde 422 '
+          + 'no-es-de-puerta sin asignarla.',
+        cabeceras: [bearer('tokenOrganizador')],
+        tests: problema(422, 'no-es-de-puerta'),
+      }),
+    pedido('GET /v1/validacion/puertas?eventoId, rol organizer (200)', 'GET',
+      url('baseValidacion', ['puertas'], [{ key: 'eventoId', value: '{{eventoId}}' }]), {
+        descripcion: 'El equipo de puerta del evento, como lo ve su dueño en el panel: puerta@palco.test, y no la cuenta '
+          + 'de comprador que se rechazó.',
+        cabeceras: [bearer('tokenOrganizador')],
+        tests: [
+          estado(200),
+          esJson,
+          `pm.test('el equipo es solo ${STAFF.email}', () => {`,
+          `  pm.expect(pm.response.json().map((p) => p.staffEmail)).to.eql(['${STAFF.email}']);`,
+          '});',
+        ],
+      }),
+    pedido('GET /v1/validacion/puertas de un evento ajeno (404)', 'GET',
+      url('baseValidacion', ['puertas'], [{ key: 'eventoId', value: 'ev-de-otro' }]), {
+        descripcion: 'El equipo de puerta de un evento que no es del organizador responde como el de uno que no existe.',
+        cabeceras: [bearer('tokenOrganizador')],
+        tests: problema(404, 'no-encontrado'),
+      }),
+    pedido('GET /v1/validacion/puertas/mias, rol staff (200)', 'GET', url('baseValidacion', ['puertas', 'mias']), {
+      descripcion: 'Los eventos donde puerta@palco.test puede escanear: entre ellos, el de la compra, que se le acaba '
+        + 'de asignar.',
+      cabeceras: [bearer('tokenStaff')],
+      tests: [
+        estado(200),
+        esJson,
+        "pm.test('incluye la puerta del evento de la compra', () => {",
+        "  const p = pm.response.json().find((x) => x.eventoId === pm.collectionVariables.get('eventoId'));",
+        "  pm.expect(p, 'no está la puerta').to.be.an('object');",
+        `  pm.expect(p.staffEmail).to.eql('${STAFF.email}');`,
+        '});',
+      ],
+    }),
+    pedido('GET /v1/validacion/puertas/mias con rol organizer (403)', 'GET', url('baseValidacion', ['puertas', 'mias']), {
+      descripcion: 'Las puertas propias son del personal de puerta. El organizador ve el equipo de cada evento suyo.',
+      cabeceras: [bearer('tokenOrganizador')],
+      tests: problema(403, 'sin-permiso'),
+    }),
     escanear('POST /v1/validacion/escaneos sin token (401)', null,
       { codigoQr: '{{codigoQr}}', eventoId: '{{eventoId}}' }, {
         tests: problema(401, 'no-autenticado'),
@@ -1281,11 +1504,12 @@ const validacion = carpeta('5 Validación en puerta (implementado)',
         tests: [
           estado(200),
           'const lista = pm.response.json();',
-          "pm.test('incluye el escaneo VALIDA, sin el código completo', () => {",
+          "pm.test('incluye el escaneo VALIDA con el email de quien escaneó, sin el código completo', () => {",
           "  const fila = lista.find((e) => e.id === pm.collectionVariables.get('escaneoId'));",
           "  pm.expect(fila, 'no está el escaneo').to.be.an('object');",
-          "  pm.expect(fila).to.include.all.keys('id', 'eventoId', 'codigoParcial', 'resultado', 'entradaId', 'escaneadoPor', 'escaneado');",
+          "  pm.expect(fila).to.include.all.keys('id', 'eventoId', 'codigoParcial', 'resultado', 'entradaId', 'escaneadoPor', 'escaneadoPorEmail', 'escaneado');",
           "  pm.expect(fila.resultado).to.eql('VALIDA');",
+          "  pm.expect(fila.escaneadoPorEmail, 'DEF-32: el email de la cuenta que escaneó').to.eql('puerta@palco.test');",
           "  pm.expect(pm.response.text()).to.not.include(pm.collectionVariables.get('codigoQr'));",
           '});',
         ],
@@ -1314,6 +1538,55 @@ const validacion = carpeta('5 Validación en puerta (implementado)',
         '});',
       ],
     }),
+    pedido('GET /v1/validacion/escaneos/{id} inexistente (404)', 'GET',
+      url('baseValidacion', ['escaneos', 'ESC-00000000']), {
+        cabeceras: [bearer('tokenStaff')],
+        tests: problema(404, 'no-encontrado'),
+      }),
+    tokenDeServicio('Para marcar una entrada usada como lo hace Validación, que le habla a Ventas con el rol servicio.'),
+    pedido('POST /v1/entradas/usos, rol servicio (200, USADA)', 'POST', url('baseApi', ['entradas', 'usos']), {
+      descripcion: 'La operación interna de Ventas que Validación llama en cada escaneo, enviada directo con la '
+        + 'entrada de Luis, la segunda de la compra de la carpeta 3: queda USADA. Responde 200 y no 201 porque cambia '
+        + 'el estado de una entrada que ya existía.',
+      cabeceras: [bearer('tokenServicio'), JSON_CT],
+      cuerpo: { codigoQr: '{{codigoQrLuis}}', eventoId: '{{eventoId}}' },
+      tests: [
+        estado(200),
+        esJson,
+        'const e = pm.response.json();',
+        "pm.test('es la entrada de Luis, ahora USADA', () => {",
+        "  pm.expect(e.codigoQr).to.eql(pm.collectionVariables.get('codigoQrLuis'));",
+        `  pm.expect(e.titular.nombre).to.eql('${LUIS.nombre}');`,
+        "  pm.expect(e.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
+        "  pm.expect(e.estado).to.eql('USADA');",
+        '});',
+      ],
+    }),
+    pedido('POST /v1/entradas/usos repetido (409)', 'POST', url('baseApi', ['entradas', 'usos']), {
+      descripcion: 'El mismo código otra vez: una entrada no se usa dos veces.',
+      cabeceras: [bearer('tokenServicio'), JSON_CT],
+      cuerpo: { codigoQr: '{{codigoQrLuis}}', eventoId: '{{eventoId}}' },
+      tests: problema(409, 'entrada-ya-usada'),
+    }),
+    pedido('DELETE /v1/validacion/puertas/{eventoId}/{email} con rol staff (403)', 'DELETE',
+      url('baseValidacion', ['puertas', '{{eventoId}}', STAFF.email]), {
+        descripcion: 'La cuenta de puerta no se saca sola de la puerta: el equipo lo arma el organizador.',
+        cabeceras: [bearer('tokenStaff')],
+        tests: problema(403, 'sin-permiso'),
+      }),
+    pedido('DELETE /v1/validacion/puertas/{eventoId}/{email} (204)', 'DELETE',
+      url('baseValidacion', ['puertas', '{{eventoId}}', STAFF.email]), {
+        descripcion: 'El organizador saca a puerta@palco.test de la puerta del evento de la compra. Responde 204 '
+          + 'también si la cuenta no estaba asignada.',
+        cabeceras: [bearer('tokenOrganizador')],
+        tests: [estado(204), sinCuerpo],
+      }),
+    escanear('POST /v1/validacion/escaneos sin la puerta asignada (403)', 'tokenStaff',
+      { codigoQr: '{{codigoQr}}', eventoId: '{{eventoId}}' }, {
+        descripcion: 'Sin la puerta del evento, puerta@palco.test ya no escanea ahí: 403 puerta-no-asignada, sin '
+          + 'llamar a Ventas y sin dejar renglón en el registro.',
+        tests: problema(403, 'puerta-no-asignada'),
+      }),
   ]);
 
 // ---------------------------------------------------------------------------------------------
@@ -1359,17 +1632,55 @@ const entradaEnEstado = (nombre, variableToken, variableEntrada, estadoEsperado,
     ],
   });
 
+/** Publicar o retirar en Ventas como lo pide Reventa: la entrada y su vendedor, con el token de servicio. */
+const pedidoDeVendedor = (nombre, operacion, variableEntrada, opciones) => pedido(nombre, 'POST',
+  url('baseApi', ['operaciones-de-reventa', operacion]), {
+    cabeceras: [bearer('tokenServicio'), JSON_CT],
+    cuerpo: { entradaId: `{{${variableEntrada}}}`, vendedorId: '{{titularId}}' },
+    ...opciones,
+  });
+
+const segundaEntradaEn = (estadoEsperado) => [
+  estado(200),
+  `pm.test('la segunda entrada queda ${estadoEsperado}', () => {`,
+  '  const e = pm.response.json();',
+  "  pm.expect(e.entradaId).to.eql(pm.collectionVariables.get('entradaRetiroId'));",
+  `  pm.expect(e.estado).to.eql('${estadoEsperado}');`,
+  '});',
+];
+
+/** La transferencia que Reventa le pidió a Ventas al cobrar la compra de la carpeta, con los mismos datos. */
+const transferir = (nombre, variableToken, opciones) => pedido(nombre, 'POST',
+  url('baseApi', ['operaciones-de-reventa', 'transferencias']), {
+    cabeceras: [bearer(variableToken), JSON_CT],
+    cuerpo: {
+      publicacionId: '{{publicacionId}}',
+      entradaId: '{{entradaReventaId}}',
+      vendedorId: '{{titularId}}',
+      compradorId: '{{otroCompradorId}}',
+      titular: SOFIA,
+      precio: 29000,
+      pagoId: '{{pagoReventaId}}',
+    },
+    ...opciones,
+  });
+
 const reventa = carpeta('6 Reventa (implementado)',
   'La reventa oficial de punta a punta, en un evento que crea la carpeta. titular@palco.test compra 2 entradas de '
   + 'Platea B (27.500 cada una), publica la primera dentro del rango (del 50 % al 110 % del precio de lista del sector: de 13.750 a '
   + '30.250) y otro.titular@palco.test la compra a nombre de Sofía Paz: la original queda VENDIDA y el comprador '
   + 'recibe una entrada nueva a nombre de Sofía. También prueba los errores del contrato (precio fuera de rango, '
-  + 'entrada ya publicada, compra propia, publicación ya vendida) y retira la segunda entrada. Corre entera sin '
-  + 'intervención.',
+  + 'entrada ya publicada, compra propia, publicación ya vendida) y retira la segunda entrada. Al final manda '
+  + 'directo, con el rol servicio, las operaciones internas de Ventas que usa Reventa: consultar la entrada, '
+  + 'publicarla y retirarla (la segunda entrada termina VALIDA, como estaba) y repetir la transferencia de la '
+  + 'compra, que devuelve lo mismo. Corre entera sin intervención.',
   [
-    login('Login comprador (200) guarda token', TITULAR, 'user', 'token', 'Quien publica: titular@palco.test.'),
+    login('Login comprador (200) guarda token', TITULAR, 'user', 'token',
+      'Quien publica: titular@palco.test. Su id queda en {{titularId}}: es el vendedor en las operaciones internas.',
+      'titularId'),
     login('Login segunda cuenta compradora (200) guarda tokenOtroComprador', OTRO_COMPRADOR, 'user',
-      'tokenOtroComprador', 'Quien compra en la reventa: otro.titular@palco.test.'),
+      'tokenOtroComprador', 'Quien compra en la reventa: otro.titular@palco.test. Su id queda en {{otroCompradorId}}.',
+      'otroCompradorId'),
     login('Login organizador (200) guarda tokenOrganizador', ORGANIZADOR, 'organizer', 'tokenOrganizador',
       'Crea el evento de la reventa.'),
     eventoParaComprar('Crear evento para revender (201) guarda eventoReventaId', 'Evento de prueba Postman para revender',
@@ -1462,6 +1773,13 @@ const reventa = carpeta('6 Reventa (implementado)',
           "pm.test('todas están ACTIVA', () => pm.expect(pm.response.json().every((x) => x.estado === 'ACTIVA')).to.be.true);",
         ],
       }),
+    pedido('GET /v1/reventas sin eventoId (400)', 'GET', url('baseReventas'), {
+      descripcion: 'Las publicaciones se listan de a un evento: sin eventoId responde 400.',
+      tests: [
+        ...problema(400, 'datos-invalidos'),
+        "pm.test('errores nombra el evento', () => pm.expect(pm.response.json().errores).to.have.property('eventoId'));",
+      ],
+    }),
     pedido('GET /v1/reventas/mias (200)', 'GET', url('baseReventas', ['mias']), {
       cabeceras: [bearer('token')],
       tests: [
@@ -1481,6 +1799,9 @@ const reventa = carpeta('6 Reventa (implementado)',
         "  pm.expect(ids).to.not.include(pm.collectionVariables.get('publicacionId'));",
         '});',
       ],
+    }),
+    pedido('GET /v1/reventas/mias sin token (401)', 'GET', url('baseReventas', ['mias']), {
+      tests: problema(401, 'no-autenticado'),
     }),
     comprarReventa('POST /v1/reventas/{id}/compra propia (409)', 'token', '{{$guid}}', 'tok_test', {
       descripcion: 'Nadie compra su propia publicación.',
@@ -1567,6 +1888,93 @@ const reventa = carpeta('6 Reventa (implementado)',
     }),
     entradaEnEstado('GET /v1/entradas/{id} retirada (200, VALIDA)', 'token', 'entradaRetiroId', 'VALIDA',
       'Al retirar la publicación, la entrada vuelve a servir.'),
+    tokenDeServicio('Las operaciones de Ventas que usa Reventa son internas: piden el rol servicio.'),
+    pedido('GET /v1/operaciones-de-reventa/entradas/{id}?vendedorId, rol servicio (200)', 'GET',
+      url('baseApi', ['operaciones-de-reventa', 'entradas', '{{entradaRetiroId}}'],
+        [{ key: 'vendedorId', value: '{{titularId}}' }]), {
+        descripcion: 'Lo que Reventa le pregunta a Ventas antes de publicar: la entrada, si es de ese vendedor, con lo '
+          + 'que se pagó por ella. Es la segunda entrada, VALIDA otra vez después del retiro.',
+        cabeceras: [bearer('tokenServicio')],
+        tests: [
+          estado(200),
+          esJson,
+          'const e = pm.response.json();',
+          "pm.test('la entrada vista desde la reventa: VALIDA, pagada a 27.500', () => {",
+          "  pm.expect(e).to.include.all.keys('entradaId', 'ventaId', 'eventoId', 'sectorId', 'sector', 'precioPagado', 'estado');",
+          "  pm.expect(e.entradaId).to.eql(pm.collectionVariables.get('entradaRetiroId'));",
+          "  pm.expect(e.ventaId).to.eql(pm.collectionVariables.get('ventaReventaId'));",
+          "  pm.expect(e.eventoId).to.eql(pm.collectionVariables.get('eventoReventaId'));",
+          '  pm.expect(e.precioPagado).to.eql(27500);',
+          "  pm.expect(e.estado).to.eql('VALIDA');",
+          '});',
+        ],
+      }),
+    pedido('GET /v1/operaciones-de-reventa/entradas/{id} de otro vendedor (404)', 'GET',
+      url('baseApi', ['operaciones-de-reventa', 'entradas', '{{entradaRetiroId}}'],
+        [{ key: 'vendedorId', value: '{{otroCompradorId}}' }]), {
+        descripcion: 'La misma entrada con otro vendedor: responde como una entrada que no existe.',
+        cabeceras: [bearer('tokenServicio')],
+        tests: problema(404, 'no-encontrado'),
+      }),
+    pedidoDeVendedor('POST /v1/operaciones-de-reventa/publicaciones, rol servicio (200, PUBLICADA)', 'publicaciones',
+      'entradaRetiroId', {
+        descripcion: 'Lo que pide Reventa al publicar, enviado directo: Ventas deja la entrada PUBLICADA. Dos requests '
+          + 'más abajo vuelve a VALIDA, así que la entrada termina como estaba.',
+        tests: segundaEntradaEn('PUBLICADA'),
+      }),
+    pedidoDeVendedor('POST /v1/operaciones-de-reventa/publicaciones repetida (409)', 'publicaciones', 'entradaRetiroId', {
+      descripcion: 'Solo se publica una entrada VALIDA, y esta ya está PUBLICADA.',
+      tests: problema(409, 'entrada-no-disponible'),
+    }),
+    pedidoDeVendedor('POST /v1/operaciones-de-reventa/retiros, rol servicio (200, VALIDA)', 'retiros', 'entradaRetiroId', {
+      descripcion: 'Lo que pide Reventa al retirar una publicación: la entrada vuelve a VALIDA.',
+      tests: segundaEntradaEn('VALIDA'),
+    }),
+    pedidoDeVendedor('POST /v1/operaciones-de-reventa/retiros de una entrada vendida (409)', 'retiros',
+      'entradaReventaId', {
+        descripcion: 'La primera entrada se vendió en la reventa: ya no vuelve a VALIDA.',
+        tests: problema(409, 'entrada-no-publicada'),
+      }),
+    pedido('GET /v1/ventas/{id} de la compra en la reventa (200) guarda pagoReventaId', 'GET',
+      url('baseApi', ['ventas', '{{ventaCompradaId}}']), {
+        descripcion: 'La venta que nació en Ventas con la compra en la reventa, vista por quien compró: EMITIDA, con la '
+          + 'entrada nueva y el pago que cobró Reventa.',
+        cabeceras: [bearer('tokenOtroComprador')],
+        tests: [
+          estado(200),
+          'const v = pm.response.json();',
+          "pm.test('EMITIDA, con la entrada nueva y su pago', () => {",
+          "  pm.expect(v.estado).to.eql('EMITIDA');",
+          "  pm.expect(v.entradas.map((e) => e.id)).to.eql([pm.collectionVariables.get('entradaCompradaId')]);",
+          "  pm.expect(v.pagoId).to.match(/^P-[0-9a-f]{8}$/);",
+          '});',
+          "pm.collectionVariables.set('pagoReventaId', v.pagoId);",
+        ],
+      }),
+    transferir('POST /v1/operaciones-de-reventa/transferencias repetida (201, la misma)', 'tokenServicio', {
+      descripcion: 'La transferencia que pidió Reventa después de cobrar, enviada otra vez con los mismos datos. Ventas '
+        + 'la reconoce por la publicación y el comprador, y devuelve la misma venta y la misma entrada sin transferir '
+        + 'de nuevo: es lo que hace Reventa cuando no supo si su pedido llegó.',
+      tests: [
+        estado(201),
+        esJson,
+        'const t = pm.response.json();',
+        "pm.test('la misma venta y la misma entrada, VALIDA', () => {",
+        "  pm.expect(t.ventaId).to.eql(pm.collectionVariables.get('ventaCompradaId'));",
+        "  pm.expect(t.entrada.id).to.eql(pm.collectionVariables.get('entradaCompradaId'));",
+        "  pm.expect(t.entrada.estado).to.eql('VALIDA');",
+        '});',
+        "pm.test('Location apunta a la venta', () => {",
+        "  const location = pm.response.headers.get('Location');",
+        "  pm.expect(location, 'falta la cabecera Location').to.be.a('string');",
+        "  pm.expect(location.endsWith('/api/v1/ventas/' + t.ventaId), location).to.be.true;",
+        '});',
+      ],
+    }),
+    transferir('POST /v1/operaciones-de-reventa/transferencias con rol user (403)', 'tokenOtroComprador', {
+      descripcion: 'Las operaciones internas no las llama una persona: con el token de quien compró responde 403.',
+      tests: problema(403, 'sin-permiso'),
+    }),
   ]);
 
 // ---------------------------------------------------------------------------------------------
@@ -1642,11 +2050,7 @@ const facturacion = carpeta('7 Facturación (implementado)',
       cabeceras: [bearer('tokenStaff')],
       tests: problema(403, 'sin-permiso'),
     }),
-    pedido('Token de servicio (200) guarda tokenServicio', 'POST', url('baseUsuarios', ['servicios', 'token']), {
-      cabeceras: [JSON_CT],
-      cuerpo: { secreto: '{{secretoServicios}}' },
-      tests: [estado(200), "pm.collectionVariables.set('tokenServicio', pm.response.json().token);"],
-    }),
+    tokenDeServicio(),
     pedido('GET /v1/facturas/{ventaId} con rol servicio (200)', 'GET', url('baseFacturas', ['{{ventaId}}']), {
       descripcion: 'Otro servicio ve cualquier factura.',
       cabeceras: [bearer('tokenServicio')],
@@ -1702,7 +2106,20 @@ const subirImagen = (nombre, tipo, cuerpo, lenguaje, opciones) => pedido(nombre,
     ...opciones,
   });
 
-const sinCuerpo = "pm.test('no trae cuerpo', () => pm.expect(pm.response.text()).to.eql(''));";
+/** El cobro de la compra de la carpeta como se lo mandó Ventas a Pagos: la misma clave y el mismo pedido. */
+const cobro = (nombre, monto, opciones) => pedido(nombre, 'POST', url('baseApi', ['pagos']), {
+  cabeceras: [bearer('tokenServicio'), clave('{{ventaPropiaId}}:{{clavePagoPropio}}'), JSON_CT],
+  cuerpo: `{\n  "ventaId": "{{ventaPropiaId}}",\n  "monto": ${monto},\n  "medioDePago": "tarjeta",\n  "token": "tok_test"\n}`,
+  ...opciones,
+});
+
+/** El reembolso del pago de la carpeta, como lo pide Ventas al cancelarse el evento. Sin monto, el pago entero. */
+const reembolso = (nombre, monto, opciones) => pedido(nombre, 'POST',
+  url('baseApi', ['pagos', '{{pagoPropioId}}', 'reembolso']), {
+    cabeceras: [bearer('tokenServicio'), JSON_CT],
+    cuerpo: { ventaId: '{{ventaPropiaId}}', motivo: 'La colección de Postman repite el reembolso.', ...(monto ? { monto } : {}) },
+    ...opciones,
+  });
 
 /**
  * Lo que se sube como foto. El cuerpo raw de Postman es texto y no puede llevar los bytes de una imagen, así
@@ -1718,7 +2135,10 @@ const operacionesDel3010 = carpeta('8 Operaciones del 30/10 (implementado)',
   + '2 entradas; con la compra emitida se piden las ventas por día y la liquidación. Después el organizador cancela '
   + 'el evento: la venta queda CANCELADA, sus entradas ANULADA y el pago REEMBOLSADO, que es asincrónico y se espera '
   + 'como la emisión. otro.organizador@palco.test prueba que lo ajeno responde 404, como si no existiera, y el token '
-  + 'de un comprador, que el rol equivocado responde 403. Además, la subida de la foto en el backend local (se '
+  + 'de un comprador, que el rol equivocado responde 403. La edición con If-Match y el ETag de antes de la compra '
+  + 'responde 412. Con el pago reembolsado se prueba lo que Pagos les ofrece a los demás servicios: buscar el cobro por '
+  + 'su clave, y repetir el cobro y el reembolso, que no cobran ni devuelven otra vez. Además, la subida de la foto en '
+  + 'el backend local (se '
   + 'guarda en la base de Palco y se pide por su URL) y con un formato que no se acepta, y la recuperación de la '
   + 'contraseña: siempre la misma '
   + 'respuesta, exista o no el email, y un código incorrecto que no cambia la contraseña. Corre entera sin '
@@ -1774,6 +2194,9 @@ const operacionesDel3010 = carpeta('8 Operaciones del 30/10 (implementado)',
         '  pm.expect(e.sectores[0].cupo).to.eql(150);',
         '  pm.expect(e.sectores[0].vendidas).to.eql(0);',
         '});',
+        "pm.test('trae el ETag del evento editado', () => pm.expect(pm.response.headers.get('ETag')).to.match(/^\"[^\"]+\"$/));",
+        '// El ETag de este momento: después de la compra ya no es el del evento, y la edición con If-Match responde 412.',
+        "pm.collectionVariables.set('etagPropio', pm.response.headers.get('ETag'));",
       ],
     }),
     editar('PUT /eventos/{id} ajeno (404)', 'tokenOtroOrganizador', 'Esta edición no tendría que quedar.', {
@@ -1801,10 +2224,21 @@ const operacionesDel3010 = carpeta('8 Operaciones del 30/10 (implementado)',
         "pm.collectionVariables.set('montoPropio', v.montoTotal);",
       ],
     }),
+    editar('PUT /eventos/{id} con el ETag de antes de la compra (412)', 'tokenOrganizador',
+      'Esta edición no tendría que quedar.', {
+        descripcion: 'If-Match con el ETag que devolvió la edición: desde entonces la compra reservó 2 lugares, así que '
+          + 'el evento ya no está como lo leyó el organizador. Responde 412 evento-modificado sin guardar nada; al final '
+          + 'de la carpeta, el detalle muestra que la descripción sigue siendo la de la edición.',
+        cabeceras: [bearer('tokenOrganizador'), JSON_CT, { key: 'If-Match', value: '{{etagPropio}}' }],
+        tests: problema(412, 'evento-modificado'),
+      }),
     pedido('POST /v1/ventas/{id}/pagos en el evento propio (201) guarda pagoPropioId', 'POST',
       url('baseApi', ['ventas', '{{ventaPropiaId}}', 'pagos']), {
-        cabeceras: [bearer('token'), clave('{{$guid}}'), JSON_CT],
+        descripcion: 'La clave de idempotencia queda en clavePagoPropio: con ella y el id de la venta se busca más abajo '
+          + 'el cobro en Pagos.',
+        cabeceras: [bearer('token'), clave('{{clavePagoPropio}}'), JSON_CT],
         cuerpo: { medioDePago: 'tarjeta', token: 'tok_test' },
+        antes: nuevaClave('clavePagoPropio'),
         tests: [
           estado(201),
           'const v = pm.response.json();',
@@ -1901,12 +2335,7 @@ const operacionesDel3010 = carpeta('8 Operaciones del 30/10 (implementado)',
         '});',
       ]),
     }),
-    pedido('Token de servicio (200) guarda tokenServicio', 'POST', url('baseUsuarios', ['servicios', 'token']), {
-      descripcion: 'El pago se consulta en Pagos, que atiende solo al rol servicio.',
-      cabeceras: [JSON_CT],
-      cuerpo: { secreto: '{{secretoServicios}}' },
-      tests: [estado(200), "pm.collectionVariables.set('tokenServicio', pm.response.json().token);"],
-    }),
+    tokenDeServicio('El pago se consulta en Pagos, que atiende solo al rol servicio.'),
     pedido('GET /v1/pagos/{id} de la venta anulada (200, REEMBOLSADO)', 'GET', url('baseApi', ['pagos', '{{pagoPropioId}}']), {
       descripcion: 'Ventas pide el reembolso en la misma transacción en que anula la venta: cuando la venta se ve '
         + 'CANCELADA, el pago ya se devolvió.',
@@ -1922,6 +2351,69 @@ const operacionesDel3010 = carpeta('8 Operaciones del 30/10 (implementado)',
         '});',
         "pm.test('el pago quedó REEMBOLSADO', () => pm.expect(p.estado).to.eql('REEMBOLSADO'));",
       ],
+    }),
+    pedido('GET /v1/pagos/{id} con el token del comprador (403)', 'GET', url('baseApi', ['pagos', '{{pagoPropioId}}']), {
+      descripcion: 'Pagos atiende solo a otros servicios: el comprador ve su pago en su venta.',
+      cabeceras: [bearer('token')],
+      tests: problema(403, 'sin-permiso'),
+    }),
+    pedido('GET /v1/pagos?claveIdempotencia, rol servicio (200)', 'GET',
+      url('baseApi', ['pagos'], [{ key: 'claveIdempotencia', value: '{{ventaPropiaId}}:{{clavePagoPropio}}' }]), {
+        descripcion: 'El cobro por su clave, como lo busca la conciliación de Ventas cuando un pago quedó sin resultado. '
+          + 'La clave que Ventas le manda a Pagos es el id de la venta, dos puntos y la Idempotency-Key del comprador.',
+        cabeceras: [bearer('tokenServicio')],
+        tests: [
+          estado(200),
+          esJson,
+          "pm.test('es el pago de la venta anulada, REEMBOLSADO', () => {",
+          '  const p = pm.response.json();',
+          "  pm.expect(p.pagoId).to.eql(pm.collectionVariables.get('pagoPropioId'));",
+          "  pm.expect(p.ventaId).to.eql(pm.collectionVariables.get('ventaPropiaId'));",
+          "  pm.expect(p.estado).to.eql('REEMBOLSADO');",
+          '});',
+        ],
+      }),
+    pedido('GET /v1/pagos?claveIdempotencia sin pago (404)', 'GET',
+      url('baseApi', ['pagos'], [{ key: 'claveIdempotencia', value: 'V-00000000:00000000-0000-4000-8000-000000000000' }]), {
+        cabeceras: [bearer('tokenServicio')],
+        tests: problema(404, 'no-encontrado'),
+      }),
+    cobro('POST /v1/pagos repetido con la clave de Ventas (201, el mismo pago)', '{{montoPropio}}', {
+      descripcion: 'El cobro que hizo Ventas, enviado otra vez con la misma clave y el mismo pedido: Pagos devuelve el '
+        + 'pago que ya tiene y no cobra de nuevo. Como el evento se canceló, ese pago está REEMBOLSADO.',
+      tests: [
+        estado(201),
+        esJson,
+        "pm.test('es el mismo pago, sin cobrar otra vez', () => {",
+        '  const p = pm.response.json();',
+        "  pm.expect(p.pagoId).to.eql(pm.collectionVariables.get('pagoPropioId'));",
+        "  pm.expect(p.monto).to.eql(Number(pm.collectionVariables.get('montoPropio')));",
+        "  pm.expect(p.estado).to.eql('REEMBOLSADO');",
+        '});',
+      ],
+    }),
+    cobro('POST /v1/pagos misma clave con otro monto (409)', 1, {
+      descripcion: 'La misma clave con otro monto no es un reintento: responde 409 clave-reutilizada y no cobra nada.',
+      tests: problema(409, 'clave-reutilizada'),
+    }),
+    reembolso('POST /v1/pagos/{id}/reembolso repetido (200, sin devolver de nuevo)', null, {
+      descripcion: 'El reembolso que pidió Ventas al cancelarse el evento, pedido otra vez por el pago entero: responde '
+        + 'el pago como quedó, sin devolver dos veces.',
+      tests: [
+        estado(200),
+        esJson,
+        "pm.test('REEMBOLSADO por el total cobrado', () => {",
+        '  const p = pm.response.json();',
+        "  pm.expect(p.pagoId).to.eql(pm.collectionVariables.get('pagoPropioId'));",
+        "  pm.expect(p.estado).to.eql('REEMBOLSADO');",
+        "  pm.expect(p.montoReembolsado).to.eql(Number(pm.collectionVariables.get('montoPropio')));",
+        '});',
+      ],
+    }),
+    reembolso('POST /v1/pagos/{id}/reembolso por otro monto (409)', 1000, {
+      descripcion: 'Un pago se devuelve una sola vez: pedir otro monto cuando ya se devolvió no es un reintento. '
+        + 'Responde 409 pago-no-reembolsable y no devuelve nada.',
+      tests: problema(409, 'pago-no-reembolsable'),
     }),
     resumen('GET /v1/resumenes?eventoId después de cancelar (200, sin ventas)', 'tokenOrganizador', {
       descripcion: 'Una compra anulada no se liquida: el resumen queda vacío.',
@@ -1986,6 +2478,12 @@ const operacionesDel3010 = carpeta('8 Operaciones del 30/10 (implementado)',
         '});',
       ],
     }),
+    pedido('GET /eventos/imagenes/{id} inexistente (404)', 'GET',
+      url('baseEventos', ['imagenes', '00000000-0000-4000-8000-000000000000.webp']), {
+        descripcion: 'Un id con la forma de los de Palco que no está en la base: 404 en Problem Details, también sin '
+          + 'token.',
+        tests: problema(404, 'no-encontrado'),
+      }),
     subirImagen('POST /eventos/imagenes con texto declarado como PNG (400)', 'image/png', 'no es una imagen de verdad', 'text', {
       descripcion: 'El tipo declarado no alcanza: Eventos mira los primeros bytes del archivo (la firma de JPG, PNG o '
         + 'WEBP). Un texto con Content-Type image/png se rechaza con el mismo error que un tipo no aceptado.',
@@ -1997,15 +2495,7 @@ const operacionesDel3010 = carpeta('8 Operaciones del 30/10 (implementado)',
     subirImagen('POST /eventos/imagenes con un SVG (415)', 'image/svg+xml', '<svg xmlns="http://www.w3.org/2000/svg"/>', 'xml', {
       descripcion: 'Solo se aceptan JPG, PNG y WEBP; un SVG puede traer scripts. Se rechaza por el tipo, antes de '
         + 'llegar al almacén: con o sin almacén configurado responde 415.',
-      tests: [
-        estado(415),
-        esProblema,
-        "pm.test('type about:blank: el problema es el código mismo', () => {",
-        '  const p = pm.response.json();',
-        "  pm.expect(p.type).to.eql('about:blank');",
-        '  pm.expect(p.status).to.eql(415);',
-        '});',
-      ],
+      tests: problemaSoloElCodigo(415),
     }),
     pedido('Registro para recuperar la contraseña (201) guarda emailOlvide', 'POST', url('baseUsuarios', ['registro']), {
       descripcion: 'Una cuenta propia de la carpeta, con email y DNI nuevos en cada corrida: así la recuperación no '
@@ -2046,6 +2536,16 @@ const operacionesDel3010 = carpeta('8 Operaciones del 30/10 (implementado)',
           '});',
         ],
       }),
+    pedido('POST /password/olvide sin email (400)', 'POST', url('baseUsuarios', ['password', 'olvide']), {
+      descripcion: 'Lo único que se controla antes de responder es que venga un email: sin él responde 400 con '
+        + 'errores.email. Con cualquier email, exista o no la cuenta, responde 204.',
+      cabeceras: [JSON_CT],
+      cuerpo: { email: '' },
+      tests: [
+        ...problema(400, 'datos-invalidos'),
+        "pm.test('errores nombra el email', () => pm.expect(pm.response.json().errores).to.have.property('email'));",
+      ],
+    }),
     pedido('POST /password/reinicio con un código incorrecto (400)', 'POST', url('baseUsuarios', ['password', 'reinicio']), {
       descripcion: 'La cuenta de la carpeta no tiene código, porque sin verificar no recibe: cualquier código es '
         + 'incorrecto. Responde 400 con errores.codigo "El código no es correcto.", el mismo error que un código '
@@ -2184,7 +2684,11 @@ const coleccion = {
     variable('dniMarta', '', 'Carpeta 3: DNI de Marta Díaz, titular de la compra que se cancela. Se genera como dniAna.'),
     variable('dniSofia', '', 'Carpeta 6: DNI de Sofía Paz, titular de la entrada comprada en la reventa. Se genera como dniAna.'),
     variable('codigoVerificacion', '', 'MANUAL: el código de 6 dígitos que sale en el log del servidor al registrarse.'),
+    variable('codigoReinicio', '', 'MANUAL: el código de 6 dígitos para cambiar la contraseña, que sale en el log del servidor.'),
     variable('token', '', 'Token del comprador (titular@palco.test). Lo guardan los login.'),
+    variable('titularId', '', 'Id de titular@palco.test. Lo guardan "Login (200)" de la carpeta 1 y "Login comprador" de la carpeta 6.'),
+    variable('otroCompradorId', '', 'Carpeta 6: id de otro.titular@palco.test, quien compra en la reventa.'),
+    variable('organizadorId', '', 'Carpeta 2: id de organizador@palco.test, el dueño del evento que se crea.'),
     variable('tokenOtroComprador', '', 'Token de la segunda cuenta compradora (otro.titular@palco.test). Lo guarda "Login segunda cuenta compradora".'),
     variable('tokenOrganizador', '', 'Token de organizador@palco.test. Lo guardan los "Login organizador".'),
     variable('tokenStaff', '', 'Token de puerta@palco.test. Lo guardan los "Login staff".'),
@@ -2203,6 +2707,7 @@ const coleccion = {
     variable('pagoId', '', 'Id del pago. Sale de la respuesta.'),
     variable('entradaId', '', 'Id de la primera entrada de la venta. Sale de la respuesta del pago.'),
     variable('codigoQr', '', 'Código QR de esa entrada, una vez emitida. Lo escanea la carpeta 5.'),
+    variable('codigoQrLuis', '', 'Código QR de la segunda entrada de esa venta, la de Luis. La carpeta 5 la marca usada con POST /v1/entradas/usos.'),
     variable('intentosEmision', '0', 'Contador interno de la espera de la emisión.'),
     variable('ventasDelTitular', '', 'Ids de las ventas de titular@palco.test, en JSON. Lo guarda "GET /v1/ventas mis compras".'),
     variable('ventaCanceladaId', '', 'Id de la venta que se cancela. Sale de la respuesta.'),
@@ -2218,6 +2723,7 @@ const coleccion = {
     variable('claveCompraReventa', '', 'Reventa: Idempotency-Key de la compra en la reventa. Se genera en cada corrida.'),
     variable('entradaCompradaId', '', 'Reventa: la entrada nueva del comprador. Sale de la respuesta.'),
     variable('ventaCompradaId', '', 'Reventa: la venta del comprador en Ventas. Sale de la respuesta.'),
+    variable('pagoReventaId', '', 'Reventa: el pago de la compra en la reventa, para repetir su transferencia.'),
     variable('intentosFactura', '0', 'Contador interno de la espera de la factura.'),
     variable('comprobante', '', 'Facturación: punto de venta y número de la factura. Sale de la respuesta.'),
     variable('cae', '', 'Facturación: el CAE de la factura. Sale de la respuesta.'),
@@ -2234,8 +2740,10 @@ const coleccion = {
     variable('eventoPropioId', '', 'Carpeta 8: id del evento que se edita y se cancela. Sale de la respuesta.'),
     variable('sectorPropioId', '', 'Carpeta 8: id del sector de ese evento. Sale de la respuesta.'),
     variable('slugPropio', '', 'Carpeta 8: slug de ese evento, para pedir su detalle.'),
+    variable('etagPropio', '', 'Carpeta 8: el ETag que devolvió la edición del evento, para el If-Match que responde 412.'),
     variable('ventaPropiaId', '', 'Carpeta 8: la compra que se anula al cancelar el evento.'),
     variable('montoPropio', '', 'Carpeta 8: el total de esa compra, que se reembolsa.'),
+    variable('clavePagoPropio', '', 'Carpeta 8: Idempotency-Key del pago de esa compra. Se genera en cada corrida.'),
     variable('pagoPropioId', '', 'Carpeta 8: el pago de esa compra.'),
     variable('intentosAnulacion', '0', 'Contador interno de la espera de la anulación.'),
     variable('imagenId', '', 'Carpeta 8: id de la foto subida (uuid y extensión), el final de su imagenUrl.'),

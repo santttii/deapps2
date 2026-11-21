@@ -96,10 +96,34 @@
       "description": "MANUAL: el código de 6 dígitos que sale en el log del servidor al registrarse."
     },
     {
+      "key": "codigoReinicio",
+      "value": "",
+      "type": "string",
+      "description": "MANUAL: el código de 6 dígitos para cambiar la contraseña, que sale en el log del servidor."
+    },
+    {
       "key": "token",
       "value": "",
       "type": "string",
       "description": "Token del comprador (titular@palco.test). Lo guardan los login."
+    },
+    {
+      "key": "titularId",
+      "value": "",
+      "type": "string",
+      "description": "Id de titular@palco.test. Lo guardan \"Login (200)\" de la carpeta 1 y \"Login comprador\" de la carpeta 6."
+    },
+    {
+      "key": "otroCompradorId",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 6: id de otro.titular@palco.test, quien compra en la reventa."
+    },
+    {
+      "key": "organizadorId",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 2: id de organizador@palco.test, el dueño del evento que se crea."
     },
     {
       "key": "tokenOtroComprador",
@@ -210,6 +234,12 @@
       "description": "Código QR de esa entrada, una vez emitida. Lo escanea la carpeta 5."
     },
     {
+      "key": "codigoQrLuis",
+      "value": "",
+      "type": "string",
+      "description": "Código QR de la segunda entrada de esa venta, la de Luis. La carpeta 5 la marca usada con POST /v1/entradas/usos."
+    },
+    {
       "key": "intentosEmision",
       "value": "0",
       "type": "string",
@@ -298,6 +328,12 @@
       "value": "",
       "type": "string",
       "description": "Reventa: la venta del comprador en Ventas. Sale de la respuesta."
+    },
+    {
+      "key": "pagoReventaId",
+      "value": "",
+      "type": "string",
+      "description": "Reventa: el pago de la compra en la reventa, para repetir su transferencia."
     },
     {
       "key": "intentosFactura",
@@ -396,6 +432,12 @@
       "description": "Carpeta 8: slug de ese evento, para pedir su detalle."
     },
     {
+      "key": "etagPropio",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: el ETag que devolvió la edición del evento, para el If-Match que responde 412."
+    },
+    {
       "key": "ventaPropiaId",
       "value": "",
       "type": "string",
@@ -406,6 +448,12 @@
       "value": "",
       "type": "string",
       "description": "Carpeta 8: el total de esa compra, que se reembolsa."
+    },
+    {
+      "key": "clavePagoPropio",
+      "value": "",
+      "type": "string",
+      "description": "Carpeta 8: Idempotency-Key del pago de esa compra. Se genera en cada corrida."
     },
     {
       "key": "pagoPropioId",
@@ -453,7 +501,7 @@
   "item": [
     {
       "name": "1 Usuarios (implementado)",
-      "description": "Registro, login, perfil y claves públicas. Corre entera sin intervención. La subcarpeta \"Pasos manuales\" queda fuera de la corrida: necesita el código de verificación, que solo sale en el log del servidor.",
+      "description": "Registro, verificación del email, login, perfil, las consultas de usuarios entre servicios (rol servicio) y claves públicas. Corre entera sin intervención. La subcarpeta \"Pasos manuales\" queda fuera de la corrida: necesita los códigos de verificación y de cambio de contraseña, que solo salen en el log del servidor.",
       "item": [
         {
           "name": "Registro (201)",
@@ -622,6 +670,110 @@
           ]
         },
         {
+          "name": "Reenviar código antes de los 30 segundos (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/verificacion/reenvio",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "verificacion",
+                "reenvio"
+              ],
+              "query": []
+            },
+            "description": "La cuenta de \"Registro (201)\" pide otro código enseguida: entre un código y el siguiente tienen que pasar 30 segundos. Responde 409 sin mandar nada, así que no corre la espera: \"MANUAL · Reenviar código (204)\" sigue contando desde el registro.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailRegistro}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/conflicto', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/conflicto');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verificar una cuenta ya verificada (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/verificacion",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "verificacion"
+              ],
+              "query": []
+            },
+            "description": "titular@palco.test ya verificó su email: verificarla otra vez responde 409 sin mirar el código y sin entregar una sesión. La verificación que sale bien necesita el código del log: está en \"Pasos manuales\".",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"titular@palco.test\",\n  \"codigo\": \"000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/conflicto', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/conflicto');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "pm.test('no entrega un token', () => pm.expect(pm.response.json()).to.not.have.property('token'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Login (200) guarda token",
           "request": {
             "method": "POST",
@@ -641,7 +793,7 @@
               ],
               "query": []
             },
-            "description": "Inicia sesión con la cuenta de prueba de comprador y guarda el token en {{token}}. Como toda cuenta que completó el registro, tiene la identidad verificada y puede comprar.",
+            "description": "Inicia sesión con la cuenta de prueba de comprador y guarda el token en {{token}} y el id de la cuenta en {{titularId}}. Como toda cuenta que completó el registro, tiene la identidad verificada y puede comprar.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"titular@palco.test\",\n  \"password\": \"palco1234\"\n}",
@@ -668,7 +820,8 @@
                   "  pm.expect(sesion.usuario.email).to.eql('titular@palco.test');",
                   "  pm.expect(sesion.usuario.rol).to.eql('user');",
                   "});",
-                  "pm.collectionVariables.set('token', sesion.token);"
+                  "pm.collectionVariables.set('token', sesion.token);",
+                  "pm.collectionVariables.set('titularId', sesion.usuario.id);"
                 ]
               }
             }
@@ -907,6 +1060,276 @@
           ]
         },
         {
+          "name": "Token de servicio (200) guarda tokenServicio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/servicios/token",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "servicios",
+                "token"
+              ],
+              "query": []
+            },
+            "description": "Con el secreto con el que arrancó el servidor (variable secretoServicios): el token de rol servicio para las dos consultas entre servicios que siguen.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"secreto\": \"{{secretoServicios}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenServicio', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /usuarios/{usuarioId}, rol servicio (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/{{titularId}}",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "{{titularId}}"
+              ],
+              "query": []
+            },
+            "description": "Un usuario por su id, para otros servicios: Notificaciones lo pide para saber a qué email avisar. Es titular@palco.test, con el id que guardó su login."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "pm.test('es titular@palco.test, sin la contraseña', () => {",
+                  "  const u = pm.response.json();",
+                  "  pm.expect(u).to.include.all.keys('id', 'nombre', 'apellido', 'dni', 'email', 'rol', 'identidadVerificada');",
+                  "  pm.expect(u.id).to.eql(pm.collectionVariables.get('titularId'));",
+                  "  pm.expect(u.email).to.eql('titular@palco.test');",
+                  "  pm.expect(u).to.not.have.any.keys('password', 'passwordHash');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /usuarios/{usuarioId} con rol user (403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/{{titularId}}",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "{{titularId}}"
+              ],
+              "query": []
+            },
+            "description": "El mismo pedido con el token del propio titular: buscar un usuario por su id es solo para otros servicios. Una persona ve sus datos en GET /yo."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-permiso', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-permiso');",
+                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /usuarios/cuentas?email, rol servicio (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/cuentas?email=puerta@palco.test",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "cuentas"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "puerta@palco.test"
+                }
+              ]
+            },
+            "description": "El rol de una cuenta verificada, por su email: Validación lo pregunta antes de asignar una cuenta a la puerta de un evento. Devuelve solo el email y el rol."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "pm.test('solo el email y el rol: staff', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({ email: 'puerta@palco.test', rol: 'staff' });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /usuarios/cuentas?email de una cuenta sin verificar (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/cuentas?email={{emailRegistro}}",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "cuentas"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "{{emailRegistro}}"
+                }
+              ]
+            },
+            "description": "La cuenta de \"Registro (201)\" existe pero no verificó su email: responde igual que un email sin cuenta."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /jwks (405)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/jwks",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "jwks"
+              ],
+              "query": []
+            },
+            "description": "La clave pública es pública y de solo lectura, así que no tiene un error propio: el error es el método equivocado. Responde 405 en Problem Details, con type about:blank, y la cabecera Allow dice qué método sí se acepta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 405', () => pm.response.to.have.status(405));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type about:blank: el problema es el código mismo', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('about:blank');",
+                  "  pm.expect(p.status).to.eql(405);",
+                  "  pm.expect(p, 'el texto interno del servidor no llega al cliente').to.not.have.property('detail');",
+                  "});",
+                  "pm.test('Allow incluye GET', () => pm.expect(pm.response.headers.get('Allow')).to.include('GET'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "JWKS claves públicas (200)",
           "request": {
             "method": "GET",
@@ -950,7 +1373,7 @@
         },
         {
           "name": "Pasos manuales (fuera de la corrida)",
-          "description": "No corren solos. Necesitan el código de 6 dígitos, que es aleatorio y solo sale en el log del servidor (\"Código de verificación para <email>: 123456\"). Pasos: correr \"Registro (201)\", buscar el código en el log, cargarlo en la variable codigoVerificacion de la colección y enviar \"Verificar email (200)\". \"Reenviar código (204)\" exige que hayan pasado 30 segundos desde el registro o el último reenvío.",
+          "description": "No corren solos. Necesitan el código de 6 dígitos, que es aleatorio y solo sale en el log del servidor (\"Código de verificación para <email>: 123456\"). Pasos: correr \"Registro (201)\", buscar el código en el log, cargarlo en la variable codigoVerificacion de la colección y enviar \"Verificar email (200)\". \"Reenviar código (204)\" exige que hayan pasado 30 segundos desde el registro o el último reenvío. Con la cuenta ya verificada se prueba el cambio de contraseña: \"Pedir el código para cambiar la contraseña (204)\", buscar en el log el código nuevo, cargarlo en la variable codigoReinicio, enviar \"Reiniciar la contraseña (204)\" y después \"Login con la contraseña nueva (200)\".",
           "item": [
             {
               "name": "MANUAL · Reenviar código (204)",
@@ -1044,6 +1467,142 @@
                   }
                 }
               ]
+            },
+            {
+              "name": "MANUAL · Pedir el código para cambiar la contraseña (204)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUsuarios}}/password/olvide",
+                  "host": [
+                    "{{baseUsuarios}}"
+                  ],
+                  "path": [
+                    "password",
+                    "olvide"
+                  ],
+                  "query": []
+                },
+                "description": "Después de \"Verificar email (200)\". Una cuenta verificada recibe el código para poner una contraseña nueva: sale en el log del servidor, en el email \"Volvé a poner tu contraseña de Palco\". Vence en 15 minutos.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{emailRegistro}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('responde 204', () => pm.response.to.have.status(204));",
+                      "pm.test('no trae cuerpo', () => pm.expect(pm.response.text()).to.eql(''));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "MANUAL · Reiniciar la contraseña (204)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUsuarios}}/password/reinicio",
+                  "host": [
+                    "{{baseUsuarios}}"
+                  ],
+                  "path": [
+                    "password",
+                    "reinicio"
+                  ],
+                  "query": []
+                },
+                "description": "Antes de enviarlo, cargá en la variable codigoReinicio el código que salió en el log. Cambia la contraseña a Nueva12345 y responde 204 sin cuerpo: no inicia la sesión.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{emailRegistro}}\",\n  \"codigo\": \"{{codigoReinicio}}\",\n  \"password\": \"Nueva12345\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('responde 204', () => pm.response.to.have.status(204));",
+                      "pm.test('no trae cuerpo', () => pm.expect(pm.response.text()).to.eql(''));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "MANUAL · Login con la contraseña nueva (200)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUsuarios}}/login",
+                  "host": [
+                    "{{baseUsuarios}}"
+                  ],
+                  "path": [
+                    "login"
+                  ],
+                  "query": []
+                },
+                "description": "Con la contraseña que puso el reinicio, la cuenta inicia sesión.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{emailRegistro}}\",\n  \"password\": \"Nueva12345\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                      "pm.test('es la sesión de la cuenta registrada', () => {",
+                      "  pm.expect(pm.response.json().usuario.email).to.eql(pm.collectionVariables.get('emailRegistro'));",
+                      "});"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         }
@@ -1051,7 +1610,7 @@
     },
     {
       "name": "2 Eventos (implementado)",
-      "description": "Catálogo público, alta de eventos (rol organizer) y cambio de cupo (rol servicio). Corre entera sin intervención: pide sus propios tokens. El cupo se prueba sobre el evento que crea la misma carpeta, así no cambia el de los eventos de la demo.",
+      "description": "Catálogo público, alta de eventos (rol organizer), y el dueño de un evento y el cambio de cupo (rol servicio). Corre entera sin intervención: pide sus propios tokens. El cupo se prueba sobre el evento que crea la misma carpeta, así no cambia el de los eventos de la demo.",
       "item": [
         {
           "name": "Listar eventos (200) guarda slug",
@@ -1129,6 +1688,47 @@
                   "  pm.expect(lista).to.be.an('array').that.is.not.empty;",
                   "  lista.forEach((e) => pm.expect(e.categoria).to.eql('Música'));",
                   "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtrar por una categoría que no existe (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseEventos}}?categoria=NoExiste",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [],
+              "query": [
+                {
+                  "key": "categoria",
+                  "value": "NoExiste"
+                }
+              ]
+            },
+            "description": "Una categoría que no es Deportes, Música, Fiesta ni Teatro no devuelve una lista vacía: responde 400 y dice que el problema es la categoría."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/datos-invalidos', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/datos-invalidos');",
+                  "  pm.expect(p.status).to.eql(400);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "pm.test('errores nombra la categoría', () => pm.expect(pm.response.json().errores).to.have.property('categoria'));"
                 ]
               }
             }
@@ -1271,7 +1871,7 @@
               ],
               "query": []
             },
-            "description": "Crear eventos exige rol organizer: se usa la cuenta de prueba de organizador, con su propio token.",
+            "description": "Crear eventos exige rol organizer: se usa la cuenta de prueba de organizador, con su propio token. El id de la cuenta queda en {{organizadorId}}: es el dueño del evento que se crea.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"organizador@palco.test\",\n  \"password\": \"palco1234\"\n}",
@@ -1298,7 +1898,8 @@
                   "  pm.expect(sesion.usuario.email).to.eql('organizador@palco.test');",
                   "  pm.expect(sesion.usuario.rol).to.eql('organizer');",
                   "});",
-                  "pm.collectionVariables.set('tokenOrganizador', sesion.token);"
+                  "pm.collectionVariables.set('tokenOrganizador', sesion.token);",
+                  "pm.collectionVariables.set('organizadorId', sesion.usuario.id);"
                 ]
               }
             }
@@ -1547,6 +2148,91 @@
           ]
         },
         {
+          "name": "GET /eventos/{eventoId}/organizador, rol servicio (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoCreadoId}}/organizador",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoCreadoId}}",
+                "organizador"
+              ],
+              "query": []
+            },
+            "description": "Quién es el dueño de un evento, para otros servicios: Validación y Ventas lo preguntan antes de mostrarle a un organizador el registro de la puerta o el resumen de ventas. El evento recién creado es de organizador@palco.test."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "pm.test('el dueño es la cuenta que lo creó', () => {",
+                  "  pm.expect(pm.response.json()).to.eql({",
+                  "    eventoId: pm.collectionVariables.get('eventoCreadoId'),",
+                  "    organizadorId: pm.collectionVariables.get('organizadorId'),",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /eventos/{eventoId}/organizador con token de organizador (403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoCreadoId}}/organizador",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoCreadoId}}",
+                "organizador"
+              ],
+              "query": []
+            },
+            "description": "El dueño de un evento no se muestra fuera de los servicios, tampoco a quien lo creó: el catálogo público no lo tiene y el panel usa GET /eventos/mios."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-permiso', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-permiso');",
+                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Cambiar cupo con token de organizador (403)",
           "request": {
             "method": "POST",
@@ -1782,7 +2468,7 @@
     },
     {
       "name": "3 Diseño v1 (Ventas implementado)",
-      "description": "La compra completa contra /api/v1: abrir la compra con reserva de cupo, pagarla, ver la venta y la entrada (incluida la emisión asincrónica) y cancelar otra compra. También muestra el aislamiento entre usuarios (una segunda cuenta, otro.titular@palco.test, no ve las compras del titular) y el control de rol (organizer y staff reciben 403). Corre entera sin intervención: empieza con su propio login y crea el evento en el que compra, con un sector Platea B a 27.500 como el de la demo. Los ids salen de las respuestas, y las claves de idempotencia y los DNI de los titulares se generan en cada corrida. La primera entrada y su código quedan en entradaId y codigoQr para la validación en puerta (carpeta 5), el evento en eventoId y la venta en ventaId para la factura (carpeta 7).",
+      "description": "La compra completa contra /api/v1: abrir la compra con reserva de cupo, pagarla, ver la venta y la entrada (incluida la emisión asincrónica) y cancelar otra compra. También muestra el aislamiento entre usuarios (una segunda cuenta, otro.titular@palco.test, no ve las compras del titular) y el control de rol (organizer y staff reciben 403). Corre entera sin intervención: empieza con su propio login y crea el evento en el que compra, con un sector Platea B a 27.500 como el de la demo. Los ids salen de las respuestas, y las claves de idempotencia y los DNI de los titulares se generan en cada corrida. La primera entrada y su código quedan en entradaId y codigoQr para la validación en puerta (carpeta 5), el código de la segunda en codigoQrLuis (carpeta 5), el evento en eventoId y la venta en ventaId para la factura (carpeta 7).",
       "item": [
         {
           "name": "Login comprador (200) guarda token",
@@ -2953,7 +3639,9 @@
                   "pm.test('_links: solo self; ya no se puede pagar ni cancelar', () => {",
                   "  pm.expect(v._links.self).to.eql({ href: '/api/v1/ventas/' + v.id, method: 'GET' });",
                   "  pm.expect(v._links).to.not.have.any.keys('pagar', 'cancelar');",
-                  "});"
+                  "});",
+                  "// El código de la entrada de Luis queda para la carpeta 5, que la marca usada con POST /v1/entradas/usos.",
+                  "pm.collectionVariables.set('codigoQrLuis', v.entradas[1].codigoQr);"
                 ]
               }
             }
@@ -4466,7 +5154,7 @@
     },
     {
       "name": "5 Validación en puerta (implementado)",
-      "description": "El personal de puerta (puerta@palco.test, rol staff) escanea el código QR de la entrada que pagó la carpeta 3 ({{codigoQr}}). Solo escanea quien trabaja en la puerta del evento, así que primero el organizador le asigna la del evento de la compra ({{eventoId}}). Después escanea en la puerta de otro evento (no entra y la entrada sigue sirviendo), en la suya (VALIDA, y Ventas la marca USADA) y una vez más (YA_USADA, con el uso anterior). Todo escaneo responde 201: lo que se crea es el renglón del registro; si la persona entra lo dicen resultado y puedeEntrar. Corre entera sin intervención, después de la carpeta 3.",
+      "description": "El personal de puerta (puerta@palco.test, rol staff) escanea el código QR de la entrada que pagó la carpeta 3 ({{codigoQr}}). Solo escanea quien trabaja en la puerta del evento, así que primero el organizador le asigna la del evento de la compra ({{eventoId}}). Después escanea en la puerta de otro evento (no entra y la entrada sigue sirviendo), en la suya (VALIDA, y Ventas la marca USADA) y una vez más (YA_USADA, con el uso anterior). Todo escaneo responde 201: lo que se crea es el renglón del registro; si la persona entra lo dicen resultado y puedeEntrar. También prueba el equipo de puerta (una cuenta de comprador no se puede asignar) y las puertas propias del staff, la operación interna de Ventas que usa la entrada (POST /v1/entradas/usos, con la otra entrada de la compra) y, al final, que sin la puerta asignada ya no se escanea. Corre entera sin intervención, después de la carpeta 3.",
       "item": [
         {
           "name": "Login staff (200) guarda tokenStaff",
@@ -4612,6 +5300,224 @@
                   "  pm.expect(p.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
                   "  pm.expect(p.staffEmail).to.eql('puerta@palco.test');",
                   "  pm.expect(p.asignada).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /v1/validacion/puertas/{eventoId}/{email} de una cuenta que no es de puerta (422)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseValidacion}}/puertas/{{eventoId}}/titular@palco.test",
+              "host": [
+                "{{baseValidacion}}"
+              ],
+              "path": [
+                "puertas",
+                "{{eventoId}}",
+                "titular@palco.test"
+              ],
+              "query": []
+            },
+            "description": "Solo se asigna una cuenta de personal de puerta: titular@palco.test es de comprador y no podría escanear. Validación le pregunta el rol a Usuarios (GET /usuarios/cuentas) y responde 422 no-es-de-puerta sin asignarla."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-es-de-puerta', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-es-de-puerta');",
+                  "  pm.expect(p.status).to.eql(422);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/validacion/puertas?eventoId, rol organizer (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseValidacion}}/puertas?eventoId={{eventoId}}",
+              "host": [
+                "{{baseValidacion}}"
+              ],
+              "path": [
+                "puertas"
+              ],
+              "query": [
+                {
+                  "key": "eventoId",
+                  "value": "{{eventoId}}"
+                }
+              ]
+            },
+            "description": "El equipo de puerta del evento, como lo ve su dueño en el panel: puerta@palco.test, y no la cuenta de comprador que se rechazó."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "pm.test('el equipo es solo puerta@palco.test', () => {",
+                  "  pm.expect(pm.response.json().map((p) => p.staffEmail)).to.eql(['puerta@palco.test']);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/validacion/puertas de un evento ajeno (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseValidacion}}/puertas?eventoId=ev-de-otro",
+              "host": [
+                "{{baseValidacion}}"
+              ],
+              "path": [
+                "puertas"
+              ],
+              "query": [
+                {
+                  "key": "eventoId",
+                  "value": "ev-de-otro"
+                }
+              ]
+            },
+            "description": "El equipo de puerta de un evento que no es del organizador responde como el de uno que no existe."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/validacion/puertas/mias, rol staff (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenStaff}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseValidacion}}/puertas/mias",
+              "host": [
+                "{{baseValidacion}}"
+              ],
+              "path": [
+                "puertas",
+                "mias"
+              ],
+              "query": []
+            },
+            "description": "Los eventos donde puerta@palco.test puede escanear: entre ellos, el de la compra, que se le acaba de asignar."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "pm.test('incluye la puerta del evento de la compra', () => {",
+                  "  const p = pm.response.json().find((x) => x.eventoId === pm.collectionVariables.get('eventoId'));",
+                  "  pm.expect(p, 'no está la puerta').to.be.an('object');",
+                  "  pm.expect(p.staffEmail).to.eql('puerta@palco.test');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/validacion/puertas/mias con rol organizer (403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseValidacion}}/puertas/mias",
+              "host": [
+                "{{baseValidacion}}"
+              ],
+              "path": [
+                "puertas",
+                "mias"
+              ],
+              "query": []
+            },
+            "description": "Las puertas propias son del personal de puerta. El organizador ve el equipo de cada evento suyo."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-permiso', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-permiso');",
+                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
                   "});"
                 ]
               }
@@ -5113,11 +6019,12 @@
                 "exec": [
                   "pm.test('responde 200', () => pm.response.to.have.status(200));",
                   "const lista = pm.response.json();",
-                  "pm.test('incluye el escaneo VALIDA, sin el código completo', () => {",
+                  "pm.test('incluye el escaneo VALIDA con el email de quien escaneó, sin el código completo', () => {",
                   "  const fila = lista.find((e) => e.id === pm.collectionVariables.get('escaneoId'));",
                   "  pm.expect(fila, 'no está el escaneo').to.be.an('object');",
-                  "  pm.expect(fila).to.include.all.keys('id', 'eventoId', 'codigoParcial', 'resultado', 'entradaId', 'escaneadoPor', 'escaneado');",
+                  "  pm.expect(fila).to.include.all.keys('id', 'eventoId', 'codigoParcial', 'resultado', 'entradaId', 'escaneadoPor', 'escaneadoPorEmail', 'escaneado');",
                   "  pm.expect(fila.resultado).to.eql('VALIDA');",
+                  "  pm.expect(fila.escaneadoPorEmail, 'DEF-32: el email de la cuenta que escaneó').to.eql('puerta@palco.test');",
                   "  pm.expect(pm.response.text()).to.not.include(pm.collectionVariables.get('codigoQr'));",
                   "});"
                 ]
@@ -5252,12 +6159,347 @@
               }
             }
           ]
+        },
+        {
+          "name": "GET /v1/validacion/escaneos/{id} inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenStaff}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseValidacion}}/escaneos/ESC-00000000",
+              "host": [
+                "{{baseValidacion}}"
+              ],
+              "path": [
+                "escaneos",
+                "ESC-00000000"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token de servicio (200) guarda tokenServicio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/servicios/token",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "servicios",
+                "token"
+              ],
+              "query": []
+            },
+            "description": "Para marcar una entrada usada como lo hace Validación, que le habla a Ventas con el rol servicio.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"secreto\": \"{{secretoServicios}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenServicio', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/entradas/usos, rol servicio (200, USADA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/entradas/usos",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "entradas",
+                "usos"
+              ],
+              "query": []
+            },
+            "description": "La operación interna de Ventas que Validación llama en cada escaneo, enviada directo con la entrada de Luis, la segunda de la compra de la carpeta 3: queda USADA. Responde 200 y no 201 porque cambia el estado de una entrada que ya existía.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigoQr\": \"{{codigoQrLuis}}\",\n  \"eventoId\": \"{{eventoId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const e = pm.response.json();",
+                  "pm.test('es la entrada de Luis, ahora USADA', () => {",
+                  "  pm.expect(e.codigoQr).to.eql(pm.collectionVariables.get('codigoQrLuis'));",
+                  "  pm.expect(e.titular.nombre).to.eql('Luis Pérez');",
+                  "  pm.expect(e.eventoId).to.eql(pm.collectionVariables.get('eventoId'));",
+                  "  pm.expect(e.estado).to.eql('USADA');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/entradas/usos repetido (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/entradas/usos",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "entradas",
+                "usos"
+              ],
+              "query": []
+            },
+            "description": "El mismo código otra vez: una entrada no se usa dos veces.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigoQr\": \"{{codigoQrLuis}}\",\n  \"eventoId\": \"{{eventoId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/entrada-ya-usada', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/entrada-ya-usada');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /v1/validacion/puertas/{eventoId}/{email} con rol staff (403)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenStaff}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseValidacion}}/puertas/{{eventoId}}/puerta@palco.test",
+              "host": [
+                "{{baseValidacion}}"
+              ],
+              "path": [
+                "puertas",
+                "{{eventoId}}",
+                "puerta@palco.test"
+              ],
+              "query": []
+            },
+            "description": "La cuenta de puerta no se saca sola de la puerta: el equipo lo arma el organizador."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-permiso', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-permiso');",
+                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /v1/validacion/puertas/{eventoId}/{email} (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseValidacion}}/puertas/{{eventoId}}/puerta@palco.test",
+              "host": [
+                "{{baseValidacion}}"
+              ],
+              "path": [
+                "puertas",
+                "{{eventoId}}",
+                "puerta@palco.test"
+              ],
+              "query": []
+            },
+            "description": "El organizador saca a puerta@palco.test de la puerta del evento de la compra. Responde 204 también si la cuenta no estaba asignada."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 204', () => pm.response.to.have.status(204));",
+                  "pm.test('no trae cuerpo', () => pm.expect(pm.response.text()).to.eql(''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/validacion/escaneos sin la puerta asignada (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenStaff}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseValidacion}}/escaneos",
+              "host": [
+                "{{baseValidacion}}"
+              ],
+              "path": [
+                "escaneos"
+              ],
+              "query": []
+            },
+            "description": "Sin la puerta del evento, puerta@palco.test ya no escanea ahí: 403 puerta-no-asignada, sin llamar a Ventas y sin dejar renglón en el registro.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigoQr\": \"{{codigoQr}}\",\n  \"eventoId\": \"{{eventoId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/puerta-no-asignada', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/puerta-no-asignada');",
+                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
       "name": "6 Reventa (implementado)",
-      "description": "La reventa oficial de punta a punta, en un evento que crea la carpeta. titular@palco.test compra 2 entradas de Platea B (27.500 cada una), publica la primera dentro del rango (del 50 % al 110 % del precio de lista del sector: de 13.750 a 30.250) y otro.titular@palco.test la compra a nombre de Sofía Paz: la original queda VENDIDA y el comprador recibe una entrada nueva a nombre de Sofía. También prueba los errores del contrato (precio fuera de rango, entrada ya publicada, compra propia, publicación ya vendida) y retira la segunda entrada. Corre entera sin intervención.",
+      "description": "La reventa oficial de punta a punta, en un evento que crea la carpeta. titular@palco.test compra 2 entradas de Platea B (27.500 cada una), publica la primera dentro del rango (del 50 % al 110 % del precio de lista del sector: de 13.750 a 30.250) y otro.titular@palco.test la compra a nombre de Sofía Paz: la original queda VENDIDA y el comprador recibe una entrada nueva a nombre de Sofía. También prueba los errores del contrato (precio fuera de rango, entrada ya publicada, compra propia, publicación ya vendida) y retira la segunda entrada. Al final manda directo, con el rol servicio, las operaciones internas de Ventas que usa Reventa: consultar la entrada, publicarla y retirarla (la segunda entrada termina VALIDA, como estaba) y repetir la transferencia de la compra, que devuelve lo mismo. Corre entera sin intervención.",
       "item": [
         {
           "name": "Login comprador (200) guarda token",
@@ -5279,7 +6521,7 @@
               ],
               "query": []
             },
-            "description": "Quien publica: titular@palco.test.",
+            "description": "Quien publica: titular@palco.test. Su id queda en {{titularId}}: es el vendedor en las operaciones internas.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"titular@palco.test\",\n  \"password\": \"palco1234\"\n}",
@@ -5306,7 +6548,8 @@
                   "  pm.expect(sesion.usuario.email).to.eql('titular@palco.test');",
                   "  pm.expect(sesion.usuario.rol).to.eql('user');",
                   "});",
-                  "pm.collectionVariables.set('token', sesion.token);"
+                  "pm.collectionVariables.set('token', sesion.token);",
+                  "pm.collectionVariables.set('titularId', sesion.usuario.id);"
                 ]
               }
             }
@@ -5332,7 +6575,7 @@
               ],
               "query": []
             },
-            "description": "Quien compra en la reventa: otro.titular@palco.test.",
+            "description": "Quien compra en la reventa: otro.titular@palco.test. Su id queda en {{otroCompradorId}}.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"otro.titular@palco.test\",\n  \"password\": \"palco1234\"\n}",
@@ -5359,7 +6602,8 @@
                   "  pm.expect(sesion.usuario.email).to.eql('otro.titular@palco.test');",
                   "  pm.expect(sesion.usuario.rol).to.eql('user');",
                   "});",
-                  "pm.collectionVariables.set('tokenOtroComprador', sesion.token);"
+                  "pm.collectionVariables.set('tokenOtroComprador', sesion.token);",
+                  "pm.collectionVariables.set('otroCompradorId', sesion.usuario.id);"
                 ]
               }
             }
@@ -6064,6 +7308,42 @@
           ]
         },
         {
+          "name": "GET /v1/reventas sin eventoId (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseReventas}}",
+              "host": [
+                "{{baseReventas}}"
+              ],
+              "path": [],
+              "query": []
+            },
+            "description": "Las publicaciones se listan de a un evento: sin eventoId responde 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/datos-invalidos', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/datos-invalidos');",
+                  "  pm.expect(p.status).to.eql(400);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "pm.test('errores nombra el evento', () => pm.expect(pm.response.json().errores).to.have.property('eventoId'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "GET /v1/reventas/mias (200)",
           "request": {
             "method": "GET",
@@ -6131,6 +7411,42 @@
                   "pm.test('no incluye la publicación del titular', () => {",
                   "  const ids = pm.response.json().map((x) => x.id);",
                   "  pm.expect(ids).to.not.include(pm.collectionVariables.get('publicacionId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/reventas/mias sin token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseReventas}}/mias",
+              "host": [
+                "{{baseReventas}}"
+              ],
+              "path": [
+                "mias"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 401', () => pm.response.to.have.status(401));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-autenticado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-autenticado');",
+                  "  pm.expect(p.status).to.eql(401);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
                   "});"
                 ]
               }
@@ -6829,6 +8145,527 @@
               }
             }
           ]
+        },
+        {
+          "name": "Token de servicio (200) guarda tokenServicio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/servicios/token",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "servicios",
+                "token"
+              ],
+              "query": []
+            },
+            "description": "Las operaciones de Ventas que usa Reventa son internas: piden el rol servicio.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"secreto\": \"{{secretoServicios}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('tokenServicio', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/operaciones-de-reventa/entradas/{id}?vendedorId, rol servicio (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/operaciones-de-reventa/entradas/{{entradaRetiroId}}?vendedorId={{titularId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "operaciones-de-reventa",
+                "entradas",
+                "{{entradaRetiroId}}"
+              ],
+              "query": [
+                {
+                  "key": "vendedorId",
+                  "value": "{{titularId}}"
+                }
+              ]
+            },
+            "description": "Lo que Reventa le pregunta a Ventas antes de publicar: la entrada, si es de ese vendedor, con lo que se pagó por ella. Es la segunda entrada, VALIDA otra vez después del retiro."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const e = pm.response.json();",
+                  "pm.test('la entrada vista desde la reventa: VALIDA, pagada a 27.500', () => {",
+                  "  pm.expect(e).to.include.all.keys('entradaId', 'ventaId', 'eventoId', 'sectorId', 'sector', 'precioPagado', 'estado');",
+                  "  pm.expect(e.entradaId).to.eql(pm.collectionVariables.get('entradaRetiroId'));",
+                  "  pm.expect(e.ventaId).to.eql(pm.collectionVariables.get('ventaReventaId'));",
+                  "  pm.expect(e.eventoId).to.eql(pm.collectionVariables.get('eventoReventaId'));",
+                  "  pm.expect(e.precioPagado).to.eql(27500);",
+                  "  pm.expect(e.estado).to.eql('VALIDA');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/operaciones-de-reventa/entradas/{id} de otro vendedor (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/operaciones-de-reventa/entradas/{{entradaRetiroId}}?vendedorId={{otroCompradorId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "operaciones-de-reventa",
+                "entradas",
+                "{{entradaRetiroId}}"
+              ],
+              "query": [
+                {
+                  "key": "vendedorId",
+                  "value": "{{otroCompradorId}}"
+                }
+              ]
+            },
+            "description": "La misma entrada con otro vendedor: responde como una entrada que no existe."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/operaciones-de-reventa/publicaciones, rol servicio (200, PUBLICADA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/operaciones-de-reventa/publicaciones",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "operaciones-de-reventa",
+                "publicaciones"
+              ],
+              "query": []
+            },
+            "description": "Lo que pide Reventa al publicar, enviado directo: Ventas deja la entrada PUBLICADA. Dos requests más abajo vuelve a VALIDA, así que la entrada termina como estaba.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entradaId\": \"{{entradaRetiroId}}\",\n  \"vendedorId\": \"{{titularId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('la segunda entrada queda PUBLICADA', () => {",
+                  "  const e = pm.response.json();",
+                  "  pm.expect(e.entradaId).to.eql(pm.collectionVariables.get('entradaRetiroId'));",
+                  "  pm.expect(e.estado).to.eql('PUBLICADA');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/operaciones-de-reventa/publicaciones repetida (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/operaciones-de-reventa/publicaciones",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "operaciones-de-reventa",
+                "publicaciones"
+              ],
+              "query": []
+            },
+            "description": "Solo se publica una entrada VALIDA, y esta ya está PUBLICADA.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entradaId\": \"{{entradaRetiroId}}\",\n  \"vendedorId\": \"{{titularId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/entrada-no-disponible', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/entrada-no-disponible');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/operaciones-de-reventa/retiros, rol servicio (200, VALIDA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/operaciones-de-reventa/retiros",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "operaciones-de-reventa",
+                "retiros"
+              ],
+              "query": []
+            },
+            "description": "Lo que pide Reventa al retirar una publicación: la entrada vuelve a VALIDA.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entradaId\": \"{{entradaRetiroId}}\",\n  \"vendedorId\": \"{{titularId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('la segunda entrada queda VALIDA', () => {",
+                  "  const e = pm.response.json();",
+                  "  pm.expect(e.entradaId).to.eql(pm.collectionVariables.get('entradaRetiroId'));",
+                  "  pm.expect(e.estado).to.eql('VALIDA');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/operaciones-de-reventa/retiros de una entrada vendida (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/operaciones-de-reventa/retiros",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "operaciones-de-reventa",
+                "retiros"
+              ],
+              "query": []
+            },
+            "description": "La primera entrada se vendió en la reventa: ya no vuelve a VALIDA.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entradaId\": \"{{entradaReventaId}}\",\n  \"vendedorId\": \"{{titularId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/entrada-no-publicada', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/entrada-no-publicada');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/ventas/{id} de la compra en la reventa (200) guarda pagoReventaId",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOtroComprador}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/ventas/{{ventaCompradaId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "ventas",
+                "{{ventaCompradaId}}"
+              ],
+              "query": []
+            },
+            "description": "La venta que nació en Ventas con la compra en la reventa, vista por quien compró: EMITIDA, con la entrada nueva y el pago que cobró Reventa."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const v = pm.response.json();",
+                  "pm.test('EMITIDA, con la entrada nueva y su pago', () => {",
+                  "  pm.expect(v.estado).to.eql('EMITIDA');",
+                  "  pm.expect(v.entradas.map((e) => e.id)).to.eql([pm.collectionVariables.get('entradaCompradaId')]);",
+                  "  pm.expect(v.pagoId).to.match(/^P-[0-9a-f]{8}$/);",
+                  "});",
+                  "pm.collectionVariables.set('pagoReventaId', v.pagoId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/operaciones-de-reventa/transferencias repetida (201, la misma)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/operaciones-de-reventa/transferencias",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "operaciones-de-reventa",
+                "transferencias"
+              ],
+              "query": []
+            },
+            "description": "La transferencia que pidió Reventa después de cobrar, enviada otra vez con los mismos datos. Ventas la reconoce por la publicación y el comprador, y devuelve la misma venta y la misma entrada sin transferir de nuevo: es lo que hace Reventa cuando no supo si su pedido llegó.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"publicacionId\": \"{{publicacionId}}\",\n  \"entradaId\": \"{{entradaReventaId}}\",\n  \"vendedorId\": \"{{titularId}}\",\n  \"compradorId\": \"{{otroCompradorId}}\",\n  \"titular\": {\n    \"nombre\": \"Sofía Paz\",\n    \"dni\": \"{{dniSofia}}\"\n  },\n  \"precio\": 29000,\n  \"pagoId\": \"{{pagoReventaId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "const t = pm.response.json();",
+                  "pm.test('la misma venta y la misma entrada, VALIDA', () => {",
+                  "  pm.expect(t.ventaId).to.eql(pm.collectionVariables.get('ventaCompradaId'));",
+                  "  pm.expect(t.entrada.id).to.eql(pm.collectionVariables.get('entradaCompradaId'));",
+                  "  pm.expect(t.entrada.estado).to.eql('VALIDA');",
+                  "});",
+                  "pm.test('Location apunta a la venta', () => {",
+                  "  const location = pm.response.headers.get('Location');",
+                  "  pm.expect(location, 'falta la cabecera Location').to.be.a('string');",
+                  "  pm.expect(location.endsWith('/api/v1/ventas/' + t.ventaId), location).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/operaciones-de-reventa/transferencias con rol user (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOtroComprador}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/operaciones-de-reventa/transferencias",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "operaciones-de-reventa",
+                "transferencias"
+              ],
+              "query": []
+            },
+            "description": "Las operaciones internas no las llama una persona: con el token de quien compró responde 403.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"publicacionId\": \"{{publicacionId}}\",\n  \"entradaId\": \"{{entradaReventaId}}\",\n  \"vendedorId\": \"{{titularId}}\",\n  \"compradorId\": \"{{otroCompradorId}}\",\n  \"titular\": {\n    \"nombre\": \"Sofía Paz\",\n    \"dni\": \"{{dniSofia}}\"\n  },\n  \"precio\": 29000,\n  \"pagoId\": \"{{pagoReventaId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-permiso', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-permiso');",
+                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -7353,7 +9190,7 @@
     },
     {
       "name": "8 Operaciones del 30/10 (implementado)",
-      "description": "Las operaciones que se sumaron para el 30/10, sobre un evento y una cuenta que crea la misma carpeta (nunca sobre los eventos de la demo). organizador@palco.test crea un evento, lo edita y titular@palco.test le compra 2 entradas; con la compra emitida se piden las ventas por día y la liquidación. Después el organizador cancela el evento: la venta queda CANCELADA, sus entradas ANULADA y el pago REEMBOLSADO, que es asincrónico y se espera como la emisión. otro.organizador@palco.test prueba que lo ajeno responde 404, como si no existiera, y el token de un comprador, que el rol equivocado responde 403. Además, la subida de la foto en el backend local (se guarda en la base de Palco y se pide por su URL) y con un formato que no se acepta, y la recuperación de la contraseña: siempre la misma respuesta, exista o no el email, y un código incorrecto que no cambia la contraseña. Corre entera sin intervención: pide sus propios tokens.",
+      "description": "Las operaciones que se sumaron para el 30/10, sobre un evento y una cuenta que crea la misma carpeta (nunca sobre los eventos de la demo). organizador@palco.test crea un evento, lo edita y titular@palco.test le compra 2 entradas; con la compra emitida se piden las ventas por día y la liquidación. Después el organizador cancela el evento: la venta queda CANCELADA, sus entradas ANULADA y el pago REEMBOLSADO, que es asincrónico y se espera como la emisión. otro.organizador@palco.test prueba que lo ajeno responde 404, como si no existiera, y el token de un comprador, que el rol equivocado responde 403. La edición con If-Match y el ETag de antes de la compra responde 412. Con el pago reembolsado se prueba lo que Pagos les ofrece a los demás servicios: buscar el cobro por su clave, y repetir el cobro y el reembolso, que no cobran ni devuelven otra vez. Además, la subida de la foto en el backend local (se guarda en la base de Palco y se pide por su URL) y con un formato que no se acepta, y la recuperación de la contraseña: siempre la misma respuesta, exista o no el email, y un código incorrecto que no cambia la contraseña. Corre entera sin intervención: pide sus propios tokens.",
       "item": [
         {
           "name": "Login organizador (200) guarda tokenOrganizador",
@@ -7641,7 +9478,10 @@
                   "  pm.expect(e.sectores[0].nombre).to.eql('Campo');",
                   "  pm.expect(e.sectores[0].cupo).to.eql(150);",
                   "  pm.expect(e.sectores[0].vendidas).to.eql(0);",
-                  "});"
+                  "});",
+                  "pm.test('trae el ETag del evento editado', () => pm.expect(pm.response.headers.get('ETag')).to.match(/^\"[^\"]+\"$/));",
+                  "// El ETag de este momento: después de la compra ya no es el del evento, y la edición con If-Match responde 412.",
+                  "pm.collectionVariables.set('etagPropio', pm.response.headers.get('ETag'));"
                 ]
               }
             }
@@ -7816,6 +9656,65 @@
           ]
         },
         {
+          "name": "PUT /eventos/{id} con el ETag de antes de la compra (412)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOrganizador}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{etagPropio}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseEventos}}/{{eventoPropioId}}",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "{{eventoPropioId}}"
+              ],
+              "query": []
+            },
+            "description": "If-Match con el ETag que devolvió la edición: desde entonces la compra reservó 2 lugares, así que el evento ya no está como lo leyó el organizador. Responde 412 evento-modificado sin guardar nada; al final de la carpeta, el detalle muestra que la descripción sigue siendo la de la edición.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Evento de prueba Postman, editado\",\n  \"categoria\": \"Música\",\n  \"venue\": \"Estadio Obras\",\n  \"fechaISO\": \"2027-12-30T21:00:00\",\n  \"descripcion\": \"Esta edición no tendría que quedar.\",\n  \"imagenUrl\": null,\n  \"sectores\": [\n    {\n      \"id\": \"{{sectorPropioId}}\",\n      \"nombre\": \"Campo\",\n      \"precio\": 10000,\n      \"cupo\": 150\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 412', () => pm.response.to.have.status(412));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/evento-modificado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/evento-modificado');",
+                  "  pm.expect(p.status).to.eql(412);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "POST /v1/ventas/{id}/pagos en el evento propio (201) guarda pagoPropioId",
           "request": {
             "method": "POST",
@@ -7826,7 +9725,7 @@
               },
               {
                 "key": "Idempotency-Key",
-                "value": "{{$guid}}"
+                "value": "{{clavePagoPropio}}"
               },
               {
                 "key": "Content-Type",
@@ -7845,6 +9744,7 @@
               ],
               "query": []
             },
+            "description": "La clave de idempotencia queda en clavePagoPropio: con ella y el id de la venta se busca más abajo el cobro en Pagos.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"medioDePago\": \"tarjeta\",\n  \"token\": \"tok_test\"\n}",
@@ -7856,6 +9756,16 @@
             }
           },
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Una clave de idempotencia nueva en cada corrida. El request que repite el pedido usa la misma.",
+                  "pm.collectionVariables.set('clavePagoPropio', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -8462,6 +10372,371 @@
           ]
         },
         {
+          "name": "GET /v1/pagos/{id} con el token del comprador (403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/pagos/{{pagoPropioId}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "pagos",
+                "{{pagoPropioId}}"
+              ],
+              "query": []
+            },
+            "description": "Pagos atiende solo a otros servicios: el comprador ve su pago en su venta."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-permiso', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-permiso');",
+                  "  pm.expect(p.status).to.eql(403);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/pagos?claveIdempotencia, rol servicio (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/pagos?claveIdempotencia={{ventaPropiaId}}:{{clavePagoPropio}}",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "pagos"
+              ],
+              "query": [
+                {
+                  "key": "claveIdempotencia",
+                  "value": "{{ventaPropiaId}}:{{clavePagoPropio}}"
+                }
+              ]
+            },
+            "description": "El cobro por su clave, como lo busca la conciliación de Ventas cuando un pago quedó sin resultado. La clave que Ventas le manda a Pagos es el id de la venta, dos puntos y la Idempotency-Key del comprador."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "pm.test('es el pago de la venta anulada, REEMBOLSADO', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.pagoId).to.eql(pm.collectionVariables.get('pagoPropioId'));",
+                  "  pm.expect(p.ventaId).to.eql(pm.collectionVariables.get('ventaPropiaId'));",
+                  "  pm.expect(p.estado).to.eql('REEMBOLSADO');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/pagos?claveIdempotencia sin pago (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/pagos?claveIdempotencia=V-00000000:00000000-0000-4000-8000-000000000000",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "pagos"
+              ],
+              "query": [
+                {
+                  "key": "claveIdempotencia",
+                  "value": "V-00000000:00000000-0000-4000-8000-000000000000"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/pagos repetido con la clave de Ventas (201, el mismo pago)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{ventaPropiaId}}:{{clavePagoPropio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/pagos",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "pagos"
+              ],
+              "query": []
+            },
+            "description": "El cobro que hizo Ventas, enviado otra vez con la misma clave y el mismo pedido: Pagos devuelve el pago que ya tiene y no cobra de nuevo. Como el evento se canceló, ese pago está REEMBOLSADO.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ventaId\": \"{{ventaPropiaId}}\",\n  \"monto\": {{montoPropio}},\n  \"medioDePago\": \"tarjeta\",\n  \"token\": \"tok_test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "pm.test('es el mismo pago, sin cobrar otra vez', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.pagoId).to.eql(pm.collectionVariables.get('pagoPropioId'));",
+                  "  pm.expect(p.monto).to.eql(Number(pm.collectionVariables.get('montoPropio')));",
+                  "  pm.expect(p.estado).to.eql('REEMBOLSADO');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/pagos misma clave con otro monto (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{ventaPropiaId}}:{{clavePagoPropio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/pagos",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "pagos"
+              ],
+              "query": []
+            },
+            "description": "La misma clave con otro monto no es un reintento: responde 409 clave-reutilizada y no cobra nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ventaId\": \"{{ventaPropiaId}}\",\n  \"monto\": 1,\n  \"medioDePago\": \"tarjeta\",\n  \"token\": \"tok_test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/clave-reutilizada', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/clave-reutilizada');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/pagos/{id}/reembolso repetido (200, sin devolver de nuevo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/pagos/{{pagoPropioId}}/reembolso",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "pagos",
+                "{{pagoPropioId}}",
+                "reembolso"
+              ],
+              "query": []
+            },
+            "description": "El reembolso que pidió Ventas al cancelarse el evento, pedido otra vez por el pago entero: responde el pago como quedó, sin devolver dos veces.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ventaId\": \"{{ventaPropiaId}}\",\n  \"motivo\": \"La colección de Postman repite el reembolso.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('responde application/json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+                  "pm.test('REEMBOLSADO por el total cobrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.pagoId).to.eql(pm.collectionVariables.get('pagoPropioId'));",
+                  "  pm.expect(p.estado).to.eql('REEMBOLSADO');",
+                  "  pm.expect(p.montoReembolsado).to.eql(Number(pm.collectionVariables.get('montoPropio')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/pagos/{id}/reembolso por otro monto (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/pagos/{{pagoPropioId}}/reembolso",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "pagos",
+                "{{pagoPropioId}}",
+                "reembolso"
+              ],
+              "query": []
+            },
+            "description": "Un pago se devuelve una sola vez: pedir otro monto cuando ya se devolvió no es un reintento. Responde 409 pago-no-reembolsable y no devuelve nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ventaId\": \"{{ventaPropiaId}}\",\n  \"motivo\": \"La colección de Postman repite el reembolso.\",\n  \"monto\": 1000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/pago-no-reembolsable', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/pago-no-reembolsable');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "GET /v1/resumenes?eventoId después de cancelar (200, sin ventas)",
           "request": {
             "method": "GET",
@@ -8693,6 +10968,44 @@
           ]
         },
         {
+          "name": "GET /eventos/imagenes/{id} inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseEventos}}/imagenes/00000000-0000-4000-8000-000000000000.webp",
+              "host": [
+                "{{baseEventos}}"
+              ],
+              "path": [
+                "imagenes",
+                "00000000-0000-4000-8000-000000000000.webp"
+              ],
+              "query": []
+            },
+            "description": "Un id con la forma de los de Palco que no está en la base: 404 en Problem Details, también sin token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/no-encontrado', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/no-encontrado');",
+                  "  pm.expect(p.status).to.eql(404);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "POST /eventos/imagenes con texto declarado como PNG (400)",
           "request": {
             "method": "POST",
@@ -8795,6 +11108,7 @@
                   "  const p = pm.response.json();",
                   "  pm.expect(p.type).to.eql('about:blank');",
                   "  pm.expect(p.status).to.eql(415);",
+                  "  pm.expect(p, 'el texto interno del servidor no llega al cliente').to.not.have.property('detail');",
                   "});"
                 ]
               }
@@ -8955,6 +11269,59 @@
                   "  const anterior = JSON.parse(pm.collectionVariables.get('respuestaOlvide') || '{}');",
                   "  pm.expect({ codigo: pm.response.code, cuerpo: pm.response.text() }).to.eql(anterior);",
                   "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /password/olvide sin email (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUsuarios}}/password/olvide",
+              "host": [
+                "{{baseUsuarios}}"
+              ],
+              "path": [
+                "password",
+                "olvide"
+              ],
+              "query": []
+            },
+            "description": "Lo único que se controla antes de responder es que venga un email: sin él responde 400 con errores.email. Con cualquier email, exista o no la cuenta, responde 204.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/datos-invalidos', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/datos-invalidos');",
+                  "  pm.expect(p.status).to.eql(400);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "pm.test('errores nombra el email', () => pm.expect(pm.response.json().errores).to.have.property('email'));"
                 ]
               }
             }
