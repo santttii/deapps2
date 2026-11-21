@@ -16,6 +16,7 @@ import jakarta.ejb.TransactionAttributeType;
 import jakarta.inject.Inject;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.Textos;
 import com.palco.validacion.api.Dtos.EntradaEscaneadaDto;
 import com.palco.validacion.api.Dtos.EscaneoDto;
 import com.palco.validacion.api.Dtos.PuertaAsignadaDto;
@@ -88,6 +89,7 @@ public class ServicioDeValidacion implements IValidacion {
     ClienteDeUsuarios usuarios;
 
     /** De dónde sale el "ahora". No es estado: es fijo, y los tests lo reemplazan por un reloj detenido. */
+    @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.systemUTC();
 
     @Override
@@ -98,6 +100,7 @@ public class ServicioDeValidacion implements IValidacion {
         String escaneadoPor = staff.id();
         // El email va junto al id: el registro lo muestra, porque el organizador conoce la cuenta por él (DEF-32).
         String escaneadoPorEmail = staff.email();
+        sinCaracteresDeControl("codigoQr", codigo, "El código QR no puede tener caracteres de control.");
         // Antes que nada: solo escanea quien trabaja en esta puerta. No se llama a Ventas ni se registra.
         exigirPuerta(evento, staff);
 
@@ -143,6 +146,11 @@ public class ServicioDeValidacion implements IValidacion {
 
     @Override
     public EscaneoDto obtener(String escaneoId, Solicitante quien) {
+        // Un id con un carácter de control no lo generó este servicio: no existe, y no se busca
+        // porque PostgreSQL no acepta el carácter nulo (U+0000) en la consulta.
+        if (escaneoId == null || escaneoId.codePoints().anyMatch(Textos::esDeControl)) {
+            throw new ErroresDeNegocio.NoEncontrado("No existe ese escaneo.");
+        }
         Escaneo escaneo = escaneos.buscarPorId(escaneoId)
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe ese escaneo."));
         // Uno de un evento ajeno responde igual que uno que no existe.
@@ -205,6 +213,7 @@ public class ServicioDeValidacion implements IValidacion {
 
     /** El staff tiene que estar asignado a la puerta del evento. */
     private void exigirPuerta(String eventoId, Solicitante staff) {
+        sinCaracteresDeControl("eventoId", eventoId, "El id del evento no puede tener caracteres de control.");
         if (!puertas.estaAsignada(eventoId, staff.email())) {
             throw new ErroresDeNegocio.SinPermiso(PUERTA_NO_ASIGNADA,
                     "No estás asignado a la puerta de este evento. Pedíselo al organizador.");
@@ -231,7 +240,23 @@ public class ServicioDeValidacion implements IValidacion {
     }
 
     static String normalizarEmail(String email) {
-        return email.strip().toLowerCase(Locale.ROOT);
+        String limpio = email.strip();
+        sinCaracteresDeControl("email", limpio, "Ingresá un email válido.");
+        return limpio.toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Rechaza con un 400 un texto del pedido que trae un carácter de control
+     * (la regla de {@code Textos.esDeControl}, la misma que usa Ventas), antes
+     * de usarlo en una consulta o de guardarlo. Ningún código QR, id ni email
+     * válido lo tiene, y PostgreSQL no acepta el carácter nulo (U+0000) en un
+     * texto: sin este control, la consulta fallaba y el pedido terminaba en un
+     * 500.
+     */
+    static void sinCaracteresDeControl(String campo, String texto, String mensaje) {
+        if (texto.codePoints().anyMatch(Textos::esDeControl)) {
+            throw new ErroresDeNegocio.DatosInvalidos(campo, mensaje);
+        }
     }
 
     /**

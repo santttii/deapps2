@@ -267,6 +267,48 @@ class ServicioDeValidacionTest {
         assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> validacion.obtener("ESC-nada", STAFF));
     }
 
+    // ---- Caracteres de control: PostgreSQL no acepta el carácter nulo (U+0000) en un texto ----
+
+    /** El código con el que el contrato (Schemathesis) obtuvo un 500: empieza con el carácter nulo. */
+    private static final String CODIGO_CON_NULO = "\u0000n¶\u0007Ý¦¢O\u0016";
+
+    @Test
+    void unCodigoConElCaracterNuloEsUn400SinPreguntarleAVentasNiRegistrarlo() {
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> validacion.escanear(CODIGO_CON_NULO, EVENTO, STAFF));
+
+        assertEquals(Set.of("codigoQr"), error.campos().keySet());
+        verifyNoInteractions(ventas);
+        verify(escaneos, never()).guardar(any());
+    }
+
+    @Test
+    void unEventoConElCaracterNuloEsUn400SinConsultarLaPuerta() {
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class, () -> validacion.escanear(CODIGO, "ev-1\u0000", STAFF));
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class, () -> validacion.listar("ev-1\u0000", STAFF));
+
+        verify(puertas, never()).estaAsignada("ev-1\u0000", "puerta@palco.test");
+        verifyNoInteractions(ventas);
+    }
+
+    @Test
+    void unEscaneoConElCaracterNuloEnElIdEsUn404SinBuscarlo() {
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> validacion.obtener("ESC-\u0000", STAFF));
+
+        verify(escaneos, never()).buscarPorId(anyString());
+    }
+
+    @Test
+    void asignarOQuitarUnEmailConElCaracterNuloEsUn400() {
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> validacion.asignar(EVENTO, "puerta\u0000@palco.test", DUENO));
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> validacion.quitar(EVENTO, "puerta\u0000@palco.test", DUENO));
+
+        verify(puertas, never()).buscar(anyString(), anyString());
+        verify(puertas, never()).quitar(anyString(), anyString());
+    }
+
     // ---- La puerta asignada y el dueño del evento (limitación L17) ----
 
     @Test
