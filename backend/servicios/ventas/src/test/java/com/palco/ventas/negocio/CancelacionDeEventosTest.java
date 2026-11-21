@@ -15,6 +15,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
@@ -156,8 +157,23 @@ class CancelacionDeEventosTest {
 
         assertEquals(1, cancelacion.anularComprasDelEvento(mensaje(null)));
 
-        verify(cobros, never()).reembolsar(anyString(), anyString(), anyLong(), anyString());
+        // verifyNoInteractions y no never().reembolsar(anyString(), ...): anyString() no reconoce un null, y un
+        // reembolso pedido con el pago null es justo lo que tiene que fallar acá.
+        verifyNoInteractions(cobros);
         assertFalse(publicadas.anuladas.get(0).reembolsado());
+    }
+
+    @Test
+    void unaVentaSinPagoQuedaEnUnSevereQueDiceQueNoTienePago() {
+        // Para revisarla a mano hay que saber por qué no se devolvió: no es lo mismo que un rechazo de Pagos.
+        when(ventas.pagadasDelEvento(EVENTO)).thenReturn(List.of(venta("V-1", "user-a", 60_500, null)));
+
+        try (LogCapturado log = new LogCapturado(AnulacionDeCompras.class)) {
+            cancelacion.anularComprasDelEvento(mensaje(null));
+
+            assertTrue(log.lineas().stream().anyMatch(l -> l.contains("V-1") && l.contains("no tiene un pago registrado")
+                    && l.contains("revisarlo a mano")), String.valueOf(log.lineas()));
+        }
     }
 
     @Test

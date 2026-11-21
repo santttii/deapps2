@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /** Lo que la venta y la entrada resuelven solas, sin base ni servidor. */
 class VentaTest {
@@ -18,6 +20,23 @@ class VentaTest {
 
     private static Venta ventaNueva() {
         return new Venta("V-3f9a1c2b", "user-titular", "ev-1", "clave-1", AHORA, VENCE);
+    }
+
+    /**
+     * Una venta como la devuelve la base en ese estado. El estado no tiene
+     * "set" (lo cambia un UPDATE de VentaRepository): acá se pone por
+     * reflexión, que es lo que queda al volver a leer la venta.
+     */
+    private static Venta ventaEn(EstadoVenta estado) {
+        Venta venta = ventaNueva();
+        try {
+            var campo = Venta.class.getDeclaredField("estado");
+            campo.setAccessible(true);
+            campo.set(venta, estado);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+        return venta;
     }
 
     @Test
@@ -90,6 +109,20 @@ class VentaTest {
         assertFalse(venta.reservaVencida(VENCE.minusSeconds(1)));
         assertTrue(venta.reservaVencida(VENCE)); // en el instante exacto ya venció
         assertTrue(venta.reservaVencida(VENCE.plusSeconds(1)));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EstadoVenta.class, names = { "CONFIRMADA", "EMITIDA" })
+    void unaVentaConfirmadaOEmitidaEstaPaga(EstadoVenta estado) {
+        // Las dos. Si faltara una, repetir el mismo pago de una venta en ese estado ya no devolvería la venta
+        // (ComprasEnCurso.pagar) sino un 409, como si fuera un pago distinto.
+        assertTrue(ventaEn(estado).estaPaga());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EstadoVenta.class, names = { "EN_CHECKOUT", "CANCELADA", "VENCIDA" })
+    void unaVentaSinPagarCanceladaOVencidaNoEstaPaga(EstadoVenta estado) {
+        assertFalse(ventaEn(estado).estaPaga());
     }
 
     @Test
