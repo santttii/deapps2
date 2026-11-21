@@ -37,12 +37,15 @@ import com.palco.usuarios.seguridad.Contrasenas;
 
 /**
  * SEC-W04: 5 inicios de sesión fallidos en 15 minutos para un email bloquean ese email.
+ * También qué recibe una cuenta que todavía no verificó el email: el control va después
+ * de la contraseña, así que solo quien la sabe se entera de que falta verificar.
  * Sin servidor ni base: los intentos se guardan en una lista y la hora sale de un reloj
  * que el test adelanta.
  */
 class LimiteDeIntentosDeLoginTest {
 
     private static final String EMAIL = "titular@palco.test";
+    private static final String SIN_VERIFICAR = "pendiente@palco.test";
     private static final String CLAVE = "palco1234";
     private static final String CLAVE_MALA = "otra-clave";
     private static final String HASH = Contrasenas.hashear(CLAVE);
@@ -172,6 +175,32 @@ class LimiteDeIntentosDeLoginTest {
     }
 
     @Test
+    void unaCuentaSinVerificarConLaClaveBuenaRecibe409YNoSeLeDaSesion() {
+        cuentas.add(cuentaSinVerificar());
+
+        ErroresDeNegocio.Conflicto error =
+                assertThrows(ErroresDeNegocio.Conflicto.class, () -> login(SIN_VERIFICAR, CLAVE));
+        assertEquals("Verificá tu email antes de iniciar sesión.", error.getMessage());
+        // La clave era la correcta: no cuenta como fallido para el límite.
+        assertTrue(intentos.guardados.isEmpty());
+    }
+
+    /**
+     * Con la clave mala, una cuenta sin verificar recibe el mismo 401 que cualquiera y el
+     * intento cuenta. Si el control del email fuera antes que el de la contraseña, el 409 le
+     * diría a quien no sabe la clave que ese email tiene una cuenta.
+     */
+    @Test
+    void unaCuentaSinVerificarConLaClaveMalaRecibeElMismo401YElIntentoCuenta() {
+        cuentas.add(cuentaSinVerificar());
+
+        ErroresDeNegocio.NoAutenticado error =
+                assertThrows(ErroresDeNegocio.NoAutenticado.class, () -> login(SIN_VERIFICAR, CLAVE_MALA));
+        assertEquals("Revisá el email y la contraseña.", error.getMessage());
+        assertEquals(1, intentos.guardados.size());
+    }
+
+    @Test
     void elFallidoNoDeshaceLaTransaccionParaQueElIntentoQuedeGuardado() {
         ApplicationException anotacion =
                 ServicioDeUsuarios.CredencialesIncorrectas.class.getDeclaredAnnotation(ApplicationException.class);
@@ -188,6 +217,12 @@ class LimiteDeIntentosDeLoginTest {
 
     private SesionDto login(String email, String clave) {
         return servicio.iniciarSesion(new LoginDto(email, clave));
+    }
+
+    /** Se registró con {@link #CLAVE} pero todavía no puso el código que le llegó por email. */
+    private static Usuario cuentaSinVerificar() {
+        return new Usuario("user-7c41d0aa", "Luis", "Pérez", "29999999", SIN_VERIFICAR, null,
+                LocalDate.of(1990, 1, 10), HASH, Rol.USER);
     }
 
     private void avanzar(Duration tiempo) {
