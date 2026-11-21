@@ -2,6 +2,111 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Temas visuales: normal, claro y oscuro.
+ *
+ * Todos los colores de la app son estas variables. Van en canales R G B (sin rgb()) porque
+ * tailwind.config.js arma cada color como rgb(var(--color-...) / <alpha-value>): así una clase
+ * como bg-paper o text-ink toma el valor del tema puesto, y las opacidades (bg-paper/95) siguen
+ * andando. Al lado de cada valor va el mismo color en hexadecimal.
+ *
+ * El tema es el atributo data-tema de <html>, que pone src/lib/tema.ts. Sin atributo o con
+ * "normal" vale :root, que es el aspecto de siempre de Palco; "claro" y "oscuro" solo redefinen
+ * las variables. Cambiar de tema es cambiar ese atributo: el navegador vuelve a pintar con los
+ * colores nuevos sin recargar la página ni volver a montar React.
+ *
+ * Contraste (WCAG 2.2 AA) en los tres temas: el texto llega a 4,5:1 contra el fondo sobre el que
+ * aparece y el foco a 3:1. La única excepción es la del tema normal, que ya estaba: faint sobre
+ * fill (4,22:1) solo aparece en los pasos todavía no habilitados del Stepper, que son botones
+ * deshabilitados, y WCAG no les pide contraste.
+ */
+:root {
+  /* Superficies: el fondo de la página, paneles y rellenos (rieles, esqueletos de carga). */
+  --color-paper: 250 249 247; /* #FAF9F7 */
+  --color-desk: 237 235 230; /* #EDEBE6 */
+  --color-panel: 251 250 248; /* #FBFAF8 */
+  --color-fill: 242 240 234; /* #F2F0EA */
+  --color-slab: 232 229 222; /* #E8E5DE */
+  --color-trama: 228 225 217; /* #E4E1D9, las rayas del lugar de una foto */
+  /* Bordes, de más suave a más marcado. */
+  --color-line: 227 224 217; /* #E3E0D9 */
+  --color-edge: 217 213 204; /* #D9D5CC */
+  --color-wire: 201 198 191; /* #C9C6BF */
+  /* Texto, de más fuerte a más tenue. faint es lo más tenue que se usa para texto: 4,57:1 sobre paper. */
+  --color-ink: 26 25 23; /* #1A1917 */
+  --color-graphite: 74 71 63; /* #4A473F */
+  --color-muted: 107 103 94; /* #6B675E */
+  --color-faint: 117 114 106; /* #75726A */
+  /* Acento: enlaces, botón principal, foco. on-accent es el texto que va encima del acento. */
+  --color-accent: 46 91 255; /* #2E5BFF */
+  --color-accent-dk: 27 63 204; /* #1B3FCC */
+  --color-accent-lt: 126 151 255; /* #7E97FF, el acento sobre la superficie oscura */
+  --color-on-accent: 255 255 255; /* #FFFFFF */
+  /* La superficie oscura (franja del encabezado, reventa del catálogo, tarjetas de reventa, fondo
+     de un modal) y lo que va encima. Es oscura en los tres temas. */
+  --color-dark: 26 25 23; /* #1A1917 */
+  --color-on-dark-strong: 250 249 247; /* #FAF9F7 */
+  --color-on-dark: 168 164 154; /* #A8A49A */
+  --color-dark-line: 53 51 46; /* #35332E */
+}
+
+/* Claro: fondo blanco y grises fríos, con el texto y el acento un poco más marcados que en el normal. */
+:root[data-tema='claro'] {
+  --color-paper: 255 255 255; /* #FFFFFF */
+  --color-desk: 239 241 244; /* #EFF1F4 */
+  --color-panel: 246 247 249; /* #F6F7F9 */
+  --color-fill: 241 243 246; /* #F1F3F6 */
+  --color-slab: 228 231 236; /* #E4E7EC */
+  --color-trama: 226 229 234; /* #E2E5EA */
+  --color-line: 226 229 234; /* #E2E5EA */
+  --color-edge: 204 210 218; /* #CCD2DA */
+  --color-wire: 179 187 198; /* #B3BBC6 */
+  --color-ink: 15 18 24; /* #0F1218 */
+  --color-graphite: 45 52 64; /* #2D3440 */
+  --color-muted: 73 81 96; /* #495160 */
+  --color-faint: 86 96 112; /* #566070 */
+  --color-accent: 42 87 242; /* #2A57F2 */
+  --color-accent-dk: 23 59 180; /* #173BB4 */
+  --color-accent-lt: 157 178 255; /* #9DB2FF */
+  --color-on-accent: 255 255 255; /* #FFFFFF */
+  --color-dark: 15 18 24; /* #0F1218 */
+  --color-on-dark-strong: 255 255 255; /* #FFFFFF */
+  --color-on-dark: 181 188 199; /* #B5BCC7 */
+  --color-dark-line: 38 44 54; /* #262C36 */
+}
+
+/*
+ * Oscuro: los mismos tonos cálidos del normal, invertidos. El texto pasa a claro, el acento a un
+ * azul claro y el texto sobre el acento a oscuro, porque el blanco sobre ese azul no llega a 4,5:1.
+ * La superficie oscura queda un poco más oscura que la página.
+ */
+:root[data-tema='oscuro'] {
+  /* Los controles del navegador (listas desplegables, casillas, barras de desplazamiento) también
+     se dibujan oscuros. */
+  color-scheme: dark;
+  --color-paper: 26 25 23; /* #1A1917 */
+  --color-desk: 18 17 16; /* #121110 */
+  --color-panel: 31 30 27; /* #1F1E1B */
+  --color-fill: 37 36 32; /* #252420 */
+  --color-slab: 48 46 42; /* #302E2A */
+  --color-trama: 48 46 42; /* #302E2A */
+  --color-line: 51 49 44; /* #33312C */
+  --color-edge: 71 68 62; /* #47443E */
+  --color-wire: 92 88 80; /* #5C5850 */
+  --color-ink: 242 240 234; /* #F2F0EA */
+  --color-graphite: 212 208 199; /* #D4D0C7 */
+  --color-muted: 176 171 161; /* #B0ABA1 */
+  --color-faint: 162 157 147; /* #A29D93 */
+  --color-accent: 143 165 255; /* #8FA5FF */
+  --color-accent-dk: 179 194 255; /* #B3C2FF */
+  --color-accent-lt: 143 165 255; /* #8FA5FF */
+  --color-on-accent: 20 19 18; /* #141312 */
+  --color-dark: 15 14 13; /* #0F0E0D */
+  --color-on-dark-strong: 242 240 234; /* #F2F0EA */
+  --color-on-dark: 173 168 158; /* #ADA89E */
+  --color-dark-line: 54 52 47; /* #36342F */
+}
+
 * {
   border-radius: 0 !important;
 }
@@ -17,8 +122,8 @@ body,
 }
 
 body {
-  background-color: theme('colors.paper');
-  color: theme('colors.ink');
+  background-color: rgb(var(--color-paper));
+  color: rgb(var(--color-ink));
   font-family: 'Archivo', sans-serif;
 }
 
@@ -29,7 +134,7 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid #2e5bff;
+  outline: 2px solid rgb(var(--color-accent));
   outline-offset: 2px;
 }
 
@@ -46,14 +151,19 @@ body {
 }
 
 .skeleton-shimmer {
-  background: linear-gradient(90deg, #f2f0ea 25%, #e8e5de 50%, #f2f0ea 75%);
+  background: linear-gradient(
+    90deg,
+    rgb(var(--color-fill)) 25%,
+    rgb(var(--color-slab)) 50%,
+    rgb(var(--color-fill)) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite linear;
 }
 
 .image-placeholder {
-  background-color: #f2f0ea;
-  background-image: repeating-linear-gradient(45deg, #e4e1d9 0 1px, transparent 1px 12px);
+  background-color: rgb(var(--color-fill));
+  background-image: repeating-linear-gradient(45deg, rgb(var(--color-trama)) 0 1px, transparent 1px 12px);
 }
 
 @media (prefers-reduced-motion: reduce) {

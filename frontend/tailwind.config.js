@@ -1,26 +1,37 @@
+// Cada color lee su variable de src/index.css, que cambia según el tema (normal, claro u oscuro).
+// Las variables van en canales R G B, así que <alpha-value> deja seguir usando opacidades como
+// bg-paper/95. Los valores de cada tema y su contraste están comentados en src/index.css.
+const color = (variable) => `rgb(var(--color-${variable}) / <alpha-value>)`;
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
-        paper: '#FAF9F7',
-        desk: '#EDEBE6',
-        ink: '#1A1917',
-        graphite: '#4A473F',
-        muted: '#6B675E',
-        // Lo más claro que se usa para texto: 4,57:1 sobre paper, el mínimo de WCAG AA es 4,5:1.
-        faint: '#75726A',
-        line: '#E3E0D9',
-        edge: '#D9D5CC',
-        wire: '#C9C6BF',
-        fill: '#F2F0EA',
-        slab: '#E8E5DE',
-        accent: '#2E5BFF',
-        accentDk: '#1B3FCC',
-        accentLt: '#7E97FF',
-        onDark: '#A8A49A',
-        darkLine: '#35332E',
+        paper: color('paper'),
+        desk: color('desk'),
+        panel: color('panel'),
+        ink: color('ink'),
+        graphite: color('graphite'),
+        muted: color('muted'),
+        // Lo más claro que se usa para texto: en el tema normal da 4,57:1 sobre paper, el mínimo de
+        // WCAG AA es 4,5:1.
+        faint: color('faint'),
+        line: color('line'),
+        edge: color('edge'),
+        wire: color('wire'),
+        fill: color('fill'),
+        slab: color('slab'),
+        accent: color('accent'),
+        accentDk: color('accent-dk'),
+        accentLt: color('accent-lt'),
+        onAccent: color('on-accent'),
+        // La superficie oscura (encabezado, franja de la reventa, fondo de los modales) y su texto.
+        dark: color('dark'),
+        onDarkStrong: color('on-dark-strong'),
+        onDark: color('on-dark'),
+        darkLine: color('dark-line'),
       },
       fontFamily: {
         sans: ['Archivo', 'sans-serif'],

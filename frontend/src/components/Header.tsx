@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useSesion } from '../store/SesionContext';
 import { soltarReserva } from '../servicios/ventas';
+import SelectorDeTema from './SelectorDeTema';
 
 const ENLACE = 'whitespace-nowrap text-graphite hover:text-ink';
 
@@ -23,7 +24,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40">
-      <div className="flex h-[34px] items-center justify-center gap-2 bg-ink px-4 text-onDark">
+      <div className="flex h-[34px] items-center justify-center gap-2 bg-dark px-4 text-onDark">
         <span className="h-1.5 w-1.5 rounded-dot bg-accent" aria-hidden="true" />
         <p className="font-mono-label text-center text-[10px]">
           Toda entrada es nominativa · Reventa oficial con tope de +10%
@@ -36,50 +37,55 @@ export default function Header() {
           <Link to="/" className="shrink-0 text-xl font-semibold tracking-tight text-ink">
             Palco<span className="text-accent">.</span>
           </Link>
-          <nav
-            aria-label="Principal"
-            className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm sm:gap-x-4"
-          >
-            <Link to="/reventa" className={ENLACE}>
-              Reventa
-            </Link>
-            {usuarioActual ? (
-              <>
-                {/* Cada rol ve solo lo que puede usar: comprar y tener entradas es del rol user. */}
-                {usuarioActual.rol === 'user' && (
-                  <Link to="/mis-entradas" className={ENLACE}>
-                    Mis entradas
-                  </Link>
-                )}
-                {usuarioActual.rol === 'organizer' && (
-                  <Link to="/organizador" className={ENLACE}>
-                    Organizador
-                  </Link>
-                )}
-                {usuarioActual.rol === 'staff' && (
-                  <Link to="/puerta" className={ENLACE}>
-                    Puerta
-                  </Link>
-                )}
-                <Link to="/asistente" className={ENLACE}>
-                  Asistente
-                </Link>
-                <button
-                  type="button"
-                  onClick={cerrarSesion}
-                  className="font-mono-label whitespace-nowrap border border-edge px-3 py-2 text-[11px]"
-                >
-                  {/* En el celular el nombre no entra: queda solo "salir". */}
-                  <span className="hidden sm:inline">{usuarioActual.nombre} · </span>
-                  salir
-                </button>
-              </>
-            ) : (
-              <Link to="/ingresar" className="font-mono-label whitespace-nowrap border border-edge px-3 py-2 text-[11px]">
-                Ingresar
+          {/* El selector de tema va al lado del menú y no adentro: no lleva a otra página. Si no
+              entra en el renglón, baja al siguiente. */}
+          <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 sm:gap-x-6">
+            <nav
+              aria-label="Principal"
+              className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm sm:gap-x-4"
+            >
+              <Link to="/reventa" className={ENLACE}>
+                Reventa
               </Link>
-            )}
-          </nav>
+              {usuarioActual ? (
+                <>
+                  {/* Cada rol ve solo lo que puede usar: comprar y tener entradas es del rol user. */}
+                  {usuarioActual.rol === 'user' && (
+                    <Link to="/mis-entradas" className={ENLACE}>
+                      Mis entradas
+                    </Link>
+                  )}
+                  {usuarioActual.rol === 'organizer' && (
+                    <Link to="/organizador" className={ENLACE}>
+                      Organizador
+                    </Link>
+                  )}
+                  {usuarioActual.rol === 'staff' && (
+                    <Link to="/puerta" className={ENLACE}>
+                      Puerta
+                    </Link>
+                  )}
+                  <Link to="/asistente" className={ENLACE}>
+                    Asistente
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={cerrarSesion}
+                    className="font-mono-label whitespace-nowrap border border-edge px-3 py-2 text-[11px]"
+                  >
+                    {/* En el celular el nombre no entra: queda solo "salir". */}
+                    <span className="hidden sm:inline">{usuarioActual.nombre} · </span>
+                    salir
+                  </button>
+                </>
+              ) : (
+                <Link to="/ingresar" className="font-mono-label whitespace-nowrap border border-edge px-3 py-2 text-[11px]">
+                  Ingresar
+                </Link>
+              )}
+            </nav>
+            <SelectorDeTema />
+          </div>
         </div>
       </div>
     </header>

@@ -7,6 +7,11 @@ import App from './App.tsx';
 import { AppProvider } from './store/AppContext';
 import { SesionProvider } from './store/SesionContext';
 import { ToastProvider } from './components/ToastProvider';
+import { aplicarTema, temaGuardado } from './lib/tema';
+
+// El tema guardado se pone antes de montar la app: ninguna pantalla se dibuja con los colores
+// de otro tema y después cambia.
+aplicarTema(temaGuardado());
 
 // El orden importa: SesionProvider avisa "sesión vencida" con un toast, y AppProvider toma el
 // usuario de la sesión.
