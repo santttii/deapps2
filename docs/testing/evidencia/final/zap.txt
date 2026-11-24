@@ -1,0 +1,49 @@
+OWASP ZAP 2.17.0 sobre fbd31dc
+Fuente: run 44867187257, workflow "ZAP" (21/11/2026, 04:39:41 a 04:44:14 UTC, success), artefacto reporte-zap:
+logs/zap/resumen.md, que arma scripts/qa/zap-resumen.mjs con baseline.json y api.json. Baseline (pasivo) contra la
+app por nginx y escaneo de la API autenticada (pasivo y activo, política API-Minimal) con el token de
+titular@palco.test. Justificaciones y falsos positivos: .zap/reglas.tsv.
+
+Baseline (https://web):
+| Riesgo | Alerta | Regla | Instancias | Estado |
+|---|---|---|---|---|
+| Medium | CSP: style-src unsafe-inline | 10055 | 3 | Justificada en .zap/reglas.tsv |
+| Medium | CSP: Wildcard Directive | 10055 | 3 | Justificada en .zap/reglas.tsv |
+| Low | Cross-Origin-Embedder-Policy Header Missing or Invalid | 90004 | 2 | Sin justificar (Low: no corta la corrida) |
+| Low | Cross-Origin-Opener-Policy Header Missing or Invalid | 90004 | 2 | Sin justificar (Low: no corta la corrida) |
+| Low | Cross-Origin-Resource-Policy Header Missing or Invalid | 90004 | 5 | Sin justificar (Low: no corta la corrida) |
+| Info | Information Disclosure - Suspicious Comments | 10027 | 1 | Informativa |
+| Info | Modern Web Application | 10109 | 3 | Informativa |
+| Info | Re-examine Cache-control Directives | 10015 | 3 | Informativa |
+| Info | Storable and Cacheable Content | 10049 | 5 | Informativa |
+
+API autenticada (https://web):
+| Riesgo | Alerta | Regla | Instancias | Estado |
+|---|---|---|---|---|
+| High | SQL Injection | 40018 | 4 (4 falsos positivos) | Falso positivo verificado |
+| Low | Cross-Origin-Resource-Policy Header Missing or Invalid | 90004 | 5 | Sin justificar (Low: no corta la corrida) |
+| Low | Unexpected Content-Type was returned | 100001 | 14 | Sin justificar (Low: no corta la corrida) |
+| Info | A Client Error response code was returned by the server | 100000 | 252 | Informativa |
+| Info | Authentication Request Identified | 10111 | 3 | Informativa |
+| Info | Information Disclosure - Sensitive Information in URL | 10024 | 1 | Informativa |
+| Info | Non-Storable Content | 10049 | 5 | Informativa |
+| Info | Re-examine Cache-control Directives | 10015 | 5 | Informativa |
+
+Medium justificadas, una por una (resumen.md):
+- CSP: style-src unsafe-inline (10055): framer-motion y React escriben estilos en línea; script-src sigue en 'self',
+  sin 'unsafe-inline' ni 'unsafe-eval', y object-src en 'none'. Anotado también en frontend/docker/nginx.conf.
+- CSP: Wildcard Directive (10055): la directiva amplia es img-src https: (fotos de eventos en el almacenamiento de
+  Supabase); una imagen no ejecuta código y connect-src queda en 'self'.
+
+Falsos positivos verificados (High 40018, una instancia por renglón en .zap/reglas.tsv):
+- POST https://web/api/usuarios/registro, parámetros apellido, dni y telefono: el pedido lo corta con 400 la validación
+  del DTO; lo que cambia entre las respuestas de ZAP es el orden de los campos en "errores" (DEF-62). Usuarios consulta
+  solo con JPQL y parámetros con nombre.
+- POST https://web/api/v1/asistente/preguntas, parámetro pregunta: el asistente no usa base de datos; lo que cambia es
+  el campo milisegundos de la respuesta.
+Cómo se comprobó cada uno está en el encabezado de .zap/reglas.tsv. Otra instancia de la misma alerta, en otra URL u
+otro parámetro, cuenta como High y corta la corrida.
+
+Resultado (resumen.md): "High: 0. Medium: 2 (2 justificadas). Low: 5 (5 sin justificar). Informativas: 9. Instancias
+descontadas como falsos positivos verificados: 4." "Cumple el criterio: ninguna alerta High y todas las Medium
+justificadas."

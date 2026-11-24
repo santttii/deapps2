@@ -1,0 +1,27 @@
+Pruebas de seguridad (scripts/pruebas/seguridad.mjs y frontend/e2e/xss.spec.ts) sobre fbd31dc
+Fuente: run 44867187123, workflow "Pruebas de seguridad" (21/11/2026, 04:39:40 a 04:42:41 UTC, success), artefacto
+pruebas-seguridad: resultados-seguridad/seguridad.txt. Contra el docker compose del job, por nginx (https://localhost)
+y directo al backend (http://localhost:8080), con la clave JWT de la corrida.
+
+RESUMEN de seguridad.mjs (21/11/2026, 04:42:09):
+PASA   A. Tokens JWT manipulados: 401 en cada servicio  (11/11 comprobaciones)
+PASA   B. Mass assignment: los campos que fija el servidor no los cambia el cliente  (20/20 comprobaciones)
+PASA   C. XSS almacenado: el HTML de un evento y de un titular se guarda y se devuelve como texto  (6/6 comprobaciones)
+PASA   D. XXE en el canal SOAP (/legado/arca): el DOCTYPE se rechaza sin expandir las entidades  (6/6 comprobaciones)
+PASA   E. Sin cookies, con CSP, HSTS y nosniff, CORS sin comodín y sin datos personales en las respuestas  (21/21 comprobaciones)
+
+64 de 64 comprobaciones
+TODO BIEN
+
+Bloque A, en detalle: el token vencido, de otro emisor, sin exp, con alg none, con la firma alterada, con el rol
+servicio agregado, firmado con otra clave RSA y con HS256 y la clave pública (confusión de algoritmo) dan 401
+token-invalido en Problem Details, sin stack trace, en Usuarios, Eventos, Ventas, Reventa y Validación.
+
+frontend/e2e/xss.spec.ts en el navegador (Chromium):
+  ok 1 XSS almacenado: el HTML que el organizador carga en su evento se ve como texto en el panel, el catálogo y el detalle (4.2s)
+  ok 2 XSS sin pasar por el formulario: un título con HTML guardado por la API y una búsqueda con HTML se ven como texto, sin sesión (2.2s)
+  2 passed (7.3s)
+
+Las mismas dos pruebas pasaron también en el job "E2E" del run 44867187162 (31 de 31).
+Fuerza bruta (429), BOLA y BFLA: carpeta 4 de la colección de Postman, en el job "API" del run 44867187162 (216
+requests, 673 aserciones, 0 fallas), y escenarios 5 y 21 de escenarios.mjs (PASA).

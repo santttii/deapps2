@@ -1,0 +1,22 @@
+Dependencias e imágenes (Trivy v0.76.2) sobre fbd31dc
+Fuente: run 44867187171, workflow "Seguridad" (21/11/2026, 04:39:41 a 04:41:45 UTC, success), artefactos
+trivy-dependencias, trivy-imagen-backend y trivy-imagen-web. Severidades buscadas: CRITICAL y HIGH, con o sin arreglo;
+excepciones en .trivyignore, cada una con su motivo y su vencimiento (exp:).
+
+1. Dependencias del repo (trivy fs, job "Dependencias del repo", 28 s)
+   15 objetivos: los 14 pom.xml del backend y frontend/package-lock.json. Vulnerabilidades: 0 en cada uno.
+
+2. Imagen web (trivy image, job "Imagen: web", 40 s)
+   palco-web (alpine 3.24.4): 0.
+
+3. Imagen backend (trivy image, job "Imagen: backend", 2 min 01 s)
+   palco-backend (ubuntu 26.04) y los jar de WildFly: "Total: 0 (HIGH: 0, CRITICAL: 0)".
+   "Suppressed Vulnerabilities (Total: 6)", todas HIGH, todas por .trivyignore:
+     com.fasterxml.jackson.core:jackson-core      CVE-2026-89407, CVE-2026-89425
+     com.fasterxml.jackson.core:jackson-databind  CVE-2026-91776, CVE-2026-91777, CVE-2026-68497
+     com.google.guava:guava                       CVE-2026-102554
+   Vienen dentro de los módulos de WildFly 41.0.1, no de una dependencia de Palco. Vencen el 2026-12-31. El motivo y
+   cómo se comprobó que no aplican (Palco lee el JSON con JSON-B, no importa Jackson ni Guava, la mensajería es solo
+   TextMessage) está escrito en .trivyignore.
+
+Resultado: 0 CVE críticas o altas fuera de .trivyignore; 6 altas aceptadas con su motivo y su vencimiento.
