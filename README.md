@@ -185,14 +185,18 @@ en el repo: el secreto entre servicios y la clave de los tokens se generan en ca
 | Bajar todo | `docker compose down` (con `-v` borra también la base y los mensajes que el broker tenía guardados) |
 | Ver el log del servidor | `docker compose logs -f backend` |
 | Usar otros puertos (si el 80, el 443 o el 8080 están ocupados) | Un `.env` en la raíz con `PALCO_PUERTO_HTTP`, `PALCO_PUERTO_HTTPS`, `PALCO_URL_PUBLICA` y `PALCO_PUERTO_BACKEND` (ver [Si algo traba](#si-algo-traba)) |
+| Registrar cuentas nuevas sin SMTP (el código de verificación queda en el log) | `PALCO_CORREO_LOG_COMPLETO=true` en el `.env` de la raíz, o en el entorno, antes del `up` (ver "Emails" en [API disponible](#api-disponible)) |
 
 Para correr la prueba de integración contra el compose (en Bash, o en Git Bash en Windows, y con Node 18 o más
 nuevo), el secreto entre servicios se define antes del `up`: los guiones lo necesitan para pedir el token de rol
-`servicio`, y el que genera el backend no se muestra.
+`servicio`, y el que genera el backend no se muestra. También va `PALCO_CORREO_LOG_COMPLETO=true`: los escenarios
+leen del log el código de las cuentas nuevas y los avisos por email, y el compose, sin esa variable, escribe de cada
+email solo el destinatario enmascarado y el asunto.
 
 ```bash
 export PALCO_SECRETO_SERVICIOS="$(openssl rand -hex 32)"
 export PALCO_DIR_LOGS=./logs PALCO_LOG=logs/server.log JBOSS_CLI=scripts/qa/jboss-cli-docker.sh
+export PALCO_CORREO_LOG_COMPLETO=true  # cada email entero en el log, con su código
 mkdir -p logs && chmod 777 logs        # el contenedor escribe server.log en esa carpeta
 docker compose up --build --wait
 node scripts/pruebas/escenarios.mjs
@@ -366,12 +370,15 @@ corresponde, 403. Las cuentas de prueba son las mismas de la tabla de abajo.
 
 **Emails:** con un servidor SMTP configurado (`PALCO_SMTP_HOST` y las demás
 variables `PALCO_SMTP_*` de `backend/.env.example`) salen de verdad. Sin él
-quedan en el log del servidor. `backend/dev.sh` y el `docker-compose.yml` prenden el
-modo de desarrollo (`PALCO_CORREO_LOG_COMPLETO=true`), que escribe cada email entero en
-un renglón con el formato `Email para <email> (<asunto>): <cuerpo>`. Sin esa variable,
-como en un despliegue, el renglón solo dice a quién iba, enmascarado (`a***@ejemplo.com`),
-y el asunto: el cuerpo lleva nombres, titulares y códigos, que no van a un log. En el modo
-de desarrollo se lee, por ejemplo, el código de verificación del registro:
+quedan en el log del servidor. `backend/dev.sh` prende el modo de desarrollo
+(`PALCO_CORREO_LOG_COMPLETO=true`), que escribe cada email entero en un renglón con el
+formato `Email para <email> (<asunto>): <cuerpo>`. El `docker-compose.yml`, no: sin esa
+variable, como en un despliegue, el renglón solo dice a quién iba, enmascarado
+(`a***@ejemplo.com`), y el asunto, porque el cuerpo lleva nombres, titulares y códigos, que
+no van a un log. Para registrar cuentas nuevas con el compose y sin SMTP, se lo levanta con
+`PALCO_CORREO_LOG_COMPLETO=true` en el `.env` de la raíz o en el entorno, como hacen los
+jobs del CI que leen el código del log. En el modo de desarrollo se lee, por ejemplo, el
+código de verificación del registro:
 
 ```
 Email para ana@ejemplo.com (Tu código de Palco): Hola Ana: tu código para verificar el email es 123456. Vence en 15 minutos.
@@ -412,8 +419,9 @@ Reventa piden el rol `user`. En producción se desactivan con
 
 También se pueden crear compradores desde `/registro`: el código de 6 dígitos
 llega por email o, sin SMTP, queda en el log del servidor (ver "Emails" más
-arriba; con Docker, se busca "Email para" en `docker compose logs backend`). Con el
-email verificado, la cuenta ya puede comprar.
+arriba; con Docker, el compose tiene que estar levantado con `PALCO_CORREO_LOG_COMPLETO=true`
+y se busca "Email para" en `docker compose logs backend`). Con el email verificado, la
+cuenta ya puede comprar.
 
 ## Funcionalidades
 
@@ -486,7 +494,8 @@ Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anu
 6. Publicar una de las entradas en la reventa oficial (probar precios por encima
    del tope para ver el bloqueo).
 7. Cerrar sesión y entrar como `otro.titular@palco.test` (o crear una cuenta en
-   `/registro`), ir a `/reventa` y comprar esa publicación.
+   `/registro`: sin SMTP, el código sale del log, ver [Usuarios de prueba](#usuarios-de-prueba)),
+   ir a `/reventa` y comprar esa publicación.
 8. Entrar como `puerta@palco.test`, ir a `/puerta`, elegir el evento y validar
    el código de una entrada (su `codigoQr`, de `GET /api/v1/entradas/{entradaId}`):
    la primera vez da válida y la segunda, ya usada. Probar también un código
@@ -522,18 +531,28 @@ el servidor levantado.
 
 El frontend tiene pruebas de punta a punta con Playwright en `frontend/e2e/`:
 recorren en el navegador el login de cada rol, el catálogo, la compra, la
-reventa, el panel del organizador, la puerta, el asistente y el registro.
+reventa, el panel del organizador, la puerta, el asistente, el registro y los
+avisos de una factura rechazada o demorada.
 Necesitan el backend y la app levantados; cada prueba crea sus propios datos.
 
 ```bash
 cd frontend && npx playwright install chromium   # una sola vez
 cd frontend && npm run e2e                       # contra http://localhost:5173
-PALCO_E2E_URL=https://localhost PALCO_LOG=../logs/server.log npm run e2e   # contra el compose (con PALCO_DIR_LOGS=./logs)
+PALCO_E2E_URL=https://localhost PALCO_LOG=../logs/server.log npm run e2e   # contra el compose (ver abajo)
 ```
 
 Para dar de alta cuentas nuevas leen el código de verificación del log del
-servidor (`PALCO_LOG`; por defecto, el que escribe `dev.sh`). Además, `npm run lint`
-y `npm run build` controlan el código del frontend.
+servidor (`PALCO_LOG`; por defecto, el que escribe `dev.sh`). El compose lo escribe
+solo con `PALCO_CORREO_LOG_COMPLETO=true`, así que para correrlas contra él se lo
+levanta desde la raíz con el log en `./logs` y esa variable, como en el job E2E del CI:
+
+```bash
+export PALCO_DIR_LOGS=./logs PALCO_CORREO_LOG_COMPLETO=true
+mkdir -p logs && chmod 777 logs        # el contenedor escribe server.log en esa carpeta
+docker compose up --build --wait
+```
+
+Además, `npm run lint` y `npm run build` controlan el código del frontend.
 
 ## Stack
 
@@ -563,7 +582,8 @@ y `npm run build` controlan el código del frontend.
 - `qrcode` para dibujar el código QR de cada entrada
 - Validaciones de formulario escritas a mano (sin Formik ni React Hook Form)
 - oxlint para lint
-- Tipografías: Archivo (títulos y UI) e IBM Plex Mono (datos), desde Google Fonts
+- Tipografías: Archivo (títulos y UI) e IBM Plex Mono (datos), servidas desde el propio sitio
+  (`frontend/public/fuentes`, con su licencia SIL Open Font License), sin pedir nada a Google Fonts
 
 ## Estructura del proyecto
 

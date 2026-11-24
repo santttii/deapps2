@@ -6,7 +6,8 @@ import { PASSWORD, expect, ingresar, marcaDelLog, menu, sufijo, test } from './a
 
 // Recuperar la contraseña (HU-03) en dos pasos: el email, al que llega un código de 6 dígitos, y la
 // contraseña nueva con ese código. Como en el registro, sin SMTP el servidor deja el email en su log
-// (con PALCO_CORREO_LOG_COMPLETO=true, que prenden dev.sh y el compose) y de ahí lo lee la prueba, como
+// (con PALCO_CORREO_LOG_COMPLETO=true, que prende dev.sh; el compose, solo si se lo levanta con esa
+// variable, como en el job E2E del CI) y de ahí lo lee la prueba, como
 // lo haría la persona en su casilla. Cada prueba usa una cuenta nueva: cambiarle la contraseña a una
 // cuenta de prueba de las migraciones rompería las demás pruebas.
 

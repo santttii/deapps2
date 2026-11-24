@@ -26,10 +26,11 @@ import com.palco.common.Textos;
  *
  * Es un modo de desarrollo y hay que pedirlo: sin SMTP el log es la única
  * bandeja de entrada, y sin el código no se puede verificar una cuenta nueva.
- * Lo prenden {@code backend/dev.sh} y el {@code docker-compose.yml} de la demo,
- * que es el mismo que levanta el CI: las pruebas E2E, {@code scripts/pruebas}
- * y los "Pasos manuales" de Postman sacan el código de ese renglón, y su
- * formato no cambió. En un despliegue no se define: ahí los emails salen por
+ * Lo prende {@code backend/dev.sh}. El {@code docker-compose.yml} lo deja
+ * apagado por defecto y lo prende solo si se lo levanta con la variable en
+ * {@code true}, como hacen los jobs del CI que lo necesitan: las pruebas E2E,
+ * {@code scripts/pruebas} y los "Pasos manuales" de Postman sacan el código de
+ * ese renglón, y su formato no cambió. En un despliegue no se define: ahí los emails salen por
  * SMTP ({@link CorreoSmtp}) y, si faltara el servidor, el log queda como en el
  * primer ejemplo. Cualquier valor que no sea {@code true} (en mayúsculas o
  * minúsculas) cuenta como apagado, para que un error de tipeo no deje datos

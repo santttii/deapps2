@@ -2,8 +2,9 @@
 // verificado, así cada usuario virtual compra con su propia cuenta y no choca con el tope de 6 entradas por
 // persona y evento. Se crean antes de la prueba y no durante, porque el registro cuesta un hash de contraseña y
 // no es lo que se mide. Como en scripts/pruebas y en las pruebas E2E, el código de verificación sale del
-// server.log: sin SMTP, el servidor escribe ahí el email, y con PALCO_CORREO_LOG_COMPLETO=true (como lo dejan
-// dev.sh y el docker compose) lo escribe entero, con el destinatario y el código.
+// server.log: sin SMTP, el servidor escribe ahí el email, y con PALCO_CORREO_LOG_COMPLETO=true (como lo deja
+// dev.sh; el docker compose, solo si se lo levanta con esa variable, como en carga.yml) lo escribe entero, con
+// el destinatario y el código.
 //
 //   node scripts/carga/cuentas.mjs [cantidad]        50 por defecto
 //
