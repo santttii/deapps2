@@ -4,7 +4,7 @@ La colección `docs/api/palco-api.postman_collection.json` se corre entera, en o
 
 La colección no se edita a mano: la genera `scripts/postman/generar.js` (sección 12).
 
-Última comprobación: 19/11/2026, con Newman 6.2.3 contra WildFly en `http://localhost:8080`: las nueve carpetas, 171 requests (los 166 que tenía entonces la colección y los cinco intentos de login previos de SEC-W04) y 541 aserciones, sin fallas. Las comprobaciones anteriores, del 14/10 y del 16/10/2026, están en las secciones 7 y 13.
+Última comprobación: 24/11/2026, con Newman 6.2.3 contra el sistema levantado con `docker compose` (el backend en `http://localhost:8080`): las nueve carpetas, 219 requests (los 214 de la colección y los cinco intentos de login previos de SEC-W04) y 682 aserciones, sin fallas. Las comprobaciones anteriores, del 14/10, del 16/10 y del 19/11/2026, están en las secciones 7 y 13.
 
 ## 1. Qué hace falta
 
@@ -25,7 +25,7 @@ La colección no se edita a mano: la genera `scripts/postman/generar.js` (secci�
 | **3 Diseño v1 (Ventas implementado)** | 32 | La compra contra `/api/v1`, en un evento que crea la carpeta en cada corrida (Platea B a 27.500, como el de la demo): abrir la compra con reserva de cupo, idempotencia (también la misma clave con otro pedido, 409), pago rechazado, pago aprobado, venta y entrada, emisión asincrónica de la entrada, listado de las compras propias (con y sin token), aislamiento entre usuarios, control de rol y cancelación |
 | **4 Seguridad (clase 11)** | 15 | Los criterios de la matriz de seguridad de la clase 11 que se prueban por HTTP, cada uno con su id (`SEC-…`): recurso ajeno, rol equivocado, sin token, mensajes de login genéricos, token alterado o sin firma, vigencia del token, errores sin información interna, perfil sin contraseña y límite de intentos de login. Ver la sección 13 |
 | **5 Validación en puerta (implementado)** | 27 | `organizador@palco.test` asigna `puerta@palco.test` a la puerta del evento de la compra (`PUT /v1/validacion/puertas/{eventoId}/{email}`, 200) y no puede asignar una cuenta de comprador (422 `no-es-de-puerta`); el equipo de puerta del evento (`GET /v1/validacion/puertas`, 200, y 404 el de un evento ajeno) y las puertas propias del staff (`/puertas/mias`, 200, y 403 con rol `organizer`). Esa cuenta escanea el código QR de la entrada que pagó la carpeta 3: sin token (401), con rol `user` (403), sin evento (400), un código inexistente (`INEXISTENTE`), la puerta de otro evento (`OTRO_EVENTO`), el primer escaneo (`VALIDA`: la persona entra y Ventas marca la entrada `USADA`) y el segundo (`YA_USADA`, con el uso anterior). Después, la entrada `USADA` en Ventas y el registro de la puerta (lista, el de un evento ajeno pedido por el organizador, 404, sin `eventoId`, un renglón y uno que no existe, 404). Al final, la operación interna de Ventas que usa Validación (`POST /v1/entradas/usos`, rol `servicio`) con la otra entrada de la compra (200 `USADA`, y 409 `entrada-ya-usada` al repetirla), quitar la cuenta de la puerta (403 con rol `staff`, 204 con el organizador) y el escaneo sin la puerta asignada (403 `puerta-no-asignada`). Todo escaneo responde 201: si la persona entra lo dicen `resultado` y `puedeEntrar` |
-| **6 Reventa (implementado)** | 43 | La reventa de punta a punta, en un evento que crea la carpeta en cada corrida: `titular@palco.test` compra 2 entradas de Platea B, espera la emisión y publica la primera a 29.000 (el rango va de 13.750 a 30.250). Errores: sin token (401), entrada inexistente (404), sobre el tope y bajo el mínimo (422 `precio-fuera-de-rango`), la misma entrada otra vez (409 `entrada-no-disponible`), compra propia (409 `compra-propia`), compra sin `Idempotency-Key` (400) y cobro rechazado (402). `otro.titular@palco.test` la compra a nombre de Sofía Paz (201), la repite con la misma clave (201, la misma) y con otra (409 `publicacion-no-activa`: ya vendida). La lista sin `eventoId` (400) y `/mias` sin token (401). Al final, la original `VENDIDA`, la nueva `VALIDA` del comprador, y la segunda entrada publicada y retirada (404 ajena, 204, 409 repetido, y la entrada de nuevo `VALIDA`). Después, con rol `servicio`, las operaciones internas de Ventas que usa Reventa (`/v1/operaciones-de-reventa`): consultar la entrada (200, y 404 con otro vendedor), publicarla (200 `PUBLICADA`, y 409 `entrada-no-disponible` otra vez), retirarla (200 `VALIDA`, y 409 `entrada-no-publicada` para la que se vendió) y repetir la transferencia de la compra (201, la misma venta y la misma entrada; 403 con rol `user`) |
+| **6 Reventa (implementado)** | 46 | La reventa de punta a punta, en un evento que crea la carpeta en cada corrida: `titular@palco.test` compra 2 entradas de Platea B, espera la emisión y publica la primera a 29.000 (el rango va de 13.750 a 30.250). Errores: sin token (401), entrada inexistente (404), sobre el tope y bajo el mínimo (422 `precio-fuera-de-rango`), la misma entrada otra vez (409 `entrada-no-disponible`), compra propia (409 `compra-propia`), compra sin `Idempotency-Key` (400) y cobro rechazado (402). `otro.titular@palco.test` la compra a nombre de Sofía Paz (201), la repite con la misma clave (201, la misma) y con otra (409 `publicacion-no-activa`: ya vendida). La lista sin `eventoId` (400) y `/mias` sin token (401). Al final, la original `VENDIDA`, la nueva `VALIDA` del comprador, y la segunda entrada publicada y retirada (404 ajena, 204, 409 repetido, y la entrada de nuevo `VALIDA`). Después, con rol `servicio`, las operaciones internas de Ventas que usa Reventa (`/v1/operaciones-de-reventa`): consultar la entrada (200, y 404 con otro vendedor), publicarla (200 `PUBLICADA`, y 409 `entrada-no-disponible` otra vez), controlar una compra antes de cobrarla (204 si `otro.titular@palco.test` la comprara a nombre de Luis, porque la entrada que se revende no cuenta para su DNI; 409 `dni-con-entrada` a nombre de Sofía, que ya tiene la suya, y 403 con rol `user`), retirarla (200 `VALIDA`, y 409 `entrada-no-publicada` para la que se vendió) y repetir la transferencia de la compra (201, la misma venta y la misma entrada; 403 con rol `user`) |
 | **7 Facturación (implementado)** | 11 | La factura de la compra de la carpeta 3: aparece con número (`00001-…`), CAE de 14 dígitos, factura B (6) y el total cobrado; consultada de nuevo es la misma. Sin token (401), de otro comprador (404), inexistente (404), con rol `staff` (403) y con rol `servicio` (200) |
 | **8 Operaciones del 30/10 (implementado)** | 42 | Sobre un evento y una cuenta que crea la carpeta: editar el evento propio (`PUT`, 200), el de otro organizador (404) y con rol `user` (403); una compra pagada y emitida, y la edición con `If-Match` y el ETag de antes de esa compra (412 `evento-modificado`); las ventas por día y la liquidación (`GET /v1/resumenes`, 200, 404 ajeno y 403 por rol); cancelar el evento ajeno (404), con rol `user` (403), el propio (200) y otra vez (409); la venta anulada (`CANCELADA`, entradas `ANULADA`, asincrónico), su pago `REEMBOLSADO` y, con rol `servicio`, lo que Pagos les ofrece a los demás servicios: el pago pedido con el token del comprador (403), buscado por su clave (200, y 404 una clave sin pago), el cobro repetido con la misma clave (201, el mismo pago; 409 `clave-reutilizada` con otro monto) y el reembolso repetido (200; 409 `pago-no-reembolsable` por otro monto); el resumen en cero, el detalle del evento cancelado y una compra nueva en él (409 `evento-cancelado`). La foto: se sube y se guarda en la base de Palco (200, con su URL), esa URL responde sin token (200) y una que no existe, 404; un texto declarado como PNG se rechaza por su firma (400 `datos-invalidos`) y un SVG por su tipo (415). Olvidé mi contraseña de una cuenta que existe y de un email que no (204 las dos, la misma respuesta) y sin email (400), el reinicio con un código incorrecto (400) y el login que muestra que la contraseña no cambió. Ver la sección 14 |
 | **9 Asistente (implementado)** | 5 | El asistente de preguntas (`/api/v1/asistente`): el health (200), una pregunta con sesión que responde el modelo (200, origen `MODELO`), la misma sin token (401 `no-autenticado`, con `WWW-Authenticate`) y un intento de inyección de prompt que corta el guardrail de entrada. El corte no es un error: responde 200 con origen `BLOQUEADA` y motivo `inyeccion`, y no Problem Details. En el backend local el modelo es el simulado |
@@ -147,7 +147,7 @@ No hay ids fijos: los `V-…`, `T-…`, `P-…`, `R-…` y los de los escaneos s
 2. Dejá todos los requests tildados y en el orden en que están. No hace falta poner demora ni iteraciones.
 3. `Run Palco API`.
 
-Tienen que ejecutarse al menos los 211 requests de la colección (más si la emisión, la factura o la anulación tardan y su request se repite), con todos los tests en verde. Newman cuenta además los cinco intentos de login que SEC-W04 manda antes de enviarse: 216. Los 5 de "Pasos manuales" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
+Tienen que ejecutarse al menos los 214 requests de la colección (más si la emisión, la factura o la anulación tardan y su request se repite), con todos los tests en verde. Newman cuenta además los cinco intentos de login que SEC-W04 manda antes de enviarse: 219. Los 5 de "Pasos manuales" no se ejecutan. Esa pantalla es la captura para el documento de la entrega.
 
 La corrida se comprobó con Newman, que usa el mismo motor que el Runner.
 
@@ -181,19 +181,19 @@ Para correr una sola carpeta se agrega `--folder` con el nombre exacto:
 npx newman run "<ruta de la colección>" --folder "3 Diseño v1 (Ventas implementado)"
 ```
 
-Resultado de la última comprobación, la del encabezado:
+Resultado de la última comprobación, la del encabezado, con los mismos parámetros que el job `api` del CI (el secreto del `up` en `--env-var "secretoServicios=$PALCO_SECRETO_SERVICIOS"`):
 
 ```
 │              iterations │                 1 │                 0 │
-│                requests │               171 │                 0 │
-│            test-scripts │               166 │                 0 │
-│      prerequest-scripts │                19 │                 0 │
-│              assertions │               541 │                 0 │
+│                requests │               219 │                 0 │
+│            test-scripts │               214 │                 0 │
+│      prerequest-scripts │                20 │                 0 │
+│              assertions │               682 │                 0 │
 ```
 
-En esa corrida Newman contó 171 requests porque suma los cinco intentos de login que SEC-W04 manda antes de enviarse; la colección tenía entonces 166. Ni la emisión, ni la factura ni la anulación tardaron más de un segundo, así que ninguna espera se repitió. Por carpeta, en esa corrida: Usuarios 10 requests y 29 tests; Eventos 15 y 39; Ventas 32 y 145; Seguridad 15 y 46; Validación en puerta 15 y 52; Reventa 31 y 85; Facturación 11 y 31; Operaciones del 30/10 32 y 94; Asistente 5 y 20. (El reporte JSON de Newman repite los 5 tests de SEC-W04 en cada uno de sus cinco intentos previos: si se suman sus renglones, Seguridad da 71.)
+En esa corrida Newman contó 219 requests porque suma los cinco intentos de login que SEC-W04 manda antes de enviarse; la colección tiene 214. Ni la emisión, ni la factura ni la anulación tardaron más de un segundo, así que ninguna espera se repitió. Por carpeta: Usuarios 18 requests y 53 tests; Eventos 18 y 49; Ventas 32 y 145; Seguridad 15 y 46; Validación en puerta 27 y 85; Reventa 46 y 127; Facturación 11 y 31; Operaciones del 30/10 42 y 126; Asistente 5 y 20. (El reporte JSON de Newman repite los 5 tests de SEC-W04 en cada uno de sus cinco intentos previos: si se suman sus renglones, Seguridad da 71.) Después, como en el CI, el reenvío y la verificación de "Pasos manuales" con el código del log: 1 request y 1 aserción, y 1 request y 2 aserciones, sin fallas.
 
-En la corrida del 16/10/2026 había 69 requests de la colección (74 para Newman) y 252 tests, con 6 fallados en la carpeta 4, por cambios que todavía no estaban desplegados o decididos (sección 13).
+En la corrida del 19/11/2026, contra WildFly en `http://localhost:8080`, la colección tenía 166 requests (171 para Newman) y dio 541 aserciones, sin fallas. En la del 16/10/2026 había 69 requests de la colección (74 para Newman) y 252 tests, con 6 fallados en la carpeta 4, por cambios que todavía no estaban desplegados o decididos (sección 13).
 
 Contra un servidor desplegado antes de agregar `otro.titular@palco.test` (comprobado el 14/10/2026) fallan exactamente los tres requests que usan esa cuenta: su login responde 401 y los dos que siguen reciben 401 en lugar de 404 y 200. Son 9 tests fallados y un script cortado, con 201 tests ejecutados. Se arregla redesplegando Usuarios, que corre la migración nueva. Si la emisión tarda más de un segundo, el request que la espera se repite y el total de requests sube; el de tests no cambia.
 
@@ -201,7 +201,7 @@ Contra un servidor desplegado antes de agregar `otro.titular@palco.test` (compro
 
 El job `api` de `.github/workflows/ci.yml` corre la colección con Newman 6.2.3 en cada corrida del CI, con su propio sistema levantado con `docker compose up` (PostgreSQL, no H2), en paralelo con los demás jobs. Newman le pega al backend por `http://localhost:8080`, donde el compose lo publica, que es la dirección que ya tiene la colección. El secreto entre servicios es uno nuevo en cada corrida: se le pasa al compose por `PALCO_SECRETO_SERVICIOS` y a Newman con `--env-var secretoServicios=...`.
 
-Después de la corrida, el job hace los dos primeros "Pasos manuales", el reenvío y la verificación, como se hacen a mano (sección 8), con el log del servidor en `./logs/server.log` (por `PALCO_DIR_LOGS`): toma de ahí el email de "Registro (201)" y lo carga en la variable `emailRegistro` de una copia de la colección, envía "MANUAL · Reenviar código (204)" cuando pasaron 30 segundos del registro, lee del log el código nuevo y envía "MANUAL · Verificar email (200)" con `--env-var codigoVerificacion=...`. El email sale del log porque Newman no exporta las variables que cargó la corrida. La tabla final de cada corrida queda en el resumen del job, y la salida de Newman, los reportes JUnit y el log del servidor, en el artifact `reporte-api`.
+Después de la corrida, el job hace los dos primeros "Pasos manuales", el reenvío y la verificación, como se hacen a mano (sección 8), con el log del servidor en `./logs/server.log` (por `PALCO_DIR_LOGS`) y el compose levantado con `PALCO_CORREO_LOG_COMPLETO=true`, para que el renglón del email traiga el código: toma de ahí el email de "Registro (201)" y lo carga en la variable `emailRegistro` de una copia de la colección, envía "MANUAL · Reenviar código (204)" cuando pasaron 30 segundos del registro, lee del log el código nuevo y envía "MANUAL · Verificar email (200)" con `--env-var codigoVerificacion=...`. El email sale del log porque Newman no exporta las variables que cargó la corrida. La tabla final de cada corrida queda en el resumen del job, y la salida de Newman, los reportes JUnit y el log del servidor, en el artifact `reporte-api`.
 
 ### Qué deja cada corrida en el servidor
 
@@ -234,16 +234,24 @@ Fuera de la carpeta 6, la segunda cuenta compradora solo lee. La carpeta 4 tampo
 
 ## 8. Pasos manuales: verificar el email y cambiar la contraseña
 
-Al registrarse, el servicio genera un código de 6 dígitos al azar. Sin SMTP configurado (`PALCO_SMTP_HOST`), el email no se manda: queda en el log del servidor, en una línea así:
+Al registrarse, el servicio genera un código de 6 dígitos al azar. Sin SMTP configurado (`PALCO_SMTP_HOST`), el email no se manda: queda en el log del servidor. `backend/dev.sh` prende el modo de desarrollo (`PALCO_CORREO_LOG_COMPLETO=true`), que escribe cada email entero en un renglón así:
 
 ```
 Email para postman-…@palco.test (Tu código de Palco): Hola Ana: tu código para verificar el email es 482913. Vence en 15 minutos.
 ```
 
-Por eso estos requests no pueden correr solos en la corrida. En el CI el job `api` corre los dos de la verificación después de la corrida, con el código que lee del log (sección 7, "En el CI"). Están en **1 Usuarios → Pasos manuales (fuera de la corrida)**:
+El `docker-compose.yml`, no (desde el 24/11, DEF-36): sin esa variable, como en un despliegue, el renglón solo dice a quién iba, enmascarado (la primera letra y el dominio), y el asunto, porque el cuerpo lleva nombres, titulares y códigos, que no van a un log:
+
+```
+Email para p***@palco.test (Tu código de Palco), sin el cuerpo: lo escribe PALCO_CORREO_LOG_COMPLETO=true.
+```
+
+Para hacer estos pasos contra el compose y sin SMTP, se lo levanta con `PALCO_CORREO_LOG_COMPLETO=true` en el `.env` de la raíz o en el entorno, antes del `up`, como hacen los jobs del CI que leen el código del log.
+
+Como el código solo sale en el log, estos requests no pueden correr solos en la corrida. En el CI el job `api` corre los dos de la verificación después de la corrida, con el código que lee del log (sección 7, "En el CI"). Están en **1 Usuarios → Pasos manuales (fuera de la corrida)**:
 
 1. Enviá "Registro (201)" (o corré la carpeta 1). El email queda en `emailRegistro`.
-2. Buscá el código en el log de WildFly.
+2. Buscá el código en el log de WildFly (con el compose, "Email para" en `docker compose logs backend`, o en `./logs/server.log` si se levantó con `PALCO_DIR_LOGS=./logs`).
 3. Cargalo en la variable `codigoVerificacion` de la colección y guardá.
 4. Enviá "MANUAL · Verificar email (200)". Responde la sesión de la cuenta nueva, con `identidadVerificada` en verdadero: el registro quedó completo y la cuenta ya puede comprar.
 
@@ -260,9 +268,11 @@ Verificar una cuenta a mano, o cambiarle la contraseña, no rompe la corrida sig
 
 ## 9. Qué cubre la colección
 
-Cada operación de `docs/api/openapi.yaml` tiene al menos un request de éxito y uno de error (de 400 a 429, según la operación), con tests que comprueban el código y que el error viene en Problem Details. Están también las de uso entre servicios, con rol `servicio` (etiquetas `pagos` e `interno`): el cobro, la consulta y el reembolso de Pagos (carpeta 8), las operaciones internas de Ventas que usan Validación (`/api/v1/entradas/usos`, carpeta 5) y Reventa (`/api/v1/operaciones-de-reventa/*`, carpeta 6), el usuario por su id y el rol de una cuenta (carpeta 1) y el dueño de un evento (carpeta 2). Las que cambian un estado se mandan sobre lo que la corrida ya hizo, para no dejar datos sueltos: el cobro y el reembolso se repiten con la misma clave y la misma venta, la entrada que se publica se vuelve a retirar y la transferencia se repite con los datos de la compra en la reventa.
+Cada operación de `docs/api/openapi.yaml` tiene al menos un request de éxito y uno de error (de 400 a 429, según la operación), con tests que comprueban el código y que el error viene en Problem Details. Están también las de uso entre servicios, con rol `servicio` (etiquetas `pagos` e `interno`): el cobro, la consulta y el reembolso de Pagos (carpeta 8), las operaciones internas de Ventas que usan Validación (`/api/v1/entradas/usos`, carpeta 5) y Reventa (`/api/v1/operaciones-de-reventa/*`, carpeta 6, con el control de una compra antes de cobrarla, que no cambia nada), el usuario por su id y el rol de una cuenta (carpeta 1) y el dueño de un evento (carpeta 2). Las que cambian un estado se mandan sobre lo que la corrida ya hizo, para no dejar datos sueltos: el cobro y el reembolso se repiten con la misma clave y la misma venta, la entrada que se publica se vuelve a retirar y la transferencia se repite con los datos de la compra en la reventa.
 
-Dos operaciones se prueban de otra manera. `GET /usuarios/jwks` es pública y de solo lectura y no tiene un error propio, así que su caso de error es el método equivocado sobre la misma ruta (`POST /jwks`, 405 `about:blank`). Y el caso que sale bien de la verificación del email y del reinicio de la contraseña necesita el código del log, así que está en "Pasos manuales" (sección 8); sus errores sí están en la corrida.
+Dos operaciones se prueban de otra manera. `GET /usuarios/jwks` es pública y de solo lectura y no tiene un error propio, así que su caso de error es el método equivocado sobre la misma ruta (`POST /jwks`, 405 `about:blank`). Y el caso que sale bien de la verificación del email y del reinicio de la contraseña necesita el código del log, así que está en "Pasos manuales" (sección 8); sus errores sí están en la corrida. Lo mismo el reenvío del código, que pide esperar 30 segundos desde el registro.
+
+Contadas por método y ruta contra los pedidos de la comprobación del 24/11 (la corrida y los dos pasos manuales que corre el CI, el reenvío y la verificación), 50 de las 52 operaciones de `openapi.yaml` tienen al menos un pedido de éxito (2xx) y uno de error (4xx). Las dos que faltan son las del párrafo anterior: el reinicio de la contraseña, cuyo éxito está en los pasos manuales que el CI no corre, y `GET /usuarios/jwks`, cuyo error es el 405 de `POST /usuarios/jwks`, que no es una operación del contrato. En la corrida sola son 48: el éxito del reenvío y el de la verificación están en los pasos manuales.
 
 Las operaciones de desarrollo de Notificaciones (`/api/notificaciones/pruebas/*` y `auditoria`) no son parte del contrato y no están en la colección. La falla después del cobro y su conciliación se prueban en `scripts/pruebas/escenarios.mjs` (escenario 14), porque necesitan jboss-cli; la subida de la foto a Supabase Storage y el aviso por email al comprador de un evento cancelado, con el sistema configurado para eso (la colección prueba el almacén del backend local, que guarda la foto en la base, y no consulta la auditoría de Notificaciones).
 
@@ -323,7 +333,7 @@ El JSON de la colección sale de `scripts/postman/generar.js`: los requests, los
 node scripts/postman/generar.js
 ```
 
-Escribe `docs/api/palco-api.postman_collection.json` y dice cuántos requests tiene en total (hoy 216: los 211 de la corrida y los 5 de "Pasos manuales"). Con una ruta como argumento la escribe en otro lado, por ejemplo para compararla con la del repo. Los tokens quedan vacíos, porque los guardan los requests de login.
+Escribe `docs/api/palco-api.postman_collection.json` y dice cuántos requests tiene en total (hoy 219: los 214 de la corrida y los 5 de "Pasos manuales"). Con una ruta como argumento la escribe en otro lado, por ejemplo para compararla con la del repo. Los tokens quedan vacíos, porque los guardan los requests de login.
 
 Si se cambia algo desde la ventana de Postman, hay que pasarlo al generador: la próxima regeneración pisa el archivo.
 
