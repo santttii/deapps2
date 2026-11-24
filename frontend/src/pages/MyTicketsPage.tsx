@@ -505,7 +505,15 @@ export default function MyTicketsPage() {
         </div>
         {seccionOtrasCompras}
       </div>
-      <FacturaModal key={facturaDe ?? ''} ventaId={facturaDe} onCerrar={() => setFacturaDe(null)} />
+      {/* Con la fecha de la compra, el modal distingue la factura en camino de la demorada (su mensaje
+          quedó en la DLQ): sin ella, la que no está figuraría "en camino" para siempre. Los dos botones
+          de factura abren el modal con el id de una venta de esta lista. */}
+      <FacturaModal
+        key={facturaDe ?? ''}
+        ventaId={facturaDe}
+        compradaISO={compras.find((o) => o.id === facturaDe)?.creadaISO}
+        onCerrar={() => setFacturaDe(null)}
+      />
     </PageTransition>
   );
 }
