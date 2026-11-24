@@ -156,16 +156,29 @@ public final class Guardrails {
         if (texto.length() > LARGO_MAXIMO) {
             return Revision.bloqueada("demasiado-larga");
         }
-        String normalizada = Texto.normalizar(texto);
-        for (Pattern p : INYECCION) {
-            if (p.matcher(normalizada).find()) {
-                return Revision.bloqueada("inyeccion");
-            }
+        if (conInyeccion(texto)) {
+            return Revision.bloqueada("inyeccion");
         }
-        if (DATOS_DE_TERCEROS.matcher(normalizada).find()) {
+        if (DATOS_DE_TERCEROS.matcher(Texto.normalizar(texto)).find()) {
             return Revision.bloqueada("datos-personales");
         }
         return Revision.aceptada(enmascarar(texto));
+    }
+
+    /**
+     * true si el texto trae un intento de inyección de prompt (LLM01), con los mismos patrones que una
+     * pregunta. Sirve también para lo que no escribió quien pregunta y llega al modelo como dato: el
+     * título de un evento lo escribe su organizador, y un "ignorá tus instrucciones" ahí es una
+     * inyección indirecta.
+     */
+    public static boolean conInyeccion(String texto) {
+        String normalizado = Texto.normalizar(texto);
+        for (Pattern p : INYECCION) {
+            if (p.matcher(normalizado).find()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Reemplaza tarjetas, DNI y emails por marcas: esos datos nunca llegan al modelo. */
