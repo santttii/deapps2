@@ -1640,6 +1640,22 @@ const pedidoDeVendedor = (nombre, operacion, variableEntrada, opciones) => pedid
     ...opciones,
   });
 
+/**
+ * Lo que Reventa le pregunta a Ventas antes de cobrar una compra: si otro.titular@palco.test puede quedarse con la
+ * segunda entrada, a nombre de ese titular. No cambia nada.
+ */
+const controlarCompra = (nombre, variableToken, titularDeLaCompra, opciones) => pedido(nombre, 'POST',
+  url('baseApi', ['operaciones-de-reventa', 'controles-de-compra']), {
+    cabeceras: [bearer(variableToken), JSON_CT],
+    cuerpo: {
+      entradaId: '{{entradaRetiroId}}',
+      vendedorId: '{{titularId}}',
+      compradorId: '{{otroCompradorId}}',
+      titular: titularDeLaCompra,
+    },
+    ...opciones,
+  });
+
 const segundaEntradaEn = (estadoEsperado) => [
   estado(200),
   `pm.test('la segunda entrada queda ${estadoEsperado}', () => {`,
@@ -1672,8 +1688,8 @@ const reventa = carpeta('6 Reventa (implementado)',
   + 'recibe una entrada nueva a nombre de Sofía. También prueba los errores del contrato (precio fuera de rango, '
   + 'entrada ya publicada, compra propia, publicación ya vendida) y retira la segunda entrada. Al final manda '
   + 'directo, con el rol servicio, las operaciones internas de Ventas que usa Reventa: consultar la entrada, '
-  + 'publicarla y retirarla (la segunda entrada termina VALIDA, como estaba) y repetir la transferencia de la '
-  + 'compra, que devuelve lo mismo. Corre entera sin intervención.',
+  + 'publicarla, controlar una compra antes de cobrarla y retirarla (la segunda entrada termina VALIDA, como '
+  + 'estaba) y repetir la transferencia de la compra, que devuelve lo mismo. Corre entera sin intervención.',
   [
     login('Login comprador (200) guarda token', TITULAR, 'user', 'token',
       'Quien publica: titular@palco.test. Su id queda en {{titularId}}: es el vendedor en las operaciones internas.',
@@ -1918,13 +1934,33 @@ const reventa = carpeta('6 Reventa (implementado)',
       }),
     pedidoDeVendedor('POST /v1/operaciones-de-reventa/publicaciones, rol servicio (200, PUBLICADA)', 'publicaciones',
       'entradaRetiroId', {
-        descripcion: 'Lo que pide Reventa al publicar, enviado directo: Ventas deja la entrada PUBLICADA. Dos requests '
-          + 'más abajo vuelve a VALIDA, así que la entrada termina como estaba.',
+        descripcion: 'Lo que pide Reventa al publicar, enviado directo: Ventas deja la entrada PUBLICADA. El retiro de '
+          + 'más abajo la vuelve a VALIDA, así que la entrada termina como estaba.',
         tests: segundaEntradaEn('PUBLICADA'),
       }),
     pedidoDeVendedor('POST /v1/operaciones-de-reventa/publicaciones repetida (409)', 'publicaciones', 'entradaRetiroId', {
       descripcion: 'Solo se publica una entrada VALIDA, y esta ya está PUBLICADA.',
       tests: problema(409, 'entrada-no-disponible'),
+    }),
+    controlarCompra('POST /v1/operaciones-de-reventa/controles-de-compra, rol servicio (204)', 'tokenServicio', LUIS, {
+      descripcion: 'Lo que pregunta Reventa antes de cobrar una compra, enviado directo: otro.titular@palco.test '
+        + 'compraría la segunda entrada, PUBLICADA, a nombre de Luis Pérez. La cuenta tiene 1 entrada del evento (la '
+        + 'de Sofía), lejos del tope de 6, y la entrada que se revende no cuenta para el DNI: es la de Luis, que la '
+        + 'puede comprar. Responde 204 sin cuerpo y no cambia nada: el retiro de más abajo la encuentra PUBLICADA.',
+      tests: [estado(204), sinCuerpo],
+    }),
+    controlarCompra('POST /v1/operaciones-de-reventa/controles-de-compra a nombre de alguien con entrada (409)',
+      'tokenServicio', SOFIA, {
+        descripcion: 'La misma compra a nombre de Sofía Paz, que ya tiene la entrada que compró en la reventa: cada '
+          + 'DNI tiene una sola entrada por evento. Es el mismo error de una compra del catálogo.',
+        tests: [
+          ...problema(409, 'dni-con-entrada'),
+          "pm.test('el detalle nombra el DNI de Sofía', () => pm.expect(pm.response.json().detail).to.include(pm.collectionVariables.get('dniSofia')));",
+        ],
+      }),
+    controlarCompra('POST /v1/operaciones-de-reventa/controles-de-compra con rol user (403)', 'tokenOtroComprador', LUIS, {
+      descripcion: 'La pregunta es de Reventa, no de una persona: con el token de quien compraría responde 403.',
+      tests: problema(403, 'sin-permiso'),
     }),
     pedidoDeVendedor('POST /v1/operaciones-de-reventa/retiros, rol servicio (200, VALIDA)', 'retiros', 'entradaRetiroId', {
       descripcion: 'Lo que pide Reventa al retirar una publicación: la entrada vuelve a VALIDA.',

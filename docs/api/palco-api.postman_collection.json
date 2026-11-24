@@ -6499,7 +6499,7 @@
     },
     {
       "name": "6 Reventa (implementado)",
-      "description": "La reventa oficial de punta a punta, en un evento que crea la carpeta. titular@palco.test compra 2 entradas de Platea B (27.500 cada una), publica la primera dentro del rango (del 50 % al 110 % del precio de lista del sector: de 13.750 a 30.250) y otro.titular@palco.test la compra a nombre de Sofía Paz: la original queda VENDIDA y el comprador recibe una entrada nueva a nombre de Sofía. También prueba los errores del contrato (precio fuera de rango, entrada ya publicada, compra propia, publicación ya vendida) y retira la segunda entrada. Al final manda directo, con el rol servicio, las operaciones internas de Ventas que usa Reventa: consultar la entrada, publicarla y retirarla (la segunda entrada termina VALIDA, como estaba) y repetir la transferencia de la compra, que devuelve lo mismo. Corre entera sin intervención.",
+      "description": "La reventa oficial de punta a punta, en un evento que crea la carpeta. titular@palco.test compra 2 entradas de Platea B (27.500 cada una), publica la primera dentro del rango (del 50 % al 110 % del precio de lista del sector: de 13.750 a 30.250) y otro.titular@palco.test la compra a nombre de Sofía Paz: la original queda VENDIDA y el comprador recibe una entrada nueva a nombre de Sofía. También prueba los errores del contrato (precio fuera de rango, entrada ya publicada, compra propia, publicación ya vendida) y retira la segunda entrada. Al final manda directo, con el rol servicio, las operaciones internas de Ventas que usa Reventa: consultar la entrada, publicarla, controlar una compra antes de cobrarla y retirarla (la segunda entrada termina VALIDA, como estaba) y repetir la transferencia de la compra, que devuelve lo mismo. Corre entera sin intervención.",
       "item": [
         {
           "name": "Login comprador (200) guarda token",
@@ -8316,7 +8316,7 @@
               ],
               "query": []
             },
-            "description": "Lo que pide Reventa al publicar, enviado directo: Ventas deja la entrada PUBLICADA. Dos requests más abajo vuelve a VALIDA, así que la entrada termina como estaba.",
+            "description": "Lo que pide Reventa al publicar, enviado directo: Ventas deja la entrada PUBLICADA. El retiro de más abajo la vuelve a VALIDA, así que la entrada termina como estaba.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"entradaId\": \"{{entradaRetiroId}}\",\n  \"vendedorId\": \"{{titularId}}\"\n}",
@@ -8392,6 +8392,168 @@
                   "  const p = pm.response.json();",
                   "  pm.expect(p.type).to.eql('/problemas/entrada-no-disponible');",
                   "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/operaciones-de-reventa/controles-de-compra, rol servicio (204)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/operaciones-de-reventa/controles-de-compra",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "operaciones-de-reventa",
+                "controles-de-compra"
+              ],
+              "query": []
+            },
+            "description": "Lo que pregunta Reventa antes de cobrar una compra, enviado directo: otro.titular@palco.test compraría la segunda entrada, PUBLICADA, a nombre de Luis Pérez. La cuenta tiene 1 entrada del evento (la de Sofía), lejos del tope de 6, y la entrada que se revende no cuenta para el DNI: es la de Luis, que la puede comprar. Responde 204 sin cuerpo y no cambia nada: el retiro de más abajo la encuentra PUBLICADA.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entradaId\": \"{{entradaRetiroId}}\",\n  \"vendedorId\": \"{{titularId}}\",\n  \"compradorId\": \"{{otroCompradorId}}\",\n  \"titular\": {\n    \"nombre\": \"Luis Pérez\",\n    \"dni\": \"{{dniLuis}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 204', () => pm.response.to.have.status(204));",
+                  "pm.test('no trae cuerpo', () => pm.expect(pm.response.text()).to.eql(''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/operaciones-de-reventa/controles-de-compra a nombre de alguien con entrada (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenServicio}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/operaciones-de-reventa/controles-de-compra",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "operaciones-de-reventa",
+                "controles-de-compra"
+              ],
+              "query": []
+            },
+            "description": "La misma compra a nombre de Sofía Paz, que ya tiene la entrada que compró en la reventa: cada DNI tiene una sola entrada por evento. Es el mismo error de una compra del catálogo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entradaId\": \"{{entradaRetiroId}}\",\n  \"vendedorId\": \"{{titularId}}\",\n  \"compradorId\": \"{{otroCompradorId}}\",\n  \"titular\": {\n    \"nombre\": \"Sofía Paz\",\n    \"dni\": \"{{dniSofia}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 409', () => pm.response.to.have.status(409));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/dni-con-entrada', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/dni-con-entrada');",
+                  "  pm.expect(p.status).to.eql(409);",
+                  "  pm.expect(p.title).to.be.a('string');",
+                  "  pm.expect(p.detail).to.be.a('string');",
+                  "});",
+                  "pm.test('el detalle nombra el DNI de Sofía', () => pm.expect(pm.response.json().detail).to.include(pm.collectionVariables.get('dniSofia')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/operaciones-de-reventa/controles-de-compra con rol user (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOtroComprador}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseApi}}/operaciones-de-reventa/controles-de-compra",
+              "host": [
+                "{{baseApi}}"
+              ],
+              "path": [
+                "operaciones-de-reventa",
+                "controles-de-compra"
+              ],
+              "query": []
+            },
+            "description": "La pregunta es de Reventa, no de una persona: con el token de quien compraría responde 403.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entradaId\": \"{{entradaRetiroId}}\",\n  \"vendedorId\": \"{{titularId}}\",\n  \"compradorId\": \"{{otroCompradorId}}\",\n  \"titular\": {\n    \"nombre\": \"Luis Pérez\",\n    \"dni\": \"{{dniLuis}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 403', () => pm.response.to.have.status(403));",
+                  "pm.test('el error viene como application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('type es /problemas/sin-permiso', () => {",
+                  "  const p = pm.response.json();",
+                  "  pm.expect(p.type).to.eql('/problemas/sin-permiso');",
+                  "  pm.expect(p.status).to.eql(403);",
                   "  pm.expect(p.title).to.be.a('string');",
                   "  pm.expect(p.detail).to.be.a('string');",
                   "});"
