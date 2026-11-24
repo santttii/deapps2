@@ -39,6 +39,15 @@
              llamar un servicio SOAP sin servidor. -->
         <version.jakarta.xml.ws>4.0.2</version.jakarta.xml.ws>
         <version.metro>4.0.3</version.metro>
+        <!-- Pruebas de integración contra un PostgreSQL de verdad (los *IT de los servicios, ver
+             maven-failsafe-plugin abajo): Testcontainers levanta en Docker la misma imagen que usa el
+             docker-compose, y el driver es el que trae el datasource de WildFly
+             (wildfly-datasources-galleon-pack 11.5.0.Final usa el 42.7.13). -->
+        <version.testcontainers>2.0.5</version.testcontainers>
+        <version.postgresql>42.7.13</version.postgresql>
+        <!-- El broker que trae WildFly 41 (ActiveMQ Artemis 2.54.0): el IT del consumidor de Facturación levanta
+             esa versión en un contenedor (apache/artemis:2.54.0) y le habla con su cliente JMS. -->
+        <version.artemis>2.54.0</version.artemis>
 
         <version.compiler.plugin>3.16.0</version.compiler.plugin>
         <version.surefire.plugin>3.6.0</version.surefire.plugin>
@@ -137,6 +146,28 @@
                 <version>${version.mockito}</version>
                 <scope>test</scope>
             </dependency>
+            <dependency>
+                <!-- PostgreSQL en un contenedor para los *IT. Solo en los tests: el WAR no lo lleva. -->
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-postgresql</artifactId>
+                <version>${version.testcontainers}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <!-- Driver JDBC de PostgreSQL para los *IT. En el servidor lo pone WildFly. -->
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${version.postgresql}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <!-- Cliente JMS de Artemis para los *IT que publican y consumen contra el broker en un
+                     contenedor. En el servidor lo pone WildFly. -->
+                <groupId>org.apache.artemis</groupId>
+                <artifactId>artemis-jakarta-client</artifactId>
+                <version>${version.artemis}</version>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -152,6 +183,44 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${version.surefire.plugin}</version>
+                </plugin>
+                <!-- Pruebas de integración con dependencias reales: las clases *IT de src/test, que corren los
+                     tests de los repositorios contra PostgreSQL 17 en un contenedor (Testcontainers) en lugar de
+                     H2, y el consumidor de Facturación contra Artemis 2.54.0 (el broker de WildFly 41), también
+                     en un contenedor. Surefire no las toma (busca *Test); las corre failsafe en "mvn verify",
+                     después de los tests unitarios, y si alguna falla el build falla. Lo usa cada módulo que
+                     tiene IT nombrándolo en su pom (Usuarios, Eventos, Ventas y Facturación).
+
+                     La JVM de los IT arranca con -Dpalco.pruebas.integracion=true, y cada IT corre solo con esa
+                     marca (@EnabledIfSystemProperty). Así no los corre PIT, que toma todas las clases de test del
+                     módulo: levantaría un contenedor por cada mutante que pasa por un repositorio o por el MDB.
+                     Como el argLine es propio, tampoco llevan el agente de JaCoCo: la cobertura informada sigue
+                     siendo la de los tests de surefire. Sin Docker, cada IT se saltea con un aviso (ver los *IT);
+                     el CI comprueba que no se haya salteado ninguno.
+
+                     Para correrlos solos, desde backend/ y con palco-common instalado (mvn install):
+                       mvn verify -pl servicios/ventas -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <!-- Sale junto con surefire, con la misma versión -->
+                    <version>${version.surefire.plugin}</version>
+                    <configuration>
+                        <!-- Las clases compiladas y no el WAR: en el WAR están en WEB-INF/classes y no se pueden
+                             usar como classpath. Failsafe 3.6.0 ya toma el artefacto solo si es un .jar; queda
+                             escrito para no depender de eso. -->
+                        <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+                        <argLine>-Dpalco.pruebas.integracion=true</argLine>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>integracion-con-dependencias-reales</id>
+                            <goals>
+                                <goal>integration-test</goal>
+                                <goal>verify</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
