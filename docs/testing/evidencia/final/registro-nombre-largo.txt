@@ -1,0 +1,62 @@
+El registro tarda con el cubo del largo de un nombre o un apellido lleno de espacios
+Evidencia de DEF-64 (docs/testing/informe-de-ejecucion.md, sección 9).
+
+1. Dónde
+   backend/servicios/usuarios/src/main/java/com/palco/usuarios/api/Dtos.java, RegistroDto, en fbd31dc:
+     línea 44 (nombre):   @Pattern(regexp = "^\\s*[A-Za-zÀ-ÿ' -]{2,}\\s*$", message = "Ingresá un nombre válido.")
+     línea 48 (apellido): el mismo patrón.
+   Ninguno de los dos campos tiene @Size. El espacio está en la clase del medio y también en los dos \s*: con un texto
+   de espacios que no termina bien, la expresión prueba cada forma de repartir los espacios entre las tres partes.
+   SonarCloud marca esas dos líneas con java:S8786 ("super-linear performance due to backtracking"; sonar.txt).
+
+2. La expresión sola (java.util.regex de JDK 25.0.5, Pattern.matcher(texto).matches(), como @Pattern)
+   nombre: 250 espacios y un 1 -> matches=false en 21 ms
+   nombre: 500 espacios y un 1 -> matches=false en 156 ms
+   nombre: 1000 espacios y un 1 -> matches=false en 1204 ms
+   nombre: 2000 espacios y un 1 -> matches=false en 10338 ms
+   Cada vez que el largo se duplica, el tiempo se multiplica por 7 a 9: crece con el cubo del largo.
+
+3. Contra el sistema levantado (docker compose de la máquina de QA, http://localhost:8080, 24/11/2026 alrededor de
+   las 17:20 UTC; contenedores creados a las 17:01 UTC, con Dtos.java igual al de fbd31dc). Sin sesión:
+   curl -H "Content-Type: application/json" --data-binary @cuerpo.json http://localhost:8080/api/usuarios/registro
+   nombre con 0 espacios y un 1: HTTP 400 en 0.212869s (cuerpo 150 bytes)
+   nombre con 1000 espacios y un 1: HTTP 400 en 2.361914s (cuerpo 1153 bytes)
+   nombre con 1500 espacios y un 1: HTTP 400 en 7.100543s (cuerpo 1653 bytes)
+   Las tres respuestas son el 400 datos-invalidos esperado, pero el tiempo lo pone la expresión: un pedido de 1,6 KB,
+   sin sesión, ocupa un hilo del servidor 7 segundos. A este ritmo, unos 4000 espacios (4 KB) pasarían del minuto;
+   eso es una cuenta sobre las mediciones, no se midió.
+   No se probó con más de 1500 espacios ni con pedidos en paralelo, para no trabar el sistema compartido.
+
+4. Por qué no lo encontraron las otras pruebas
+   Schemathesis (contrato.txt) generó cuerpos para POST /usuarios/registro sin cortes por tiempo, y ZAP probó el
+   registro con sus valores (zap.txt): ninguno manda cientos de espacios seguidos en esos campos.
+
+5. Las otras expresiones que SonarCloud marca con java:S8786 (sonar.txt), medidas el 24/11/2026 alrededor de las
+   17:35 UTC con el mismo JDK y contra el mismo sistema que el punto 3
+   Dtos.java:58, el email de RegistroDto (@Email con regexp = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" y @Size(max = 200)):
+     la expresión sola, con "a@" y 10.000 veces "a." y un espacio (20.003 caracteres): matches=false en 1456 ms.
+     Contra el sistema, el mismo email en un registro sin sesión: HTTP 400 en 0.215347s (pedido de 20132 bytes).
+     La expresión no demora el pedido.
+   Textos.java:63, "^-+|-+$" de Textos.slug: la línea anterior cambia cada tira de caracteres que no son letras ni
+     dígitos por un solo guion, así que el texto nunca tiene dos guiones seguidos. Con "-" y 50.000 veces "a-"
+     (100.001 caracteres): find en 0 ms. El bug java:S5850 de la misma línea es DEF-65.
+   Guardrails.java:45, el email que enmascara el asistente: es la expresión corregida por DEF-63, con
+     cuantificadores posesivos. La cubre GuardrailsTest#unTextoEnormeSinArrobaSeEnmascaraEnMenosDeUnSegundo, que
+     pasó en el run 44867187162 (0.012 s).
+   La medición de DEF-64, repetida contra el sistema: nombre con 0 espacios y un 1, HTTP 400 en 0.231970s; con 1000
+     espacios y un 1, HTTP 400 en 2.648429s. La expresión sola, con 250, 500 y 1000 espacios y un 1: 29, 154 y
+     1422 ms.
+
+6. Después de la corrección (24/11/2026)
+   Dtos.java: nombre y apellido usan Dtos.NOMBRE, "^\\s*+[A-Za-zÀ-ÿ' -]{2,}+\\s*+$" (cuantificadores posesivos: no
+   vuelven atrás) y @Size(max = 80), el largo de la columna. Bean Validation evalúa las dos anotaciones aunque una
+   falle, así que la expresión igual lee el texto entero: lo que la hace rápida es que sea lineal.
+   NombreYApellidoTest (backend/servicios/usuarios/src/test/java/com/palco/usuarios/api/): 4 tests, 0 fallas; el
+   nombre y el apellido de 100.000 espacios y un 1 se rechazan en menos de un segundo (4 ms y 30 ms).
+   Contra el sistema levantado desde el código corregido (docker compose, http://localhost:8080, contenedor creado a
+   las 18:22 UTC, medido a las 18:38 UTC), el mismo curl que el punto 3, sin sesión:
+   nombre con 0 espacios y un 1: HTTP 400 en 0.212339s
+   nombre con 1000 espacios y un 1: HTTP 400 en 0.206676s
+   nombre con 1500 espacios y un 1: HTTP 400 en 0.214629s
+   nombre con 100000 espacios y un 1: HTTP 400 en 0.215960s
+   Las cuatro respuestas son el 400 datos-invalidos, en el mismo tiempo que un nombre corto.
