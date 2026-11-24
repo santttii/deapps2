@@ -80,7 +80,41 @@ jobs:
           java-version: '25'
           cache: maven
       - name: mvn verify
+        # Corre también los *IT: los repositorios de Usuarios, Eventos, Ventas y Facturación contra PostgreSQL 17 y
+        # el consumidor de Facturación contra Artemis 2.54.0, cada uno en un contenedor. Testcontainers usa el
+        # Docker del runner (ver maven-failsafe-plugin en backend/pom.xml).
         run: mvn -B verify
+      - name: Integración con dependencias reales en contenedor (los *IT)
+        # Sin Docker los *IT se saltean y mvn verify termina en verde igual. Acá eso no puede pasar: el runner tiene
+        # Docker, así que en cada módulo con IT tienen que haber corrido y ninguno puede haberse salteado. Los
+        # números salen del resumen que deja failsafe en cada módulo.
+        if: always()
+        run: |
+          {
+            echo '### Integración con dependencias reales en contenedor (failsafe: PostgreSQL 17 y Artemis 2.54.0)'
+            echo '| Módulo | IT | Salteados | Fallidos |'
+            echo '|---|---|---|---|'
+          } >> "$GITHUB_STEP_SUMMARY"
+          valor() { sed -nE "s/.*<$2>([0-9]+)<.*/\1/p" "$1"; }
+          mal=0
+          for modulo in usuarios eventos ventas facturacion; do
+            resumen="servicios/$modulo/target/failsafe-reports/failsafe-summary.xml"
+            if [ ! -f "$resumen" ]; then
+              echo "| $modulo | no corrió | | |" >> "$GITHUB_STEP_SUMMARY"
+              echo "::error::$modulo: falta $resumen (failsafe no corrió)"
+              mal=1
+              continue
+            fi
+            corridos=$(valor "$resumen" completed)
+            salteados=$(valor "$resumen" skipped)
+            fallidos=$(( $(valor "$resumen" failures) + $(valor "$resumen" errors) ))
+            echo "| $modulo | $corridos | $salteados | $fallidos |" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$corridos" -eq 0 ] || [ "$salteados" -ne 0 ]; then
+              echo "::error::$modulo: $salteados de $corridos IT salteados (sin Docker no corren)"
+              mal=1
+            fi
+          done
+          exit "$mal"
       - name: Resumen de cobertura (JaCoCo)
         if: always()
         working-directory: .
