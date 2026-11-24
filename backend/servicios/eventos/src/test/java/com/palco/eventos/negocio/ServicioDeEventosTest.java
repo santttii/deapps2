@@ -3,6 +3,7 @@ package com.palco.eventos.negocio;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -108,6 +109,17 @@ class ServicioDeEventosTest {
 
         assertEquals("2026-10-16T21:00:00", creado.fechaISO());
         verify(eventos).guardar(any(Evento.class));
+    }
+
+    /**
+     * CA-16.4: un evento creado sin foto queda sin imagen propia, y no con una de relleno. Con imagenUrl en
+     * null el frontend muestra la foto de su categoría (frontend/e2e/foto-de-la-categoria.spec.ts).
+     */
+    @Test
+    void crearUnEventoSinFotoLoGuardaSinImagenPropia() {
+        EventoDto creado = servicio.crearEvento(nuevoEvento(MAS_TARDE), "org-1");
+
+        assertNull(creado.imagenUrl());
     }
 
     @Test
