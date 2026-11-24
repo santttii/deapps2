@@ -2,9 +2,10 @@
 
 ![Diagrama de casos de uso de Palco](diagramas/casos-de-uso.svg)
 
-*Fuente: `docs/documentacion/diagramas/casos-de-uso.svg`. Óvalo blanco: implementado y probado en el servidor;
-óvalo celeste: implementado, sin probar en el servidor; óvalo punteado: diseñado, pendiente. Con asterisco: no
-tiene pantalla en el frontend y se usa por la API.*
+*Fuente: `docs/documentacion/diagramas/casos-de-uso.svg`. Los quince casos están implementados, tienen pantalla en
+el frontend y los prueba el CI contra el `docker compose`, con al menos una prueba E2E en el navegador (Playwright,
+`frontend/e2e/`) o un escenario de integración por la API (`scripts/pruebas/escenarios.mjs`). La corrida del CI del
+21/11 sobre el commit `fbd31dc` terminó en verde.*
 
 ## Actores
 
@@ -24,8 +25,10 @@ repite en cada uno. Lo ajeno (un evento de otro organizador, una entrada o una v
 404 `no-encontrado`, igual que lo que no existe.
 
 Los emails (código de verificación, código para la contraseña nueva, compra confirmada y evento cancelado) salen
-por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del servidor como
-`Email para <email> (<asunto>): <cuerpo>`.
+por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del servidor. Por defecto el renglón trae
+solo el destinatario enmascarado y el asunto (`Email para a***@palco.test (<asunto>), sin el cuerpo: ...`). Con
+`PALCO_CORREO_LOG_COMPLETO=true`, que prende `backend/dev.sh` (el compose, solo si se lo levanta con esa variable),
+trae el email entero: `Email para <email> (<asunto>): <cuerpo>`.
 
 ## Resumen
 
@@ -41,11 +44,11 @@ por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del ser
 | CU-08 | Crear evento | Organizador | Implementado |
 | CU-09 | Ver estadísticas | Organizador | Implementado |
 | CU-10 | Validar entrada en puerta | Personal de puerta | Implementado |
-| CU-11 | Cancelar evento | Organizador | Implementado, sin pantalla (por la API) |
-| CU-12 | Editar evento | Organizador | Implementado, sin pantalla (por la API) |
-| CU-13 | Recuperar la contraseña | Comprador, organizador, personal de puerta | Implementado, sin pantalla (por la API) |
+| CU-11 | Cancelar evento | Organizador | Implementado |
+| CU-12 | Editar evento | Organizador | Implementado |
+| CU-13 | Recuperar la contraseña | Comprador, organizador, personal de puerta | Implementado |
 | CU-14 | Asignar personal de puerta | Organizador | Implementado |
-| CU-15 | Subir la foto del evento (extiende CU-08 y CU-12) | Organizador | Implementado, sin probar en el servidor; sin pantalla |
+| CU-15 | Subir la foto del evento (extiende CU-08 y CU-12) | Organizador | Implementado |
 
 ---
 
@@ -297,8 +300,8 @@ por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del ser
 - **Actor:** organizador. **Sistema externo:** pasarela de pago (simulada), para los reembolsos.
 - **Precondición:** sesión con rol `organizer`; el evento es suyo, no está cancelado y no empezó.
 - **Flujo principal:**
-  1. El organizador cancela el evento con un motivo opcional: `POST /api/eventos/{eventoId}/cancelacion` con
-     `{"motivo": "..."}` (o `{}`).
+  1. En el detalle del evento en `/organizador` toca "Cancelar evento" y lo confirma con un motivo opcional. El
+     frontend llama a `POST /api/eventos/{eventoId}/cancelacion` con `{"motivo": "..."}` (o `{}`).
   2. En una sola transacción, Eventos marca el evento (`cancelado`, `cancelacionMotivo`) y publica
      `EVENTO_CANCELADO` en `topico.eventos-cancelados`. Responde 200 con el evento.
   3. El resto es asincrónico (`docs/api/mensajeria-cancelacion-de-eventos.md`). `CancelacionDeEventoMDB`, en Ventas,
@@ -322,15 +325,15 @@ por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del ser
 - **Postcondición:** el evento sale del catálogo y no vende más (Eventos no reserva cupo; una compra nueva
   responde 409), pero su detalle sigue respondiendo con el motivo. Sus compras pagadas quedan `CANCELADA` y reembolsadas, y sus
   entradas `ANULADA` (la puerta responde `NO_HABILITADA`). Las `USADA` y `VENDIDA` no cambian.
-- **Estado:** Implementado, sin pantalla: el panel no tiene el botón y se usa por la API (la colección de Postman lo
-  recorre).
+- **Estado:** Implementado. En el CI lo prueban `organizador.spec.ts`, en el navegador, y el escenario 22, por la API.
 
 ## CU-12 Editar evento
 
 - **Actor:** organizador.
 - **Precondición:** sesión con rol `organizer`; el evento es suyo, no está cancelado y no empezó.
 - **Flujo principal:**
-  1. El organizador manda el evento completo: `PUT /api/eventos/{eventoId}` con título, categoría, lugar, fecha,
+  1. En el detalle del evento en `/organizador` toca "Editar evento", cambia lo que quiere en el formulario y lo
+     guarda. El frontend manda el evento completo: `PUT /api/eventos/{eventoId}` con título, categoría, lugar, fecha,
      descripción, `imagenUrl` y la lista de sectores.
   2. Eventos lo reemplaza: lo que no viene se borra. Los sectores con `id` se cambian, los que vienen sin `id` se
      agregan y los que no están se quitan. El slug y el dueño no cambian.
@@ -344,18 +347,22 @@ por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del ser
     cambiarle el precio (el tope de la reventa se calcula sobre lo que pagó cada comprador): 409
     `sector-con-ventas`.
   - 2c. El evento está cancelado: 409 `evento-cancelado`; ya empezó: 409 `evento-finalizado`.
+  - 2d. El pedido trae `If-Match` con el `ETag` del detalle y el evento cambió desde entonces: 412
+    `evento-modificado`, y no se guarda nada.
 - **Postcondición:** el evento queda con los datos nuevos; las ventas hechas no cambian.
-- **Estado:** Implementado, sin pantalla: se usa por la API (la colección de Postman lo recorre).
+- **Estado:** Implementado. En el CI lo prueba `organizador.spec.ts`, en el navegador; el `If-Match`, `etag.mjs`.
 
 ## CU-13 Recuperar la contraseña
 
 - **Actores:** comprador, organizador y personal de puerta.
 - **Precondición:** tiene una cuenta con el email verificado.
 - **Flujo principal:**
-  1. Pide un código con su email: `POST /api/usuarios/password/olvide` (`@PermitAll`).
+  1. En `/recuperar`, a la que llega desde "¿Olvidaste tu contraseña?" en `/ingresar`, pide un código con su email:
+     `POST /api/usuarios/password/olvide` (`@PermitAll`).
   2. Usuarios responde 204 y le manda un código de 6 dígitos que vence en 15 minutos (asunto "Volvé a poner tu
      contraseña de Palco"). Se guarda aparte del código de verificación: uno no sirve para lo otro.
-  3. Manda el email, el código y la contraseña nueva: `POST /api/usuarios/password/reinicio`.
+  3. En el segundo paso de `/recuperar` manda el email, el código y la contraseña nueva:
+     `POST /api/usuarios/password/reinicio`.
   4. Usuarios cambia la contraseña, borra el código y olvida los inicios de sesión fallidos de ese email. Responde
      204.
   5. Inicia sesión con la contraseña nueva (CU-02).
@@ -369,7 +376,7 @@ por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del ser
   - 3b. Contraseña sin 8 caracteres con letras y números: 400 `datos-invalidos` (campo `password`).
   - 3c. Reusar el código después del cambio: 400; ya no existe.
 - **Postcondición:** la contraseña vieja deja de servir y la cuenta puede entrar enseguida, aunque estuviera con 429.
-- **Estado:** Implementado, sin pantalla: `/ingresar` no ofrece "Olvidé mi contraseña" y se usa por la API.
+- **Estado:** Implementado. En el CI lo prueban `recuperar.spec.ts`, en el navegador, y el escenario 24, por la API.
 
 ## CU-14 Asignar personal de puerta
 
@@ -380,13 +387,16 @@ por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del ser
      (`GET /api/v1/validacion/puertas?eventoId=`).
   2. Escribe el email de una cuenta de puerta y la asigna: `PUT /api/v1/validacion/puertas/{eventoId}/{email}`.
      Validación le pregunta a Eventos de quién es el evento (`GET /api/eventos/{eventoId}/organizador`, rol
-     `servicio`), guarda la asignación con el email en minúsculas y responde 200.
+     `servicio`) y a Usuarios el rol de la cuenta (`GET /api/usuarios/cuentas?email=`, rol `servicio`), guarda la
+     asignación con el email en minúsculas y responde 200.
   3. Esa cuenta ve el evento en `/puerta` (`GET /api/v1/validacion/puertas/mias`) y puede escanear (CU-10).
 - **Flujos alternativos:**
   - 2a. El evento es de otro organizador o no existe: 404 `no-encontrado`.
-  - 2b. Email inválido: 400 `datos-invalidos`. Eventos no responde: 504 `sin-respuesta`.
+  - 2b. Email inválido: 400 `datos-invalidos`. Eventos o Usuarios no responden: 504 `sin-respuesta`, y no se
+    guarda nada.
   - 2c. La cuenta ya estaba asignada: 200 con la misma asignación, sin duplicarla.
-  - 2d. El email no es de una cuenta `staff`: se guarda igual y no deja escanear a nadie.
+  - 2d. No hay una cuenta verificada con ese email, o no es de personal de puerta (`staff`): 422 `no-es-de-puerta`,
+    y no se guarda nada.
   - 4. Quita una cuenta: `DELETE /api/v1/validacion/puertas/{eventoId}/{email}`, 204 aunque no estuviera
     asignada. Desde ahí, esa cuenta recibe 403 `puerta-no-asignada` al escanear o leer el registro de ese evento.
 - **Postcondición:** la cuenta queda (o deja de estar) habilitada para la puerta de ese evento. Las migraciones de
@@ -396,19 +406,26 @@ por SMTP si el servidor tiene `PALCO_SMTP_HOST`; si no, quedan en el log del ser
 ## CU-15 Subir la foto del evento
 
 - **Actor:** organizador. Extiende CU-08 y CU-12.
-- **Precondición:** sesión con rol `organizer`; el servidor tiene configurado el almacén (`PALCO_SUPABASE_URL`,
-  `PALCO_SUPABASE_BUCKET` y `PALCO_SUPABASE_CLAVE`).
+- **Precondición:** sesión con rol `organizer`. Dónde se guarda la foto lo elige `PALCO_IMAGENES` (`base`,
+  `supabase` o `ninguno`); sin esa variable, va a Supabase Storage si están `PALCO_SUPABASE_URL` y
+  `PALCO_SUPABASE_CLAVE`, y si no, a la base de Palco (`FabricaDeAlmacen`). El compose no configura Supabase.
 - **Flujo principal:**
-  1. Manda la imagen cruda, con su tipo en `Content-Type`: `POST /api/eventos/imagenes`.
-  2. Eventos le pone un nombre propio (un UUID con la extensión del tipo), la guarda en Supabase Storage y responde
-     200 con la URL pública.
+  1. En el formulario de alta o de edición de `/organizador` elige una foto. Al guardar, el frontend la manda cruda,
+     con su tipo en `Content-Type`: `POST /api/eventos/imagenes`.
+  2. Eventos mira el tipo y la firma del contenido (los primeros bytes de cada formato), le pone un nombre propio (un
+     UUID con la extensión del tipo), la guarda y responde 200 con su URL. En la base de Palco, la URL es
+     `/api/eventos/imagenes/<uuid>.<extensión>`, que la devuelve con su tipo.
   3. Esa URL va como `imagenUrl` al crear (CU-08) o editar (CU-12) el evento.
 - **Flujos alternativos:**
-  - 1a. Un tipo que no es JPG, PNG ni WEBP (por ejemplo un SVG, que puede traer scripts): 415.
-  - 1b. Imagen vacía o de más de 2 MB: 400 `datos-invalidos` (campo `imagen`).
-  - 2a. Sin almacén configurado, o Supabase Storage no responde: 504 `sin-respuesta`. El evento se puede crear igual,
+  - 1a. No elige ninguna foto, o al editar toca "quitar foto": el evento queda con `imagenUrl` en null y se muestra
     con la foto de su categoría.
-- **Postcondición:** la imagen queda pública en el almacén y el evento la muestra.
-- **Estado:** Implementado, sin probar en el servidor: tiene tests con dobles, y en el servidor solo se probaron el
-  504 sin almacén y el 415, porque el bucket real todavía no existe. Sin pantalla: el alta usa la foto de la
-  categoría.
+  - 1b. Un tipo que no es JPG, PNG ni WEBP (por ejemplo un SVG, que puede traer scripts): 415.
+  - 1c. Imagen vacía o de más de 2 MB: 400 `datos-invalidos` (campo `imagen`).
+  - 2a. El contenido no es la imagen que declara (un texto renombrado a .png, un PNG declarado como JPG): 400
+    `datos-invalidos` (campo `imagen`), y no se guarda nada.
+  - 2b. Supabase Storage no responde o rechaza la subida, o no hay almacén (`PALCO_IMAGENES=ninguno`): 504
+    `sin-respuesta`. El evento se puede crear igual, con la foto de su categoría.
+- **Postcondición:** la imagen queda guardada y el evento la muestra.
+- **Estado:** Implementado. En el CI lo prueban `organizador.spec.ts` (crea un evento con foto y la foto que sirve el
+  servidor es la que se subió) y `foto-de-la-categoria.spec.ts` (sin foto propia se ve la de la categoría), en el
+  navegador.

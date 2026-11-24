@@ -1,8 +1,9 @@
-# Manual de usuario de Palco (primera versión)
+# Manual de usuario de Palco
 
-3.er Checkpoint (20/11/2026). Explica cómo usar Palco paso a paso: comprar una entrada, verla,
-revenderla, consultar al asistente, administrar eventos y validar entradas en la puerta. Las
-capturas son de la aplicación real, tomadas el 18/11/2026.
+Versión de la Entrega Final, revisada el 24/11/2026 (la primera es la del 3.er check point, 20/11/2026).
+Explica cómo usar Palco paso a paso: ver el catálogo, crear una cuenta y recuperar la contraseña, comprar
+una entrada, verla, revenderla, consultar al asistente, administrar eventos, validar entradas en la puerta
+y cambiar el tema. Las capturas son de la aplicación real, tomadas el 18/11/2026.
 
 ## Índice
 
@@ -11,6 +12,7 @@ capturas son de la aplicación real, tomadas el 18/11/2026.
 3. [Ver el catálogo](#3-ver-el-catálogo)
 4. [Elegir las entradas](#4-elegir-las-entradas)
 5. [Ingresar o crear una cuenta](#5-ingresar-o-crear-una-cuenta)
+   - [Recuperar la contraseña](#recuperar-la-contraseña)
 6. [Comprar: los titulares](#6-comprar-los-titulares)
 7. [Comprar: el pago](#7-comprar-el-pago)
 8. [La confirmación y el código QR](#8-la-confirmación-y-el-código-qr)
@@ -76,9 +78,26 @@ continuar a `localhost`. Se acepta una vez.
 | `otra.puerta@palco.test` | Segundo personal de puerta, que empieza sin eventos asignados |
 
 **Los emails en el entorno de prueba.** Palco manda emails al crear una cuenta (el código de
-verificación), al confirmarse una compra y al cancelarse un evento. En el entorno de prueba no hay un
+verificación), al pedir un código para recuperar la contraseña, al confirmarse una compra (también una
+compra en la reventa) y al cancelarse un evento. En el entorno de prueba no hay un
 servidor de correo configurado, así que esos emails no llegan a ninguna casilla: quedan escritos en el
-log del servidor. Para verlos, desde la carpeta del repositorio:
+log del servidor.
+
+Para crear una cuenta o recuperar una contraseña hace falta leer el código que trae el email, y el log
+lo escribe solo en el modo `PALCO_CORREO_LOG_COMPLETO=true`. Para asegurarlo, antes de
+`docker compose up` se crea en la carpeta del repositorio un archivo `.env` con esta línea (si el
+archivo ya existe, se le agrega; en el Bloc de notas, guardando con "Todos los archivos", para que no
+quede `.env.txt`):
+
+```
+PALCO_CORREO_LOG_COMPLETO=true
+```
+
+Si el sistema ya estaba levantado, se vuelve a correr `docker compose up --build` para que tome el
+cambio. Una línea que dice solo a quién iba el email, enmascarado (`a***@ejemplo.com`), y el asunto,
+sin el código, es señal de que el sistema se levantó sin ese modo.
+
+Para ver los emails, desde la carpeta del repositorio:
 
 ```bash
 docker compose logs backend | grep "Email para"
@@ -90,6 +109,16 @@ hora, la línea del código de verificación dice:
 ```
 Email para ana@ejemplo.com (Tu código de Palco): Hola Ana: tu código para verificar el email es 482913. Vence en 15 minutos.
 ```
+
+Cada email tiene su asunto entre paréntesis, así que se encuentra por él:
+
+| Cuándo llega | Asunto |
+|---|---|
+| Al crear una cuenta o al tocar **reenviar código** en la verificación | Tu código de Palco |
+| Al pedir un código en **Recuperar la contraseña** (sección 5) | Volvé a poner tu contraseña de Palco |
+| Al confirmarse una compra | Tu compra en Palco está confirmada |
+| Al confirmarse una compra en la reventa | Tu compra en la reventa de Palco está confirmada |
+| Al cancelarse un evento con entradas compradas | Se canceló seguido del nombre del evento |
 
 ## 3. Ver el catálogo
 
@@ -244,7 +273,11 @@ la vieja deja de servir.
 enlace **factura**. Muestra la factura electrónica B con su número, la fecha, el **CAE** que dio
 ARCA, su vencimiento y el total. En el entorno de prueba ARCA es un servicio simulado y el
 comprobante no tiene validez fiscal. La factura se genera sola unos segundos después del pago: si
-todavía no está, Palco lo avisa y se puede volver a consultar.
+todavía no está, Palco lo avisa y se puede tocar **Volver a consultar**. Si pasaron más de 5 minutos
+desde la compra y sigue sin estar, Palco avisa que está demorada y que la están revisando: aparece sola
+cuando ARCA la autoriza. Si ARCA rechazó la factura, Palco lo dice y no ofrece volver a consultar, porque
+la revisa una persona del equipo de Palco y no hay que hacer nada. En todos los casos las entradas valen
+igual.
 
 ![Factura](img/12-factura.png)
 
@@ -395,6 +428,8 @@ lugares reservados y sin pagar, esos lugares se liberan.
 | "Hubo demasiados intentos fallidos. Probá de nuevo en N minutos." | Cinco intentos fallidos seguidos | Esperar los minutos que indica |
 | Aviso de email sin verificar, con el enlace **Verificar mi email** | La cuenta se creó pero falta el código | Tocar el enlace y escribir el código (en el entorno de prueba, en el log: sección 2) |
 | El código de verificación no se acepta | Está mal escrito, venció o se superaron los intentos | Tocar **reenviar código** y usar el nuevo |
+| En **Recuperar la contraseña**, "El código no es correcto.", "El código venció. Pedí uno nuevo." o "Demasiados intentos. Pedí un código nuevo." | El código está mal escrito, pasaron los 15 minutos o se probó cinco veces | Tocar **reenviar código** y usar el nuevo |
+| El código para recuperar la contraseña no aparece en el log | El email no tiene cuenta o la cuenta todavía no verificó su email: en esos casos Palco no manda nada. O el sistema se levantó sin el modo que escribe el email entero | Revisar el email escrito. Una cuenta sin verificar se verifica primero, con el enlace **Verificar mi email** que aparece al ingresar. Para el modo del log, ver la sección 2 |
 | "Ese DNI ya está asignado a otra entrada de esta compra." | Dos entradas de la misma compra con el mismo DNI | Cada entrada lleva el DNI de una persona distinta |
 | "El DNI … ya tiene una entrada para este evento." | Esa persona ya tiene entrada para el evento, aunque la haya comprado otra cuenta | Poner a otra persona como titular |
 | "Cada persona puede tener hasta 6 entradas por evento… podés comprar N más." | Se pasó el tope sumando las compras anteriores | Pedir como mucho las que indica |
@@ -402,6 +437,8 @@ lugares reservados y sin pagar, esos lugares se liberan.
 | El pago se rechaza | La pasarela lo rechazó (en prueba, una tarjeta terminada en `0002`) | Probar con otra tarjeta u otro medio: la compra sigue abierta |
 | "No sabemos si el pago se acreditó" | La pasarela no respondió (en prueba, una tarjeta terminada en `0504`) | No pagar con otro medio. **Reintentar pago** o **Ver estado** |
 | "La factura todavía se está generando con ARCA…" | La factura tarda unos segundos después del pago | Volver a abrirla en unos segundos |
+| "La factura está demorada y la estamos revisando…" | Pasaron más de 5 minutos desde la compra y ARCA todavía no autorizó la factura | Nada: aparece sola cuando ARCA la autoriza, y las entradas valen igual |
+| "ARCA rechazó la factura de esta compra y la estamos revisando…" | ARCA no autorizó el comprobante | Nada: lo revisa el equipo de Palco, y las entradas valen igual |
 | "El máximo permitido es $…" o "El mínimo es $…" | El precio de reventa está fuera del rango | Poner un precio entre el mínimo y el tope que muestra la pantalla |
 | "La reventa cierra 3 horas antes del evento." | Faltan menos de 3 horas para el evento | Ya no se puede publicar ni comprar en la reventa de ese evento |
 | "Las compras se hacen con una cuenta de comprador. Ingresaste como …" | Se ingresó como organizador o personal de puerta | Cerrar sesión e ingresar con una cuenta de comprador |
@@ -413,6 +450,7 @@ lugares reservados y sin pagar, esos lugares se liberan.
 
 | Pregunta | Respuesta |
 |---|---|
+| ¿Qué hago si olvidé la contraseña? | En **Ingresar**, tocar **¿Olvidaste tu contraseña?**: Palco manda un código al email para elegir una nueva (sección 5). |
 | ¿Puedo cambiar el titular después de comprar? | No. La entrada es nominativa; si no puede ir, se revende. |
 | ¿Puedo comprar más de una vez para el mismo evento? | Sí, hasta 6 entradas en total, y cada persona (DNI) con una sola entrada. |
 | ¿A cuánto puedo revender? | Entre el 50 % y el 110 % del precio de lista del sector. |
