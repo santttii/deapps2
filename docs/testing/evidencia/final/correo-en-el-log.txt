@@ -1,0 +1,27 @@
+Los emails y los códigos no quedan en el log del servidor con el compose por defecto
+Evidencia de DEF-36 (docs/testing/registro-de-defectos.md).
+
+1. Configuración
+   docker-compose.yml: PALCO_CORREO_LOG_COMPLETO: ${PALCO_CORREO_LOG_COMPLETO:-false}. Sin la variable en el entorno ni
+   en el .env, el backend arranca con false:
+   docker compose exec -T backend printenv PALCO_CORREO_LOG_COMPLETO  ->  false
+
+2. Qué se hizo (24/11/2026, 18:38 a 18:39 UTC, docker compose levantado desde el código corregido, backend recreado
+   sin la variable, http://localhost:8080)
+   - Una pregunta al asistente con sesión de titular@palco.test: "Mi email es titular@palco.test, hasta cuando puedo
+     revender?" -> 200.
+   - Un registro sin sesión con un email nuevo (def36.26760@palco.test) -> 201; el email con el código de
+     verificación sale por CorreoAlLog.
+   - Una compra de titular@palco.test en ev-4, pagada con tok_test -> 201; el aviso de compra sale por el tópico.
+
+3. Los renglones del log de ese tramo (server.log del contenedor)
+   2026-11-24 18:38:46,957 INFO  [com.palco.asistente.negocio.AsistenteIA] (default task-3) Asistente: usuario=user-titular modelo=simulado-1 origen=MODELO motivo=null ms=13 pregunta="Mi email es [email oculto], hasta cuando puedo revender?"
+   2026-11-24 18:39:03,445 INFO  [com.palco.common.email.CorreoAlLog] (default task-3) Email para d***@palco.test (Tu código de Palco), sin el cuerpo: lo escribe PALCO_CORREO_LOG_COMPLETO=true.
+   2026-11-24 18:39:05,232 INFO  [com.palco.common.email.CorreoAlLog] (Thread-2 (activemq-client-global)) Email para t***@palco.test (Tu compra en Palco está confirmada), sin el cuerpo: lo escribe PALCO_CORREO_LOG_COMPLETO=true.
+
+4. Búsquedas en el log desde las 18:38:44 UTC
+   grep -cE "def36.26760@palco.test|titular@palco\.test"   ->  0 (ningún email entero)
+   grep -ciE "c[oó]digo[^0-9]{0,40}[0-9]{6}"               ->  0 (ningún código de verificación)
+
+5. Después se volvió a levantar el backend con PALCO_CORREO_LOG_COMPLETO=true, el modo que usan los guiones que leen
+   el código del log (README, "Todo junto, con un solo comando (Docker)").

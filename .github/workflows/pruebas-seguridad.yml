@@ -41,6 +41,9 @@ jobs:
       # el email se escribe en el log) y la prueba de que el ARCA simulado no atendió los sobres con DOCTYPE.
       PALCO_DIR_LOGS: ./logs
       PALCO_LOG: logs/server.log
+      # El email entero en el log, con el código de verificación de esa cuenta (bloque B). El compose, por
+      # defecto, escribe solo el destinatario enmascarado y el asunto.
+      PALCO_CORREO_LOG_COMPLETO: 'true'
       RESULTADOS: resultados-seguridad
     steps:
       - uses: actions/checkout@v5

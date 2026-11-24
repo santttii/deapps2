@@ -34,8 +34,8 @@ jobs:
       # (sin SMTP, el email se escribe en el log).
       PALCO_DIR_LOGS: ./logs
       PALCO_LOG: logs/server.log
-      # El email entero en el log, con el destinatario y el código. Es el valor por defecto del compose: va
-      # explícito porque las cuentas de la prueba no se pueden crear sin él.
+      # El email entero en el log, con el destinatario y el código: las cuentas de la prueba no se pueden crear
+      # sin él. El compose, por defecto, escribe solo el destinatario enmascarado y el asunto.
       PALCO_CORREO_LOG_COMPLETO: 'true'
       # La versión de k6 va fija: una nueva puede cambiar el reporte.
       K6: grafana/k6:2.3.0

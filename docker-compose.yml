@@ -36,10 +36,13 @@ services:
       PALCO_CORS_ORIGENES: ${PALCO_URL_PUBLICA:-https://localhost},http://localhost:5173
       PALCO_SECRETO_SERVICIOS: ${PALCO_SECRETO_SERVICIOS:-}
       PALCO_JWT_CLAVE_PRIVADA: ${PALCO_JWT_CLAVE_PRIVADA:-}
-      # Sin SMTP el log es la bandeja de entrada de la demo: con true escribe cada email entero, con el código
-      # de verificación que piden el registro y las pruebas del CI. Con false quedan solo el destinatario
-      # enmascarado y el asunto, como en un despliegue sin la variable (ver common/email/CorreoAlLog).
-      PALCO_CORREO_LOG_COMPLETO: ${PALCO_CORREO_LOG_COMPLETO:-true}
+      # Sin SMTP, los emails quedan en el log del servidor. Por defecto (false) el renglón lleva solo el
+      # destinatario enmascarado y el asunto: ni nombres, ni titulares, ni códigos, como en un despliegue.
+      # Con PALCO_CORREO_LOG_COMPLETO=true en el entorno o en el .env, escribe cada email entero, con el código
+      # de verificación: lo prenden los jobs del CI que leen ese código del log (integración, E2E, Postman,
+      # pruebas de seguridad y carga) y hace falta para registrar una cuenta nueva sin SMTP (ver
+      # common/email/CorreoAlLog).
+      PALCO_CORREO_LOG_COMPLETO: ${PALCO_CORREO_LOG_COMPLETO:-false}
       # El modelo del asistente: simulado por defecto, o uno real con la API de chat de OpenAI
       # (ver backend/.env.example). La clave nunca va en este archivo: sale del .env de la raíz.
       PALCO_ASISTENTE_MODELO: ${PALCO_ASISTENTE_MODELO:-simulado}

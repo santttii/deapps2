@@ -234,6 +234,9 @@ jobs:
       PALCO_DIR_LOGS: ./logs
       PALCO_LOG: logs/server.log
       JBOSS_CLI: scripts/qa/jboss-cli-docker.sh
+      # Cada email entero en el log, con el destinatario y el código: los escenarios leen de ahí el código de las
+      # cuentas nuevas y los avisos de compra y de cancelación. El compose, por defecto, no lo escribe.
+      PALCO_CORREO_LOG_COMPLETO: 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -324,8 +327,10 @@ jobs:
       contents: read
     env:
       # El log del servidor queda en ./logs: de ahí las pruebas leen el código de verificación de las
-      # cuentas nuevas (sin SMTP, el email se escribe en el log).
+      # cuentas nuevas (sin SMTP, el email se escribe en el log). El email entero, con el código, lo escribe
+      # solo con PALCO_CORREO_LOG_COMPLETO=true: el compose, por defecto, no.
       PALCO_DIR_LOGS: ./logs
+      PALCO_CORREO_LOG_COMPLETO: 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -404,8 +409,10 @@ jobs:
       contents: read
     env:
       # El log del servidor queda en ./logs: de ahí salen el email y el código de verificación de los
-      # "Pasos manuales" (sin SMTP, el email se escribe en el log).
+      # "Pasos manuales" (sin SMTP, el email se escribe en el log). El email entero, con el código, lo escribe
+      # solo con PALCO_CORREO_LOG_COMPLETO=true: el compose, por defecto, no.
       PALCO_DIR_LOGS: ./logs
+      PALCO_CORREO_LOG_COMPLETO: 'true'
       # La versión exacta de Newman con la que se comprobó la colección a mano (docs/api/GUIA_POSTMAN.md). npx la
       # baja con --ignore-scripts: ninguna de sus dependencias tiene scripts de instalación.
       NEWMAN: newman@6.2.3
