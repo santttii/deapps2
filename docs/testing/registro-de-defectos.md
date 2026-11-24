@@ -1,6 +1,6 @@
 # Registro de defectos de Palco
 
-Corte: 20/11/2026. Cada defecto tiene su ID `DEF-xx`, severidad y prioridad, pasos para reproducirlo, resultado
+Corte: 24/11/2026. Cada defecto tiene su ID `DEF-xx`, severidad y prioridad, pasos para reproducirlo, resultado
 esperado y obtenido, evidencia, estado y dueño; los cerrados, además, su causa raíz y el commit que los corrige. Los
 DEF-01 a DEF-04 son los del informe del 30/10 (`docs/testing/informe-condiciones-eliminatorias.md`); los
 siguientes se suman con la fecha de su corrección o, si siguen abiertos, la de su registro. Los que salen del informe
@@ -79,10 +79,10 @@ contra el máximo.
 | DEF-30 | La compra en la reventa no aplica un DNI por evento ni el tope de 6 por persona y evento | Mayor | Alta | Corregido, a verificar sobre el tag (escenario 23) | Julián Zuchowicki | 20/11 | Corrección del 20/11 |
 | DEF-31 | Al cancelar un evento, la venta nacida en la reventa devolvía un cupo que nunca reservó | Menor | Media | Cerrado | Julián Zuchowicki | 20/11 | `da928f6` |
 | DEF-32 | El registro de la puerta muestra el id interno de la cuenta de puerta y no su email | Menor | Baja | Corregido, a verificar sobre el tag (escenario 16) | Joaquin Molina | 20/11 | Corrección del 20/11 |
-| DEF-33 | Una factura rechazada o en la DLQ figura como "todavía se está generando" | Menor | Baja | En corrección: el rechazo ya se ve; falta el caso de la DLQ | Valentina Frisoli | 20/11 | Corrección del 20/11, en parte |
+| DEF-33 | Una factura rechazada o en la DLQ figura como "todavía se está generando" | Menor | Baja | Corregido, a verificar sobre el tag (`factura-rechazada.spec.ts`) | Sebastian Deya | 20/11 | Corrección del 20/11 y del 24/11 |
 | DEF-34 | Los límites de largo de Usuarios y Eventos respondían el 400 en inglés | Cosmética | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 20/11 | Corrección del 20/11 |
 | DEF-35 | El contrato de la asignación de puerta decía que no controla el rol de la cuenta, y la API responde 422 `no-es-de-puerta` | Menor | Baja | Corregido, a verificar sobre el tag (contrato y Postman) | Joaquin Molina | 20/11 | Corrección del 20/11 |
-| DEF-36 | El log guardaba el email de quien usa el asistente y, sin SMTP, cada email completo con sus códigos (SEC-D03) | Mayor | Alta | Corregido, a verificar sobre el tag | Sebastian Deya y Valentina Frisoli | 20/11 | Corrección del 20/11 |
+| DEF-36 | El log guardaba el email de quien usa el asistente y, sin SMTP, cada email completo con sus códigos (SEC-D03) | Mayor | Alta | Corregido, a verificar sobre el tag | Sebastian Deya y Valentina Frisoli | 20/11 | Corrección del 20/11 y del 24/11 (el compose, por defecto, sin el email entero) |
 | DEF-37 | El DNI de cada titular viaja completo en `PAGO_CONFIRMADO` y queda completo en la auditoría (SEC-D05) | Mayor | Media | Nuevo (confirmado en el código) | Julián Zuchowicki | 20/11 | Pendiente |
 | DEF-38 | La sesión dura 8 horas y cerrar sesión no revoca el token (SEC-W05c) | Mayor | Baja | Aceptado (riesgo aceptado el 16/10) | Santiago Loto | 20/11 | Riesgo aceptado |
 | DEF-39 | El broker no tiene usuarios ni permisos por destino (SEC-I02) | Menor | Baja | Aceptado (riesgo aceptado el 16/10) | Julián Zuchowicki | 20/11 | Riesgo aceptado |
@@ -92,12 +92,12 @@ contra el máximo.
 | DEF-43 | Ningún test falla si una operación de 7 de los 13 recursos queda sin `@RolesAllowed` ni `@PermitAll` (SEC-W02) | Menor | Alta | Nuevo (confirmado en el código) | Valentina Frisoli | 20/11 | Pendiente |
 | DEF-44 | Las contraseñas guardadas con 310.000 iteraciones no pasan a 600.000 al iniciar sesión (SEC-D02) | Menor | Baja | Nuevo (confirmado en el código) | Santiago Loto | 20/11 | Pendiente |
 | DEF-45 | El ARCA simulado no pide autenticación y el nginx del compose lo publica | Menor | Baja | Nuevo (confirmado en el código) | Santiago Loto | 20/11 | Pendiente |
-| DEF-46 | Dos compras a la vez del mismo comprador, o con el mismo DNI, pasan el tope de 6 y el control de un DNI por evento | Mayor | Alta | Nuevo (confirmado en el código) | Julián Zuchowicki | 20/11 | Pendiente |
+| DEF-46 | Dos compras a la vez del mismo comprador, o con el mismo DNI, pasan el tope de 6 y el control de un DNI por evento | Mayor | Alta | En corrección: el catálogo ya está corregido (a verificar sobre el tag); falta la compra por la reventa | Julián Zuchowicki | 20/11 | Corrección del 24/11, en parte |
 | DEF-47 | Recuperar la contraseña (HU-03) no tenía pantalla | Mayor | Alta | Corregido, a verificar sobre el tag (`recuperar.spec.ts`) | Valentina Frisoli | 20/11 | Corrección del 20/11 |
 | DEF-48 | Las ventas por día (HU-12) no tienen pantalla | Menor | Baja | Nuevo (confirmado en el código) | Valentina Frisoli | 20/11 | Pendiente |
 | DEF-49 | El JavaScript del frontend sale en un solo archivo de más de 500 kB | Menor | Baja | Nuevo (confirmado en el build) | Valentina Frisoli | 20/11 | Pendiente |
 | DEF-50 | Cuatro avisos de oxlint: tres `react(only-export-components)` y un `no-unused-vars` | Cosmética | Baja | Nuevo (confirmado con el lint) | Valentina Frisoli | 20/11 | Pendiente |
-| DEF-51 | La imagen web parte de `nginx:1.27-alpine`, que no se publica desde el 16/04/2025 | Menor | Alta | Nuevo (confirmado en el código) | Joaquin Molina | 20/11 | Pendiente |
+| DEF-51 | La imagen web partía de `nginx:1.27-alpine`, que no se publica desde el 16/04/2025 | Menor | Alta | Cerrado | Joaquin Molina | 21/11 | `64288b2` |
 | DEF-52 | CA-06.3 y CP-06.3.3 describían el rechazo de ARCA de antes de DEF-33 y citaban dos tests que ya no existen | Menor | Alta | Corregido, a verificar sobre el tag (matriz) | Valentina Frisoli | 20/11 | Corrección del 20/11 |
 | DEF-53 | CA-01.6, CA-03.4, CP-01.6.1 y CP-03.4.1 esperaban el email completo en el aviso de falla del SMTP, que sale enmascarado | Cosmética | Media | Corregido, a verificar sobre el tag | Sebastian Deya | 20/11 | Corrección del 20/11 |
 | DEF-54 | Con el backend caído, la pantalla dice "Ocurrió un error inesperado" en lugar de que no hay conexión | Cosmética | Baja | Nuevo (confirmado en el código) | Valentina Frisoli | 20/11 | Pendiente |
@@ -110,11 +110,23 @@ contra el máximo.
 | DEF-61 | `POST /v1/validacion/escaneos` responde 500 si el `codigoQr` trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Joaquin Molina | 21/11 | Corrección del 21/11 |
 | DEF-62 | Un 400 de validación lista los campos de `errores` en un orden que cambia entre pedidos iguales | Menor | Baja | Nuevo (reproducido) | Sebastian Deya | 21/11 | Pendiente |
 | DEF-63 | Una pregunta muy larga al asistente deja colgado el pedido: el enmascarado del email tarda con el cuadrado del largo | Crítica | Alta | Corregido, a verificar sobre el tag (contrato) | Valentina Frisoli | 21/11 | Corrección del 21/11 |
+| DEF-64 | El registro tardaba con el cubo del largo de un nombre o un apellido lleno de espacios: un pedido sin sesión de 1,6 KB ocupaba un hilo del servidor 7 segundos (SEC-W15) | Crítica | Alta | Corregido, a verificar sobre el tag (`NombreYApellidoTest` y los `curl` de la evidencia) | Joaquin Molina | 24/11 | Corrección del 24/11 |
+| DEF-65 | El bug `java:S5850` de SonarCloud en `Textos.slug` dejaba la confiabilidad del código total en C, y la cátedra pide A | Menor | Alta | Corregido, a verificar sobre el tag (análisis de SonarCloud) | Sebastian Deya | 24/11 | Corrección del 24/11 |
+| DEF-66 | La colección de Postman no tenía ningún pedido para `POST /v1/operaciones-de-reventa/controles-de-compra` | Menor | Alta | Corregido, a verificar sobre el tag (Newman) | Julián Zuchowicki | 24/11 | Corrección del 24/11 |
+| DEF-67 | Tres code smells BLOCKER de SonarCloud (`java:S1845`): nombres que solo difieren en mayúsculas en `ArcaSoap`, `PagosFake` y `ResultadoDeCobro` | Cosmética | Baja | Nuevo (confirmado en SonarCloud) | Santiago Loto, Valentina Frisoli y Julián Zuchowicki | 24/11 | Pendiente |
+| DEF-68 | La imagen backend lleva seis vulnerabilidades altas de Jackson 2.21.5 y Guava 33.0.0 que vienen en los módulos de WildFly 41.0.1, aceptadas en `.trivyignore` hasta el 31/12/2026 (SEC-E02) | Menor | Baja | Aceptado (riesgo aceptado el 21/11, vence el 31/12/2026) | Santiago Loto | 24/11 | Riesgo aceptado |
+| DEF-69 | La CSP permite estilos en línea (`style-src 'unsafe-inline'`) e imágenes de cualquier origen `https:`: dos alertas Medium de ZAP, justificadas (SEC-W12, SEC-E01) | Menor | Baja | Aceptado (justificado en `.zap/reglas.tsv`) | Valentina Frisoli | 24/11 | Riesgo aceptado |
+| DEF-70 | La CSP habilitaba `https://fonts.googleapis.com` y `https://fonts.gstatic.com`, aunque las fuentes se sirven desde el propio sitio (SEC-W12) | Menor | Baja | Corregido, a verificar sobre el tag (ZAP y pruebas de seguridad) | Valentina Frisoli | 24/11 | Corrección del 24/11 |
+| DEF-71 | El proceso principal de nginx corre como root en la imagen web (hallazgo de SonarCloud aceptado) (SEC-E04) | Menor | Baja | Aceptado (en SonarCloud, 21/11) | Joaquin Molina | 24/11 | Riesgo aceptado |
+| DEF-72 | El email de la cuenta de puerta viaja en la ruta (`PUT` y `DELETE /api/v1/validacion/puertas/{eventoId}/{email}`) o en la consulta (`GET /api/usuarios/cuentas?email=`) y queda en el log de accesos de nginx (SEC-D03) | Menor | Baja | Nuevo (confirmado en el log del run 44867187257) | Joaquin Molina | 24/11 | Pendiente |
+| DEF-73 | El análisis de dependencias no escanea la imagen `postgres:17-alpine` del compose (SEC-E02b) | Menor | Baja | Nuevo (confirmado en el workflow) | Joaquin Molina | 24/11 | Pendiente |
+| DEF-74 | ZAP informa 5 alertas Low sin justificar: faltan las cabeceras `Cross-Origin-Resource-Policy`, `Cross-Origin-Opener-Policy` y `Cross-Origin-Embedder-Policy`, y 14 respuestas salen en `text/html` donde ZAP esperaba JSON (SEC-W12, SEC-E01) | Cosmética | Baja | Nuevo (confirmado en el reporte de ZAP) | Valentina Frisoli | 24/11 | Pendiente |
+| DEF-75 | El registro dice si un email o un DNI ya tienen cuenta y no cuenta intentos (SEC-W03) | Menor | Baja | Aceptado (decisión de diseño, CA-01.2) | Santiago Loto | 24/11 | Riesgo aceptado |
 
-Totales: 63 defectos. 28 cerrados, 16 corregidos que falta verificar (DEF-02, DEF-14, DEF-30, DEF-32, DEF-34, DEF-35,
-DEF-36, DEF-47, DEF-52, DEF-53, DEF-55, DEF-57, DEF-59, DEF-60, DEF-61 y DEF-63), 1 en corrección (DEF-33),
-3 aceptados (DEF-38, DEF-39 y DEF-58) y 15 nuevos abiertos. Por severidad: 1 bloqueante, 7 críticos, 16 mayores,
-31 menores y 8 cosméticos.
+Totales: 75 defectos. 29 cerrados, 21 corregidos que falta verificar (DEF-02, DEF-14, DEF-30, DEF-32, DEF-33, DEF-34,
+DEF-35, DEF-36, DEF-47, DEF-52, DEF-53, DEF-55, DEF-57, DEF-59, DEF-60, DEF-61, DEF-63, DEF-64, DEF-65, DEF-66 y
+DEF-70), 1 en corrección (DEF-46), 7 aceptados (DEF-38, DEF-39, DEF-58, DEF-68, DEF-69, DEF-71 y DEF-75) y 17 nuevos
+abiertos. Por severidad: 1 bloqueante, 8 críticos, 16 mayores, 40 menores y 10 cosméticos.
 
 ## 3. Defectos abiertos y corregidos que falta verificar
 
@@ -185,7 +197,7 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
   `escaneadoPorEmail = puerta@palco.test` y el mismo id que la respuesta del escaneo; la colección de Postman, que el
   registro trae ese email.
 
-### DEF-33 · Menor · Prioridad Baja · En corrección
+### DEF-33 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **Una factura rechazada por ARCA o con su mensaje en la DLQ figura como "todavía se está generando"**
 
@@ -214,13 +226,17 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
   `FacturacionDeComprasMDBTest#unComprobanteRechazadoQuedaAnotadoYNoVuelveAlBroker`,
   `FacturasResourceTest#unaVentaQueArcaRechazoEsUnConflictoParaSuCompradorYUn404ParaOtro` y
   `FacturaEnH2Test#guardaElRechazoDeArcaYLoEncuentraPorVenta`.
-- **Lo que falta, la DLQ:** `FacturaModal` ya muestra que la factura está demorada pasados 5 minutos de la compra,
-  pero necesita la fecha de la compra (`compradaISO`) y Mis entradas no se la pasa al crear el modal
-  (`frontend/src/pages/MyTicketsPage.tsx`): hasta ese cambio, una factura con su mensaje en la DLQ sigue figurando
-  como "en camino". Con él, el estado pasa a *Corregido, a verificar*.
-- **Prueba que lo va a cubrir:** dos casos de la suite de la interfaz, con `page.route` sobre
-  `GET /api/v1/facturas/*`: un 409 `comprobante-rechazado` muestra el aviso del rechazo sin "Volver a consultar", y un
-  404 de una compra de más de 5 minutos muestra el de la factura demorada. `frontend/e2e/` todavía no tiene ninguno.
+- **Corrección (24/11), la DLQ:** `FacturaModal` muestra que la factura está demorada pasados 5 minutos de la compra,
+  y para eso necesita la fecha de la compra. Desde el 24/11, Mis entradas (`frontend/src/pages/MyTicketsPage.tsx`) le
+  pasa la fecha de la venta (`compradaISO`, el `creada` de Ventas en UTC) al crear el modal: una factura con su
+  mensaje en la DLQ ya no figura como "en camino" para siempre.
+- **Prueba que lo va a cerrar:** `frontend/e2e/factura-rechazada.spec.ts`, con `page.route` sobre
+  `GET /api/v1/facturas/*`: «factura rechazada: el 409 comprobante-rechazado muestra el aviso del rechazo, sin
+  "Volver a consultar"» y «factura demorada: el 404 recién comprada dice "en camino" y, de una compra de hace más de 5
+  minutos, que está demorada» (adelanta 10 minutos el reloj del navegador con `page.clock`). Corrieron el 24/11 en
+  local. Contra el compose, con el frontend armado sin este cambio, la del rechazo pasa y la de la demora falla en el
+  aviso de demora, que es lo esperado sin `compradaISO`. Con el frontend que trae el cambio (`npm run dev` contra el
+  mismo backend) pasan las dos. Falta la corrida del job E2E sobre el tag.
 
 ### DEF-34 · Cosmética · Prioridad Baja · Corregido, a verificar sobre el tag
 
@@ -284,18 +300,27 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
 - **Corrección (20/11):** el asistente registra el id del usuario (`Sesion.usuarioId`, `AsistenteResource.java:52`).
   `CorreoAlLog`, por defecto, escribe el destinatario enmascarado (la primera letra y el dominio) y el asunto, sin el
   cuerpo; el email entero sale solo con `PALCO_CORREO_LOG_COMPLETO=true`, un modo de desarrollo. `CorreoSmtp`
-  enmascara la dirección en el aviso de falla y no escribe la traza. El compose (`docker-compose.yml:42`) y
-  `backend/dev.sh` prenden ese modo, porque las pruebas E2E, `scripts/pruebas`, `scripts/carga/cuentas.mjs` y los
-  "Pasos manuales" de Postman leen el código del log: en la demo, el log sigue llevando los emails completos, igual que
-  las cuentas de prueba siguen activas por defecto (DEF-26). Fuera de desarrollo la variable no se define. Lo cubren
-  `CorreoAlLogTest#porDefectoQuedanElDestinatarioEnmascaradoYElAsuntoPeroNiElCuerpoNiElCodigo`,
+  enmascara la dirección en el aviso de falla y no escribe la traza. Fuera de desarrollo la variable no se define.
+  Lo cubren `CorreoAlLogTest#porDefectoQuedanElDestinatarioEnmascaradoYElAsuntoPeroNiElCuerpoNiElCodigo`,
   `#sinLaVariableElModoEsElQueNoEscribeDatosPersonales`,
   `CorreoSmtpTest#elWarningDeUnEnvioQueFallaNoTraeElEmailDeNadieNiLaTraza`,
   `EmailTest#elDestinatarioEnmascaradoDejaLaPrimeraLetraYElDominio` y
   `AsistenteIATest#laLineaDeRegistroLlevaElIdDeQuienPreguntaYNingunEmail`.
-- **Prueba que lo va a cerrar:** sobre el tag, el compose con `PALCO_CORREO_LOG_COMPLETO=false`: registrar una cuenta
-  nueva, comprar con `titular@palco.test` y preguntarle al asistente; en `server.log` no aparecen esos emails ni el
-  código de verificación. El control de logs del CI no busca emails ni DNI (DEF-40).
+- **Corrección (24/11), el compose:** `docker-compose.yml` deja `PALCO_CORREO_LOG_COMPLETO` en `false` por defecto
+  (`${PALCO_CORREO_LOG_COMPLETO:-false}`). El sistema levantado con un solo comando escribe en el log solo el
+  destinatario enmascarado y el asunto de cada email; el modo completo lo prende solo `backend/dev.sh`. Los jobs que
+  leen del log el código o los avisos lo prenden en su entorno: `ci.yml` (integración, E2E y API),
+  `pruebas-seguridad.yml` y `carga.yml`. `contrato.yml`, `zap.yml` y `lighthouse.yml` corren con el valor por defecto.
+  Para registrar cuentas sin SMTP con el compose, `PALCO_CORREO_LOG_COMPLETO=true` en el `.env` de la raíz o en el
+  entorno (README). Con `docker compose config`, el valor sin la variable es `false` y con
+  `PALCO_CORREO_LOG_COMPLETO=true` es `true`.
+- **Prueba que lo va a cerrar:** sobre el tag, `docker compose up --build --wait` sin definir la variable: registrar
+  una cuenta nueva, comprar con `titular@palco.test` y preguntarle al asistente. En `server.log` no aparecen esos
+  emails ni el código de verificación. Cada email deja un renglón de `CorreoAlLog` como este:
+  `Email para t***@palco.test (Tu código de Palco), sin el cuerpo: lo escribe PALCO_CORREO_LOG_COMPLETO=true.`
+  El control de logs del CI no busca emails ni DNI (DEF-40). Esos pasos corrieron el 24/11 contra el compose armado
+  con el código corregido y el backend sin la variable (`docs/testing/evidencia/final/correo-en-el-log.txt`): 0
+  emails enteros y 0 códigos en el log. Falta repetirlos sobre el tag.
 
 ### DEF-37 · Mayor · Prioridad Media · Nuevo (confirmado en el código)
 
@@ -366,8 +391,11 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
 - **Por qué es Menor:** ningún componente escribe el DNI en el log
   (`ServicioDeNotificacionesTest#elAvisoNoLlevaElDniDeNingunTitular`; el asistente lo enmascara antes de registrar la
   pregunta); falta el control automático, y el nombre del paso promete algo que no hace.
-- **Corrección propuesta:** sumarle al `grep` los DNI de los titulares de prueba y los emails de las cuentas de prueba,
-  con `PALCO_CORREO_LOG_COMPLETO=false` en esa corrida, o cambiarle el nombre al paso.
+- **Corrección propuesta:** sumarle al `grep` los DNI de los titulares de prueba, o cambiarle el nombre al paso. Los
+  emails de las cuentas de prueba no se pueden buscar en ese paso: está en el job "Integración", que corre con
+  `PALCO_CORREO_LOG_COMPLETO=true` porque los escenarios leen del log el código de verificación. Desde el 24/11,
+  `contrato.yml`, `zap.yml` y `lighthouse.yml` corren con el valor por defecto (`false`, DEF-36): el control de los
+  emails puede ir en el paso "Control de logs" de `contrato.yml` o de `zap.yml`.
 - **Prueba que lo va a cubrir:** el mismo paso contra un log con un DNI de prueba escrito a propósito: tiene que fallar.
 
 ### DEF-41 · Menor · Prioridad Baja · Nuevo (confirmado en el código)
@@ -454,7 +482,7 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
   (`FabricaDeArca`, `PALCO_URL_INTERNA`), no por nginx.
 - **Prueba que lo va a cubrir:** con esa configuración, `https://localhost/legado/arca?wsdl` responde 404.
 
-### DEF-46 · Mayor · Prioridad Alta · Nuevo (confirmado en el código)
+### DEF-46 · Mayor · Prioridad Alta · En corrección
 
 **Dos compras a la vez del mismo comprador, o con el mismo DNI, pasan el tope de 6 entradas por evento y el control
 de un DNI por evento**
@@ -466,25 +494,51 @@ de un DNI por evento**
 - **Pasos (reventa):** con 5 entradas de un evento, comprar al mismo tiempo una publicación de ese evento en la reventa
   y una entrada en el catálogo.
 - **Esperado:** una de las dos responde 409 `tope-por-evento` sin reservar ni cobrar (CA-05.10).
-- **Obtenido (según el código):** pasan las dos. El tope se mira al abrir la compra contando las compras guardadas
-  (`ServicioDeVentas.java:234`, `VentaRepositoryJpa.entradasDelCompradorParaElEvento`) y la venta se guarda recién
-  después de reservar el cupo en Eventos: dos pedidos que se cruzan leen lo mismo, porque no hay un candado por
-  comprador y evento, y el comprador puede quedar con 12. En la reventa, la toma de la publicación vive en el esquema de
-  Reventa y Ventas no la ve hasta la transferencia (`ServicioDeReventa.java:224-238`). El DNI se vuelve a mirar al pagar
-  (`ServicioDeVentas.java:329`) y cuenta también la compra que se está cobrando, así que su ventana es más corta, pero
-  existe.
+- **Obtenido (según el código, antes del 24/11):** pasan las dos. El tope se miraba al abrir la compra contando las
+  compras guardadas (`VentaRepositoryJpa.entradasDelCompradorParaElEvento`) y la venta se guardaba recién después de
+  reservar el cupo en Eventos: dos pedidos que se cruzan leen lo mismo, y el comprador puede quedar con 12. En la
+  reventa, la toma de la publicación vive en el esquema de Reventa y Ventas no la ve hasta la transferencia
+  (`ServicioDeReventa.java:224-238`). El DNI se volvía a mirar al pagar, en una transacción, y la copia de los
+  titulares (lo que ve la otra compra) se guardaba en otra: la ventana era más corta, pero existía.
 - **Por qué es Mayor:** la regla de CA-05.10 (HU-05, Must) se esquiva con dos pedidos simultáneos; los ejemplos del
   criterio, uno después del otro, se cumplen (escenario 23). No se pierde dinero ni datos. **Alternativa
   (workaround):** la puerta compara el DNI del titular con el documento, así que una segunda entrada con el mismo DNI
   no hace entrar a otra persona, y cada compra sigue limitada a 6 entradas (422 `maximo-de-entradas`). Como en DEF-30,
   si CA-05.10 se lee como regla de toda compra, también de dos que se cruzan, pasa a Crítica, y la exploratoria de la
   cátedra prueba la concurrencia de dos usuarios: por eso tiene prioridad Alta.
-- **Causa (del código):** las reglas entre compras leen y después escriben, sin un candado que ordene las compras del
-  mismo comprador, o del mismo DNI, en el mismo evento.
-- **Corrección propuesta:** tomar un candado por comprador y evento (y por DNI y evento) antes de contar, en la misma
-  transacción que guarda la compra; en la reventa, que el control y la toma pasen por ese mismo candado.
-- **Prueba que lo va a cubrir:** un test con base, con dos hilos que abren a la vez dos compras del mismo comprador,
-  como `ReventaDeEntradasEnH2Test#dosTransferenciasALaVezDeLaMismaEntradaDejanPasarUnaSola`: pasa una sola.
+- **Causa raíz:** las reglas entre compras leían y después escribían, sin un candado que ordenara las compras del
+  mismo comprador, o del mismo DNI, en el mismo evento. Con el aislamiento por defecto de PostgreSQL y de H2
+  (READ COMMITTED), cada pedido cuenta solo lo que ya está confirmado, y la escritura del otro todavía no lo estaba.
+- **Corrección (24/11), en el catálogo:** un bloqueo pesimista (`SELECT ... FOR UPDATE`) sobre una fila de
+  `ventas.candado_de_compra` (migración `V5__candado_de_compra.sql`), una por comprador y evento y otra por DNI y
+  evento, que crea la primera compra que la necesita (`INSERT ... ON CONFLICT DO NOTHING`;
+  `VentaRepositoryJpa.tomarCandados`, `MANDATORY`, en orden alfabético para que dos compras no se esperen en círculo).
+  El bean `ReglasEntreCompras` (`@Stateless`) vuelve a mirar cada regla con su candado, en la misma transacción que
+  escribe: `guardarDentroDelTope` toma el candado del comprador y el evento, guarda la venta y cuenta con ella
+  adentro; si pasa el tope, 409 `tope-por-evento`, la venta no queda y el cupo que alcanzó a reservar vuelve a Eventos
+  en el mismo pedido (a diferencia del Esperado, la segunda reserva y devuelve; no cobra).
+  `exigirDnisSinEntradaYCopiarTitulares` (`REQUIRES_NEW`, antes del cobro) toma el candado de cada DNI, mira los DNI y
+  copia los titulares; si un DNI está tomado, 409 `dni-con-entrada` sin cobrar. La segunda compra espera en el candado
+  hasta que la primera confirma y cuenta con ella. Esas transacciones no llaman a otros servicios: el candado no espera
+  a Eventos ni a Pagos.
+- **Pruebas de la corrección:** `ReglasEntreComprasEnH2Test` (H2 en modo PostgreSQL, dos hilos con una conexión cada
+  uno): `#dosComprasDeSeisDelMismoCompradorALaVezAbreUnaSolaYLaOtraDevuelveSuCupo`,
+  `#conLaFilaDelCandadoYaCreadaPorUnaCompraAnteriorLaSegundaTambienEspera`,
+  `#dosComprasConElMismoDniALaVezSoloUnaLlegaACobrar`, `#conElCandadoDosComprasDeDistintosCompradoresNoSeEsperan` y
+  `#unPedidoRepetidoConLaMismaClaveSigueSiendoClaveRepetidaYNoTopePorEvento`; y en `ServicioDeVentasTest`,
+  `#siOtraCompraDelCompradorSeGuardoMientrasSeReservabaLaSegundaCuentaFrenaEstaYDevuelveElCupo` y
+  `#antesDeCobrarElDniSeMiraConElCandadoDeCadaDniYLaCopiaVaDespues`. Con el cuerpo de `tomarCandados` anulado fallan
+  los tres tests de la carrera (la segunda compra no espera a la primera y el segundo pago no espera el candado del
+  DNI); sin el `FOR UPDATE` falla el de la fila que ya existía. `mvn -f backend/servicios/ventas/pom.xml test`: 388
+  tests, 0 fallas (24/11). En PostgreSQL no corrió ningún test de la carrera: a verificar sobre el tag.
+- **Lo que falta, la reventa:** la compra en la reventa no deja nada en el esquema de Ventas hasta la transferencia,
+  que llega después del cobro, así que una compra del catálogo o de otra publicación que se cruce con ella no la ve, y
+  un candado en `controlarCompra` no lo cambia. Cerrarlo pide un cambio en Reventa: que la toma quede anotada en Ventas
+  bajo el mismo candado (por ejemplo, una retención que deja el control, que la transferencia convierte en la venta y
+  que Reventa suelta si el cobro no sale). La ventana es la del cobro de la reventa, y la alternativa es la misma. Con
+  esa corrección el estado pasa a *Corregido, a verificar*.
+- **Prueba que lo va a cubrir (la reventa):** un test con base y dos hilos: con 5 entradas, una compra en la reventa
+  entre el control y la transferencia y una del catálogo del mismo comprador a la vez: pasa una sola.
 
 ### DEF-47 · Mayor · Prioridad Alta · Corregido, a verificar sobre el tag
 
@@ -546,21 +600,6 @@ de un DNI por evento**
   del componente; el cuarto es una variable sin usar. Para quien usa Palco no cambia nada.
 - **Corrección propuesta:** mover cada hook a su propio archivo y dejar el `catch` de `tema-inicial.js` sin parámetro.
 - **Prueba que lo va a cubrir:** `npm run lint` sin avisos, en el job "Frontend (lint y build)" del CI.
-
-### DEF-51 · Menor · Prioridad Alta · Nuevo (confirmado en el código)
-
-**La imagen web parte de `nginx:1.27-alpine`, que no se publica desde el 16/04/2025**
-
-- **Pasos:** `frontend/Dockerfile`, línea 16: `FROM nginx:1.27-alpine`.
-- **Esperado:** una imagen base con los parches de seguridad al día.
-- **Obtenido:** según Docker Hub (consultado el 20/11), la última publicación de `nginx:1.27-alpine` es del
-  16/04/2025; la línea estable es `1.30-alpine`, publicada el 20/11/2026. Los paquetes de Alpine de esa imagen llevan
-  19 meses sin actualizarse.
-- **Por qué es Menor:** todavía no hay una vulnerabilidad confirmada: eso lo dice Trivy, que escanea la imagen en el
-  job "Imagen: web" de `seguridad.yml` y corre con el tag. Prioridad Alta: si encuentra una CVE crítica o alta que
-  tiene arreglo, el job queda en rojo, y una así no se justifica en `.trivyignore`.
-- **Corrección propuesta:** `FROM nginx:1.30-alpine`, y volver a correr `nginx -t` y el job de Trivy.
-- **Prueba que lo va a cubrir:** el job "Imagen: web" de `seguridad.yml` sin CVE críticas ni altas.
 
 ### DEF-52 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
 
@@ -786,6 +825,262 @@ largo**
 - **Prueba que lo cubre:** `GuardrailsTest.unTextoEnormeSinArrobaSeEnmascaraEnMenosDeUnSegundo` (100.000 letras en
   menos de un segundo; con la expresión anterior tardaba más de 40) y
   `elEmailSeOcultaTambienEnMedioDeUnTexto`, y la corrida de Schemathesis del tag.
+
+### DEF-64 · Crítica · Prioridad Alta · Corregido, a verificar sobre el tag
+
+**El registro tardaba con el cubo del largo de un nombre o un apellido lleno de espacios: un pedido sin sesión de
+1,6 KB ocupaba un hilo del servidor 7 segundos (SEC-W15)**
+
+- **Dónde:** `backend/servicios/usuarios/src/main/java/com/palco/usuarios/api/Dtos.java`, `RegistroDto`. En `fbd31dc`,
+  líneas 44 (nombre) y 48 (apellido): `@Pattern(regexp = "^\\s*[A-Za-zÀ-ÿ' -]{2,}\\s*$")`, sin `@Size`.
+- **Pasos:** sin sesión, `POST /api/usuarios/registro` con un `nombre` de 1500 espacios seguidos de un `1` (el resto
+  del cuerpo, cualquiera).
+- **Esperado:** el 400 `datos-invalidos` enseguida, como con un nombre corto (0,21 s).
+- **Obtenido:** el mismo 400, pero a los 7,1 s con 1500 espacios (un cuerpo de 1653 bytes) y a los 2,4 s con 1000. La
+  expresión sola, con `java.util.regex` de JDK 25: 1000 espacios, 1,2 s; 2000 espacios, 10,3 s. Cada vez que el largo
+  se duplica, el tiempo se multiplica por 7 a 9. Contra el sistema no se probó con más de 1500 espacios.
+- **Evidencia:** `docs/testing/evidencia/final/registro-nombre-largo.txt` (la expresión sola y tres `curl` contra el
+  compose del 24/11, alrededor de las 17:20 UTC, con `Dtos.java` igual al de `fbd31dc`). SonarCloud marca las dos
+  líneas con `java:S8786` (`docs/testing/evidencia/final/sonar.txt`).
+- **Por qué es Crítica:** es una falla de seguridad explotable, como DEF-63, y sin sesión: cualquiera puede ocupar los
+  hilos del servidor con unos pocos pedidos al registro (OWASP API Security Top 10 2023, API4).
+- **Causa raíz:** el espacio está en la clase del medio y también en los dos `\s*`: con un texto que no termina bien,
+  la expresión prueba cada forma de repartir los espacios entre las tres partes. Los campos no tenían largo máximo.
+  Ninguna prueba automatizada mandaba cientos de espacios seguidos: Schemathesis y ZAP probaron el registro con sus
+  propios valores.
+- **Corrección (24/11):** nombre y apellido usan la constante `Dtos.NOMBRE`, `^\s*+[A-Za-zÀ-ÿ' -]{2,}+\s*+$`: con
+  cuantificadores posesivos la expresión no vuelve atrás y el tiempo crece en forma lineal con el largo. Acepta lo
+  mismo que `esNombreValido` del frontend (`trim()` y 2 o más caracteres de la clase). Además, `@Size(max = 80)`, el
+  largo de la columna `varchar(80)` de la migración V1: antes, un nombre de 81 caracteres pasaba la validación y fallaba
+  en la base. Bean Validation evalúa todas las anotaciones del campo aunque una falle, así que el `@Size` solo no
+  alcanzaba: lo que lo arregla es la expresión.
+- **Prueba de la corrección:** `NombreYApellidoTest` (Usuarios), 4 tests:
+  `#unNombreLlenoDeEspaciosSeRechazaEnMenosDeUnSegundo` y `#unApellidoLlenoDeEspaciosSeRechazaEnMenosDeUnSegundo`
+  (100.000 espacios y un dígito, con un tope de un segundo; el del nombre tardó 4 ms, y con la expresión anterior 2000
+  espacios ya tardaban 10,3 s), `#ochentaCaracteresEsElLargoDeLaColumnaYOchentaYUnoNo` y `#aceptaLoMismoQueElFrontend`.
+  `mvn -o -f backend/pom.xml -pl common,servicios/usuarios -am test` (24/11): `common` 82 tests y Usuarios 91, 0
+  fallas.
+- **Prueba que lo va a cerrar:** `NombreYApellidoTest` en el CI del tag, y los `curl` de la evidencia contra el compose
+  del tag: el de 1500 espacios responde el 400 en menos de un segundo.
+
+### DEF-65 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
+
+**El bug `java:S5850` de SonarCloud en `Textos.slug` dejaba la confiabilidad del código total en C**
+
+- **Dónde:** `backend/common/src/main/java/com/palco/common/Textos.java:63`, `.replaceAll("^-+|-+$", "")`.
+- **Pasos:** SonarCloud, proyecto `santttii_deapps2`, análisis de `fbd31dc`: Issues, tipo Bug.
+- **Esperado:** rating A en confiabilidad en el código total (eje B de los Criterios y sección 4 del plan).
+- **Obtenido:** 1 bug MAJOR, `java:S5850` ("Group parts of the regex together to make the intended operator
+  precedence explicit"), y `reliability_rating` 3.0 (C) en el código total. El código nuevo está en A y el Quality
+  Gate pasa.
+- **Evidencia:** `docs/testing/evidencia/final/sonar.txt` y `quality-gate-fbd31dc-codigo-total.png`.
+- **Por qué es Menor:** la expresión hace lo que debe (saca los guiones del principio y del final del slug) y no rompe
+  ningún criterio de aceptación. Prioridad Alta: incumple un criterio de salida.
+- **Causa raíz:** `4cd350b` (21/11) le sacó a la expresión el grupo de `(^-+|-+$)` en lugar de agrupar cada
+  alternativa con su ancla, y desde entonces SonarCloud la marca.
+- **Corrección (24/11):** `.replaceAll("(?:^-+)|(?:-+$)", "")`: cada alternativa con su ancla, en un grupo. `TextosTest`
+  (`common`), 5 de 5.
+- **Prueba que lo va a cerrar:** el análisis de SonarCloud del commit del tag, con `bugs` 0 y `reliability_rating` 1.0
+  (A).
+
+### DEF-66 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
+
+**Una operación del contrato no tenía ningún caso en la colección de Postman**
+
+- **Dónde:** `docs/api/palco-api.postman_collection.json` y `scripts/postman/generar.js`. La operación está en
+  `docs/api/openapi.yaml` desde DEF-30 (21/11): 204, 400, 401, 403, 404, 409 y 415.
+- **Pasos:** comparar las 52 operaciones de `openapi.yaml` con los pedidos de la corrida de Newman del job "API" (run
+  44867187162).
+- **Esperado:** cada operación con al menos un pedido de éxito y uno de error (`docs/api/GUIA_POSTMAN.md`, sección 9;
+  eje B de los Criterios; sección 4 del plan).
+- **Obtenido:** 49 de 52 operaciones con los dos casos. `POST /v1/operaciones-de-reventa/controles-de-compra` no tiene
+  ningún pedido. Las otras dos tienen la explicación en la guía: el éxito de `POST /usuarios/password/reinicio` está en
+  los pasos manuales, y el error de `GET /usuarios/jwks` es el 405 de POST.
+- **Evidencia:** `docs/testing/evidencia/final/ci-fbd31dc.txt`, sección 4.
+- **Por qué es Menor:** la operación sí está probada: `ReventaDeEntradasResourceTest`, `ReventaDeEntradasEnH2Test`,
+  `ClientesTest` (Reventa) y Schemathesis con rol servicio (0 fallas). Prioridad Alta: incumple un criterio de salida.
+- **Corrección (24/11):** en la carpeta 6 de `scripts/postman/generar.js`, el guion que arma la colección, tres pedidos
+  de esa operación: con rol `servicio`, 204 sin cuerpo; a nombre de un DNI que ya tiene entrada del evento, 409
+  `dni-con-entrada`; y con el token de un comprador, 403 `sin-permiso`.
+- **Prueba que lo va a cerrar:** la corrida de Newman del tag (job "API"), con las 52 operaciones cubiertas.
+
+### DEF-67 · Cosmética · Prioridad Baja · Nuevo (confirmado en SonarCloud)
+
+**Tres code smells de severidad BLOCKER en SonarCloud**
+
+- **Dónde:** `facturacion/negocio/externos/ArcaSoap.java:78` (el campo `servicio` y `SERVICIO`),
+  `pagos/pasarela/PagosFake.java:29` (`NOMBRE` y el método `nombre`) y
+  `ventas/negocio/externos/ResultadoDeCobro.java:24` (el método `aprobado` y `APROBADO`).
+- **Pasos:** SonarCloud, proyecto `santttii_deapps2`, Issues con severidad Blocker.
+- **Esperado:** ningún hallazgo Blocker.
+- **Obtenido:** 3 code smells `java:S1845` de mantenibilidad: dos nombres que solo difieren en mayúsculas. No son bugs:
+  el criterio de la cátedra (0 bugs Blocker o Critical) se cumple, y la mantenibilidad del código total está en A.
+- **Evidencia:** `docs/testing/evidencia/final/sonar.txt`.
+- **Por qué es Cosmética:** es un nombre, no cambia lo que hace el código.
+- **Corrección propuesta:** renombrar el campo o la constante de cada par.
+- **Prueba que lo va a cubrir:** el análisis de SonarCloud del tag, sin hallazgos Blocker.
+
+### DEF-68 · Menor · Prioridad Baja · Aceptado (vence el 31/12/2026)
+
+**La imagen backend lleva seis vulnerabilidades altas de Jackson 2.21.5 y Guava 33.0.0 que vienen en los módulos de
+WildFly 41.0.1 (SEC-E02)**
+
+- **Dónde:** la imagen backend (`backend/Dockerfile`), en los módulos de WildFly 41.0.1
+  (`modules/system/layers/base/com/fasterxml/jackson/core/` y `com/google/guava/main`); no es una dependencia de Palco.
+- **Pasos:** el job "Imagen: backend (trivy image)" de `.github/workflows/seguridad.yml`, o
+  `trivy image --scanners vuln --severity CRITICAL,HIGH palco-backend` sin `.trivyignore`.
+- **Esperado (criterio SEC-E02):** ninguna vulnerabilidad crítica o alta sin mitigación documentada.
+- **Obtenido:** seis HIGH y ninguna CRITICAL: CVE-2026-89407 y CVE-2026-89425 (jackson-core 2.21.5), CVE-2026-91776,
+  CVE-2026-91777 y CVE-2026-68497 (jackson-databind 2.21.5) y CVE-2026-102554 (guava 33.0.0-jre). En el run
+  44867187171 salen en "Suppressed Vulnerabilities (Total: 6)".
+- **Por qué es Menor:** ninguna se alcanza en Palco, comprobado sobre la imagen el 21/11 (motivos en `.trivyignore`):
+  las de Jackson necesitan que Jackson deserialice un JSON del atacante, y Palco lee todo cuerpo con JSON-B
+  (`JsonProvider`), acepta solo `application/json` y no tiene `@PATCH`; la de Guava necesita deserializar con
+  `ObjectInputStream`, y la mensajería es solo `TextMessage` con JSON, por `in-vm`.
+- **Riesgo aceptado (21/11):** las arreglan jackson 2.21.6 y 2.21.7 y guava 33.7.2, que todavía no trae ningún
+  WildFly 41; subir a WildFly 42 a una semana de la entrega es un cambio de versión mayor del servidor. Cada CVE vence
+  el 31/12/2026 en `.trivyignore`: después el job vuelve a fallar y se revisa.
+- **Corrección propuesta:** pasar a la versión de WildFly que traiga esas librerías arregladas y sacar las seis líneas
+  de `.trivyignore`.
+- **Prueba que lo va a cubrir:** el job "Imagen: backend" sin vulnerabilidades suprimidas.
+
+### DEF-69 · Menor · Prioridad Baja · Aceptado (justificado en `.zap/reglas.tsv`)
+
+**La CSP permite estilos en línea e imágenes de cualquier origen `https:` (dos alertas Medium de ZAP) (SEC-W12,
+SEC-E01)**
+
+- **Dónde:** `frontend/docker/nginx.conf`, la cabecera `Content-Security-Policy` del `server` y de `/assets/`.
+- **Pasos:** con el compose levantado, `bash scripts/qa/zap.sh` (o el workflow "ZAP").
+- **Esperado (criterio SEC-E01):** ninguna Medium sin justificar; lo ideal, una CSP sin `'unsafe-inline'` ni
+  directivas amplias.
+- **Obtenido:** en el baseline del run 44867187257, "CSP: style-src unsafe-inline" (regla 10055, 3 instancias) y
+  "CSP: Wildcard Directive" (regla 10055, 3 instancias, por `img-src https:`).
+- **Por qué es Menor:** lo que ejecuta código sigue cerrado (`script-src 'self'` sin `'unsafe-inline'` ni
+  `'unsafe-eval'`, `object-src 'none'`); un estilo inyectado no corre JavaScript, una imagen tampoco, y
+  `connect-src 'self'` impide mandar datos a otro sitio con `fetch`.
+- **Riesgo aceptado (21/11, `.zap/reglas.tsv`, renglones 54 y 55):** framer-motion anima con el atributo `style` y
+  React escribe estilos en línea; las fotos de los eventos pueden estar en el almacenamiento de Supabase, cuyo dominio
+  depende del proyecto.
+- **Corrección propuesta:** estilos con nonce o hash en lugar de `'unsafe-inline'`, e `img-src` limitado al dominio
+  del almacenamiento configurado.
+- **Prueba que lo va a cubrir:** el baseline de ZAP sin la alerta 10055.
+
+### DEF-70 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
+
+**La CSP habilitaba los orígenes de Google Fonts, aunque las fuentes se sirven desde el propio sitio (SEC-W12)**
+
+- **Dónde:** `frontend/docker/nginx.conf`, la CSP del `server` y de `/assets/`, y el comentario de arriba ("Las
+  fuentes son de Google Fonts").
+- **Pasos:** con el compose levantado, `curl -skI https://localhost/ | grep -i content-security-policy`.
+- **Esperado:** la CSP permite solo los orígenes que la app usa.
+- **Obtenido:** `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com`
+  (`cabeceras.txt` del job Integración del run 44867187162 y bloque E de `seguridad.mjs` del run 44867187123), aunque
+  desde `c4ec165` (21/11) las fuentes están en `frontend/public/fuentes/` y `frontend/index.html` ya no pide nada a
+  Google.
+- **Por qué es Menor:** esos dos orígenes solo sirven hojas de estilo y fuentes, que no ejecutan código; pero la CSP
+  permite más de lo que hace falta.
+- **Causa raíz:** al pasar las fuentes al propio sitio no se actualizó la CSP de nginx.
+- **Corrección (24/11):** los dos bloques de cabeceras de `nginx.conf` quedan con `style-src 'self' 'unsafe-inline'`
+  y `font-src 'self'`, y el comentario ya no nombra a Google Fonts. `nginx -t` da bien con la configuración nueva.
+- **Prueba que lo va a cerrar:** sobre el tag, el bloque E de `seguridad.mjs` (workflow "Pruebas de seguridad"),
+  `cabeceras.txt` y el baseline de ZAP con la CSP sin esos orígenes, y la suite E2E en verde con las fuentes del propio
+  sitio.
+
+### DEF-71 · Menor · Prioridad Baja · Aceptado (en SonarCloud)
+
+**El proceso principal de nginx corre como root en la imagen web (SEC-E04)**
+
+- **Dónde:** `frontend/Dockerfile`, etapa 2 (`FROM nginx:1.30-alpine`), sin `USER`.
+- **Pasos:** el análisis de SonarCloud que publica el job "SonarCloud" de `ci.yml`.
+- **Esperado:** el contenedor corre con un usuario sin privilegios.
+- **Obtenido:** el proceso principal de nginx arranca como root, como en la imagen oficial; el check "SonarCloud Code
+  Analysis" de `fbd31dc` lo muestra como "1 Accepted issue" (`docker:S6471`).
+- **Por qué es Menor:** los pedidos no los atiende root sino los procesos worker, que nginx corre con el usuario sin
+  privilegios `nginx`; el contenedor solo expone 80 y 443.
+- **Riesgo aceptado (21/11):** root hace falta para escuchar en 80 y 443 (puertos menores que 1024) y para que
+  `certificado.sh` escriba la clave y el certificado en `/etc/nginx/tls` al arrancar (comentario del
+  `frontend/Dockerfile`).
+- **Corrección propuesta:** una imagen de nginx sin privilegios, con nginx en puertos altos, el mapeo a 80 y 443 en
+  `docker-compose.yml` y el certificado en una carpeta del usuario.
+- **Prueba que lo va a cubrir:** el análisis de SonarCloud sin issues aceptadas y la suite E2E por
+  `https://localhost`.
+
+### DEF-72 · Menor · Prioridad Baja · Nuevo (confirmado en el log de nginx)
+
+**El email de la cuenta de puerta queda en el log de accesos de nginx (SEC-D03)**
+
+- **Dónde:** `PuertasResource` (Validación), `frontend/src/servicios/validacion.ts` (`rutaDePuerta`, línea 78),
+  `UsuariosResource.cuenta` (Usuarios, rol `servicio`) y el log de accesos de nginx (la salida del contenedor web).
+- **Pasos:** 1. Con el compose levantado, la organizadora asigna `puerta@palco.test` a la puerta de un evento desde el
+  panel. 2. `docker compose logs web | grep -E '/puertas/[^ ]+(@|%40)'`.
+- **Esperado (criterio SEC-D03):** los logs no tienen emails.
+- **Obtenido:** nginx escribe la ruta y la consulta de cada pedido. En el log del contenedor web de la corrida de ZAP
+  (run 44867187257, `compose-zap.log`) hay 122 renglones con `GET /api/usuarios/cuentas?email=` (los pedidos del
+  escaneo), entre ellos `"GET /api/usuarios/cuentas?email=puerta@palco.test ..."`, y ZAP lo marca como "Information
+  Disclosure - Sensitive Information in URL" (regla 10024, Info). Asignar y quitar una cuenta de puerta pone el email
+  en la ruta (del código).
+- **Por qué es Menor:** ninguna respuesta expone el email; queda en el log de accesos del contenedor web, que solo lee
+  quien opera el servidor. `GET /api/usuarios/cuentas` es interna: Validación la llama directo al backend, no por
+  nginx.
+- **Corrección propuesta:** mandar el email en el cuerpo (asignar y quitar con un cuerpo JSON, y la consulta interna
+  por `POST`), o un `log_format` de nginx que no escriba la ruta de esas operaciones.
+- **Prueba que lo va a cubrir:** los mismos pasos, sin resultados en el `grep`.
+
+### DEF-73 · Menor · Prioridad Baja · Nuevo (confirmado en el workflow)
+
+**El análisis de dependencias no escanea la imagen `postgres:17-alpine` del compose (SEC-E02b)**
+
+- **Dónde:** `.github/workflows/seguridad.yml`, la matriz del job de imágenes (`servicio: [backend, web]`).
+- **Pasos:** leer ese workflow y el servicio `db` de `docker-compose.yml`.
+- **Esperado:** todas las imágenes del sistema levantado con el compose escaneadas, también la de la base.
+- **Obtenido:** se escanean las dos imágenes que arma el compose; `postgres:17-alpine` se usa tal como se publica y no
+  se escanea. El criterio SEC-E02b queda NO VERIFICABLE.
+- **Por qué es Menor:** la base no publica su puerto fuera de la red del compose y es la imagen oficial; falta el
+  control, no hay una vulnerabilidad conocida.
+- **Corrección propuesta:** sumar al workflow "Seguridad" un `trivy image postgres:17-alpine`, con la imagen fijada por
+  su hash.
+- **Prueba que lo va a cubrir:** ese paso en verde, sin CVE críticas ni altas sin justificar.
+
+### DEF-74 · Cosmética · Prioridad Baja · Nuevo (confirmado en el reporte de ZAP)
+
+**ZAP informa 5 alertas Low sin justificar (SEC-W12, SEC-E01)**
+
+- **Dónde:** `frontend/docker/nginx.conf`.
+- **Pasos:** `bash scripts/qa/zap.sh` con el compose levantado y leer `logs/zap/resumen.md`.
+- **Esperado:** sin alertas Low sin justificar.
+- **Obtenido (run 44867187257):** en el baseline, Cross-Origin-Embedder-Policy (2 instancias),
+  Cross-Origin-Opener-Policy (2) y Cross-Origin-Resource-Policy (5); en la API, Cross-Origin-Resource-Policy (5) y
+  "Unexpected Content-Type was returned" (14). Las 14 son respuestas en `text/html` donde ZAP esperaba JSON (`api.json`
+  y el log de nginx en `compose-zap.log`): la raíz del sitio y dos rutas inventadas, que responden 200 con la página de
+  la app; `/api`, 301; `/api/` y una ruta inventada bajo `/api/`, 404 de WildFly; y siete `POST` a rutas de metadatos
+  de nube (`/latest/meta-data/`, `/computeMetadata/v1/` y otras), que nginx rechaza con 405. Ninguna devolvió datos.
+- **Por qué es Cosmética:** ninguna expone datos y el criterio de la cátedra no pide justificar las Low; la página no
+  se puede enmarcar (`frame-ancestors 'none'`, `X-Frame-Options: DENY`) y la app no usa APIs que pidan aislamiento
+  entre orígenes.
+- **Corrección propuesta:** `Cross-Origin-Resource-Policy: same-origin` y `Cross-Origin-Opener-Policy: same-origin`
+  en los dos bloques de cabeceras de nginx, y que los errores bajo `/api` (rutas que no existen y el 405 de nginx)
+  respondan en Problem Details.
+- **Prueba que lo va a cubrir:** el resumen de ZAP sin esas alertas.
+
+### DEF-75 · Menor · Prioridad Baja · Aceptado (decisión de diseño, CA-01.2)
+
+**El registro dice si un email o un DNI ya tienen cuenta y no cuenta intentos (SEC-W03)**
+
+- **Dónde:** `ServicioDeUsuarios.registrar` (Usuarios), líneas 157 y 160.
+- **Pasos:** `POST /api/usuarios/registro` con datos válidos y el email `titular@palco.test`; después, con un email
+  nuevo y el DNI de una cuenta existente.
+- **Esperado (criterio SEC-W03, extendido al registro):** ninguna operación pública deja averiguar qué emails tienen
+  cuenta.
+- **Obtenido:** 400 `datos-invalidos` con el campo: "Ya hay una cuenta con ese email." (escenario 24, run 44867187162)
+  y "Ese DNI ya está registrado.". El registro no tiene límite de intentos.
+- **Por qué es Menor:** solo confirma que existe una cuenta, sin ningún otro dato; el login y "olvidé mi contraseña"
+  responden igual exista o no (SEC-W03), y el login tiene su límite de 5 intentos en 15 minutos (SEC-W04).
+- **Riesgo aceptado (decisión de diseño):** CA-01.2 de HU-01 pide ese 400 con el campo, para que quien se registra
+  sepa que ya tiene cuenta.
+- **Corrección propuesta:** responder lo mismo en los dos casos y avisarle por email a la dueña de la cuenta, o
+  limitar los registros por origen; cualquiera de las dos cambia CA-01.2.
+- **Prueba que lo va a cubrir:** un caso de `RegistroYVerificacionTest` con el email de una cuenta existente que
+  responda como un registro nuevo.
 
 ## 4. Defectos cerrados: bloqueantes, críticos y mayores
 
@@ -1202,10 +1497,30 @@ chocaban en Pagos**
   de Eventos y el `server.log` no tiene líneas SEVERE; y
   `CancelacionConReventaEnH2Test#alCancelarseElEventoCadaLugarSeDevuelveUnaSolaVezYAQuienLoTenia`.
 
+### DEF-51 · Menor · Prioridad Alta · Cerrado el 21/11
+
+**La imagen web partía de `nginx:1.27-alpine`, que no se publica desde el 16/04/2025**
+
+- **Pasos:** `frontend/Dockerfile`, línea 16: `FROM nginx:1.27-alpine`.
+- **Esperado:** una imagen base con los parches de seguridad al día.
+- **Obtenido:** según Docker Hub (consultado el 20/11), la última publicación de `nginx:1.27-alpine` es del
+  16/04/2025; la línea estable es `1.30-alpine`, publicada el 20/11/2026. Los paquetes de Alpine de esa imagen llevan
+  19 meses sin actualizarse.
+- **Por qué es Menor:** todavía no hay una vulnerabilidad confirmada: eso lo dice Trivy, que escanea la imagen en el
+  job "Imagen: web" de `seguridad.yml` y corre con el tag. Prioridad Alta: si encuentra una CVE crítica o alta que
+  tiene arreglo, el job queda en rojo, y una así no se justifica en `.trivyignore`.
+- **Corrección (21/11, 64288b2):** `FROM nginx:1.30-alpine` y `apk upgrade` al armar la imagen, para que salga con
+  los paquetes de Alpine al día. El escaneo local de la imagen pasó de 52 vulnerabilidades altas o críticas (una
+  crítica) a ninguna, y `nginx -t` da bien con la configuración de Palco.
+- **Causa raíz:** la imagen base quedó fijada en una línea de nginx que dejó de publicarse y nada avisaba.
+- **Cierre:** el job "Imagen: web (trivy image)" de `seguridad.yml` sobre `fbd31dc` (run 44867187171) terminó en
+  verde, sin vulnerabilidades críticas ni altas.
+
 ## 6. Riesgos aceptados
 
 Las decisiones con riesgo aceptado se cuentan como defectos abiertos, en estado *Aceptado*, con su riesgo y su
-alternativa en la sección 3: las dos del 16/10 y la del token en el navegador.
+alternativa en la sección 3: las dos del 16/10, la del token en el navegador y las cuatro que salen del informe de
+seguridad del 24/11 (`docs/testing/informe-de-seguridad.md`).
 
 - **DEF-38 (SEC-W05c), la sesión dura 8 horas sin refresh token ni revocación.** Documento único, secciones 5.6, 9.4 y
   14.2; la petición SEC-W05c de Postman comprueba esa vigencia.
@@ -1213,24 +1528,39 @@ alternativa en la sección 3: las dos del 16/10 y la del token en el navegador.
   servicios se conectan por in-vm. Documento único, secciones 10.3 y 14.8, y `docs/adr/ADR-005-broker-embebido.md`.
 - **DEF-58, el token de sesión queda en `localStorage`.** Documento único, sección 5.7, y la sección "Limitaciones
   conocidas" del README; lo acotan la CSP y el escapado de React.
+- **DEF-68 (SEC-E02), seis CVE altas de Jackson y Guava dentro de WildFly 41.0.1.** Ninguna se alcanza en Palco
+  (motivos en `.trivyignore`); cada una vence el 31/12/2026 y entonces el job de Trivy vuelve a fallar.
+- **DEF-69 (SEC-W12, SEC-E01), la CSP con `style-src 'unsafe-inline'` e `img-src https:`.** Las dos alertas Medium de
+  ZAP están justificadas en `.zap/reglas.tsv` (renglones 54 y 55): lo que ejecuta código sigue cerrado.
+- **DEF-71 (SEC-E04), el proceso principal de nginx corre como root.** Aceptado en SonarCloud: hace falta para los
+  puertos 80 y 443 y para escribir el certificado al arrancar; los pedidos los atienden los workers con el usuario
+  `nginx` (`frontend/Dockerfile`).
+- **DEF-75 (SEC-W03), el registro dice si un email o un DNI ya tienen cuenta.** Lo pide CA-01.2 de HU-01; el login y
+  "olvidé mi contraseña" no lo revelan.
 
 Mientras la cátedra no diga otra cosa, un riesgo aceptado cuenta como defecto abierto contra el máximo.
 
 ## 7. Abiertos contra el máximo admitido
 
-Al 20/11/2026, contra el máximo que se admite al cierre (27/11). Los corregidos que falta verificar van aparte: se
-cierran si su prueba pasa sobre el tag y, si no, vuelven a contar como abiertos.
+Al 24/11/2026, contra el máximo de la sección 9 de los Criterios de Testing de la cátedra, que se admite al cierre
+(27/11): 0 bloqueantes, 0 críticos y hasta 3 mayores con su alternativa escrita; menores y cosméticos sin límite.
+"Abiertos" son los nuevos, los que están en corrección y los aceptados. Los corregidos que falta verificar van aparte:
+se cierran si su prueba pasa sobre el tag y, si no, vuelven a contar como abiertos.
 
 | Severidad | Abiertos | Corregidos, a verificar sobre el tag | Máximo al cierre | Situación |
 |---|---|---|---|---|
 | Bloqueante | 0 | 0 | 0 | Dentro del máximo |
-| Crítica | 0 (DEF-29 se cerró el 20/11) | 0 | 0 | Dentro del máximo |
-| Mayor | 3: DEF-37, DEF-38 (aceptado) y DEF-46, cada uno con su alternativa en la sección 3 | 3: DEF-30, DEF-36 y DEF-47 | 3, cada uno con su alternativa | En el máximo, si las tres correcciones pasan sobre el tag |
-| Menor | 12: DEF-33 (en corrección), DEF-39 y DEF-58 (aceptados), DEF-40 a DEF-45, DEF-48, DEF-49 y DEF-51 | 6: DEF-02, DEF-14, DEF-32, DEF-35, DEF-52 y DEF-57 | Sin máximo | Dentro del máximo |
-| Cosmética | 3: DEF-50, DEF-54 y DEF-56 | 3: DEF-34, DEF-53 y DEF-55 | Sin máximo | Dentro del máximo |
+| Crítica | 0 | 2: DEF-63 y DEF-64 | 0 | Dentro del máximo, si las dos correcciones pasan sobre el tag |
+| Mayor | 3: DEF-37, DEF-38 (aceptado) y DEF-46 (en corrección), cada uno con su alternativa en la sección 3 | 3: DEF-30, DEF-36 y DEF-47 | 3, cada uno con su alternativa | En el máximo, si las tres correcciones pasan sobre el tag |
+| Menor | 17: DEF-39, DEF-58, DEF-68, DEF-69, DEF-71 y DEF-75 (aceptados), y DEF-40 a DEF-45, DEF-48, DEF-49, DEF-62, DEF-72 y DEF-73 | 13: DEF-02, DEF-14, DEF-32, DEF-33, DEF-35, DEF-52, DEF-57, DEF-59, DEF-60, DEF-61, DEF-65, DEF-66 y DEF-70 | Sin máximo | Dentro del máximo |
+| Cosmética | 5: DEF-50, DEF-54, DEF-56, DEF-67 y DEF-74 | 3: DEF-34, DEF-53 y DEF-55 | Sin máximo | Dentro del máximo |
 
-DEF-29 y DEF-31 se cerraron el 20/11 con la corrida de `docs/testing/evidencia/final/cancelacion-con-reventa.txt`
-(escenarios 17, 19, 20 y 22 en PASA, 0 líneas SEVERE). Con DEF-37, DEF-38 y DEF-46 abiertos, los mayores quedan justo en
-el máximo: si DEF-30, DEF-36 o DEF-47 no pasa su prueba sobre el tag, vuelve a abrirse y la entrega queda fuera del
-máximo. Para tener margen hay que cerrar uno de los tres mayores abiertos antes del tag. DEF-33 pasa a corregido cuando
-Mis entradas le pase la fecha de la compra al modal de la factura.
+No queda ningún bloqueante ni ningún crítico abierto: los dos críticos que siguen sin cerrar están corregidos y falta
+verificarlos sobre el tag. DEF-63 se verifica con la corrida de Schemathesis del tag (la de `fbd31dc` ya no lo
+reproduce), y DEF-64, corregido el 24/11, con `NombreYApellidoTest` en el CI del tag y los `curl` de
+`docs/testing/evidencia/final/registro-nombre-largo.txt` contra el compose del tag. Si alguna de esas pruebas falla,
+el defecto vuelve a abrirse y la entrega no cumple el "0 críticos".
+
+Con DEF-37, DEF-38 y DEF-46 abiertos, los mayores quedan justo en el máximo: si DEF-30, DEF-36 o DEF-47 no pasa su
+prueba sobre el tag, vuelve a abrirse y la entrega queda fuera del máximo. Para tener margen hay que cerrar uno de los
+tres mayores abiertos antes del tag (a DEF-46 le falta la compra por la reventa).
