@@ -1,11 +1,12 @@
-# Pipeline de Palco. Corre en cada push a master, en cada pull request y en los tags v*.
+# Pipeline de Palco. Corre en cada push a master, en cada pull request, en los tags v* y a mano.
 # Los jobs corren en paralelo; si cualquiera falla, la corrida queda en rojo.
 #
 #   secretos     gitleaks sobre todo el historial
-#   backend      mvn verify: tests unitarios y de integración del backend, cobertura (JaCoCo) y
-#                análisis estático (PMD)
-#   sonar        mvn verify y el análisis de SonarCloud (backend, frontend, pruebas e infraestructura) con la
-#                cobertura de JaCoCo; qué se analiza y cómo está en sonar-project.properties
+#   backend      mvn verify: tests unitarios y de integración del backend (también los *IT, contra PostgreSQL 17
+#                y Artemis en contenedores con Testcontainers), cobertura (JaCoCo) y análisis estático (PMD)
+#   sonar        mvn verify y el análisis de SonarCloud (el código que se despliega del backend y del frontend,
+#                y la infraestructura, sin el código de prueba) con la cobertura de JaCoCo; qué se analiza y por
+#                qué está en sonar-project.properties
 #   frontend     npm ci, lint y build
 #   integracion  docker compose up (Postgres + backend + nginx) y la prueba de integración contra eso,
 #                repartida en 4 jobs en paralelo (ver la matriz del job)
@@ -13,11 +14,19 @@
 #   api          docker compose up y la colección de Postman con Newman contra el backend: las nueve carpetas
 #                y los "Pasos manuales", con el código de verificación que sale en el log del servidor
 #
-# Los demás análisis van en workflows aparte de esta carpeta, que se pueden volver a correr solos:
-#   seguridad.yml  dependencias del repo e imágenes con Trivy
-#   zap.yml        escaneo de seguridad con OWASP ZAP contra el sistema levantado
-#   mutacion.yml   pruebas de mutación del backend (PIT)
-#   carga.yml      prueba de carga con k6; corre solo con los tags v* y a mano
+# Los demás análisis van en workflows aparte de esta carpeta, que se pueden volver a correr solos. Salvo que
+# diga otra cosa, cada uno corre con los mismos disparadores que este:
+#   seguridad.yml          dependencias del repo e imágenes con Trivy
+#   zap.yml                escaneo de seguridad con OWASP ZAP contra el sistema levantado
+#   mutacion.yml           pruebas de mutación del backend (PIT)
+#   contrato.yml           pruebas de contrato de la API REST con Schemathesis contra docs/api/openapi.yaml
+#   pruebas-seguridad.yml  pruebas de seguridad contra el sistema levantado: tokens JWT manipulados, mass
+#                          assignment, XSS almacenado (por la API y en el navegador) y XXE en el SOAP de ARCA
+#   lighthouse.yml         accesibilidad y buenas prácticas con Lighthouse CI; corre con los push a master, los
+#                          tags v* y a mano, no en los pull requests
+#   carga.yml              prueba de carga con k6; corre solo con los tags v* y a mano
+#   estabilidad.yml        la suite del backend 3 veces seguidas, para encontrar tests inestables; corre solo con
+#                          los tags v* y a mano
 
 name: CI
 
