@@ -33,6 +33,7 @@ import com.palco.ventas.dominio.Entrada;
 import com.palco.ventas.dominio.TitularDeVenta;
 import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.dominio.VentaItem;
+import com.palco.ventas.negocio.ReglasEntreCompras;
 
 /**
  * Lo que la conciliación le pide a la base, contra una base de verdad: H2 en
@@ -230,10 +231,14 @@ class ConciliacionEnH2Test {
     @Test
     void laCopiaDeLosTitularesCorreEnSuPropiaTransaccion() throws NoSuchMethodException {
         Method respaldar = VentaRepositoryJpa.class.getMethod("respaldarTitulares", String.class, List.class);
+        Method antesDeCobrar = ReglasEntreCompras.class.getMethod("exigirDnisSinEntradaYCopiarTitulares",
+                String.class, String.class, List.class);
 
-        // REQUIRES_NEW: se confirma antes del cobro y no se deshace si después se deshace el pago.
+        // REQUIRES_NEW: se confirma antes del cobro y no se deshace si después se deshace el pago. La abre quien
+        // mira el DNI con sus candados (DEF-46); el repositorio se suma a esa, sin abrir otra ni tomar otra conexión.
         assertEquals(TransactionAttributeType.REQUIRES_NEW,
-                respaldar.getAnnotation(TransactionAttribute.class).value());
+                antesDeCobrar.getAnnotation(TransactionAttribute.class).value());
+        assertNull(respaldar.getAnnotation(TransactionAttribute.class));
     }
 
     // ---- Qué ventas busca la conciliación ----

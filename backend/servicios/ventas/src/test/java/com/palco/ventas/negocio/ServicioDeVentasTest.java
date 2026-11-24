@@ -115,6 +115,11 @@ class ServicioDeVentasTest {
         servicio.eventos = eventos;
         servicio.cobros = cobros;
         servicio.compras = compras;
+        // Las reglas entre compras son las de verdad, sobre el mismo repositorio doble: así se ve qué le piden
+        // a la base. Sus candados y sus transacciones se prueban contra H2 (ReglasEntreComprasEnH2Test).
+        ReglasEntreCompras reglas = new ReglasEntreCompras();
+        reglas.ventas = ventas;
+        servicio.reglas = reglas;
         // En lugar del publicador que manda por JMS, uno que junta lo publicado.
         servicio.publicador = new PublicadorPagoConfirmado() {
             @Override
@@ -195,6 +200,48 @@ class ServicioDeVentasTest {
         verify(ventas, never()).respaldarTitulares(anyString(), any());
     }
 
+    @Test
+    void siOtraCompraDelCompradorSeGuardoMientrasSeReservabaLaSegundaCuentaFrenaEstaYDevuelveElCupo() {
+        // DEF-46: al abrir, el comprador no tenía nada. Mientras esta compra reservaba, se guardó otra suya de 6.
+        // Con el candado tomado y esta venta ya guardada, la cuenta da 8: las 6 de la otra y las 2 de esta.
+        when(ventas.entradasDelCompradorParaElEvento(eq(COMPRADOR), eq("ev-1"), any())).thenReturn(0L, 8L);
+        eventosVende("sec-1-4", "Platea B", 27_500);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.iniciarCompra(COMPRADOR, pedido(List.of(item("sec-1-4", 2)), ANA, LUIS), CLAVE));
+
+        assertEquals("tope-por-evento", error.tipo());
+        assertTrue(error.getMessage().contains("Ya tenés 6: no podés comprar más para este evento."), error.getMessage());
+        // La segunda cuenta va con el candado del comprador y el evento, y después de guardar: un pedido repetido
+        // con la misma clave falla al guardar como clave repetida y no se cuenta contra su propia venta.
+        InOrder orden = inOrder(eventos, ventas);
+        orden.verify(ventas).entradasDelCompradorParaElEvento(eq(COMPRADOR), eq("ev-1"), any());
+        orden.verify(eventos).reservarCupo("ev-1", "sec-1-4", 2);
+        orden.verify(ventas).tomarCandados(List.of("comprador|ev-1|" + COMPRADOR));
+        orden.verify(ventas).guardar(any());
+        orden.verify(ventas).entradasDelCompradorParaElEvento(eq(COMPRADOR), eq("ev-1"), any());
+        // El error deshace la transacción del guardado (no queda la venta) y acá se devuelve lo reservado.
+        String ventaId = idDeLaVentaGuardada();
+        verify(eventos).liberarCupo(ventaId, "ev-1", "sec-1-4", 2);
+        assertFalse(servicio.cancelarCompra());
+    }
+
+    @Test
+    void antesDeCobrarElDniSeMiraConElCandadoDeCadaDniYLaCopiaVaDespues() {
+        String ventaId = compraAbierta();
+        when(cobros.cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO)).thenReturn(RECHAZADO);
+
+        assertThrows(ErroresDeNegocio.PagoRechazado.class, () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
+
+        // DEF-46: candado de cada DNI para el evento, la mirada al DNI y la copia, en ese orden y antes del cobro.
+        // Otra compra con alguno de esos DNI espera en el candado y, cuando entra, ya ve esta copia.
+        InOrder orden = inOrder(ventas, cobros);
+        orden.verify(ventas).tomarCandados(List.of("dni|ev-1|" + ANA.dni(), "dni|ev-1|" + LUIS.dni()));
+        orden.verify(ventas).dnisConEntradaParaElEvento("ev-1", List.of(ANA.dni(), LUIS.dni()), ventaId);
+        orden.verify(ventas).respaldarTitulares(eq(ventaId), any());
+        orden.verify(cobros).cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO);
+    }
+
     // ---- Abrir la compra ----
 
     @Test
@@ -220,7 +267,8 @@ class ServicioDeVentasTest {
         InOrder orden = inOrder(eventos, ventas);
         orden.verify(eventos).reservarCupo("ev-1", "sec-1-4", 2);
         orden.verify(ventas).guardar(guardada.capture());
-        verificarLasReglasEntreCompras(1);
+        // El tope se mira dos veces: antes de reservar y al guardar, con el candado.
+        verificarLasReglasEntreCompras(2, 1, 1);
         verifyNoMoreInteractions(ventas);
         assertEquals(venta.id(), guardada.getValue().getId());
         assertEquals(COMPRADOR, guardada.getValue().getCompradorId());
@@ -237,7 +285,8 @@ class ServicioDeVentasTest {
         // base tomada. El pool es uno solo para todos los servicios: diez compras así lo dejan sin conexiones.
         // Las dos reglas entre compras leen la base antes, cada una en su transacción corta, que ya terminó.
         when(eventos.reservarCupo(eq("ev-1"), anyString(), anyInt())).thenAnswer(llamada -> {
-            verificarLasReglasEntreCompras(1);
+            // Tampoco hay un candado tomado: se toma recién al guardar, ya sin llamadas a Eventos pendientes.
+            verificarLasReglasEntreCompras(1, 1, 0);
             verifyNoMoreInteractions(ventas);
             return new Sector(llamada.getArgument(1), "Platea B", 27_500, 2000, 1442);
         });
@@ -424,7 +473,7 @@ class ServicioDeVentasTest {
         // El sector que falló no se devuelve: no llegó a reservarse.
         verify(eventos, never()).liberarCupo(anyString(), anyString(), eq("sec-1-3"), anyInt());
         // Y de la venta no se guardó nada: no hay nada que deshacer en la base.
-        verificarLasReglasEntreCompras(1);
+        verificarLasReglasEntreCompras(1, 1, 0);
         verifyNoMoreInteractions(ventas);
     }
 
@@ -439,7 +488,7 @@ class ServicioDeVentasTest {
 
         verify(eventos, times(1)).liberarCupo(anyString(), anyString(), anyString(), anyInt());
         verify(eventos).liberarCupo(anyString(), eq("ev-1"), eq("sec-1-4"), eq(2));
-        verificarLasReglasEntreCompras(1);
+        verificarLasReglasEntreCompras(1, 1, 0);
         verifyNoMoreInteractions(ventas);
     }
 
@@ -625,12 +674,12 @@ class ServicioDeVentasTest {
         when(ventas.buscarPorId(ventaId)).thenReturn(Optional.of(abierta)).thenReturn(Optional.of(confirmada));
         when(ventas.confirmar(ventaId, PAGO_ID, AHORA)).thenReturn(true);
         when(cobros.cobrar(ventaId, 60_500, "tarjeta", "tok_test", CLAVE_DEL_PAGO)).thenAnswer(llamada -> {
-            // Hasta acá, a la base se le pidió guardar la venta, al abrir la compra, y copiar los titulares,
-            // en una transacción propia que ya terminó (REQUIRES_NEW): ninguna conexión queda tomada.
-            // y mirar el DNI de los titulares otra vez, también en una transacción propia (REQUIRES_NEW).
+            // Hasta acá, a la base se le pidió guardar la venta, al abrir la compra, y mirar el DNI de los
+            // titulares otra vez y copiarlos, con sus candados y en una transacción propia que ya terminó
+            // (REQUIRES_NEW): ninguna conexión ni ningún candado quedan tomados.
             verify(ventas).guardar(any());
             verify(ventas).respaldarTitulares(eq(ventaId), any());
-            verificarLasReglasEntreCompras(2);
+            verificarLasReglasEntreCompras(2, 2, 2);
             verifyNoMoreInteractions(ventas);
             return APROBADO;
         });
@@ -881,15 +930,24 @@ class ServicioDeVentasTest {
     }
 
     @Test
-    void losTitularesSeCopianUnaSolaVezAunqueHayaVariosIntentos() {
+    void enCadaPagoNuevoSeVuelveAMirarElDniYSePideLaMismaCopia() {
         String ventaId = compraAbierta();
         when(cobros.cobrar(eq(ventaId), eq(60_500L), anyString(), anyString(), anyString())).thenReturn(RECHAZADO);
 
         assertThrows(ErroresDeNegocio.PagoRechazado.class, () -> servicio.confirmarCompra(CON_TARJETA, CLAVE_DEL_PAGO));
         assertThrows(ErroresDeNegocio.PagoRechazado.class, () -> servicio.confirmarCompra(CON_TARJETA, "otra-clave"));
 
-        // Los titulares de una compra no cambian: la segunda vez la instancia ya sabe que están copiados.
-        verify(ventas, times(1)).respaldarTitulares(eq(ventaId), any());
+        // Un pago nuevo después de un rechazo vuelve a mirar el DNI, y en la misma transacción pide la copia.
+        // Los titulares de una compra no cambian: las dos copias son iguales, y la base guarda solo la primera
+        // (ConciliacionEnH2Test#laCopiaDeLosTitularesSeGuardaUnaSolaVezYSeLeeEnElOrdenDelPedido).
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<TitularDeVenta>> copias = ArgumentCaptor.forClass(List.class);
+        verify(ventas, times(2)).respaldarTitulares(eq(ventaId), copias.capture());
+        List<List<String>> leidas = copias.getAllValues().stream()
+                .map(copia -> copia.stream().map(t -> t.getOrden() + "|" + t.getNombre() + "|" + t.getDni()).toList())
+                .toList();
+        assertEquals(leidas.get(0), leidas.get(1));
+        verify(ventas, times(3)).dnisConEntradaParaElEvento(eq("ev-1"), any(), any());
         verify(cobros, times(2)).cobrar(anyString(), anyLong(), anyString(), anyString(), anyString());
     }
 
@@ -1088,10 +1146,14 @@ class ServicioDeVentasTest {
     }
 
     /** Abre una compra de dos entradas en Platea B y devuelve el id de la venta. */
-    /** Las consultas de las reglas entre compras: el tope al abrir, y el DNI al abrir y antes de cada cobro. */
-    private void verificarLasReglasEntreCompras(int miradasDelDni) {
-        verify(ventas).entradasDelCompradorParaElEvento(eq(COMPRADOR), eq("ev-1"), any());
+    /**
+     * Las consultas de las reglas entre compras: el tope antes de reservar y al guardar, el DNI al abrir y
+     * antes de cada cobro, y los candados (uno al guardar la venta y otro antes de cada cobro).
+     */
+    private void verificarLasReglasEntreCompras(int miradasDelTope, int miradasDelDni, int candados) {
+        verify(ventas, times(miradasDelTope)).entradasDelCompradorParaElEvento(eq(COMPRADOR), eq("ev-1"), any());
         verify(ventas, times(miradasDelDni)).dnisConEntradaParaElEvento(eq("ev-1"), any(), any());
+        verify(ventas, times(candados)).tomarCandados(any());
     }
 
     private String compraAbierta() {
