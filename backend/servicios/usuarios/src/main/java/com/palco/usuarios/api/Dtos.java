@@ -21,6 +21,12 @@ import jakarta.validation.constraints.Size;
  */
 public final class Dtos {
 
+    /** Nombre o apellido: ver {@link RegistroDto}. */
+    static final String NOMBRE = "^\\s*+[A-Za-zÀ-ÿ' -]{2,}+\\s*+$";
+
+    /** El largo de las columnas {@code nombre} y {@code apellido} de {@code usuarios.usuario}. */
+    static final int LARGO_NOMBRE = 80;
+
     private Dtos() {
     }
 
@@ -39,13 +45,26 @@ public final class Dtos {
             boolean identidadVerificada) {
     }
 
+    /**
+     * El alta de una cuenta. Nombre y apellido usan {@link #NOMBRE}, con
+     * cuantificadores posesivos ({@code *+}, {@code {2,}+}): el espacio está en
+     * la clase del medio y en los {@code \s} de los bordes, y con cuantificadores
+     * comunes un texto largo que no termina bien hace probar cada forma de
+     * repartir los espacios entre las tres partes (el tiempo crecía con el cubo
+     * del largo, DEF-64). Posesivos no vuelven atrás y el tiempo es lineal. Acepta
+     * lo mismo que {@code esNombreValido} del frontend: el texto sin los espacios
+     * de los bordes tiene 2 o más caracteres de la clase. El {@code @Size} es el
+     * largo de la columna ({@code varchar(80)}, V1).
+     */
     public record RegistroDto(
             @NotBlank(message = "Ingresá un nombre válido.")
-            @Pattern(regexp = "^\\s*[A-Za-zÀ-ÿ' -]{2,}\\s*$", message = "Ingresá un nombre válido.")
+            @Size(max = LARGO_NOMBRE, message = "El nombre tiene hasta " + LARGO_NOMBRE + " caracteres.")
+            @Pattern(regexp = NOMBRE, message = "Ingresá un nombre válido.")
             String nombre,
 
             @NotBlank(message = "Ingresá un apellido válido.")
-            @Pattern(regexp = "^\\s*[A-Za-zÀ-ÿ' -]{2,}\\s*$", message = "Ingresá un apellido válido.")
+            @Size(max = LARGO_NOMBRE, message = "El apellido tiene hasta " + LARGO_NOMBRE + " caracteres.")
+            @Pattern(regexp = NOMBRE, message = "Ingresá un apellido válido.")
             String apellido,
 
             @NotBlank(message = "El DNI debe tener 7 u 8 dígitos.")
