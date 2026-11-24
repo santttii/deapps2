@@ -1,0 +1,165 @@
+Corrida del CI sobre fbd31dc (master)
+Commit: fbd31dc9ecbc6f4e57e9646a992a204142154bfd
+Los workflows los disparó el push a master del 21/11/2026; Carga y Estabilidad se corrieron a mano
+(workflow_dispatch) el 24/11/2026 sobre el mismo commit.
+Fuente: "gh run view <id> --json" y "gh run view <id> --log", y los artefactos de cada run.
+Enlace de cada run: https://github.com/santttii/deapps2/actions/runs/<id>
+
+1. Workflows y jobs (horas en UTC; en Argentina, 3 horas menos)
+
+Run          Workflow               Desde                   Hasta                   Duración      Resultado
+44867187162  CI                     2026-11-21T04:39:40Z    2026-11-21T04:46:48Z    7 min 08 s    success
+44867187123  Pruebas de seguridad   2026-11-21T04:39:40Z    2026-11-21T04:42:41Z    3 min 01 s    success
+44867187143  Mutación               2026-11-21T04:39:40Z    2026-11-21T04:44:46Z    5 min 06 s    success
+44867187171  Seguridad (Trivy)      2026-11-21T04:39:41Z    2026-11-21T04:41:45Z    2 min 04 s    success
+44867187179  Contrato               2026-11-21T04:39:41Z    2026-11-21T04:42:53Z    3 min 12 s    success
+44867187212  Lighthouse             2026-11-21T04:39:41Z    2026-11-21T04:43:53Z    4 min 12 s    success
+44867187257  ZAP                    2026-11-21T04:39:41Z    2026-11-21T04:44:14Z    4 min 33 s    success
+45439831486  Carga                  2026-11-24T16:40:20Z    2026-11-24T16:48:45Z    8 min 25 s    success
+45439837443  Estabilidad            2026-11-24T16:40:22Z    2026-11-24T16:45:01Z    4 min 39 s    success
+
+Los 7 workflows del push corren en paralelo: el pipeline duró 7 min 08 s de reloj (04:39:40 a 04:46:48 UTC), lo que
+tardó el más largo (CI). Check runs del commit (API de GitHub, commits/fbd31dc/check-runs): 21, los 21 en success.
+Son los 18 jobs de los workflows del push, el análisis de SonarCloud ("SonarCloud Code Analysis") y los jobs de Carga
+y Estabilidad.
+
+Jobs del workflow CI (run 44867187162):
+  Backend (mvn verify)                                  2 min 07 s   success
+  SonarCloud (análisis estático y cobertura)            5 min 39 s   success
+  Frontend (lint y build)                               0 min 15 s   success
+  Secretos (gitleaks)                                   0 min 08 s   success
+  Integración: general                                  6 min 39 s   success
+  Integración: conciliacion-pagos                       4 min 43 s   success
+  Integración: conciliacion-reventa-19                  4 min 50 s   success
+  Integración: conciliacion-reventa-20                  4 min 51 s   success
+  API (Postman con Newman contra docker compose)        2 min 56 s   success
+  E2E (Playwright contra docker compose)                4 min 08 s   success
+
+2. Tests JUnit (job "Backend (mvn verify)": "Tests run" de surefire por módulo y artefacto reportes-backend)
+
+Módulo                     Tests   Unitarias   Con H2 (*EnH2Test)   Fallas   Errores   Saltados
+common                        82          82                    0        0         0          0
+servicios/usuarios            81          69                   12        0         0          0
+servicios/eventos            113          99                   14        0         0          0
+servicios/ventas             379         329                   50        0         0          0
+servicios/pagos               40          40                    0        0         0          0
+servicios/validacion          57          49                    8        0         0          0
+servicios/reventa             90          76                   14        0         0          0
+servicios/notificaciones      86          81                    5        0         0          0
+servicios/facturacion         50          44                    6        0         0          0
+servicios/asistente          190         190                    0        0         0          0
+servicios/arca                18          18                    0        0         0          0
+Total                       1186        1077                  109        0         0          0
+
+Ningún reporte de surefire tiene flakes mayor que 0. mvn verify: BUILD SUCCESS, "Total time: 01:52 min".
+Incluidos en el total: ContratoDelWsdlTest (contrato SOAP) 7 de 7; EstadoDeVentaTest (patrón State) 13 de 13;
+EvaluacionDelAsistenteTest, que imprime "26 de 26 bien; adversariales: 11 de 11".
+
+3. Integración de punta a punta (jobs "Integración", scripts/pruebas/escenarios.mjs contra docker compose)
+
+En cada job, antes de los escenarios, los 9 health respondieron 200 por HTTPS y nginx mandó las cabeceras
+Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options y Referrer-Policy. El paso "Control de logs"
+terminó bien en los 4 jobs.
+
+Job "general" (escenarios 1 a 13, 15 a 18 y 21 a 24):
+  PASA   1. Compra completa: iniciar, pagar contra Pagos, venta emitida, cupo y pago  (18/18 comprobaciones)
+  PASA   2. Idempotencia: la misma clave al iniciar y al pagar no duplica nada  (10/10 comprobaciones)
+  PASA   3. Pago rechazado: 402, venta sin confirmar, ningún mensaje; un segundo intento la completa  (10/10 comprobaciones)
+  PASA   4. Reglas de negocio: cada una con su código y su cuerpo Problem Details  (23/23 comprobaciones)
+  PASA   5. Seguridad: sin token, con el token de otro usuario, con otro rol, y lo interno solo con rol servicio  (27/27 comprobaciones)
+  PASA   6. Cancelar una compra en curso libera el cupo  (8/8 comprobaciones)
+  PASA   7. Al confirmarse un pago sale UN mensaje a la cola y UNO al tópico, con el tipoEvento del contrato  (12/12 comprobaciones)
+  PASA   8. El consumidor de la cola emite una sola vez aunque el mensaje llegue dos veces  (14/14 comprobaciones)
+  PASA   9. Los dos suscriptores del tópico reciben cada uno su copia: el aviso (log) y la auditoría (fila)  (7/7 comprobaciones)
+  PASA   10. Taller: con el consumidor de emisión detenido el mensaje espera en la cola; al reanudarlo se emite  (12/12 comprobaciones)
+  PASA   11. Suscripción durable: con auditoría detenida se publican mensajes y al reanudarla los recibe  (10/10 comprobaciones)
+  PASA   12. Un mensaje inválido se reintenta y termina en la DLQ sin trabar a los demás  (15/15 comprobaciones)
+  PASA   13. Si la transacción se deshace después de publicar, el mensaje no sale  (11/11 comprobaciones)
+  PASA   15. Facturación: la compra confirmada se factura una sola vez, con número y CAE de ARCA (simulado)  (10/10 comprobaciones)
+  PASA   16. Validación en puerta: el primer escaneo deja entrar y marca la entrada USADA; el segundo, no  (12/12 comprobaciones)
+  PASA   17. Reventa de punta a punta: publicar dentro del rango, la compra de otra cuenta, la entrada nueva y su REVENTA_CONFIRMADA  (24/24 comprobaciones)
+  PASA   18. Con Eventos caído, la devolución del cupo de una compra cancelada se reintenta sola y se aplica una vez  (13/13 comprobaciones)
+  PASA   21. Dueño del evento: cada organizador ve y arma solo la puerta de sus eventos, y escanea solo el staff asignado (L17 y L18)  (26/26 comprobaciones)
+  PASA   22. Cancelación de un evento: anula las compras, también la hecha en la reventa, devuelve cada pago a quien corresponde, retira la reventa y avisa (CA-11.x)  (24/24 comprobaciones)
+  PASA   23. Reglas entre compras: hasta 6 entradas por comprador y evento, y un DNI con una sola entrada por evento  (17/17 comprobaciones)
+  PASA   24. Cuenta y catálogo: registro, login, contraseña olvidada, catálogo, búsqueda, alta de evento y resumen  (34/34 comprobaciones)
+  TODO BIEN
+  scripts/pruebas/etag.mjs:           19 de 19 comprobaciones
+  scripts/pruebas/patron-state.mjs:   10 de 10 respuestas como se esperaba
+  scripts/pruebas/asistente.mjs:      11 de 11 comprobaciones (fallback por timeout a los 5003 ms y 5001 ms; con el
+                                      modelo apagado, fallback en 0 ms)
+  scripts/pruebas/broker-apagado.mjs: 10 de 10 comprobaciones. NO SE PERDIÓ NINGÚN MENSAJE
+
+Job "conciliacion-pagos":
+  PASA   14. Falla después del cobro: se deshace la confirmación, el pago queda en Pagos y la conciliación termina la compra  (18/18 comprobaciones)
+  TODO BIEN
+Job "conciliacion-reventa-19":
+  PASA   19. Reventa con Pagos sin respuesta: nadie más compra ni retira, y la conciliación libera o transfiere  (14/14 comprobaciones)
+  TODO BIEN
+Job "conciliacion-reventa-20":
+  PASA   20. Reventa cobrada y sin entrada: Ventas rechaza la transferencia, la publicación se anula y el pago se devuelve (L2)  (20/20 comprobaciones)
+  TODO BIEN
+
+Total: 24 de 24 escenarios en PASA, 389 de 389 comprobaciones, 0 en FALLA.
+
+4. API con Newman (job "API", artefacto reporte-api/newman)
+
+coleccion.txt (las carpetas automáticas de docs/api/palco-api.postman_collection.json):
+  iterations            1 ejecutadas, 0 fallidas
+  requests            216 ejecutados, 0 fallidos
+  test-scripts        211 ejecutados, 0 fallidos
+  prerequest-scripts   20 ejecutados, 0 fallidos
+  assertions          673 ejecutadas, 0 fallidas
+  total run duration: 16s; average response time: 37ms [min: 2ms, max: 545ms, s.d.: 61ms]
+
+reenvio.txt y verificacion.txt (los dos pasos manuales que el job corre con el código leído del log):
+  reenvio:       1 request, 1 aserción, 0 fallas
+  verificacion:  1 request, 2 aserciones, 0 fallas
+
+Operaciones del contrato (docs/api/openapi.yaml en fbd31dc: 52) contra los 218 pedidos de las tres corridas, por
+método y ruta, con el código de cada respuesta:
+  49 operaciones con al menos un pedido 2xx o 3xx y uno 4xx.
+  POST /v1/operaciones-de-reventa/controles-de-compra: ningún pedido en la colección.
+  POST /usuarios/password/reinicio: en la corrida, solo el error (400); el caso de éxito está en "Pasos manuales" y el
+    job no lo corre (lo recorren el escenario 24 y frontend/e2e/recuperar.spec.ts).
+  GET /usuarios/jwks: solo el 200; su caso de error es POST /usuarios/jwks (405), como explica
+    docs/api/GUIA_POSTMAN.md, sección 9.
+
+5. Interfaz con Playwright (job "E2E", frontend/e2e contra docker compose, Chromium)
+
+  Running 31 tests using 2 workers
+  asistente.spec.ts (2), catalogo.spec.ts (3), compra.spec.ts (2), accesibilidad.spec.ts (5), organizador.spec.ts (1),
+  puerta.spec.ts (1), recuperar.spec.ts (4: CP-03.1.1, CP-03.2.1, CP-03.3.1 y los tres anchos), registro.spec.ts (1),
+  reventa.spec.ts (1), sesion.spec.ts (6), temas.spec.ts (3), xss.spec.ts (2)
+  31 passed (1.2m)
+
+El resumen de Playwright no informa ninguna prueba "flaky" (en el CI reintenta una vez una que falla).
+
+6. Frontend (job "Frontend (lint y build)")
+
+  npm run lint (oxlint): "Found 4 warnings and 0 errors." Los 4 avisos son DEF-50.
+  npm run build: 511 módulos; dist/assets/index-BnXGyhkA.js de 561.14 kB, con el aviso de más de 500 kB (DEF-49).
+
+7. Secretos (job "Secretos (gitleaks)": gitleaks 8.28.0, checkout con fetch-depth 0 y --log-opts="--all")
+
+  "176 commits scanned." y "no leaks found"; gitleaks.sarif con 0 resultados.
+
+8. PMD 7.17.0 (job "Backend": target/pmd.xml de cada módulo, resumen de scripts/qa/analisis-estatico.mjs)
+
+  Módulo                    P1   P2   P3   P4   P5   Total
+  common                     0    7    6    0    0      13
+  servicios/arca             0    2    1    0    0       3
+  servicios/asistente        0    4    0    0    0       4
+  servicios/eventos          0    3   11    1    0      15
+  servicios/facturacion      0   11    4    0    0      15
+  servicios/notificaciones   0   13    1    1    0      15
+  servicios/pagos            0    4    6    0    0      10
+  servicios/reventa          0   35    9    0    0      44
+  servicios/usuarios         0    1    4    0    0       5
+  servicios/validacion       0    7    6    0    0      13
+  servicios/ventas           0   60   26    0    0      86
+  Total                      0  147   74    2    0     223
+
+  Por regla: GuardLogStatement 147 (P2); PreserveStackTrace 31, DanglingJavadoc 11,
+  MissingStaticMethodInNonInstantiatableClass 10, LiteralsFirstInComparisons 10 y otras 12 (P3);
+  UnnecessaryFullyQualifiedName 2 (P4). Los hallazgos de PMD no cortan el build (plan de pruebas, sección 4).

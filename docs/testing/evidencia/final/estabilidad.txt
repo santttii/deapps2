@@ -1,0 +1,62 @@
+Estabilidad de la suite del backend sobre fbd31dc (3 corridas seguidas)
+Fuente: run 45439837443, workflow "Estabilidad" (workflow_dispatch sobre master en fbd31dc, 24/11/2026, 16:40:22 a
+16:45:01 UTC, success), artefactos estabilidad-resumen (estabilidad.md, duraciones.md y pipeline.md, abajo con las
+mismas cifras; en pipeline.md, el enlace de cada workflow va como número de run) y estabilidad-reportes (surefire de
+cada corrida y su código de salida). Compila una vez, corre "mvn test" tres veces
+y scripts/qa/estabilidad.mjs compara los reportes test por test.
+
+--- estabilidad.md ---
+Cada test se compara con su resultado en las demás corridas: 1186 tests distintos en total.
+
+| Corrida | Carpeta | Tests | Pasan | Fallan | Con error | Saltados | Inestables | No corrieron | Tiempo en los tests |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | corridas/corrida-1 | 1186 | 1186 | 0 | 0 | 0 | 0 | 0 | 67.7 s |
+| 2 | corridas/corrida-2 | 1186 | 1186 | 0 | 0 | 0 | 0 | 0 | 66.1 s |
+| 3 | corridas/corrida-3 | 1186 | 1186 | 0 | 0 | 0 | 0 | 0 | 63.9 s |
+
+| Módulo | Tests | Cambian entre corridas |
+|---|---:|---:|
+| common | 82 | 0 |
+| servicios/arca | 18 | 0 |
+| servicios/asistente | 190 | 0 |
+| servicios/eventos | 113 | 0 |
+| servicios/facturacion | 50 | 0 |
+| servicios/notificaciones | 86 | 0 |
+| servicios/pagos | 40 | 0 |
+| servicios/reventa | 90 | 0 |
+| servicios/usuarios | 81 | 0 |
+| servicios/validacion | 57 | 0 |
+| servicios/ventas | 379 | 0 |
+
+Ninguno: los 1186 tests dan el mismo resultado en las 3 corridas.
+
+Resultado: estable. Todas las corridas dan idéntico resultado.
+--- fin de estabilidad.md ---
+
+--- duraciones.md ---
+| Corrida | Duración | Código de salida de mvn |
+|---|---:|---:|
+| corrida-1 | 1 min 22 s | 0 |
+| corrida-2 | 1 min 19 s | 0 |
+| corrida-3 | 1 min 17 s | 0 |
+
+Las corridas suman 3 min 58 s.
+--- fin de duraciones.md ---
+
+--- pipeline.md (duración de los workflows del commit) ---
+| Workflow | Disparado por | Resultado | Duración | Hasta 15 min |
+|---|---|---|---:|---|
+| CI (run 44867187162) | push master | success | 7 min 08 s | sí |
+| Pruebas de seguridad (run 44867187123) | push master | success | 3 min 01 s | sí |
+| Mutación (run 44867187143) | push master | success | 5 min 06 s | sí |
+| Seguridad (run 44867187171) | push master | success | 2 min 04 s | sí |
+| Contrato (run 44867187179) | push master | success | 3 min 12 s | sí |
+| Lighthouse (run 44867187212) | push master | success | 4 min 12 s | sí |
+| ZAP (run 44867187257) | push master | success | 4 min 33 s | sí |
+
+El más largo es CI (push master): 7 min 08 s.
+--- fin de pipeline.md ---
+
+Las suites de sistema (escenarios, E2E y Newman) no entran en esta comparación: corrieron una vez, en el run
+44867187162 (ci-fbd31dc.txt). Los dos tests que se suman después de fbd31dc corrieron tres veces seguidas aparte
+(junit-nuevos.txt).

@@ -1,0 +1,30 @@
+Los dos tests nuevos sobre fbd31dc (CA-12.4 y CA-16.4)
+Corrida local del 24/11/2026 (los módulos, de 17:03:52 a 17:04:41 UTC; las tres repeticiones terminaron a las
+17:09:12, 17:09:21 y 17:09:31 UTC), con JDK 25.0.5 (Temurin) y Maven 3.9.16, en Windows 11, sobre una copia del
+backend y de docs/ exactamente como están en fbd31dc (git archive fbd31dc), con los dos archivos de test del working
+tree en lugar de los de fbd31dc:
+  backend/servicios/ventas/src/test/java/com/palco/ventas/negocio/ResumenDeVentasTest.java
+    + siEventosNoRespondeNoHayResumenYNoSeLeenLasVentas (CA-12.4)
+  backend/servicios/eventos/src/test/java/com/palco/eventos/negocio/ServicioDeEventosTest.java
+    + crearUnEventoSinFotoLoGuardaSinImagenPropia (CA-16.4)
+
+1. Los módulos completos
+   mvn -B -ntp -Dpmd.skip=true -pl servicios/ventas,servicios/eventos -am test   (desde backend/)
+   [INFO] Tests run: 82, Failures: 0, Errors: 0, Skipped: 0     (common)
+   [INFO] Tests run: 114, Failures: 0, Errors: 0, Skipped: 0    (servicios/eventos: 113 de fbd31dc + 1)
+   [INFO] Tests run: 380, Failures: 0, Errors: 0, Skipped: 0    (servicios/ventas: 379 de fbd31dc + 1)
+   [INFO] BUILD SUCCESS
+   En los reportes de surefire:
+   <testcase name="siEventosNoRespondeNoHayResumenYNoSeLeenLasVentas" classname="com.palco.ventas.negocio.ResumenDeVentasTest" time="0.001"/>
+   <testcase name="crearUnEventoSinFotoLoGuardaSinImagenPropia" classname="com.palco.eventos.negocio.ServicioDeEventosTest" time="0.004"/>
+
+2. Las dos clases, tres veces seguidas
+   mvn -B -ntp -q -o -Dpmd.skip=true -Djacoco.skip=true -pl servicios/ventas,servicios/eventos -am test
+       -Dtest='ResumenDeVentasTest,ServicioDeEventosTest' -Dsurefire.failIfNoSpecifiedTests=false
+   corrida 1: salida 0; ResumenDeVentasTest tests="9" failures="0" errors="0" skipped="0";
+              ServicioDeEventosTest tests="66" failures="0" errors="0" skipped="0"
+   corrida 2: salida 0; los mismos números
+   corrida 3: salida 0; los mismos números
+
+Con los dos, el backend pasa de 1186 a 1188 tests (1079 unitarios y 109 con H2). Los dos son unitarios, con dobles
+de Mockito. No corrieron todavía en el CI: entran con el commit del tag.

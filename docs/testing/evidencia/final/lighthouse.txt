@@ -1,0 +1,22 @@
+Lighthouse 13.6.0 (@lhci/cli 0.16.0) sobre fbd31dc
+Fuente: run 44867187212, workflow "Lighthouse" (21/11/2026, 04:39:41 a 04:43:53 UTC, success), artefacto
+reportes-lighthouse: <perfil>/manifest.json y los .report.json de cada pantalla. Contra el docker compose del job, por
+https://localhost. Categorías medidas (.lighthouserc.cjs): accesibilidad y buenas prácticas.
+
+Perfil    Pantalla                                            Accesibilidad   Buenas prácticas
+mobile    https://localhost/ (catálogo)                       100             100
+mobile    https://localhost/evento/atletico-norte-racing-sur  100             100
+mobile    https://localhost/ingresar                          100             100
+mobile    https://localhost/registro                          100             100
+mobile    https://localhost/recuperar                         100             100
+desktop   https://localhost/ (catálogo)                       100             100
+desktop   https://localhost/evento/atletico-norte-racing-sur  100             100
+desktop   https://localhost/ingresar                          100             100
+desktop   https://localhost/registro                          100             100
+desktop   https://localhost/recuperar                         100             100
+
+10 de 10 corridas con accesibilidad de 90 o más (el umbral). Lighthouse no midió rendimiento ni SEO en esta corrida:
+no son categorías de la configuración. La carga se mide con k6 (k6.txt).
+
+axe-core (WCAG 2.0, 2.1 y 2.2 A y AA, a 360, 768 y 1280 px): frontend/e2e/accesibilidad.spec.ts, 5 de 5, y
+temas.spec.ts ("el catálogo y el ingreso pasan axe en los tres temas"), en el job "E2E" del run 44867187162.
