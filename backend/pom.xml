@@ -291,7 +291,8 @@
         <plugins>
             <!-- Cobertura de los tests (JaCoCo): el agente se engancha a surefire y en "verify" deja el
                  reporte de cada módulo en target/site/jacoco (HTML, XML y CSV). El CI los sube como
-                 artefacto y scripts/qa/cobertura.mjs arma el resumen. -->
+                 artefacto y scripts/qa/cobertura.mjs arma el resumen. Después del reporte controla el umbral
+                 de la capa de negocio y dominio (ver la ejecución "umbral-de-negocio-y-dominio"). -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
@@ -302,6 +303,13 @@
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
+                        <configuration>
+                            <!-- Cada corrida reemplaza el target/jacoco.exec de la anterior. Por defecto el
+                                 agente le suma lo nuevo, y un "mvn verify" sin "clean" mezclaría en el reporte
+                                 y en el umbral lo que cubrieron tests de corridas viejas, que quizás ya no
+                                 existen. En el CI la carpeta target arranca vacía y da lo mismo. -->
+                            <append>false</append>
+                        </configuration>
                     </execution>
                     <execution>
                         <id>reporte</id>
@@ -309,6 +317,72 @@
                         <goals>
                             <goal>report</goal>
                         </goals>
+                    </execution>
+                    <!-- Umbral de cobertura del plan de pruebas (sección 4) y del eje B de los criterios de la
+                         cátedra: en la capa de negocio y dominio de cada módulo, al menos el 80 % de las líneas y
+                         el 70 % de las ramas cubiertas por los tests. Corre en "verify", después del reporte: si
+                         un módulo queda debajo, "mvn verify" falla en ese módulo y dice qué porcentaje midió, y
+                         el job "Backend" del CI queda en rojo. El reporte ya quedó escrito, así que se ve qué
+                         bajó.
+
+                         Qué se mide: las clases de los paquetes negocio y dominio de cada servicio (dominio con
+                         dominio.estado, el patrón State de la venta), sumadas en un solo total por módulo
+                         (BUNDLE). El total es por módulo y no por paquete porque los dominios tienen muy pocas
+                         ramas: los de Notificaciones y Reventa, ninguna, y los otros, de dos a poco más de diez.
+                         Con tan pocas, una sola sin cubrir (por ejemplo, el null de un conversor de JPA) le saca
+                         25 puntos al paquete, y la lógica que usa las entidades está en negocio, que entra en el
+                         mismo total. Un total sin ramas no tiene porcentaje de ramas: JaCoCo no lo cuenta como
+                         debajo del umbral.
+
+                         Qué no entra: negocio.externos, los adaptadores hacia afuera del servicio (los clientes
+                         REST de los otros servicios de Palco y el simulador de cobros de Ventas, el cliente SOAP
+                         de ARCA, el almacén de imágenes y el modelo de lenguaje del asistente). Arman el pedido,
+                         lo mandan y traducen la respuesta. Tienen sus propios tests, que cambian el otro sistema
+                         por respuestas preparadas (o, en ArcaSoapTest, por un servicio SOAP de prueba), y la
+                         llamada de verdad entre servicios la hacen los escenarios de integración del CI; su
+                         cobertura sigue en el reporte y en el resumen del CI, sin umbral.
+                         En Eventos el paquete tiene además TiposDeImagen, la regla de qué imágenes aceptan los
+                         almacenes: queda afuera con el resto del paquete y la prueba TiposDeImagenTest. Tampoco
+                         entran api y datos (la capa REST y los repositorios, que prueban los tests con H2 y los
+                         *IT) ni common.
+
+                         Los módulos sin negocio ni dominio (common y el ARCA simulado) no tienen nada que medir:
+                         con el total vacío no hay porcentaje que comparar y el módulo no falla. Sin
+                         target/jacoco.exec (con -DskipTests, como en el Dockerfile y en mutacion.yml) JaCoCo
+                         saltea el control con un aviso. Se mide lo que cubren los tests de surefire: los *IT
+                         corren sin el agente (ver maven-failsafe-plugin). -->
+                    <execution>
+                        <id>umbral-de-negocio-y-dominio</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>**/negocio/**</include>
+                                <include>**/dominio/**</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/negocio/externos/**</exclude>
+                            </excludes>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.70</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
