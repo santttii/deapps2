@@ -2,13 +2,18 @@ package com.palco.ventas.negocio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.palco.common.ErroresDeNegocio;
 import com.palco.common.ReglasDeNegocio;
 import com.palco.ventas.api.Dtos.DiaDeVentasDto;
 import com.palco.ventas.api.Dtos.LiquidacionDto;
@@ -80,6 +85,22 @@ class ResumenDeVentasTest {
         long entradas = resumen.porDia().stream().mapToLong(DiaDeVentasDto::entradas).sum();
         assertEquals(resumen.liquidacion().aLiquidarAlOrganizador(), subtotales);
         assertEquals(resumen.liquidacion().entradas(), entradas);
+    }
+
+    /**
+     * CA-12.4: si Eventos no responde, no se sabe de quién es el evento, así que no hay resumen (504) y las
+     * ventas ni se leen.
+     */
+    @Test
+    void siEventosNoRespondeNoHayResumenYNoSeLeenLasVentas() {
+        ResumenDeVentas resumen = new ResumenDeVentas();
+        resumen.eventos = mock(com.palco.ventas.negocio.externos.ClienteDeEventos.class);
+        resumen.ventas = mock(com.palco.ventas.datos.VentaRepository.class);
+        when(resumen.eventos.organizadorDe(EVENTO))
+                .thenThrow(new ErroresDeNegocio.SinRespuesta("Eventos no respondió a tiempo."));
+
+        assertThrows(ErroresDeNegocio.SinRespuesta.class, () -> resumen.delEvento(EVENTO, "user-organizador"));
+        verifyNoInteractions(resumen.ventas);
     }
 
     @Test
