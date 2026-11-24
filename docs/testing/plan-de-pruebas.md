@@ -28,6 +28,8 @@ del 19/11 y del 20/11; la corrida completa sobre el tag `v1.0-final` es parte de
 - Matriz de trazabilidad: `docs/testing/evidencia/matriz-de-trazabilidad.md`; evidencia de las corridas:
   `docs/testing/evidencia/checkpoint-3/` y `docs/testing/evidencia/final/`.
 - Registro de defectos: `docs/testing/registro-de-defectos.md`.
+- Informe de ejecución (totales por nivel, cobertura, mutación, tiempos, carga y Quality Gate):
+  `docs/testing/informe-de-ejecucion.md`.
 - Manual de usuario: `docs/manual/manual-de-usuario.md`.
 
 ## 1. Objetivo y alcance
@@ -49,11 +51,12 @@ de teléfono.
 
 | Nivel | Qué prueba | Herramienta | Dónde está | Cuándo corre |
 |---|---|---|---|---|
-| Unitarias | La lógica de cada Session Bean, con los otros servicios como dobles | JUnit 5 + Mockito | `backend/**/src/test` | Cada `mvn verify` y en el CI |
-| Integración con base | Repositorios y migraciones contra una base real (H2 en modo PostgreSQL), incluida la concurrencia | JUnit 5 + H2 | Tests `*EnH2Test` | Cada `mvn verify` y en el CI |
+| Unitarias | La lógica de cada Session Bean, con los otros servicios como dobles | JUnit 6 + Mockito | `backend/**/src/test` | Cada `mvn verify` y en el CI |
+| Integración con base | Repositorios y migraciones contra una base real (H2 en modo PostgreSQL), incluida la concurrencia | JUnit 6 + H2 | Tests `*EnH2Test` | Cada `mvn verify` y en el CI |
+| Integración con dependencias reales | Base: los casos que usan la base de los `*EnH2Test` de repositorios y migraciones de Usuarios, Eventos, Ventas y Facturación, contra PostgreSQL 17 en un contenedor (la imagen del compose), con las migraciones de Flyway y los bloqueos de fila y el `lock_timeout` de PostgreSQL. Siguen solo contra H2 los repositorios de Notificaciones, Reventa y Validación y los `*EnH2Test` de negocio; el repositorio de Pagos no tiene test contra una base y lo recorren solo los escenarios contra el compose. Broker: el consumidor de Facturación contra Artemis 2.54.0 (el de WildFly 41) en un contenedor: suscripción durable, selector por `tipoEvento`, reentrega con el `JMSXDeliveryCount` del broker y mensaje repetido. Los demás consumidores se prueban con el broker de WildFly y PostgreSQL del compose: escenarios 7 a 13 (cola y tópico, consumidor idempotente, suscripción durable, mensaje inválido a la DLQ, mensaje que no sale si la transacción se deshace), 15 y 22, y `broker-apagado.mjs` | JUnit 6 + Testcontainers 2.0.5 (maven-failsafe-plugin); Node contra el compose | 9 clases `*EnPostgresIT` (57 tests) y `FacturacionDeComprasEnArtemisIT` (3); `scripts/pruebas/escenarios.mjs` y `broker-apagado.mjs` | Los IT, en cada `mvn verify` con Docker (sin Docker se saltean con un aviso) y en el CI, job "Backend", que queda en rojo si alguno se salteó; los escenarios, en el job "Integración" |
 | Integración de sistema | Recorridos completos por la API contra WildFly, la base y el broker, sin dobles | Node (`escenarios.mjs`) + jboss-cli | `scripts/pruebas/escenarios.mjs` (24 escenarios) | A mano y en el CI (job "Integración") |
 | Resiliencia | Timeout de 5 s con fallback, caída del broker, ETag | Node | `scripts/pruebas/asistente.mjs`, `broker-apagado.mjs`, `etag.mjs` | En el CI (job "Integración") y a mano |
-| IA | Set de evaluación de 26 casos (15 funcionales, 11 adversariales) con el modelo simulado; los guardrails, con intentos de inyección y preguntas legítimas que no se tienen que bloquear; el adaptador del modelo real, sin red | JUnit 5 | `EvaluacionDelAsistenteTest`, `GuardrailsTest`, `ModeloCompatibleOpenAITest` | Cada `mvn verify` |
+| IA | Set de evaluación de 26 casos (15 funcionales, 11 adversariales) con el modelo simulado; los guardrails, con intentos de inyección y preguntas legítimas que no se tienen que bloquear; el adaptador del modelo real, sin red | JUnit 6 | `EvaluacionDelAsistenteTest`, `GuardrailsTest`, `ModeloCompatibleOpenAITest` | Cada `mvn verify` |
 | API | Los endpoints de la API, en carpetas: casos felices y de error (validaciones, 401, 403, 404, 409, entre otros) | Postman / Newman | `docs/api/palco-api.postman_collection.json` (la genera `scripts/postman/generar.js`) | En el CI (job "API") y a mano |
 | Seguridad | Los criterios SEC-xx del informe de seguridad. Por la API: tokens JWT manipulados (vencido, de otro emisor, sin vencimiento, `alg=none`, firma alterada, otra clave, HS256), mass assignment, XSS almacenado, XXE contra `/legado/arca` y cookies, cabeceras y datos personales (bloques A a E); en el navegador, el HTML guardado se ve como texto; en la colección, BOLA, BFLA y fuerza bruta | Node + Playwright + Postman (carpeta 4, con el id SEC-… de cada criterio) | `scripts/pruebas/seguridad.mjs`, `frontend/e2e/xss.spec.ts`, `.github/workflows/pruebas-seguridad.yml` | En el CI (workflow "Pruebas de seguridad": push a master, pull requests y tags) y a mano |
 | Patrón State | Transiciones válidas e inválidas (409) de la venta | JUnit + Node | `EstadoDeVentaTest`, `scripts/pruebas/patron-state.mjs` | `mvn verify` y en el CI |
@@ -62,9 +65,9 @@ de teléfono.
 | Accesibilidad y responsive | Las pantallas principales a 360, 768 y 1280 px: sin violaciones serias ni críticas de WCAG 2.2 AA y sin desborde horizontal | Playwright + axe-core | `frontend/e2e/accesibilidad.spec.ts` | En el CI (job "E2E", que corre todo `frontend/e2e/`) y a mano |
 | Lighthouse | Accesibilidad (90 o más) y buenas prácticas de las pantallas públicas principales, en perfil de teléfono (360 px) y de escritorio (1280 px) | Lighthouse CI (`@lhci/cli` 0.16.0) | `.lighthouserc.cjs`, `.github/workflows/lighthouse.yml` | En el CI (workflow "Lighthouse": push a master y tags) y a mano |
 | Secretos | Que no haya credenciales en el historial | gitleaks | CI, job "Secretos" | En el CI |
-| Análisis estático | Las reglas de calidad y de seguridad del código: PMD (conjunto `quickstart`) sobre el Java de cada módulo; SonarCloud sobre el backend, el frontend, las pruebas y la infraestructura, con la cobertura de JaCoCo | maven-pmd-plugin 3.28.0 (PMD 7.17.0) y SonarCloud | `backend/pom.xml`, `scripts/qa/analisis-estatico.mjs`, `sonar-project.properties` | En el CI (jobs "Backend" y "SonarCloud" de `ci.yml`) |
+| Análisis estático | Las reglas de calidad y de seguridad del código: PMD (conjunto `quickstart`) sobre el Java de cada módulo; SonarCloud sobre el código que se despliega del backend y del frontend y sobre la infraestructura, sin el código de prueba (`sonar-project.properties` lo deja afuera), con la cobertura de JaCoCo | maven-pmd-plugin 3.28.0 (PMD 7.17.0) y SonarCloud | `backend/pom.xml`, `scripts/qa/analisis-estatico.mjs`, `sonar-project.properties` | En el CI (jobs "Backend" y "SonarCloud" de `ci.yml`) |
 | Contrato REST | Que cada respuesta cumpla `docs/api/openapi.yaml`: ninguna respuesta 5xx, cada código documentado en su operación y cada cuerpo con su esquema, con pedidos válidos e inválidos que la herramienta genera desde el contrato, una corrida por rol (comprador, organizador, puerta y servicio) | Schemathesis 4.32.7 | `.github/workflows/contrato.yml` | En el CI (workflow "Contrato", con los disparadores de `ci.yml`) y a mano |
-| Contrato SOAP | Que el WSDL que publica el ARCA simulado sea el de `docs/api/arca.wsdl`, y que el pedido de Facturación y las respuestas aprobada y rechazada cumplan su esquema | JUnit 5 | `backend/servicios/arca/src/test/java/com/palco/arca/ContratoDelWsdlTest.java` (7 tests) | Cada `mvn verify` y en el CI |
+| Contrato SOAP | Que el WSDL que publica el ARCA simulado sea el de `docs/api/arca.wsdl`, y que el pedido de Facturación y las respuestas aprobada y rechazada cumplan su esquema | JUnit 6 | `backend/servicios/arca/src/test/java/com/palco/arca/ContratoDelWsdlTest.java` (7 tests) | Cada `mvn verify` y en el CI |
 | Carga | Que el catálogo, el detalle de un evento y abrir una compra aguanten una salida a la venta: 50 usuarios virtuales durante 5 minutos | k6 (`grafana/k6:2.3.0`) | `scripts/carga/palco.js` y `cuentas.mjs`, `.github/workflows/carga.yml` | Con cada tag `v*` y a mano (workflow "Carga") |
 | Escaneo de seguridad | La app por nginx (baseline, pasivo) y la API autenticada (pasivo y activo, política API-Minimal) | OWASP ZAP 2.17.0 | `scripts/qa/zap.sh`, `scripts/qa/zap-resumen.mjs`, `.zap/reglas.tsv`, `.github/workflows/zap.yml` | En el CI (workflow "ZAP": push a master, pull requests y tags) y a mano |
 | Dependencias | CVE críticas y altas en los `pom.xml`, en `frontend/package-lock.json` y en las imágenes backend y web | Trivy v0.76.2 | `.github/workflows/seguridad.yml`, `.trivyignore` | En el CI (workflow "Seguridad": push a master, pull requests y tags) |
@@ -173,8 +176,10 @@ salen de estas técnicas:
 `otro.titular@palco.test`, `otro.organizador@palco.test` y `otra.puerta@palco.test` (contraseña `palco1234`).
 La pasarela simulada aprueba `tok_test`, rechaza `tok_rechazado` y no contesta con `tok_sin_respuesta`; en la
 pantalla, una tarjeta terminada en 0002 se rechaza y una terminada en 0504 no tiene respuesta. Sin
-`PALCO_SMTP_HOST`, los emails quedan en el log del servidor; con `PALCO_CORREO_LOG_COMPLETO=true`, que prenden
-`backend/dev.sh` y el compose, el renglón lleva el email entero, con el código de verificación que leen las pruebas.
+`PALCO_SMTP_HOST`, los emails quedan en el log del servidor; con `PALCO_CORREO_LOG_COMPLETO=true` el renglón lleva
+el email entero, con el código de verificación que leen las pruebas. Lo prende `backend/dev.sh`. El compose lo deja
+en `false` por defecto (DEF-36): para las pruebas que leen el código se lo levanta con la variable en `true`, como
+hacen los jobs del CI que las corren.
 La prueba de carga crea antes sus 50 cuentas (`scripts/carga/cuentas.mjs`).
 
 **Prerrequisitos para reproducir:**
@@ -288,6 +293,7 @@ clave JWT de la corrida se exporta antes del `up` (sección 2).
 ```bash
 export PALCO_SECRETO_SERVICIOS="$(openssl rand -hex 32)"
 export PALCO_DIR_LOGS=./logs PALCO_LOG=logs/server.log JBOSS_CLI=scripts/qa/jboss-cli-docker.sh
+export PALCO_CORREO_LOG_COMPLETO=true  # cada email entero en el log, con su código
 mkdir -p logs && chmod 777 logs        # el contenedor escribe server.log en esa carpeta
 docker compose up --build --detach --wait
 
@@ -302,7 +308,10 @@ docker compose down -v                    # al terminar; -v borra también la ba
 ```
 
 La suite de la interfaz lee del log el código de verificación de las cuentas que crea; por eso necesita
-`PALCO_LOG`, igual que el job "E2E" del CI.
+`PALCO_LOG`, igual que el job "E2E" del CI. Los escenarios (los avisos por email y los códigos de las cuentas
+nuevas), la suite de la interfaz, el bloque B de `seguridad.mjs` y `scripts/carga/cuentas.mjs` necesitan además
+`PALCO_CORREO_LOG_COMPLETO=true` antes del `up`: sin esa variable, el compose escribe de cada email solo el
+destinatario enmascarado y el asunto, sin el código.
 
 El resto no necesita el compose. Cada línea se corre desde la raíz del repo:
 
@@ -333,8 +342,12 @@ Primera medición (18/11/2026): 77,8 % de las líneas (3520 de 4522) y 73,6 % de
 Notificaciones (61 %), y son los próximos a reforzar.
 
 La meta de la Entrega Final es la de la sección 4: 80 % de líneas y 70 % de ramas en negocio y dominio, medida sobre
-el tag. La mutación completa la medición: una línea cubierta por un test que no controla lo que hace no mata al
-mutante. PIT muta el dominio de cada servicio y exige 60 % por módulo (`mutacion.minimo` en `backend/pom.xml`).
+el tag. La controla el build: la ejecución `umbral-de-negocio-y-dominio` de JaCoCo en `backend/pom.xml` corre en
+`mvn verify`, después del reporte, y suma en un solo total por módulo las clases de `negocio` y `dominio` (sin
+`negocio.externos`, los adaptadores hacia los otros sistemas). Si un módulo queda debajo de 80 % de líneas o de 70 % de
+ramas, `mvn verify` falla en ese módulo y el job "Backend" del CI queda en rojo. Mide lo que cubren los tests de
+surefire: los `*IT` corren sin el agente de JaCoCo. La mutación completa la medición: una línea cubierta por un test
+que no controla lo que hace no mata al mutante. PIT muta el dominio de cada servicio y exige 60 % por módulo (`mutacion.minimo` en `backend/pom.xml`).
 
 ## 7. Defectos
 
@@ -401,6 +414,11 @@ salida de cada prueba va a `docs/testing/evidencia/final/`, la matriz se regener
 al registro de defectos con su DEF. Los corregidos que falta verificar (registro, sección 7) se cierran o se vuelven a
 abrir con esta corrida.
 
+Los resultados de la corrida sobre el commit candidato `fbd31dc` (todos los workflows, más Carga y Estabilidad del
+24/11), con los totales por nivel, la cobertura, la mutación, los tiempos, la carga, el Quality Gate y cada criterio de
+salida de la sección 4, están en `docs/testing/informe-de-ejecucion.md`; sus resúmenes, en
+`docs/testing/evidencia/final/`.
+
 ## 9. Riesgos
 
 Cada riesgo se califica por su probabilidad y su impacto. **Probabilidad:** qué tan posible es que pase en el sistema
@@ -424,7 +442,7 @@ Prioridad Alta: R-01 a R-09 y R-21. Media: R-10 a R-18, R-20 y R-22 a R-26. Baja
 |---|---|---|---|---|---|---|---|
 | R-01 | Se cobra y la compra no se confirma, o se cobra dos veces, por un reintento, un corte o un doble clic (pasó con DEF-07) | Media | Alto | Alta | Escenario 2 (`Idempotency-Key`); escenario 14 (falla después del cobro y conciliación); `ClienteDePagosTest#unPagoDuplicadoNoEsUnRechazoSinoElCobroQueYaGuardoPagos`; `ComprasEnCursoTest#siDosPedidosConLaMismaClaveLleganALaVezValeLaVentaQueGuardoElOtro`; `ServicioDePagosTest#siDosPedidosIgualesLleganALaVezSeDevuelveElPagoQueGanoAlGuardar` | Cubierto | La conciliación de pagos resuelve cada minuto las compras con un cobro sin resultado; Pagos cobra una sola vez por clave |
 | R-02 | Un reembolso no le llega a quien pagó, al cancelarse un evento o en una compra en la reventa cobrada sin entrada (pasó con DEF-18 y DEF-29) | Media | Alto | Alta | Escenarios 20 y 22 (el 22, también con una entrada comprada en la reventa); `CancelacionDeEventosTest`, `CancelacionConReventaEnH2Test`, `ReintentoDeReembolsosTest`, `ReembolsoPendienteEnH2Test` | Cubierto (`docs/testing/evidencia/final/cancelacion-con-reventa.txt`) | `ReintentoDeReembolsos` vuelve a pedir cada minuto los que Pagos no contestó; un rechazo queda en un SEVERE para devolverlo a mano |
-| R-03 | La reventa pasa el tope, o una regla de compra se esquiva por otro camino (pasó con DEF-16 y DEF-30; abierto: DEF-46) | Media | Alto | Alta | `ServicioDeReventaTest#losBordesDelRangoSeAceptanYUnPesoAfueraNo`, `#unaEntradaRevendidaConservaElTopeYElMinimoDelPrecioDeLista`, `#unCompradorConSeisEntradasParaElEventoNoCompraOtraEnLaReventa`, `#unTitularQueYaTieneEntradaParaElEventoNoCompraEnLaReventa`; `ReventaDeEntradasEnH2Test`; escenarios 17 y 23; `frontend/e2e/reventa.spec.ts` | **Parcial:** el escenario 23 recorre la compra del catálogo y no la de la reventa; dos reventas seguidas de la misma entrada se prueban solo con dobles; dos compras a la vez del mismo comprador no las prueba ningún test (DEF-46). Propuesta: los dos pasos de DEF-30 en el escenario 23, un escenario que revenda dos veces la misma entrada y un test con base con dos compras a la vez | Las reglas están en un solo lugar (`ReglasDeNegocio`, y las reglas entre compras de `ServicioDeVentas`, que usa también la reventa); una regla nueva se aplica y se prueba en la compra del catálogo y en la de la reventa |
+| R-03 | La reventa pasa el tope, o una regla de compra se esquiva por otro camino (pasó con DEF-16 y DEF-30; abierto: DEF-46) | Media | Alto | Alta | `ServicioDeReventaTest#losBordesDelRangoSeAceptanYUnPesoAfueraNo`, `#unaEntradaRevendidaConservaElTopeYElMinimoDelPrecioDeLista`, `#unCompradorConSeisEntradasParaElEventoNoCompraOtraEnLaReventa`, `#unTitularQueYaTieneEntradaParaElEventoNoCompraEnLaReventa`; `ReventaDeEntradasEnH2Test`; `ReglasEntreComprasEnH2Test`; escenarios 17 y 23; `frontend/e2e/reventa.spec.ts` | **Parcial:** el escenario 23 recorre la compra del catálogo y no la de la reventa; dos reventas seguidas de la misma entrada se prueban solo con dobles; dos compras del catálogo a la vez, del mismo comprador o con el mismo DNI, las prueba `ReglasEntreComprasEnH2Test` contra H2, y con una compra por la reventa en el medio no las prueba ningún test (DEF-46). Propuesta: los dos pasos de DEF-30 en el escenario 23 y un escenario que revenda dos veces la misma entrada | Las reglas están en un solo lugar (`ReglasDeNegocio`, y las reglas entre compras de `ServicioDeVentas`, que usa también la reventa); una regla nueva se aplica y se prueba en la compra del catálogo y en la de la reventa |
 | R-04 | Se pierde un mensaje: broker apagado, contenedor recreado o un consumidor que falla (pasó con DEF-27) | Media | Alto | Alta | `scripts/pruebas/broker-apagado.mjs` (en el CI); contenedor recreado (`scripts/LEEME.md`, `checkpoint-3/broker-recreado.txt`); escenarios 8 y 10 a 13 | Cubierto; el contenedor recreado, solo a mano. Propuesta: sumarlo al job "Integración" del CI (`docker compose down` sin `-v` y `up`, con un mensaje pendiente) | Mensajes persistentes y el journal en el volumen `datos-servidor` (ADR-005); lo que falla 5 veces queda en la DLQ y se reprocesa (documento único, 10.6) |
 | R-05 | Un cambio deja al servidor sin desplegar (pasó con DEF-01) | Media | Alto | Alta | Job "Integración" del CI: levanta el compose, espera los 9 `health` y corre los escenarios | Cubierto | No se mergea con el CI en rojo; se vuelve al último commit en verde y se corrige en una rama |
 | R-06 | Se despliega fuera de desarrollo con las cuentas de prueba activas, cuya contraseña es pública (pasó con DEF-26) | Media | Alto | Alta | `DesactivacionDeCuentasDePruebaEnH2Test` (con la variable en `false`, las seis cuentas no abren) | **Parcial:** nada comprueba la configuración de un despliegue. Propuesta: en cada despliegue, un ingreso con `organizador@palco.test` y la contraseña pública, que tiene que dar 401 | `PALCO_USUARIOS_CUENTAS_DE_PRUEBA=false` en todo entorno que no sea de desarrollo; el log avisa al arrancar si siguen activas |
