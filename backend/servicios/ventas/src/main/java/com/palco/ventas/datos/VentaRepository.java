@@ -171,11 +171,12 @@ public interface VentaRepository {
 
     /**
      * Guarda la copia de los titulares de una compra que está por cobrarse.
-     * Corre en una transacción propia, que termina al volver: la copia queda
-     * confirmada antes del cobro y no se deshace si después se deshace la
-     * transacción del pago. Si la venta ya tenía su copia (un reintento, o un
-     * pago nuevo después de un rechazo) no hace nada: los titulares de una
-     * compra no cambian.
+     * Se suma a la transacción de quien llama: la propia y corta que abre
+     * {@code ReglasEntreCompras} antes del cobro, junto con la última mirada
+     * al DNI de los titulares. Así la copia queda confirmada antes del cobro
+     * y no se deshace si después se deshace la transacción del pago. Si la
+     * venta ya tenía su copia (un reintento, o un pago nuevo después de un
+     * rechazo) no hace nada: los titulares de una compra no cambian.
      */
     void respaldarTitulares(String ventaId, List<TitularDeVenta> titulares);
 
@@ -196,11 +197,26 @@ public interface VentaRepository {
      * Cuáles de esos DNI ya son titulares de una entrada que sigue en pie para
      * el evento (pendiente de emisión, válida, usada o publicada en la
      * reventa), o de una compra de ese evento que se está cobrando ahora. No
-     * mira la venta {@code excepto}: es la que se está comprando. Corre en una
-     * transacción propia y corta, para que quien la llama no quede con una
-     * conexión tomada mientras cobra.
+     * mira la venta {@code excepto}: es la que se está comprando. Se suma a la
+     * transacción de quien llama; al abrir la compra no hay ninguna y el
+     * contenedor abre una corta, solo para esta consulta.
      */
     List<String> dnisConEntradaParaElEvento(String eventoId, Collection<String> dnis, String excepto);
+
+    /**
+     * Toma los candados de esas claves (DEF-46) y los retiene hasta que
+     * termina la transacción de quien llama: otra transacción que pida uno
+     * de esos candados espera hasta entonces. Sirve para que las reglas entre
+     * compras se miren y se escriban sin que otra compra se meta en el medio.
+     * Si la fila del candado no existe, la crea.
+     *
+     * Los toma en orden alfabético, cualquiera sea el orden en que lleguen:
+     * dos compras que comparten candados los piden siempre en el mismo orden y
+     * no pueden quedar esperándose una a la otra. Exige una transacción
+     * abierta ({@code MANDATORY}): fuera de una, el candado se soltaría al
+     * volver y no protegería nada.
+     */
+    void tomarCandados(Collection<String> claves);
 
     /**
      * La misma consulta que {@link #dnisConEntradaParaElEvento}, para una

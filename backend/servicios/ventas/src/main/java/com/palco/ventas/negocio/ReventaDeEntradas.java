@@ -152,6 +152,12 @@ public class ReventaDeEntradas {
      * comprarla. Las demás entradas de la venta del vendedor sí cuentan.
      *
      * No cambia nada. Lanza 404 si la entrada no es del vendedor.
+     *
+     * Con dos compras a la vez esta mirada no alcanza, y un candado acá
+     * tampoco: la compra en la reventa no deja nada en este esquema hasta la
+     * transferencia, que llega después del cobro, así que otra compra que se
+     * cruce con ella no la ve (DEF-46). Las del catálogo sí se ven entre
+     * ellas: {@link ReglasEntreCompras}.
      */
     public void controlarCompra(ControlDeCompraDto pedido) {
         exigirId("compradorId", pedido.compradorId());

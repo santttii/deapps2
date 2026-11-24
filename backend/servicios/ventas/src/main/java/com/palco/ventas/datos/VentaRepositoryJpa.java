@@ -31,8 +31,8 @@ import com.palco.ventas.dominio.Venta;
  * defecto de un Session Bean: si quien llama ya tiene una (el bean de la
  * compra, al pagar o al cancelar), el método se suma a esa; si no tiene (la
  * fachada, el barrido o el bean de la compra al abrirla), el contenedor abre
- * una corta, solo para ese método. La excepción es {@link #respaldarTitulares},
- * que abre siempre una propia (lo explica su comentario).
+ * una corta, solo para ese método. La excepción es {@link #tomarCandados},
+ * que exige la de quien llama (lo explica su comentario).
  */
 @Stateless
 public class VentaRepositoryJpa implements VentaRepository {
@@ -222,18 +222,16 @@ public class VentaRepositoryJpa implements VentaRepository {
     }
 
     /**
-     * {@code REQUIRES_NEW}: el contenedor suspende la transacción del pago (que
-     * todavía no tomó ninguna conexión), abre una nueva solo para esto y la
-     * confirma al volver. Así la copia sobrevive a una falla posterior del
-     * pago, que es justo el caso en el que hace falta, y la conexión se
-     * devuelve antes de esperar a Pagos.
+     * Se suma a la transacción de {@code ReglasEntreCompras}, que es propia
+     * ({@code REQUIRES_NEW}) y termina antes del cobro: ahí está explicado por
+     * qué. Si esta operación abriera otra, la compra tendría dos conexiones
+     * tomadas a la vez: la del candado de los DNI y la de la copia.
      *
      * No hay dos llamadas a la vez para la misma venta: {@code ComprasEnCurso}
      * deja una sola operación por compra. Si igual chocaran, la clave primaria
      * rechaza la segunda copia.
      */
     @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public void respaldarTitulares(String ventaId, List<TitularDeVenta> titulares) {
         long existentes = em.createQuery("select count(t) from TitularDeVenta t where t.ventaId = :ventaId", Long.class)
                 .setParameter("ventaId", ventaId)
@@ -275,9 +273,37 @@ public class VentaRepositoryJpa implements VentaRepository {
     }
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public List<String> dnisConEntradaParaElEvento(String eventoId, Collection<String> dnis, String excepto) {
         return dnisConEntrada(eventoId, dnis, excepto, null);
+    }
+
+    /**
+     * El candado es un bloqueo pesimista de escritura sobre una fila de
+     * {@code candado_de_compra} ({@code SELECT ... FOR UPDATE}), como el que
+     * pide JPA con {@code LockModeType.PESSIMISTIC_WRITE}: otra transacción
+     * que pida la misma fila espera. La fila la crea la primera compra que la
+     * necesita, con {@code INSERT ... ON CONFLICT DO NOTHING}: si otra
+     * transacción la acaba de crear y todavía no confirmó, la base hace esperar
+     * a este INSERT hasta que esa termine, y después no inserta nada. Las dos
+     * sentencias son SQL de la base porque JPQL no tiene un INSERT que no falle
+     * si la fila ya está. Las dos existen en PostgreSQL y en H2 en modo
+     * PostgreSQL; contra H2 las prueba {@code ReglasEntreComprasEnH2Test}, con
+     * la fila recién creada y con la fila que ya estaba.
+     *
+     * {@code MANDATORY}: el bloqueo dura lo que la transacción. Si esta
+     * operación abriera una propia, el candado se soltaría al volver.
+     */
+    @Override
+    @TransactionAttribute(TransactionAttributeType.MANDATORY)
+    public void tomarCandados(Collection<String> claves) {
+        for (String clave : new TreeSet<>(claves)) {
+            em.createNativeQuery("insert into ventas.candado_de_compra (clave) values (:clave) on conflict do nothing")
+                    .setParameter("clave", clave)
+                    .executeUpdate();
+            em.createNativeQuery("select clave from ventas.candado_de_compra where clave = :clave for update")
+                    .setParameter("clave", clave)
+                    .getSingleResult();
+        }
     }
 
     @Override

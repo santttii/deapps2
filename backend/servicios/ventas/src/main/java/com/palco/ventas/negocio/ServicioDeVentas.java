@@ -91,11 +91,12 @@ import com.palco.ventas.negocio.externos.ResultadoDeCobro;
  * según la anotación de cada operación. Pagar y cancelar corren en una
  * transacción ({@code REQUIRED}). Abrir la compra no ({@code NOT_SUPPORTED}):
  * lo que hace es llamar a Eventos, y su única escritura es guardar la venta,
- * que corre en la transacción corta del repositorio. Ante un error de negocio
- * ({@code ErroresDeNegocio}, que son excepciones de aplicación con rollback)
- * la transacción se deshace y la instancia sigue viva. Ante cualquier otra
- * excepción el contenedor además descarta la instancia. La transacción que
- * más importa es la del pago: está explicada en {@link #confirmarCompra}.
+ * que corre en la transacción corta de {@link ReglasEntreCompras}. Ante un
+ * error de negocio ({@code ErroresDeNegocio}, que son excepciones de
+ * aplicación con rollback) la transacción se deshace y la instancia sigue
+ * viva. Ante cualquier otra excepción el contenedor además descarta la
+ * instancia. La transacción que más importa es la del pago: está explicada
+ * en {@link #confirmarCompra}.
  *
  * Una regla vale para todas las operaciones: mientras se espera a otro
  * servicio (Eventos al reservar, Pagos al cobrar) no se retiene una conexión
@@ -137,6 +138,10 @@ public class ServicioDeVentas implements IVentas {
 
     @Inject
     ComprasEnCurso compras;
+
+    /** Las reglas entre compras miradas de nuevo con un candado, en la transacción que escribe (DEF-46). */
+    @Inject
+    ReglasEntreCompras reglas;
 
     /** De dónde sale el "ahora". No es estado de la compra: es fijo, y los tests lo reemplazan por un reloj detenido. */
     Clock reloj = Clock.systemUTC();
@@ -184,9 +189,6 @@ public class ServicioDeVentas implements IVentas {
      */
     private String claveDelUltimoCobro;
 
-    /** Si los titulares ya quedaron copiados en la base, para no pedirlo de nuevo en cada intento de pago. */
-    private boolean titularesRespaldados;
-
     @PostConstruct
     void alCrear() {
         LOG.info("Compra en curso: el contenedor creó la " + instancia() + ".");
@@ -213,12 +215,18 @@ public class ServicioDeVentas implements IVentas {
      * de reservar: así ninguna llamada a Eventos espera con una conexión de la
      * base tomada (la regla está en el comentario de la clase).
      *
+     * El tope por evento se mira dos veces. Antes de reservar, para no tomar
+     * cupo de más en el caso común. Y al guardar, con el candado del comprador
+     * y el evento ({@link ReglasEntreCompras#guardarDentroDelTope}): dos
+     * compras suyas a la vez pasan las dos la primera mirada, porque ninguna
+     * ve a la otra, y la segunda recién se frena ahí (DEF-46).
+     *
      * No lleva transacción propia ({@code NOT_SUPPORTED}). Con Eventos no hay
      * nada que una transacción de esta base pueda deshacer, y la única
-     * escritura es {@code ventas.guardar}, que corre en la transacción corta
-     * del repositorio: la venta y sus renglones se guardan juntos o no se
-     * guarda nada. Si el guardado falla, esa transacción ya terminó cuando
-     * acá se devuelve el cupo.
+     * escritura es guardar la venta, que corre en la transacción corta de
+     * {@link ReglasEntreCompras}: la venta y sus renglones se guardan juntos
+     * o no se guarda nada. Si el guardado falla o la venta pasa el tope, esa
+     * transacción ya terminó cuando acá se devuelve el cupo.
      */
     @Override
     @TransactionAttribute(TransactionAttributeType.NOT_SUPPORTED)
@@ -247,8 +255,10 @@ public class ServicioDeVentas implements IVentas {
                 venta.agregarItem(item.sectorId(), sector.nombre(), sector.precio(), item.cantidad());
             }
             // 3. Se guarda la venta completa, con sus renglones. Si otro pedido con la misma clave de
-            //    idempotencia llegó a la vez y guardó primero, falla acá (Conflicto "clave-repetida").
-            ventas.guardar(venta);
+            //    idempotencia llegó a la vez y guardó primero, falla acá (Conflicto "clave-repetida"). Y si
+            //    otra compra del mismo comprador y evento se guardó mientras tanto y con esta pasa el tope,
+            //    también (Conflicto "tope-por-evento"): se cuenta otra vez, con el candado tomado.
+            reglas.guardarDentroDelTope(venta, ahora());
         } catch (RuntimeException e) {
             // Con Eventos no hay transacción: lo que ya se reservó quedó confirmado allá. Se devuelve
             // a mano y se relanza la excepción. De esta venta no quedó nada guardado.
@@ -296,10 +306,11 @@ public class ServicioDeVentas implements IVentas {
      * todavía no tomó ninguna conexión de la base: la toma con la primera
      * consulta, que está en el tercer paso. Por eso el total y el vencimiento
      * salen del estado de la instancia y no de una lectura: así el cobro no
-     * espera a Pagos con una conexión retenida. La copia de los titulares que
-     * se escribe antes de cobrar no cambia esto: corre en una transacción
-     * aparte ({@code REQUIRES_NEW}), que devuelve su conexión al terminar, y
-     * por eso tampoco se deshace si después falla esta.
+     * espera a Pagos con una conexión retenida. La última mirada al DNI y la
+     * copia de los titulares, que van antes de cobrar, no cambian esto:
+     * corren en una transacción aparte ({@code REQUIRES_NEW}, en
+     * {@link ReglasEntreCompras}), que devuelve su conexión al terminar, y por
+     * eso la copia tampoco se deshace si después falla esta.
      *
      * No es un commit en dos fases: la base confirma primero y el broker de
      * mensajes después. Si el servidor se cayera justo entre los dos, quedaría
@@ -318,17 +329,18 @@ public class ServicioDeVentas implements IVentas {
         exigirReservaVigente(claveIdempotencia);
 
         // 2. Cobrar. El monto es el total que se calculó al abrir la compra, no viene en el pedido de pago.
-        //    Antes se copian los titulares a la base, en una transacción propia que termina acá: desde el
-        //    cobro la compra tiene que poder terminarse sin esta instancia (ver ConciliacionDePagos).
+        //    Antes se vuelve a mirar el DNI de cada titular: entre que se abrió esta compra y ahora, otra
+        //    compra del mismo evento pudo haberse pagado con alguno de ellos. Y se copian los titulares a la
+        //    base: desde el cobro la compra tiene que poder terminarse sin esta instancia (ver
+        //    ConciliacionDePagos). Las dos cosas van juntas, con el candado de cada DNI, en una transacción
+        //    propia que termina acá: no deja una conexión tomada durante el cobro, y otra compra con el mismo
+        //    DNI que llegue a la vez espera en el candado y, cuando entra, ya ve esta copia (DEF-46).
+        //    No se hace en un reintento del mismo cobro: ese cobro ya salió, la copia ya está y cortarlo
+        //    dejaría el pago sin compra.
         //    Y se recuerda la clave: si el cobro queda sin resultado, repetirla vale aunque venza la reserva.
-        // Antes de cobrar se vuelve a mirar el DNI de cada titular: entre que se abrió esta compra y
-        // ahora, otra compra del mismo evento pudo haberse pagado con alguno de ellos. No se mira en
-        // un reintento del mismo cobro: ese cobro ya salió, y cortarlo dejaría el pago sin compra.
-        // La consulta corre en una transacción propia y corta: no deja una conexión tomada durante el cobro.
         if (!claveIdempotencia.equals(claveDelUltimoCobro)) {
-            exigirDnisSinEntrada(eventoId, titulares.stream().map(TitularDto::dni).toList(), ventaId);
+            reglas.exigirDnisSinEntradaYCopiarTitulares(ventaId, eventoId, copiaDeLosTitulares());
         }
-        respaldarTitulares();
         claveDelUltimoCobro = claveIdempotencia;
         ResultadoDeCobro cobro = cobros.cobrar(ventaId, montoTotal, pago.medioDePago(), pago.token(),
                 claveIdempotencia);
@@ -466,7 +478,10 @@ public class ServicioDeVentas implements IVentas {
     /**
      * El tope de {@link ReglasDeNegocio#MAX_ENTRADAS_POR_EVENTO} entradas por
      * comprador y evento, sumando las compras que ya tiene. El de cada compra
-     * lo mira {@link #validar}; este evita esquivarlo con varias compras.
+     * lo mira {@link #validar}; este evita esquivarlo con varias compras, una
+     * después de la otra. Con dos a la vez, la segunda la frena
+     * {@link ReglasEntreCompras#guardarDentroDelTope}, que vuelve a contar con
+     * un candado.
      */
     private void exigirTopePorEvento(String compradorId, NuevaVentaDto nueva) {
         long pedidas = nueva.items().stream().mapToLong(ItemPedidoDto::cantidad).sum();
@@ -475,9 +490,9 @@ public class ServicioDeVentas implements IVentas {
 
     /**
      * La regla del tope por evento, con las entradas que el comprador ya
-     * tiene y las que pide. Es estática y del paquete porque la compra en la
-     * reventa ({@link ReventaDeEntradas#controlarCompra}) aplica la misma
-     * regla, con el mismo error.
+     * tiene y las que pide. Es estática y del paquete porque la aplican
+     * también, con el mismo error, {@link ReglasEntreCompras} y la compra en
+     * la reventa ({@link ReventaDeEntradas#controlarCompra}).
      */
     static void exigirTopePorEvento(long tiene, long pedidas) {
         if (tiene + pedidas > ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO) {
@@ -493,7 +508,10 @@ public class ServicioDeVentas implements IVentas {
     /**
      * Un DNI, una entrada por evento: ninguno de los titulares puede tener ya
      * una entrada en pie para el mismo evento en otra compra. La regla de una
-     * misma compra (DNI repetido adentro) la mira {@link #validar}.
+     * misma compra (DNI repetido adentro) la mira {@link #validar}. Es la
+     * primera mirada, al abrir la compra; la que vale es la de antes de
+     * cobrar, con el candado de cada DNI
+     * ({@link ReglasEntreCompras#exigirDnisSinEntradaYCopiarTitulares}).
      */
     private void exigirDnisSinEntrada(String eventoId, List<String> dnis, String excepto) {
         exigirDnisSinEntrada(ventas.dnisConEntradaParaElEvento(eventoId, dnis, excepto));
@@ -502,8 +520,8 @@ public class ServicioDeVentas implements IVentas {
     /**
      * La regla de un DNI por evento, con los DNI que la consulta encontró con
      * una entrada en pie. Es estática y del paquete por lo mismo que
-     * {@link #exigirTopePorEvento(long, long)}: la usa también la compra en la
-     * reventa.
+     * {@link #exigirTopePorEvento(long, long)}: la usan también
+     * {@link ReglasEntreCompras} y la compra en la reventa.
      */
     static void exigirDnisSinEntrada(List<String> conEntrada) {
         if (!conEntrada.isEmpty()) {
@@ -581,24 +599,21 @@ public class ServicioDeVentas implements IVentas {
     }
 
     /**
-     * Copia los titulares a la base antes del primer cobro de esta instancia
-     * ({@code VentaRepository.respaldarTitulares}, en una transacción propia
-     * que ya terminó al volver). Hasta acá vivían solo en la instancia; desde
-     * el cobro puede haber plata cobrada, y si la instancia se pierde la
-     * conciliación necesita saber a nombre de quién van las entradas.
+     * La copia de los titulares que se guarda en la base antes de cobrar
+     * ({@link ReglasEntreCompras#exigirDnisSinEntradaYCopiarTitulares}). Hasta
+     * el cobro viven solo en la instancia; desde el cobro puede haber plata
+     * cobrada, y si la instancia se pierde la conciliación necesita saber a
+     * nombre de quién van las entradas. Si la venta ya tiene su copia (un
+     * pago nuevo después de un rechazo), la base no guarda otra.
      *
      * Un error al copiar sale antes del cobro: no se cobró nada.
      */
-    private void respaldarTitulares() {
-        if (titularesRespaldados) {
-            return;
-        }
+    private List<TitularDeVenta> copiaDeLosTitulares() {
         List<TitularDeVenta> copia = new ArrayList<>();
         for (TitularDto titular : titulares) {
             copia.add(new TitularDeVenta(ventaId, copia.size() + 1, titular.nombre(), titular.dni()));
         }
-        ventas.respaldarTitulares(ventaId, copia);
-        titularesRespaldados = true;
+        return copia;
     }
 
     /**
