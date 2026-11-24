@@ -58,8 +58,11 @@ public interface IValidacion {
     /**
      * Asigna una cuenta a la puerta del evento. Solo el organizador dueño; si
      * no, {@code NoEncontrado}. Asignar una cuenta que ya estaba devuelve la
-     * asignación que había. No se comprueba que el email sea de una cuenta de
-     * puerta: uno que no existe no deja escanear a nadie.
+     * asignación que había. Una cuenta nueva se asigna solo si es de personal
+     * de puerta: se le pregunta a Usuarios su rol y, si no hay una cuenta
+     * verificada con ese email o no es {@code staff}, lanza
+     * {@code ReglaIncumplida} {@code no-es-de-puerta} (422) y no guarda nada
+     * (CA-14.3).
      */
     PuertaAsignadaDto asignar(String eventoId, String staffEmail, Solicitante organizador);
 
