@@ -153,22 +153,17 @@ public class ReventaDeEntradas {
      *
      * No cambia nada. Lanza 404 si la entrada no es del vendedor.
      *
-     * Con dos compras a la vez esta mirada no alcanza, y un candado acá
-     * tampoco: la compra en la reventa no deja nada en este esquema hasta la
-     * transferencia, que llega después del cobro, así que otra compra que se
-     * cruce con ella no la ve (DEF-46). Las del catálogo sí se ven entre
-     * ellas: {@link ReglasEntreCompras}.
+     * Es la mirada del caso común, para no cobrar una compra que no va a
+     * poder terminar. Con dos compras a la vez no alcanza: esta compra no deja
+     * nada en este esquema hasta la transferencia, así que otra que se cruce
+     * con ella no la ve. Por eso {@link #transferir} vuelve a mirar las dos
+     * reglas con los candados de {@link ReglasEntreCompras} (DEF-46).
      */
     public void controlarCompra(ControlDeCompraDto pedido) {
         exigirId("compradorId", pedido.compradorId());
         validarTitular(pedido.titular().nombre(), pedido.titular().dni());
         Entrada entrada = entradaDe(pedido.entradaId(), pedido.vendedorId());
-        String eventoId = entrada.getVenta().getEventoId();
-        // Se compra una sola entrada: la que se revende.
-        ServicioDeVentas.exigirTopePorEvento(
-                ventas.entradasDelCompradorParaElEvento(pedido.compradorId(), eventoId, ahora()), 1);
-        ServicioDeVentas.exigirDnisSinEntrada(
-                ventas.dnisConOtraEntradaParaElEvento(eventoId, List.of(pedido.titular().dni()), entrada.getId()));
+        exigirReglasEntreCompras(entrada, pedido.compradorId(), pedido.titular().dni());
     }
 
     /**
@@ -189,10 +184,16 @@ public class ReventaDeEntradas {
      * cambiar nada. Lanza 404 si la entrada no es del vendedor y 409
      * {@code entrada-no-publicada} si no está publicada.
      *
-     * No vuelve a mirar el tope ni el DNI: eso lo hace {@link #controlarCompra}
-     * antes del cobro, y la transferencia llega con el cobro ya hecho. Es el
-     * mismo criterio de la compra del catálogo, que mira el DNI antes de
-     * cobrar y no después: cortar acá dejaría el pago sin compra.
+     * Antes de escribir vuelve a mirar el tope por evento y el DNI, con los
+     * candados del comprador y del DNI para el evento: los mismos que toma una
+     * compra del catálogo ({@link ReglasEntreCompras}). Así una compra del
+     * catálogo, u otra en la reventa, del mismo comprador o con el mismo DNI,
+     * espera a que esta transacción termine y la cuenta, o esta la espera a
+     * ella (DEF-46). Si con ella se pasa una regla, lanza el mismo 409 que el
+     * control ({@code tope-por-evento} o {@code dni-con-entrada}), no cambia
+     * nada, y Reventa devuelve el cobro y deja la publicación libre. Solo pasa
+     * si otra compra se cruzó entre el control y esta transferencia: en el
+     * caso común, el control ya frenó la compra antes de cobrar.
      */
     public TransferenciaHechaDto transferir(TransferenciaDto pedido) {
         // Antes de la primera consulta, que ya usa la publicación y el comprador.
@@ -207,6 +208,11 @@ public class ReventaDeEntradas {
         validarTitular(pedido.titular().nombre(), pedido.titular().dni());
 
         Entrada original = entradaDe(pedido.entradaId(), pedido.vendedorId());
+        String eventoId = original.getVenta().getEventoId();
+        // El candado dura hasta el final de esta transacción, que es la que escribe la venta nueva.
+        ventas.tomarCandados(List.of(ReglasEntreCompras.candadoDelComprador(pedido.compradorId(), eventoId),
+                ReglasEntreCompras.candadoDelDni(pedido.titular().dni(), eventoId)));
+        exigirReglasEntreCompras(original, pedido.compradorId(), pedido.titular().dni());
         if (!reventa.marcarVendida(pedido.entradaId(), pedido.vendedorId())) {
             throw new ErroresDeNegocio.Conflicto(ENTRADA_NO_PUBLICADA,
                     "La entrada ya no está publicada en la reventa.");
@@ -237,6 +243,19 @@ public class ReventaDeEntradas {
                 + " pasó a VENDIDA y nació la venta " + ventaId + " con el pago "
                 + Textos.enUnaLinea(pedido.pagoId()) + ".");
         return resultado(ventas.buscarPorId(ventaId).orElseThrow());
+    }
+
+    /**
+     * Las dos reglas entre compras para quien compra esa entrada en la
+     * reventa, escritas una sola vez en {@link ServicioDeVentas}. Se compra
+     * una sola entrada, la que se revende. Esa entrada no cuenta para el DNI:
+     * al transferirse deja de estar en pie.
+     */
+    private void exigirReglasEntreCompras(Entrada queSeRevende, String compradorId, String dni) {
+        String eventoId = queSeRevende.getVenta().getEventoId();
+        ServicioDeVentas.exigirTopePorEvento(ventas.entradasDelCompradorParaElEvento(compradorId, eventoId, ahora()), 1);
+        ServicioDeVentas.exigirDnisSinEntrada(
+                ventas.dnisConOtraEntradaParaElEvento(eventoId, List.of(dni), queSeRevende.getId()));
     }
 
     /** La entrada, si existe y es de ese vendedor. Una ajena responde igual que una que no existe. */

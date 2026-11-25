@@ -40,6 +40,11 @@ import com.palco.ventas.dominio.VentaItem;
  *
  * Las reglas en sí (cuándo se pasa el tope, qué error se responde) siguen
  * escritas una sola vez, en {@link ServicioDeVentas}.
+ *
+ * Los mismos candados los toma la transferencia de una compra en la reventa
+ * ({@link ReventaDeEntradas#transferir}), en la transacción que escribe la
+ * venta nueva: así una compra del catálogo y una en la reventa del mismo
+ * comprador, o con el mismo DNI, también se ordenan entre ellas.
  */
 @Stateless
 public class ReglasEntreCompras {

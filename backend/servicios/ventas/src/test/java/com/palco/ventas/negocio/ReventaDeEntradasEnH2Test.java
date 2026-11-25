@@ -490,6 +490,41 @@ class ReventaDeEntradasEnH2Test {
         assertEquals(TiposDeProblema.DNI_CON_ENTRADA, error.tipo());
     }
 
+    // ---- La transferencia vuelve a mirar las reglas (DEF-46) ----
+
+    @Test
+    void laTransferenciaVuelveAMirarElTopeConLasComprasQueEntraronDespuesDelControl() {
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+        ventaEmitida("V-00000002", COMPRADOR, "40000001", "40000002", "40000003", "40000004", "40000005");
+        assertDoesNotThrow(() -> controlar(ENTRADA_ID, COMPRADOR, "40111222"));
+        // Entre el control y la transferencia (mientras Reventa cobraba) el comprador compró una más en el catálogo.
+        ventaEmitida("V-00000003", COMPRADOR, "40000006");
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> enTransaccion(em, () -> reventa.transferir(transferencia("R-00000030", COMPRADOR))));
+
+        assertEquals(TiposDeProblema.TOPE_POR_EVENTO, error.tipo());
+        // No cambió nada: la entrada sigue en la reventa y el comprador no tiene la venta de la publicación.
+        assertEquals(EstadoEntrada.PUBLICADA, estado(ENTRADA_ID));
+        assertTrue(ventas.buscarPorClave(COMPRADOR, "reventa:R-00000030").isEmpty());
+        assertTrue(reventasPublicadas.isEmpty());
+    }
+
+    @Test
+    void laTransferenciaVuelveAMirarElDniConLasComprasQueEntraronDespuesDelControl() {
+        enTransaccion(em, () -> reventa.publicar(ENTRADA_ID, VENDEDOR));
+        assertDoesNotThrow(() -> controlar(ENTRADA_ID, COMPRADOR, "40111222"));
+        // Entre el control y la transferencia, otra persona compró una entrada del evento a nombre del mismo DNI.
+        ventaEmitida("V-00000002", "U-otro", "40111222");
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> enTransaccion(em, () -> reventa.transferir(transferencia("R-00000031", COMPRADOR))));
+
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, error.tipo());
+        assertEquals(EstadoEntrada.PUBLICADA, estado(ENTRADA_ID));
+        assertTrue(ventas.buscarPorClave(COMPRADOR, "reventa:R-00000031").isEmpty());
+    }
+
     @Test
     void unaEntradaAjenaOUnDniMalEscritoNoSeControlan() {
         assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> enTransaccion(em, () -> {
