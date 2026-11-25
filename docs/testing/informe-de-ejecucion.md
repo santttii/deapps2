@@ -7,8 +7,9 @@ candidato a la Entrega Final, más los dos tests unitarios de CA-12.4 y CA-16.4 
 los entregables del QA de los Criterios de Testing de la cátedra (condición G4): totales por nivel, cobertura,
 mutation score, tiempos, performance y Quality Gate. Cada cifra sale de un run de GitHub Actions o de una corrida
 local con su salida guardada; los resúmenes están en `docs/testing/evidencia/final/` y cada sección nombra el suyo.
-Lo que se corrigió el 24/11, después de esta corrida, se nombra aparte (secciones 3, 9 y 11): sus cifras son de
-corridas locales sin salida guardada en `evidencia/final/`, y la prueba que lo verifica corre sobre el tag.
+Lo que se corrigió el 24/11 y el 25/11, después de esta corrida, se nombra aparte (secciones 3, 9 y 11): sus cifras
+son de corridas locales o contra el compose, sin salida guardada en `evidencia/final/`, y la prueba que lo verifica
+corre sobre el tag.
 
 **Referencias:** plan de pruebas (`docs/testing/plan-de-pruebas.md`: niveles en la sección 2, criterios en la 4),
 matriz de trazabilidad (`docs/testing/evidencia/matriz-de-trazabilidad.md`), registro de defectos
@@ -83,8 +84,9 @@ Detalle de algunas filas:
   validación rechaza) están en `contrato.txt`: no son fallas, pero esos casos no llegan a la lógica de negocio.
 - **Escaneos:** "pasó" quiere decir que cumple su criterio: ZAP sin alertas High y cada Medium justificada; Trivy sin
   CVE críticas ni altas fuera de `.trivyignore`; gitleaks sin hallazgos (176 commits).
-- **Matriz de trazabilidad:** `docs/testing/evidencia/matriz-de-trazabilidad.md`, generada el 24/11/2026 a las 16:52
-  UTC: 16 de 16 HU ejecutadas y 89 de 89 criterios en verde (las 9 HU Must, completas). Incluye los dos tests nuevos.
+- **Matriz de trazabilidad:** `docs/testing/evidencia/matriz-de-trazabilidad.md` (su encabezado dice cuándo se
+  generó): 16 de 16 HU ejecutadas y 89 de 89 criterios en verde (las 9 HU Must, completas). Incluye los dos tests
+  nuevos.
 
 ## 3. Cobertura
 
@@ -172,10 +174,13 @@ base llegó a sus 10 conexiones, con esperas de hasta 157 ms y ninguna vencida.
   `style-src 'unsafe-inline'` y la directiva amplia `img-src https:`); Low 5, sin justificar, que no cortan la
   corrida; informativas 9. ZAP marcó 4 instancias High de inyección SQL (regla 40018) que se comprobaron falsos
   positivos, una por una, en `.zap/reglas.tsv`: tres en el registro, donde lo que cambia entre respuestas es el orden
-  de los campos del 400 (DEF-62), y una en el asistente, que no usa base de datos.
+  de los campos del 400 (DEF-62, corregido el 24/11: los campos salen en orden alfabético; se verifica con el ZAP del
+  tag), y una en el asistente, que no usa base de datos. Las 5 Low son DEF-74, corregido el 25/11 (las cabeceras COOP
+  y CORP en nginx, y COEP y el Content-Type justificados en `.zap/reglas.tsv`), a verificar con el ZAP del tag.
 - **Trivy** (run 44867187171, `trivy.txt`): 0 CVE críticas o altas en los 15 manifiestos del repo, en la imagen web y
   en la imagen backend. Hay 6 altas aceptadas en `.trivyignore` (Jackson y Guava dentro de los módulos de WildFly
-  41.0.1), cada una con su motivo y vencimiento el 31/12/2026.
+  41.0.1), cada una con su motivo y vencimiento el 31/12/2026. La imagen de la base (`postgres:17-alpine`) no se
+  escaneó en esta corrida: desde el 25/11 la escanea el mismo job (DEF-73), a verificar sobre el tag.
 - **gitleaks** (`ci-fbd31dc.txt`): 176 commits revisados, sin hallazgos.
 - **Pruebas de seguridad** (run 44867187123, `seguridad.txt`): tokens JWT manipulados (8 variantes, 401 en los cinco
   servicios), mass assignment, XSS almacenado, XXE en el SOAP, cookies, CSP, HSTS, nosniff y CORS: 64 de 64; XSS en el
@@ -205,7 +210,8 @@ de los security hotspots revisados.
 Código total: 1 bug (MAJOR), 0 vulnerabilidades abiertas, 127 code smells (3 de severidad BLOCKER), 0 security
 hotspots, duplicación 0,7 %, seguridad A, mantenibilidad A y **confiabilidad C**. La C la pone el único bug,
 `java:S5850` en `common/Textos.java:63` (DEF-65, corregido el 24/11: se verifica con el análisis del tag). Los 3 code
-smells BLOCKER son de nombres (`java:S1845`, DEF-67, abierto). Hay una vulnerabilidad Minor aceptada en SonarCloud
+smells BLOCKER son de nombres (`java:S1845`, DEF-67, corregido el 24/11 en `276bd87`, a verificar con el análisis del
+tag). Hay una vulnerabilidad Minor aceptada en SonarCloud
 (`docker:S6471`, nginx arranca como root; DEF-71, aceptado), con la justificación escrita en `frontend/Dockerfile`:
 el proceso principal abre los puertos 80 y 443 y los pedidos los atienden los workers con el usuario `nginx`.
 SonarCloud marca además con `java:S8786` (expresiones con retroceso superlineal), como code smells, cinco líneas. Las
@@ -217,7 +223,11 @@ seguidos) y la 45 de `asistente/negocio/Guardrails.java` (la expresión corregid
 
 **PMD 7.17.0** (conjunto `quickstart`, informativo, no corta el build): 223 hallazgos, 0 de prioridad 1, 147 de
 prioridad 2 (todos `GuardLogStatement`), 74 de prioridad 3 y 2 de prioridad 4. **oxlint:** 4 avisos y 0 errores
-(DEF-50).
+(DEF-50, corregido el 24/11 con los hooks en archivos propios; `npm run lint` del tag tiene que dar 0 avisos).
+
+Después de esta corrida, el Quality Gate quedó en rojo en `ffded8f` y `5d3c784` (24/11) por un bug Critical de
+confiabilidad en el código nuevo (`java:S8696` en `AsistenteIA`, DEF-76). Se corrigió el 25/11 (`1bab37a`) y el
+Quality Gate de `ff12b59` y de `12a08f2` dio "passed"; se verifica con el análisis del tag.
 
 ## 8. Tiempos
 
@@ -242,22 +252,22 @@ minutos que pide la cátedra.
 
 ## 9. Defectos
 
-La línea de totales de `docs/testing/registro-de-defectos.md`, con corte el 24/11 (ya incluye los defectos de esta
-corrida y los del informe de seguridad), dice: "Totales: 75 defectos. 29 cerrados, 21 corregidos que falta verificar
-(DEF-02, DEF-14, DEF-30, DEF-32, DEF-33, DEF-34, DEF-35, DEF-36, DEF-47, DEF-52, DEF-53, DEF-55, DEF-57, DEF-59,
-DEF-60, DEF-61, DEF-63, DEF-64, DEF-65, DEF-66 y DEF-70), 1 en corrección (DEF-46), 7 aceptados (DEF-38, DEF-39,
-DEF-58, DEF-68, DEF-69, DEF-71 y DEF-75) y 17 nuevos abiertos. Por severidad: 1 bloqueante, 8 críticos, 16 mayores,
-40 menores y 10 cosméticos." Los que no están cerrados, por severidad, según la tabla del registro:
+La línea de totales de `docs/testing/registro-de-defectos.md` (ya incluye los defectos de esta corrida, los del
+informe de seguridad y los del 25/11) dice: "Totales: 77 defectos. 29 cerrados, 40 corregidos que falta verificar
+sobre el tag (DEF-02, DEF-14, DEF-30, DEF-32 a DEF-37, DEF-40, DEF-42 a DEF-50, DEF-52 a DEF-57, DEF-59 a DEF-67,
+DEF-70, DEF-72 a DEF-74, DEF-76 y DEF-77), ninguno nuevo ni en corrección, y 8 aceptados (DEF-38, DEF-39, DEF-41,
+DEF-58, DEF-68, DEF-69, DEF-71 y DEF-75). Por severidad: 1 bloqueante, 8 críticos, 16 mayores, 42 menores y 10
+cosméticos." Los que no están cerrados, por severidad, según la sección 7 del registro:
 
 | Severidad | Nuevos, en corrección o aceptados | Corregidos, a verificar sobre el tag | Máximo al cierre |
 |---|---|---|---|
 | Bloqueante | 0 | 0 | 0 |
 | Crítica | 0 | 2: DEF-63 y DEF-64 | 0 |
-| Mayor | 3: DEF-37 (nuevo), DEF-46 (en corrección) y DEF-38 (aceptado), cada uno con su alternativa escrita | 3: DEF-30, DEF-36 y DEF-47 | 3, con alternativa |
-| Menor | 17 | 13 | Sin máximo |
-| Cosmética | 5 | 3 | Sin máximo |
+| Mayor | 1: DEF-38 (aceptado), con su alternativa escrita | 5: DEF-30, DEF-36, DEF-37, DEF-46 y DEF-47 | 3, con alternativa |
+| Menor | 7, todos aceptados | 25 | Sin máximo |
+| Cosmética | 0 | 8 | Sin máximo |
 
-Qué dice esta corrida de los críticos y mayores que falta verificar:
+Qué dice esta corrida de los críticos y mayores que se verifican sobre el tag:
 
 - **DEF-63** (crítico): la prueba que lo encontró, Schemathesis, pasó sobre `fbd31dc` sin fallas ni cortes por
   tiempo en `POST /v1/asistente/preguntas` (run 44867187179), y sus dos tests de `GuardrailsTest`
@@ -270,7 +280,12 @@ Qué dice esta corrida de los críticos y mayores que falta verificar:
   sin definir `PALCO_CORREO_LOG_COMPLETO`, que desde el 24/11 queda en `false` por defecto) no son parte de ningún
   workflow y no se corrieron sobre `fbd31dc`. El escenario 23 pasó, pero recorre la compra del catálogo, no la de la
   reventa. La de DEF-36 corrió el 24/11 contra el compose armado con el código corregido
-  (`docs/testing/evidencia/final/correo-en-el-log.txt`: 0 emails enteros y 0 códigos en el log); falta sobre el tag.
+  (`docs/testing/evidencia/final/correo-en-el-log.txt`: 0 emails enteros y 0 códigos en el log) y se repite sobre el
+  tag; desde el 25/11, además, el control de logs de `contrato.yml` y `zap.yml`, que corren con el valor por defecto,
+  falla con cualquier email `@palco.test` entero en el log (DEF-40).
+- **DEF-37 y DEF-46** (mayores): se corrigieron el 24/11, después de esta corrida (abajo). Sus pruebas de cierre son
+  las del registro: la consulta de `notificaciones.registro_auditoria` sin `"dni"` (DEF-37), y los tests de los
+  candados en el CI y los escenarios 17 y 23 contra el compose (DEF-46), sobre el tag.
 
 **Defectos nuevos de esta corrida.** Están en el registro desde el 24/11:
 
@@ -279,7 +294,7 @@ Qué dice esta corrida de los críticos y mayores que falta verificar:
 | DEF-64 | El registro tardaba con el cubo del largo de un nombre o un apellido lleno de espacios: un pedido sin sesión de 1,6 KB ocupaba un hilo del servidor 7 segundos | Crítica | Alta | Corregido, a verificar sobre el tag | `registro-nombre-largo.txt`: 1000 espacios, 2,4 s; 1500 espacios, 7,1 s contra el compose |
 | DEF-65 | El bug `java:S5850` de SonarCloud en `Textos.slug` dejaba la confiabilidad del código total en C (la cátedra pide A) | Menor | Alta | Corregido, a verificar con el análisis de SonarCloud del tag | `sonar.txt` y la captura del código total |
 | DEF-66 | La colección de Postman no tenía ningún pedido para `POST /v1/operaciones-de-reventa/controles-de-compra` | Menor | Alta | Corregido, a verificar con la corrida de Newman del tag | `ci-fbd31dc.txt`, sección 4 |
-| DEF-67 | Tres code smells BLOCKER de SonarCloud (`java:S1845`) en `ArcaSoap`, `PagosFake` y `ResultadoDeCobro` | Cosmética | Baja | Nuevo (abierto) | `sonar.txt` |
+| DEF-67 | Tres code smells BLOCKER de SonarCloud (`java:S1845`) en `ArcaSoap`, `PagosFake` y `ResultadoDeCobro` | Cosmética | Baja | Corregido, a verificar con el análisis de SonarCloud del tag | `sonar.txt` |
 
 DEF-64 es de la misma clase que DEF-63 (una expresión regular que tarda más que lineal con la entrada) y, como DEF-63,
 es una falla de seguridad explotable, ahora sin sesión: `POST /api/usuarios/registro` es público. La expresión de
@@ -297,6 +312,33 @@ Las correcciones del 24/11, después de esta corrida:
 - **DEF-65:** `Textos.java:63` pasa de `"^-+|-+$"` a `"(?:^-+)|(?:-+$)"`; `TextosTest`, 5 de 5.
 - **DEF-66:** tres pedidos de `controles-de-compra` en la carpeta 6 de `scripts/postman/generar.js` (204, 409
   `dni-con-entrada` y 403).
+- **DEF-46, la compra en la reventa:** `ReventaDeEntradas.transferir` toma los candados del comprador y del DNI, los
+  mismos del catálogo, y vuelve a mirar las dos reglas antes de escribir; si una no se cumple, Reventa devuelve el
+  cobro y deja la publicación libre. Cinco tests nuevos con base en Ventas (tres con dos hilos, en
+  `ReglasEntreComprasEnH2Test`, y dos en `ReventaDeEntradasEnH2Test`) y ocho en Reventa. Sin la mirada en la
+  transferencia fallan los cinco de Ventas. `mvn test` de Ventas, 393 tests, y de Reventa, 98, 0 fallas.
+- **DEF-37:** el titular de `PAGO_CONFIRMADO` y de `REVENTA_CONFIRMADA` viaja solo con su nombre; la auditoría guarda
+  el cuerpo sin el DNI y la migración `V3__sacar_el_dni_de_la_auditoria.sql` de Notificaciones se lo saca a las filas
+  anteriores (`PagoConfirmadoMensajeTest`, `ServicioDeAuditoriaTest`, `MigracionesEnH2Test` y
+  `MigracionesEnPostgresIT` de Notificaciones).
+- **DEF-43:** `SeguridadDeclarativaTest` en los 9 servicios con recursos JAX-RS: falla si una operación queda sin
+  `@RolesAllowed`, `@PermitAll` ni `@DenyAll`.
+- **DEF-44:** un hash con menos de 600.000 iteraciones se recalcula al iniciar sesión
+  (`IteracionesAlIniciarSesionEnH2Test`).
+- **DEF-62:** los campos de `errores` salen en orden alfabético (`ErroresDeValidacionTest`, `common`).
+- **DEF-67:** constantes renombradas (`ArcaSoap.NOMBRE_DEL_SERVICIO`, `PagosFake.PROVEEDOR`,
+  `ResultadoDeCobro.ESTADO_APROBADO`).
+- **Frontend:** DEF-48 (en `/organizador`, "Ventas y liquidación" con la tabla "Ventas por día"; E2E
+  `organizador.spec.ts`), DEF-49 (cada pantalla con `React.lazy`; E2E `carga-diferida.spec.ts`), DEF-50 (los hooks en
+  archivos propios, lint sin avisos) y DEF-54 (un 502 o 503 dice "No pudimos conectar con el servidor"; E2E
+  `catalogo.spec.ts`). Con los E2E de DEF-33 y CA-16.4, `npx playwright test --list` da 39 pruebas en 15 archivos de
+  `frontend/e2e/`.
+- **25/11:** DEF-76 (el bug `java:S8696` de SonarCloud en `AsistenteIA`, `1bab37a`) y DEF-77 (Pagos responde 400 o 404
+  en lugar de 500 a un texto con caracteres de control, `a33194d`), y los de infraestructura: DEF-40
+  (`scripts/qa/control-de-logs.sh` en los pasos "Control de logs"), DEF-42 (CORS del compose solo con la URL pública),
+  DEF-45 (nginx no publica el ARCA simulado), DEF-56 (los guiones de `docs/entrega3/evidencia/` sin secreto por
+  defecto), DEF-72 (el log de nginx sin emails), DEF-73 (Trivy escanea `postgres:17-alpine`) y DEF-74 (COOP y CORP en
+  nginx). El registro trae la prueba de cada uno contra el compose del 25/11.
 - Corrida local de los módulos tocados por DEF-64 y DEF-65, el 24/11:
   `mvn -o -f backend/pom.xml -pl common,servicios/usuarios -am test`, con `common` en 82 tests y Usuarios en 91, 0
   fallas.
@@ -313,20 +355,20 @@ Los de la sección 4 del plan de pruebas, contra esta corrida:
 |---|---|---|
 | 0 tests unitarios fallando y la suite 3 veces seguidas con el mismo resultado | 1186 de 1186 en el CI y 1188 con los dos nuevos; 3 corridas idénticas | Sí |
 | Escenarios, resiliencia, patrón State y colección de Postman, sin fallas | 24 de 24 escenarios (389 comprobaciones), 50 de 50 de resiliencia y State, Newman con 0 fallas | Sí |
-| En la colección, cada endpoint con un caso de éxito y uno de error | 49 de 52 operaciones en la corrida; una sin ningún pedido (DEF-66, corregido el 24/11) | **No** sobre `fbd31dc`; **pendiente** sobre el tag |
+| En la colección, cada endpoint con un caso de éxito y uno de error | 49 de 52 operaciones en la corrida; una sin ningún pedido (DEF-66, corregido el 24/11) | **No** sobre `fbd31dc`; se verifica sobre el tag |
 | Al menos 5 recorridos E2E en el pipeline, en verde | 31 de 31 | Sí |
 | Matriz: todas las HU, 95 % de los criterios o más, ningún criterio Must en falla | 16 de 16 HU, 89 de 89 criterios | Sí |
 | Cobertura de negocio y dominio: 80 % de líneas y 70 % de ramas | Negocio 95,8 % y 92,3 %; dominio 97,4 % y 74,4 %; con los clientes de otros servicios, 87,6 % y 82,5 %. Desde el 24/11 lo controla el build (`umbral-de-negocio-y-dominio`, sección 3) | Sí |
 | Mutation score de 60 % o más en el dominio de cada servicio | Entre 75,0 % (Validación) y 100 %; 91,7 % en total | Sí |
 | Quality Gate aprobado, 0 bugs Blocker o Critical, 0 vulnerabilidades, duplicación de 3 % o menos, 100 % de hotspots revisados | Aprobado; 1 bug MAJOR; 0 vulnerabilidades abiertas; 0,7 %; sin hotspots | Sí |
-| Rating A en confiabilidad y en seguridad | Seguridad A; confiabilidad A en el código nuevo y C en el total (DEF-65, corregido el 24/11) | **No** sobre `fbd31dc`; **pendiente** sobre el tag |
+| Rating A en confiabilidad y en seguridad | Seguridad A; confiabilidad A en el código nuevo y C en el total (DEF-65, corregido el 24/11) | **No** sobre `fbd31dc`; se verifica sobre el tag |
 | Contrato: ninguna respuesta fuera de `openapi.yaml` y el WSDL igual al del repositorio | 5574 casos sin fallas; `ContratoDelWsdlTest` 7 de 7 | Sí |
 | Carga: p95 menor a 500 ms y menos de 1 % de errores en cada endpoint crítico | p95 entre 4,5 y 22,8 ms; 0 % de errores | Sí |
 | Seguridad: `seguridad.mjs` y `xss.spec.ts` en verde, ZAP sin High y Medium justificadas, Trivy sin críticas ni altas fuera de `.trivyignore`, gitleaks sin hallazgos | 64 de 64 y 2 de 2; High 0 y 2 Medium justificadas; 0 fuera de `.trivyignore`; 0 hallazgos | Sí |
 | Accesibilidad: axe sin violaciones serias ni críticas, Lighthouse de 90 o más | axe en verde a 360, 768 y 1280 px; Lighthouse 100 en las 10 corridas | Sí |
 | Set de evaluación del asistente: 24 de 26 o más, con los 11 adversariales | 26 de 26; 11 de 11 | Sí |
-| CI en verde sobre el commit del tag y pipeline de 15 minutos o menos | Sobre `fbd31dc`: 21 de 21 check runs en verde y 7 min 08 s. El tag `v1.0-final` todavía no existe | Sí sobre `fbd31dc`; **pendiente** sobre el tag |
-| Defectos: 0 bloqueantes, 0 críticos, hasta 3 mayores con alternativa, todos registrados | Sobre `fbd31dc`, 1 crítico abierto (DEF-64). En el registro del 24/11: 0 bloqueantes, 0 críticos abiertos y 2 a verificar (DEF-63 y DEF-64), 3 mayores abiertos con alternativa y 3 a verificar, y todos los defectos registrados | **No** sobre `fbd31dc`; **pendiente** sobre el tag |
+| CI en verde sobre el commit del tag y pipeline de 15 minutos o menos | Sobre `fbd31dc`: 21 de 21 check runs en verde y 7 min 08 s. El tag `v1.0-final` todavía no existe | Sí sobre `fbd31dc`; se verifica sobre el tag |
+| Defectos: 0 bloqueantes, 0 críticos, hasta 3 mayores con alternativa, todos registrados | Sobre `fbd31dc`, 1 crítico abierto (DEF-64). En el registro del 25/11: 0 bloqueantes, 0 críticos abiertos y 2 a verificar (DEF-63 y DEF-64), 1 mayor abierto con alternativa (DEF-38, aceptado) y 5 a verificar, y todos los defectos registrados | **No** sobre `fbd31dc`; se verifica sobre el tag |
 
 Con esta corrida se cumplen 13 de los 16 criterios, uno de ellos solo sobre `fbd31dc`. No se cumplen tres: el de
 defectos, por DEF-64, un crítico abierto; la confiabilidad A de SonarCloud en el código total, por DEF-65; y el caso
@@ -335,21 +377,24 @@ contrastar los resultados con los criterios y, en DEF-64, de medir contra el sis
 SonarCloud. Los tres defectos se corrigieron el 24/11 (sección 9) y se verifican con los workflows del commit del
 tag: hasta esa corrida, esos tres criterios siguen sin cumplirse.
 
-## 11. Lo que esta corrida no cubre
+## 11. Lo que se mide sobre el tag
 
-- **El commit del tag.** Esta corrida es sobre `fbd31dc` y los dos tests nuevos. Lo que entre al tag después de
-  `fbd31dc` se mide con los workflows del commit del tag (sección 8 del plan), y este informe se actualiza con esos
-  runs. Entre lo que todavía no corrió: las pruebas de integración contra PostgreSQL 17 y Artemis en contenedores
-  (9 clases `*EnPostgresIT` y `FacturacionDeComprasEnArtemisIT`, con Testcontainers), la corrección de DEF-46 con sus
-  tests y los E2E `factura-rechazada.spec.ts` y `foto-de-la-categoria.spec.ts` (CP-16.4.1), con los que Playwright
-  pasa a listar 34 tests. Tampoco corrieron en el CI las correcciones del 24/11 de DEF-33 (la fecha de la compra en
-  Mis entradas), DEF-36 (el compose sin el modo completo), DEF-64, DEF-65, DEF-66 y DEF-70 (la CSP sin Google Fonts),
-  la regla `umbral-de-negocio-y-dominio` de JaCoCo ni los tests `NombreYApellidoTest`, `PuertaAsignadaTest` y
-  `ConversorRolTest`. En `fbd31dc`, los tests de repositorio usan H2 en memoria; la base y el broker reales, en
-  contenedores, los ejercitan las pruebas de sistema contra el compose (escenarios 7 a 13, 15 y 22, y
-  `broker-apagado.mjs`).
-- **Pruebas a mano.** El broker con el contenedor recreado y el ARCA sin responder con la DLQ y el reproceso no se
-  repitieron sobre `fbd31dc`: su última corrida es la del 19/11 (`docs/testing/evidencia/checkpoint-3/`).
-- **Verificación de DEF-30 y DEF-36** (sección 9): la prueba de cierre de DEF-30 no se corrió; la de DEF-36 corrió
-  solo en local, el 24/11 (`correo-en-el-log.txt`). Las dos se corren sobre el tag.
+- **Lo que entró después de `fbd31dc`.** Esta corrida es sobre `fbd31dc` y los dos tests nuevos. Lo que entra al tag
+  después se mide con los workflows del commit del tag (sección 8 del plan), y este informe se actualiza con esos runs.
+  Entre eso: las pruebas de integración contra PostgreSQL 17 y Artemis en contenedores (10 clases `*EnPostgresIT` y
+  `FacturacionDeComprasEnArtemisIT`, con Testcontainers); la regla `umbral-de-negocio-y-dominio` de JaCoCo; las
+  correcciones del 24/11 y el 25/11 de la sección 9, con sus tests; el asistente con los eventos del catálogo
+  (`CatalogoDeEventosTest`); y la suite E2E de 39 pruebas en 15 archivos. En `fbd31dc`, los tests de repositorio usan
+  H2 en memoria; la base y el broker reales, en contenedores, los ejercitan las pruebas de sistema contra el compose
+  (escenarios 7 a 13, 15 y 22, y `broker-apagado.mjs`).
+- **`12a08f2` (25/11).** Sobre ese commit de `master`, que tiene las correcciones de la sección 9 salvo las de
+  infraestructura del 25/11 (DEF-40, DEF-42, DEF-45, DEF-56 y DEF-72 a DEF-74), los siete workflows que corren con cada
+  push terminaron en verde: CI (run 45638378060), Contrato (45638376831), Pruebas de seguridad
+  (45638377909), ZAP (45638377387), Seguridad (45638376934), Mutación (45638378021) y Lighthouse (45638377735). Sus
+  cifras no reemplazan a las de esta corrida: las de la Entrega Final son las del tag.
+- **Pruebas a mano.** El broker con el contenedor recreado y el ARCA sin responder con la DLQ y el reproceso tienen su
+  última corrida el 19/11 (`docs/testing/evidencia/checkpoint-3/`) y se repiten contra el compose del tag.
+- **Verificación de DEF-30 y DEF-36** (sección 9): la prueba de cierre de DEF-30 (los dos pasos por la reventa contra
+  el sistema) y la de DEF-36 (el compose sin la variable, corrida el 24/11 en local, `correo-en-el-log.txt`) se corren
+  sobre el tag.
 - **Lighthouse** midió accesibilidad y buenas prácticas, no rendimiento ni SEO.
