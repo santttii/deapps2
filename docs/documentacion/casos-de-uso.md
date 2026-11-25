@@ -5,7 +5,7 @@
 *Fuente: `docs/documentacion/diagramas/casos-de-uso.svg`. Los quince casos están implementados, tienen pantalla en
 el frontend y los prueba el CI contra el `docker compose`, con al menos una prueba E2E en el navegador (Playwright,
 `frontend/e2e/`) o un escenario de integración por la API (`scripts/pruebas/escenarios.mjs`). La corrida del CI del
-21/11 sobre el commit `fbd31dc` terminó en verde.*
+25/11 sobre el commit `12a08f2` terminó en verde.*
 
 ## Actores
 
@@ -54,12 +54,12 @@ trae el email entero: `Email para <email> (<asunto>): <cuerpo>`.
 
 ## CU-01 Registrarse
 
-- **Actor:** comprador (todavía sin cuenta).
+- **Actor:** comprador, sin cuenta.
 - **Precondición:** no tiene una cuenta con ese email ni con ese DNI.
 - **Flujo principal:**
   1. Carga nombre, apellido, DNI, email, teléfono, fecha de nacimiento y contraseña en `/registro`.
   2. El frontend llama a `POST /api/usuarios/registro` (`@PermitAll`).
-  3. Usuarios valida los datos, guarda la cuenta con rol `user`, pendiente de verificar, y manda un código de 6
+  3. Usuarios valida los datos, guarda la cuenta con rol `user` y el email sin verificar, y manda un código de 6
      dígitos que vence en 15 minutos (asunto "Tu código de Palco"). Responde 201.
   4. El comprador ingresa el código; el frontend llama a `POST /api/usuarios/verificacion`.
   5. Usuarios marca el email y la identidad como verificados y responde 200 con la sesión (JWT).
@@ -137,7 +137,10 @@ trae el email entero: `Email para <email> (<asunto>): <cuerpo>`.
     `sector-inexistente`. Nombre vacío o DNI sin 7 u 8 dígitos: 400 `datos-invalidos`.
   - 2b. Identidad sin verificar: 403 `identidad-no-verificada`, antes de reservar.
   - 2b'. Con sus otras compras del evento pasaría de 6 entradas: 409 `tope-por-evento`. Un titular cuyo DNI ya
-    tiene una entrada para el evento: 409 `dni-con-entrada` (también al pagar, y entonces no se cobra).
+    tiene una entrada para el evento: 409 `dni-con-entrada` (también al pagar, y entonces no se cobra). Vale
+    también con dos compras a la vez: Ventas toma un candado por comprador y evento y otro por DNI y evento
+    (`ventas.candado_de_compra`, DEF-46), la segunda compra espera a la primera y cuenta con ella. Si la que pasa
+    el tope ya había reservado cupo, lo devuelve en el mismo pedido.
   - 2c. Sin cupo: 409 `cupo-agotado`; el evento ya empezó: 409 `evento-finalizado`. Se devuelve el cupo de los
     sectores ya reservados. Con el evento cancelado, Eventos no reserva y Ventas responde 409
     `evento-cancelado`.
@@ -169,7 +172,7 @@ trae el email entero: `Email para <email> (<asunto>): <cuerpo>`.
 - **Flujos alternativos:**
   - 2a. Sin compras: 200 con una lista vacía.
   - 3a. La entrada no existe o es de otro usuario: 404 `no-encontrado` (las dos responden lo mismo).
-  - 3b. Recién pagada, todavía `PENDIENTE_EMISION`: la entrada viene sin código; la pantalla espera la emisión.
+  - 3b. Recién pagada, en `PENDIENTE_EMISION`: la entrada viene sin código; la pantalla espera la emisión.
   - 3c. Su evento se canceló: la venta figura `CANCELADA` y la entrada `ANULADA` (CU-11).
 - **Postcondición:** ninguna (solo lectura).
 - **Estado:** Implementado.
@@ -182,7 +185,9 @@ trae el email entero: `Email para <email> (<asunto>): <cuerpo>`.
   1. En `/mis-entradas` elige una entrada propia y el precio.
   2. El frontend llama a `POST /api/v1/reventas`. Reventa le pregunta a Ventas por la entrada (rol `servicio`) y
      valida el precio en el servidor: entre el 50 % (`MINIMO_REVENTA_PORCENTAJE`) y el 110 %
-     (`TOPE_REVENTA_PORCENTAJE`) de lo pagado, con `ReglasDeNegocio.topeReventa` y `minimoReventa`.
+     (`TOPE_REVENTA_PORCENTAJE`) del precio de lista de su sector, que le pide a Eventos, con
+     `ReglasDeNegocio.topeReventa` y `minimoReventa`. No se calcula sobre lo pagado: una entrada comprada en la
+     reventa tiene como precio pagado el de esa reventa, y cada reventa subiría el tope otro 10 %.
   3. Reventa le pide a Ventas que marque la entrada como `PUBLICADA`
      (`POST /api/v1/operaciones-de-reventa/publicaciones`) y responde 201 con la publicación `ACTIVA`.
 - **Flujos alternativos:**
@@ -205,21 +210,31 @@ trae el email entero: `Email para <email> (<asunto>): <cuerpo>`.
   evento.
 - **Flujo principal:**
   1. En `/reventa` (o en el detalle del evento) elige una publicación y carga el titular (nombre y DNI).
-  2. El frontend llama a `POST /api/v1/reventas/{publicacionId}/compra` con `Idempotency-Key`. Reventa toma la
-     publicación con un `UPDATE` condicional (de dos compras a la vez, cobra una sola) y cobra el precio más el
-     cargo de servicio a través de Pagos.
-  3. Con el cobro aprobado, Ventas (`POST /api/v1/operaciones-de-reventa/transferencias`) deja la entrada original
-     `VENDIDA` y emite una entrada nueva, `VALIDA`, a nombre del titular, en una venta nueva del comprador. Publica
-     `REVENTA_CONFIRMADA`: email al comprador, auditoría y factura. La publicación queda `VENDIDA`. Responde 201.
+  2. El frontend llama a `POST /api/v1/reventas/{publicacionId}/compra` con `Idempotency-Key`. Reventa le pregunta
+     a Ventas si el comprador puede quedarse con la entrada (`POST /api/v1/operaciones-de-reventa/controles-de-compra`,
+     rol `servicio`): las mismas reglas entre compras que en CU-04, hasta 6 entradas por persona y evento y un DNI
+     por evento. Después toma la publicación con un `UPDATE` condicional (de dos compras a la vez, cobra una sola) y
+     cobra el precio más el cargo de servicio a través de Pagos.
+  3. Con el cobro aprobado, Ventas (`POST /api/v1/operaciones-de-reventa/transferencias`) vuelve a mirar las dos
+     reglas con los candados de CU-04 (DEF-46), deja la entrada original `VENDIDA` y emite una entrada nueva,
+     `VALIDA`, a nombre del titular, en una venta nueva del comprador. Publica `REVENTA_CONFIRMADA`: email al
+     comprador, auditoría y factura. La publicación queda `VENDIDA`. Responde 201.
 - **Flujos alternativos:**
   - 2a. La publicación ya se vendió, se retiró o la está comprando otro: 409 `publicacion-no-activa`. Es propia: 409
     `compra-propia`. Faltan 3 horas o menos: 409 `reventa-cerrada`.
   - 2b. Nombre vacío o DNI sin 7 u 8 dígitos: 400 `datos-invalidos`.
+  - 2b'. Con la entrada, el comprador pasaría de 6 para el evento, o el DNI del titular ya tiene una entrada para el
+    evento: 409 `tope-por-evento` o `dni-con-entrada`, antes de tomar la publicación y sin cobrar (DEF-30).
   - 2c. Pago rechazado: 402 `pago-rechazado`; la publicación sigue activa.
   - 2d. Pagos o Ventas no responden: 504 `sin-respuesta`. La publicación queda tomada: el mismo comprador reintenta
     con la misma clave sin que se cobre dos veces y, si no reintenta, la resuelve la conciliación de reventas.
   - 3a. Se cobró y Ventas rechaza la transferencia (la entrada ya no está publicada): la publicación queda `ANULADA`,
     Reventa devuelve el pago y responde 409 `publicacion-no-activa`.
+  - 3b. Se cobró y otra compra del mismo comprador o con el mismo DNI se cruzó después del control, así que al
+    transferir Ventas rechaza por una regla entre compras: Reventa devuelve el pago, la publicación queda libre
+    (`ACTIVA`) para otra persona y responde el 409 de la regla (`tope-por-evento` o `dni-con-entrada`), con "Te
+    devolvimos el pago." o, si Pagos no respondió, "El pago se va a devolver." (DEF-46). Si la compra la terminaba
+    la conciliación de reventas, hace lo mismo.
 - **Postcondición:** entrada nueva del comprador, la original `VENDIDA` (la puerta responde `NO_HABILITADA`),
   publicación `VENDIDA` y factura de la venta nueva.
 - **Estado:** Implementado, con pasarela simulada.
@@ -252,17 +267,20 @@ trae el email entero: `Email para <email> (<asunto>): <cuerpo>`.
      (`GET /api/v1/reventas?eventoId=`).
   2. El panel muestra las entradas vendidas, lo recaudado sin el cargo de servicio (lo que se le liquida), el cupo
      restante y las entradas en reventa, y la tabla de sus eventos.
-  3. Elige un evento: ve la ocupación por sector, la reventa activa, los accesos en puerta
-     (`GET /api/v1/validacion/escaneos?eventoId=`) y su equipo de puerta (CU-14).
+  3. Elige un evento: ve "Ventas y liquidación" (lo recaudado de los compradores, el cargo de Palco, lo que se le
+     liquida, las compras pagadas, las entradas y la tabla "Ventas por día", del mismo resumen de Ventas), la
+     ocupación por sector, la reventa activa, los accesos en puerta (`GET /api/v1/validacion/escaneos?eventoId=`) y
+     su equipo de puerta (CU-14).
 - **Flujos alternativos:**
   - 1a. Sin eventos propios: el panel lo dice y ofrece crear uno.
   - 1b. Un evento de otro organizador: no aparece, y pedir su resumen o su registro de puerta responde 404
     `no-encontrado`.
   - 1c. Un servicio no responde: esa tarjeta muestra el error con "Reintentar" y el resto del panel sigue.
 - **Postcondición:** ninguna (solo lectura).
-- **Estado:** Implementado. Ventas cuenta solo las compras pagadas y vigentes: una compra anulada por la
-  cancelación del evento no se liquida. `GET /api/v1/resumenes` devuelve también las ventas por día (`porDia`), que
-  el panel no muestra.
+- **Estado:** Implementado. Ventas cuenta solo las compras pagadas y vigentes, sin las de la reventa oficial: una
+  compra anulada por la cancelación del evento no se liquida. Desde el 24/11 el panel muestra también las ventas
+  por día (`porDia`, DEF-48). En el CI lo prueban `organizador.spec.ts` ("ve las ventas por día y la liquidación de
+  su evento (HU-12)") y `accesibilidad.spec.ts`, en el navegador, y el escenario 24, por la API.
 
 ## CU-10 Validar entrada en puerta
 
@@ -293,7 +311,8 @@ trae el email entero: `Email para <email> (<asunto>): <cuerpo>`.
   queda un renglón en el registro de la puerta, con el código completo, el resultado, quién y cuándo, sin nombre
   ni DNI; la consulta (`GET /api/v1/validacion/escaneos?eventoId=`) devuelve solo el final del código
   (`codigoParcial`).
-- **Estado:** Implementado. `SIN_RESPUESTA` tiene tests, pero no se provocó en el servidor.
+- **Estado:** Implementado. `SIN_RESPUESTA` lo prueba `ServicioDeValidacionTest#siVentasNoRespondeSeRegistraElIntentoYSeAvisaConUn504`,
+  con un doble de Ventas que responde como un servicio que no contesta (`SinRespuesta`).
 
 ## CU-11 Cancelar evento
 
@@ -344,7 +363,7 @@ trae el email entero: `Email para <email> (<asunto>): <cuerpo>`.
   - 2a. Falta un dato, la fecha no es futura, la categoría no existe o un sector trae un `id` que no es de este
     evento: 400 `datos-invalidos`, con el campo.
   - 2b. Un sector con entradas vendidas no se puede quitar, ni bajarle el cupo por debajo de las vendidas, ni
-    cambiarle el precio (el tope de la reventa se calcula sobre lo que pagó cada comprador): 409
+    cambiarle el precio (el rango de la reventa de las entradas vendidas sale del precio de lista del sector): 409
     `sector-con-ventas`.
   - 2c. El evento está cancelado: 409 `evento-cancelado`; ya empezó: 409 `evento-finalizado`.
   - 2d. El pedido trae `If-Match` con el `ETag` del detalle y el evento cambió desde entonces: 412
