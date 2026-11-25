@@ -5,10 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -405,6 +408,53 @@ class ServicioDePagosTest {
         PagoDto sigue = servicio.obtener(cobrado.pagoId());
         assertEquals("APROBADO", sigue.estado());
         assertNull(sigue.montoReembolsado());
+    }
+
+    // ---- Caracteres de control: PostgreSQL no acepta el carácter nulo (U+0000) en un texto ----
+
+    /** La clave con la que el contrato (Schemathesis) obtuvo un 500 en GET /api/v1/pagos: trae el carácter nulo. */
+    private static final String CLAVE_CON_NULO =
+            URLDecoder.decode("%09%F3%9E%AF%82%C2%BC%00%F1%90%9A%81%27", StandardCharsets.UTF_8);
+
+    @Test
+    void buscarConLaClaveDelContratoEsUn400SinConsultarLaBase() {
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.buscarPorClave(CLAVE_CON_NULO));
+
+        assertEquals(Set.of("claveIdempotencia"), error.campos().keySet());
+    }
+
+    @Test
+    void unCobroConUnCaracterDeControlEsUn400SinCobrarNiGuardar() {
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.procesarPago(pedido("V-3f9a1c2b", 60500, "tok_test"), CLAVE_CON_NULO));
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.procesarPago(pedido("V-\u0000", 60500, "tok_test"), CLAVE));
+        assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.procesarPago(new NuevoPagoDto("V-3f9a1c2b", 60500, "tarjeta\u0000", "tok_test"), CLAVE));
+
+        assertEquals(0, pasarela.cobros);
+        assertEquals(0, repositorio.cantidad());
+    }
+
+    @Test
+    void unIdDePagoConElCaracterNuloEsUn404SinConsultarLaBase() {
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.obtener("P-\u0000"));
+        assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> servicio.reembolsar("P-\u0000", new ReembolsoDto("V-3f9a1c2b", "Evento cancelado", null)));
+    }
+
+    @Test
+    void unMotivoConElCaracterNuloEsUn400SinDevolverEnLaPasarela() {
+        PagoDto cobrado = servicio.procesarPago(pedido("V-3f9a1c2b", 60500, "tok_test"), CLAVE);
+
+        // Sin el control, la pasarela devolvía la plata y después fallaba el UPDATE: el pago seguía APROBADO.
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> servicio.reembolsar(cobrado.pagoId(), new ReembolsoDto("V-3f9a1c2b", "Evento\u0000cancelado", null)));
+
+        assertEquals(Set.of("motivo"), error.campos().keySet());
+        assertEquals(0, pasarela.reembolsos);
+        assertEquals("APROBADO", servicio.obtener(cobrado.pagoId()).estado());
     }
 
     private static class PasarelaContada extends PagosFake {
