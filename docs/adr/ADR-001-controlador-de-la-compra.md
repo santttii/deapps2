@@ -9,6 +9,6 @@
 **Consecuencias.**
 - (+) La regla "el Resource no tiene lógica" se cumple: `VentasResource` no tiene reglas de la compra.
 - (+) El orden de los pasos y la regla de una operación a la vez por compra están en un solo lugar y se prueban sin HTTP (`ComprasEnCursoTest`).
-- (−) `ComprasEnCurso` (571 líneas) y `ServicioDeVentas` (701) son las dos clases más grandes del backend: hay riesgo de God Class. Lo que no es parte de la conversación de una compra ya se separó (`UsoDeEntradas` para la puerta, `ReventaDeEntradas` para la reventa, `CancelacionDeEventos` y `AnulacionDeCompras` para la cancelación de un evento) y esa es la regla para lo que se sume.
+- (−) `ComprasEnCurso` (575 líneas) y `ServicioDeVentas` (738) son las dos clases más grandes del backend: hay riesgo de God Class. Lo que no es parte de la conversación de una compra ya se separó (`UsoDeEntradas` para la puerta, `ReventaDeEntradas` para la reventa, `CancelacionDeEventos` y `AnulacionDeCompras` para la cancelación de un evento) y esa es la regla para lo que se sume.
 
 **Alternativas descartadas.** Lógica en el Resource (mezcla HTTP con reglas y no se prueba sin servidor). Que el Resource hable directo con el stateful (el orden de pasos fuera de la transacción quedaría repartido entre recursos).
