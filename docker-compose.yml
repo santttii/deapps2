@@ -34,7 +34,10 @@ services:
       PALCO_DB_URL: jdbc:postgresql://db:5432/palco
       PALCO_DB_USUARIO: palco
       PALCO_DB_PASSWORD: ${PALCO_DB_PASSWORD:-palco-local}
-      PALCO_CORS_ORIGENES: ${PALCO_URL_PUBLICA:-https://localhost},http://localhost:5173
+      # CORS solo para la dirección con la que se abre la app. El servidor de desarrollo de Vite
+      # (http://localhost:5173) no va por defecto: lo usa backend/dev.sh, que tiene su propia configuración. Para
+      # usar npm run dev contra este backend, definir PALCO_CORS_ORIGENES con los dos orígenes, separados por coma.
+      PALCO_CORS_ORIGENES: ${PALCO_CORS_ORIGENES:-${PALCO_URL_PUBLICA:-https://localhost}}
       PALCO_SECRETO_SERVICIOS: ${PALCO_SECRETO_SERVICIOS:-}
       PALCO_JWT_CLAVE_PRIVADA: ${PALCO_JWT_CLAVE_PRIVADA:-}
       # Sin SMTP, los emails quedan en el log del servidor. Por defecto (false) el renglón lleva solo el
