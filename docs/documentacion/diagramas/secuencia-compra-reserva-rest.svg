@@ -78,8 +78,8 @@
 <path d="M500.7116666666667,581.5 L544.1669666666667,581.5 L544.1669666666667,595.5 L536.1669666666667,603.5 L500.7116666666667,603.5 z" fill="#eef2f7" stroke="#9ca3af" stroke-width="1.2"/>
 <text x="507.7" y="597.5" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1f2937" text-anchor="start" font-weight="bold">loop</text>
 <text x="552.2" y="598.5" font-family="Arial, Helvetica, sans-serif" font-size="13.5" fill="#4b5563" text-anchor="start" font-weight="bold" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">[por cada sector pedido]</text>
-<text x="568.8" y="834.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">8. ventas.guardar: venta EN_CHECKOUT con</text>
-<text x="568.8" y="854.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">sus renglones; la reserva vence en 10 minutos</text>
+<text x="568.8" y="834.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">8. guardarDentroDelTope, con el candado del</text>
+<text x="568.8" y="854.5" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#1f2937" text-anchor="start" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">comprador: venta EN_CHECKOUT, vence en 10 min</text>
 <polyline points="524.7916666666666,825.5 558.7916666666666,825.5 558.7916666666666,861.5 528.7916666666666,861.5" fill="none" stroke="#1f2937" stroke-width="1.5" marker-end="url(#lleno)"/>
 <text x="415.7" y="889.5" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#4b5563" text-anchor="middle" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke">la venta</text>
 <line x1="521.8" y1="899.5" x2="309.6" y2="899.5" stroke="#4b5563" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#abierto)"/>
