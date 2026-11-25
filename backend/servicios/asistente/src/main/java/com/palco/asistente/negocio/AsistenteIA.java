@@ -5,7 +5,6 @@ import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
@@ -154,9 +153,9 @@ public class AsistenteIA implements IAsistente {
      */
     String instrucciones(List<EventoALaVenta> eventos) {
         LocalDate hoy = LocalDate.now(reloj);
-        // El fin de semana ya calculado: el modelo se equivoca si tiene que contar los días él solo.
-        LocalDate sabado = hoy.getDayOfWeek() == DayOfWeek.SUNDAY ? hoy.minusDays(1)
-                : hoy.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+        // El fin de semana ya calculado: el modelo se equivoca si tiene que contar los días él solo. Es el de la
+        // semana de lunes a domingo (with(DayOfWeek) se mueve dentro de esa semana): el domingo, el de ayer y hoy.
+        LocalDate sabado = hoy.with(DayOfWeek.SATURDAY);
         StringBuilder texto = new StringBuilder(INSTRUCCIONES).append("\n\nHoy es ").append(hoy.format(DIA))
                 .append(" (hora de Argentina). Este fin de semana es el sábado ").append(sabado.format(DIA_CORTO))
                 .append(" y el domingo ").append(sabado.plusDays(1).format(DIA_CORTO)).append(".\n");
