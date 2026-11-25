@@ -68,6 +68,11 @@ public class ServicioDePagos implements IPagos {
 
     @Override
     public PagoDto procesarPago(NuevoPagoDto pedido, String claveIdempotencia) {
+        // Antes de buscar o de cobrar: los textos que van a la base, sin caracteres de control.
+        sinCaracteresDeControl("claveIdempotencia", "La clave de idempotencia", claveIdempotencia);
+        sinCaracteresDeControl("ventaId", "El id de la venta", pedido.ventaId());
+        sinCaracteresDeControl("medioDePago", "El medio de pago", pedido.medioDePago());
+
         // 1. Si este pedido ya se procesó, vale el pago guardado: no se cobra otra vez.
         Optional<Pago> anterior = pagos.buscarPorClave(claveIdempotencia);
         if (anterior.isPresent()) {
@@ -99,7 +104,7 @@ public class ServicioDePagos implements IPagos {
 
     @Override
     public PagoDto obtener(String pagoId) {
-        return pagos.buscarPorId(pagoId)
+        return buscarPorId(pagoId)
                 .map(ServicioDePagos::aDto)
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe el pago " + pagoId + "."));
     }
@@ -107,6 +112,7 @@ public class ServicioDePagos implements IPagos {
     @Override
     public PagoDto buscarPorClave(String claveIdempotencia) {
         // Solo lee: no cobra ni guarda nada, así que preguntar dos veces da la misma respuesta.
+        sinCaracteresDeControl("claveIdempotencia", "La clave de idempotencia", claveIdempotencia);
         return pagos.buscarPorClave(claveIdempotencia)
                 .map(ServicioDePagos::aDto)
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No hay ningún pago con esa clave de idempotencia."));
@@ -114,7 +120,9 @@ public class ServicioDePagos implements IPagos {
 
     @Override
     public PagoDto reembolsar(String pagoId, ReembolsoDto pedido) {
-        Pago pago = pagos.buscarPorId(pagoId)
+        // Antes de devolver en la pasarela: si el motivo no se pudiera guardar, la plata ya habría salido.
+        sinCaracteresDeControl("motivo", "El motivo", pedido.motivo());
+        Pago pago = buscarPorId(pagoId)
                 .orElseThrow(() -> new ErroresDeNegocio.NoEncontrado("No existe el pago " + pagoId + "."));
         if (!pago.getVentaId().equals(pedido.ventaId())) {
             throw new ErroresDeNegocio.Conflicto(PAGO_NO_REEMBOLSABLE, "El pago " + pagoId + " es de otra venta.");
@@ -173,6 +181,30 @@ public class ServicioDePagos implements IPagos {
                     "Esa clave de idempotencia ya se usó para otra venta o con otro monto.");
         }
         return guardado;
+    }
+
+    /**
+     * Rechaza con un 400 un texto del pedido con un carácter de control (la regla de
+     * {@code Textos.esDeControl}, la misma de Ventas y Validación) antes de usarlo en una consulta o de
+     * guardarlo. Ninguna clave, id ni motivo que mandan Ventas y Reventa lo tiene, y PostgreSQL no acepta el
+     * carácter nulo (U+0000) en un texto: sin este control, la consulta fallaba y el pedido terminaba en un 500.
+     */
+    private static void sinCaracteresDeControl(String campo, String nombre, String texto) {
+        if (texto.codePoints().anyMatch(Textos::esDeControl)) {
+            throw new ErroresDeNegocio.DatosInvalidos(campo, nombre + " no puede tener caracteres de control.");
+        }
+    }
+
+    /**
+     * El pago con ese id. Uno con un carácter de control no lo generó este servicio: no existe, y no se
+     * busca porque PostgreSQL no acepta el carácter nulo en la consulta. Es un 404 y no un 400 porque el
+     * contrato de {@code GET /api/v1/pagos/{pagoId}} no tiene 400: un id que no existe es eso.
+     */
+    private Optional<Pago> buscarPorId(String pagoId) {
+        if (pagoId.codePoints().anyMatch(Textos::esDeControl)) {
+            return Optional.empty();
+        }
+        return pagos.buscarPorId(pagoId);
     }
 
     /** El instante del reloj, en UTC y sin fracción de segundo: no depende de la zona horaria del servidor. */
