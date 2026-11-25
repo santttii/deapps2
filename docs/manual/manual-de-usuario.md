@@ -1,9 +1,9 @@
 # Manual de usuario de Palco
 
-Versión de la Entrega Final, revisada el 24/11/2026 (la primera es la del 3.er check point, 20/11/2026).
+Versión de la Entrega Final, revisada el 25/11/2026 (la primera es la del 3.er check point, 20/11/2026).
 Explica cómo usar Palco paso a paso: ver el catálogo, crear una cuenta y recuperar la contraseña, comprar
-una entrada, verla, revenderla, consultar al asistente, administrar eventos, validar entradas en la puerta
-y cambiar el tema. Las capturas son de la aplicación real, tomadas el 18/11/2026.
+una entrada, verla, revenderla, consultar al asistente, administrar eventos y ver sus ventas, validar
+entradas en la puerta y cambiar el tema. Las capturas son de la aplicación real.
 
 ## Índice
 
@@ -38,7 +38,7 @@ Hay tres tipos de usuario:
 | Usuario | Qué hace | Dónde |
 |---|---|---|
 | Comprador | Compra, ve sus entradas, revende y consulta al asistente | Catálogo, Mis entradas, Reventa, Asistente |
-| Organizador | Crea, edita y cancela eventos, ve ventas y recaudación, asigna el personal de puerta | Organizador |
+| Organizador | Crea, edita y cancela eventos, ve las ventas por día y la liquidación, asigna el personal de puerta | Organizador |
 | Personal de puerta | Valida las entradas en el ingreso | Puerta |
 
 El catálogo y la **Reventa** se ven sin ingresar. Con la sesión iniciada, cualquier tipo de usuario ve
@@ -211,7 +211,7 @@ Dos reglas para que nadie acapare entradas:
 
 Arriba a la derecha se ve el tiempo que queda de la reserva. Se elige el medio de pago:
 
-- **Tarjeta:** número, titular, vencimiento y código de seguridad. En el entorno de prueba sirve
+- **Tarjeta:** número de tarjeta, titular, vencimiento (MM/AA) y CVV. En el entorno de prueba sirve
   cualquier tarjeta; una que termina en `0002` es rechazada y una que termina en `0504` simula que
   la pasarela no responde.
 - **Transferencia** y **Pasarela externa:** en esta versión el cobro es de prueba: se simula sin
@@ -300,6 +300,14 @@ La entrada se emite de nuevo, con otro QR, a nombre del titular, y aparece en **
 publicación propia figura como **Es tu publicación** y no se puede comprar. Para comprar hay que
 haber ingresado con una cuenta de comprador.
 
+Las reglas de la compra (sección 6) valen también en la reventa: hasta 6 entradas por evento para la
+misma cuenta, sumando todas sus compras, y una sola entrada por persona (DNI) y evento. Si la compra no
+las cumple, Palco lo avisa en la ventana con el mismo mensaje que en el checkout (sección 15) y no cobra
+nada. Si justo al mismo tiempo se confirma otra compra de la misma cuenta o con el mismo DNI, y por eso
+la regla deja de cumplirse cuando el pago ya se cobró, la entrada no se emite y Palco devuelve el pago:
+el mensaje termina en **Te devolvimos el pago.** (o en **El pago se va a devolver.**, si la devolución
+se completa un rato después) y la entrada sigue publicada en la reventa.
+
 ![Reventa](img/08-reventa.png)
 
 ## 11. El asistente
@@ -318,23 +326,43 @@ Cosas a tener en cuenta:
   respuesta frecuente) o **Pregunta bloqueada por seguridad**.
 - Si no puede resolver la consulta, sugiere escribir a soporte.
 
-En el entorno de prueba, las respuestas salen de un modelo simulado que conoce las reglas de Palco.
+**Los eventos a la venta.** El asistente recibe la lista de los próximos eventos a la venta del
+catálogo, con su fecha, su lugar y el precio más bajo. Con un modelo de IA real responde preguntas como
+"¿Qué eventos hay este fin de semana?".
+
+**El modelo en el entorno de prueba.** Si no se configura otro, las respuestas salen de un modelo
+simulado que conoce las reglas de Palco pero no usa la lista de eventos: a "¿Qué eventos hay este fin de
+semana?" responde **Solo puedo responder dudas sobre Palco: compras, entradas, reventa y la puerta del
+evento.** Para usar un modelo real compatible con la API de OpenAI, antes de `docker compose up` se
+agregan estas líneas al archivo `.env` de la carpeta del repositorio (el mismo de la sección 2):
+
+```
+PALCO_ASISTENTE_MODELO=openai
+PALCO_ASISTENTE_OPENAI_CLAVE=la-clave-del-proveedor
+```
+
+Por defecto usa `https://api.openai.com/v1` y el modelo `gpt-4o-mini`; otro proveedor u otro modelo se
+eligen con `PALCO_ASISTENTE_OPENAI_URL` y `PALCO_ASISTENTE_OPENAI_MODELO`. Si el sistema ya estaba
+levantado, se vuelve a correr `docker compose up --build` para que tome el cambio. La clave queda en el
+servidor: no se muestra en la pantalla ni en el log.
 
 ![Asistente](img/09-asistente.png)
 
 ## 12. Panel del organizador
 
-Al ingresar como organizador aparece **Organizador**. El panel muestra las entradas vendidas, lo
-recaudado (sin el cargo por servicio), el cupo restante y las entradas en reventa, y la lista de sus
-eventos con fecha, ventas y ocupación.
+Al ingresar como organizador aparece **Organizador**. El panel, con el título **Eventos**, muestra
+arriba cuatro cifras de todos sus eventos: **Entradas vendidas**, **Recaudado (sin cargo de servicio)**,
+**Cupo restante** y **En reventa**. Debajo, en **Mis eventos**, está la lista de sus eventos con la
+fecha, las entradas vendidas y la ocupación.
 
 - **+ Crear evento:** foto, título, categoría, lugar, fecha y hora, descripción y sectores con precio
   y cupo.
-- **Reventa:** las publicaciones activas del evento elegido.
-- **Accesos / staff:** el registro de la puerta y el personal asignado a cada evento.
+- **Detalle por evento:** se elige un evento en la lista que está al lado de ese título y se ven su
+  **Ocupación por sector**, sus **Ventas y liquidación**, su **Reventa oficial**, los **Accesos en
+  puerta** y su **Equipo de puerta**.
 
-En pantallas anchas, el menú de la izquierda (**Eventos**, **Reventa** y **Accesos / staff**) salta a
-cada parte del panel. Un organizador solo ve y modifica sus propios eventos.
+En pantallas anchas, el menú de la izquierda (**Eventos**, **Ventas**, **Reventa** y **Accesos /
+staff**) salta a cada parte del panel. Un organizador solo ve y modifica sus propios eventos.
 
 ![Panel del organizador](img/10-organizador.png)
 
@@ -371,6 +399,26 @@ entradas**, con el aviso de la devolución, y si abre el enlace del evento ve qu
 puede comprar. Las publicaciones de ese evento en la reventa se retiran.
 
 ![Cancelar evento](img/14-cancelar-evento.png)
+
+### Ventas y liquidación
+
+En **Detalle por evento** se elige el evento, y en **Ventas y liquidación** se ven tres cifras:
+
+- **Recaudado de los compradores:** lo que pagaron, con el cargo por servicio.
+- **Cargo de Palco:** el cargo por servicio, que se queda Palco.
+- **A liquidar al organizador:** la diferencia entre las dos, que es el precio de lista de las entradas
+  vendidas.
+
+Debajo dice cuántas compras pagadas y cuántas entradas suman, y la tabla **Ventas por día** tiene una
+fila por día con las **Compras**, las **Entradas**, el **Subtotal**, el **Cargo de Palco** y el
+**Total**, del día más viejo al más nuevo.
+
+- Cuentan solo las compras pagadas. Las compras en la reventa oficial no entran: ese lugar ya se cuenta,
+  y se le liquida al organizador, en la compra original.
+- Cada día es el de la confirmación del pago en hora UTC: lo pagado desde las 21 h de Argentina cuenta en
+  el día siguiente.
+- Sin ventas pagadas, la tabla dice **Todavía no hay ventas pagadas de este evento.** Las compras de un
+  evento cancelado se anulan y no se liquidan.
 
 ### La reventa de un evento
 
@@ -423,7 +471,9 @@ lugares reservados y sin pagar, esos lugares se liberan.
 
 | Lo que aparece | Qué pasó | Qué hacer |
 |---|---|---|
-| "No pudimos cargar los eventos" | El sistema todavía está arrancando o no responde | Esperar a que `docker compose ps` muestre los contenedores `healthy` y tocar **Reintentar** |
+| "No pudimos cargar los eventos", con "No pudimos conectar con el servidor. Probá de nuevo en un momento." | El sistema todavía está arrancando o no responde | Esperar a que `docker compose ps` muestre los contenedores `healthy` y tocar **Reintentar** |
+| "No pudimos conectar con el servidor. Probá de nuevo en un momento.", en cualquier pantalla | El servidor no responde: está arrancando, se cayó o se cortó la red | Esperar a que `docker compose ps` muestre los contenedores `healthy` y repetir lo que se estaba haciendo. Si pasa al pagar, Palco muestra **No sabemos si el pago se acreditó** (ver más abajo) |
+| "No pudimos abrir esta pantalla" | La pantalla no se pudo bajar: se cortó la red o se publicó una versión nueva con la pestaña abierta | Tocar **Recargar la página** |
 | "Revisá el email y la contraseña." | El email o la contraseña no coinciden | Revisarlos; con **mostrar** se ve la contraseña escrita |
 | "Hubo demasiados intentos fallidos. Probá de nuevo en N minutos." | Cinco intentos fallidos seguidos | Esperar los minutos que indica |
 | Aviso de email sin verificar, con el enlace **Verificar mi email** | La cuenta se creó pero falta el código | Tocar el enlace y escribir el código (en el entorno de prueba, en el log: sección 2) |
@@ -433,6 +483,7 @@ lugares reservados y sin pagar, esos lugares se liberan.
 | "Ese DNI ya está asignado a otra entrada de esta compra." | Dos entradas de la misma compra con el mismo DNI | Cada entrada lleva el DNI de una persona distinta |
 | "El DNI … ya tiene una entrada para este evento." | Esa persona ya tiene entrada para el evento, aunque la haya comprado otra cuenta | Poner a otra persona como titular |
 | "Cada persona puede tener hasta 6 entradas por evento… podés comprar N más." | Se pasó el tope sumando las compras anteriores | Pedir como mucho las que indica |
+| "Ya tenés una compra con lugares reservados" | Otra compra de la cuenta sigue sin pagar y con lugares reservados, por ejemplo en otra pestaña | **Retomar esa compra** para pagarla, o **Cancelarla y seguir con esta** |
 | "Venció tu reserva" | Pasaron los 10 minutos sin un pago aprobado | Volver al evento y elegir de nuevo |
 | El pago se rechaza | La pasarela lo rechazó (en prueba, una tarjeta terminada en `0002`) | Probar con otra tarjeta u otro medio: la compra sigue abierta |
 | "No sabemos si el pago se acreditó" | La pasarela no respondió (en prueba, una tarjeta terminada en `0504`) | No pagar con otro medio. **Reintentar pago** o **Ver estado** |
@@ -441,9 +492,11 @@ lugares reservados y sin pagar, esos lugares se liberan.
 | "ARCA rechazó la factura de esta compra y la estamos revisando…" | ARCA no autorizó el comprobante | Nada: lo revisa el equipo de Palco, y las entradas valen igual |
 | "El máximo permitido es $…" o "El mínimo es $…" | El precio de reventa está fuera del rango | Poner un precio entre el mínimo y el tope que muestra la pantalla |
 | "La reventa cierra 3 horas antes del evento." | Faltan menos de 3 horas para el evento | Ya no se puede publicar ni comprar en la reventa de ese evento |
+| En la reventa, el mensaje de una regla de la compra que termina en "Te devolvimos el pago." o "El pago se va a devolver." | Otra compra de la misma cuenta o con el mismo DNI se confirmó al mismo tiempo, y la regla dejó de cumplirse con el pago ya cobrado | Nada: Palco devuelve el pago solo y la entrada sigue en la reventa (sección 10) |
 | "Las compras se hacen con una cuenta de comprador. Ingresaste como …" | Se ingresó como organizador o personal de puerta | Cerrar sesión e ingresar con una cuenta de comprador |
 | "No estás asignado a la puerta de ningún evento…" | El organizador todavía no asignó esa cuenta | Pedirle al organizador que la agregue en **Equipo de puerta**: el evento aparece solo, sin recargar |
 | "Esa cuenta no es de personal de puerta…" | Se intentó asignar a la puerta una cuenta de comprador o de organizador | Asignar una cuenta de personal de puerta |
+| En el panel del organizador, "Sin dato" en las cifras o en la columna Vendidas, con el motivo | No se pudieron traer las ventas de algún evento | Tocar **Reintentar**, al lado del motivo |
 | En la puerta, "Sin respuesta" o "No se pudo validar" | El sistema no respondió a tiempo | Volver a validar el mismo código |
 
 ## 16. Preguntas frecuentes
@@ -459,6 +512,7 @@ lugares reservados y sin pagar, esos lugares se liberan.
 | ¿Qué pasa si se vence la reserva de diez minutos? | Los lugares se liberan y hay que empezar la compra de nuevo. |
 | ¿Qué llevo a la puerta? | El QR de la entrada y el DNI del titular. |
 | ¿Qué pasa si cancelan el evento? | Las entradas se anulan, se devuelve el pago, las publicaciones en la reventa se retiran y se manda un email. |
+| Como organizador, ¿dónde veo cuánto vendí y cuánto me liquidan? | En **Organizador**, en el detalle de cada evento, **Ventas y liquidación**: las ventas por día y lo que se le liquida al organizador (sección 12). |
 
 ## 17. Cambiar el tema: normal, claro u oscuro
 
