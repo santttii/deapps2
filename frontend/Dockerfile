@@ -1,5 +1,5 @@
-# Imagen web: nginx sirve el build del frontend por HTTPS y hace de proxy de /api y /legado
-# hacia el backend. La arma docker-compose.yml (raíz del repo); para desarrollar sigue npm run dev.
+# Imagen web: nginx sirve el build del frontend por HTTPS y hace de proxy de /api hacia el
+# backend. La arma docker-compose.yml (raíz del repo); para desarrollar sigue npm run dev.
 
 # Etapa 1: build de producción. PALCO_URL_PUBLICA es la dirección con la que se abre la app:
 # el frontend llama a la API en ese mismo origen y nginx la pasa al backend.

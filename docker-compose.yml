@@ -3,7 +3,8 @@
 #
 # - db:      PostgreSQL. Las migraciones de cada servicio crean sus esquemas al arrancar.
 # - backend: WildFly con los 9 servicios, el broker JMS (embebido) y el ARCA simulado.
-# - web:     nginx con el frontend, TLS y cabeceras de seguridad; pasa /api y /legado al backend.
+# - web:     nginx con el frontend, TLS y cabeceras de seguridad; pasa /api al backend. El ARCA simulado
+#            (/legado/arca) no se publica: queda en el puerto del backend, solo en esta máquina.
 #
 # Nada de esto es secreto: la base no se publica fuera de la red de compose y el secreto entre
 # servicios y la clave JWT se generan en cada arranque si no se definen. Para cambiar un valor,
