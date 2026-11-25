@@ -1,7 +1,9 @@
 package com.palco.common.rest;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -76,22 +78,44 @@ public final class ManejadoresDeErrores {
         }
     }
 
-    /** Errores de validación de Bean Validation → 400 con el detalle por campo. */
+    /**
+     * Errores de validación de Bean Validation → 400 con el detalle por campo.
+     *
+     * Las violaciones llegan en un conjunto sin orden fijo. Se recorren ordenadas por
+     * campo y, dentro de un campo, por mensaje: así el mismo pedido inválido recibe
+     * siempre el mismo cuerpo, con {@code errores} en orden alfabético (DEF-62). Si un
+     * campo rompe más de una anotación, queda el primer mensaje de ese orden.
+     */
     @Provider
     public static class Validacion extends Manejador implements ExceptionMapper<ConstraintViolationException> {
+
+        private static final Comparator<ConstraintViolation<?>> POR_CAMPO_Y_MENSAJE =
+                Comparator.<ConstraintViolation<?>, String>comparing(Validacion::campo)
+                        .thenComparing(ConstraintViolation::getMessage);
+
         @Override
         public Response toResponse(ConstraintViolationException e) {
+            return respuesta(problema(e.getConstraintViolations(), ruta())).build();
+        }
+
+        /** El problema de esas violaciones. Está aparte de la respuesta para probarlo sin servidor. */
+        static Problema problema(Set<ConstraintViolation<?>> violaciones, String ruta) {
             Map<String, String> campos = new LinkedHashMap<>();
-            for (ConstraintViolation<?> v : e.getConstraintViolations()) {
-                String ruta = v.getPropertyPath().toString();
-                String campo = ruta.substring(ruta.lastIndexOf('.') + 1);
+            for (ConstraintViolation<?> v : violaciones.stream().sorted(POR_CAMPO_Y_MENSAJE).toList()) {
+                String campo = campo(v);
                 // Un parámetro entero nulo (sin cuerpo) llega como "arg0": no es un campo.
                 if (campo.matches("arg\\d+")) {
-                    return responder(400, "datos-invalidos", TITULO_DATOS_INVALIDOS, v.getMessage());
+                    return Problema.de(400, "datos-invalidos", TITULO_DATOS_INVALIDOS, v.getMessage(), ruta);
                 }
-                campos.put(campo, v.getMessage());
+                campos.putIfAbsent(campo, v.getMessage());
             }
-            return responder(400, "datos-invalidos", TITULO_DATOS_INVALIDOS, "Hay datos inválidos.", campos);
+            return Problema.de(400, "datos-invalidos", TITULO_DATOS_INVALIDOS, "Hay datos inválidos.", ruta, campos);
+        }
+
+        /** El último tramo de la ruta: de "registrar.registro.email", "email". */
+        private static String campo(ConstraintViolation<?> v) {
+            String ruta = v.getPropertyPath().toString();
+            return ruta.substring(ruta.lastIndexOf('.') + 1);
         }
     }
 
