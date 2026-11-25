@@ -23,6 +23,17 @@ export function fecha(iso: string): string {
   return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// Un día sin hora (AAAA-MM-DD), como los del resumen de ventas, con el mismo formato que fecha().
+// Se lee en UTC: new Date('2026-11-24') es la medianoche UTC, y en la hora de Argentina caería el 23.
+export function dia(aaaammdd: string): string {
+  return new Date(`${aaaammdd}T00:00:00Z`).toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 // Reloj de 24 horas: sin hourCycle el navegador escribe "09:00 p. m." y quedaba "09:00 p. m.hs".
 export function hora(iso: string): string {
   return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });

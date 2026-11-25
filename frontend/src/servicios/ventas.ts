@@ -165,14 +165,30 @@ export interface LiquidacionDeEvento {
   aLiquidarAlOrganizador: number; // el subtotal, a precio de lista
 }
 
-// GET /api/v1/resumenes?eventoId= (rol organizer). El backend también manda el detalle por día;
-// el panel por ahora usa solo la liquidación. Un evento ajeno responde 404.
-export async function liquidacionDelEvento(eventoId: string): Promise<LiquidacionDeEvento> {
-  const resumen = await pedir<{ liquidacion: LiquidacionDeEvento }>('/api/v1/resumenes', {
+// Las ventas pagadas de un día. El día es el de la confirmación del pago, en UTC.
+export interface DiaDeVentas {
+  fecha: string; // AAAA-MM-DD
+  ventas: number;
+  entradas: number;
+  subtotal: number; // a precio de lista: lo que se le liquida al organizador
+  cargoServicio: number; // lo que se queda Palco
+  total: number; // lo que pagaron los compradores
+}
+
+export interface ResumenDeVentas {
+  porDia: DiaDeVentas[]; // del día más viejo al más nuevo; vacío si no hay ventas pagadas
+  liquidacion: LiquidacionDeEvento;
+}
+
+// GET /api/v1/resumenes?eventoId= (rol organizer): las ventas por día y la liquidación. Las compras
+// en la reventa oficial no entran: ese lugar se liquida en la compra original. Un evento ajeno
+// responde 404.
+export async function resumenDelEvento(eventoId: string): Promise<ResumenDeVentas> {
+  const resumen = await pedir<ResumenDeVentas>('/api/v1/resumenes', {
     consulta: { eventoId },
     conSesion: true,
   });
-  return resumen.liquidacion;
+  return { porDia: resumen.porDia, liquidacion: resumen.liquidacion };
 }
 
 // Simula el SDK de la pasarela de pagos, que en un sistema real convierte los datos de la tarjeta

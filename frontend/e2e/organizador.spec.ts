@@ -1,7 +1,53 @@
+import type { Page } from '@playwright/test';
 import { CUENTAS, FOTO_PNG, expect, fechaDentroDe, ingresar, sufijo, test } from './apoyo';
 
-// El panel del organizador: crear un evento con foto, editarlo y cancelarlo, todo desde la pantalla.
-// Lo que guardó el servidor se comprueba por la API, y el efecto en el catálogo, en el navegador.
+// El panel del organizador: crear un evento con foto, editarlo y cancelarlo, todo desde la pantalla, y
+// ver las ventas por día y la liquidación de un evento. Lo que guardó el servidor se comprueba por la API,
+// y el efecto en el catálogo, en el navegador.
+
+/** Elige el evento en "Detalle por evento" y devuelve su sección de ventas. */
+async function ventasDelEvento(page: Page, eventoId: string) {
+  await page.getByRole('combobox', { name: 'Evento', exact: true }).selectOption(eventoId);
+  return page.getByRole('region', { name: 'Ventas y liquidación' });
+}
+
+test('organizador: ve las ventas por día y la liquidación de su evento (HU-12)', async ({ page, api }) => {
+  const evento = await api.crearEvento('E2E ventas por día');
+  await ingresar(page, CUENTAS.organizador);
+  await page.goto('/organizador');
+
+  // Sin ventas pagadas: la tabla lo dice y la liquidación está en cero.
+  let ventas = await ventasDelEvento(page, evento.id);
+  const cifra = (etiqueta: string) => ventas.locator('dl > div').filter({ hasText: etiqueta }).locator('dd');
+  const tabla = () => ventas.getByRole('region', { name: 'Ventas por día' });
+  await expect(tabla().getByText('Todavía no hay ventas pagadas de este evento.')).toBeVisible();
+  await expect(cifra('Recaudado de los compradores')).toHaveText('$0');
+  await expect(cifra('A liquidar al organizador')).toHaveText('$0');
+
+  // Una compra pagada de una entrada de Campo ($20.000 más el 10 % de cargo de servicio).
+  const cuenta = await api.cuentaNueva();
+  await api.comprar(cuenta, evento, evento.sectores[0].id);
+  // Ventas agrupa por el día de la confirmación del pago en UTC, el que se muestra en la fila.
+  const [anio, , diaDelMes] = new Date().toISOString().slice(0, 10).split('-');
+
+  await page.reload();
+  ventas = await ventasDelEvento(page, evento.id);
+  await expect(cifra('Recaudado de los compradores')).toHaveText('$22.000');
+  await expect(cifra('Cargo de Palco')).toHaveText('$2.000');
+  await expect(cifra('A liquidar al organizador')).toHaveText('$20.000');
+  await expect(ventas.getByText('1 compra pagada · 1 entrada')).toBeVisible();
+
+  const filas = tabla().getByRole('row').filter({ has: page.getByRole('cell') });
+  await expect(filas).toHaveCount(1);
+  await expect(filas.first().getByRole('cell')).toHaveText([
+    new RegExp(`^${diaDelMes}\\b.*${anio}$`),
+    '1',
+    '1',
+    '$20.000',
+    '$2.000',
+    '$22.000',
+  ]);
+});
 
 test('organizador: crea un evento con foto, lo edita y lo cancela', async ({ page, api }) => {
   const titulo = `E2E organizador ${sufijo()}`;

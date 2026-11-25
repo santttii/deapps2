@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { useApp } from '../store/AppContext';
+import { useApp } from '../store/useApp';
 import { mensajeDeError } from '../lib/api';
-import { fecha as formatearFecha, fechaHora, money } from '../lib/format';
+import { dia, fecha as formatearFecha, fechaHora, money } from '../lib/format';
 import { useReventas } from '../lib/useReventas';
 import { obtenerPerfil } from '../servicios/usuarios';
 import { listarMisEventos } from '../servicios/eventos';
-import { liquidacionDelEvento, type LiquidacionDeEvento } from '../servicios/ventas';
+import { resumenDelEvento, type ResumenDeVentas } from '../servicios/ventas';
 import {
   asignarPuerta,
   equipoDePuerta,
@@ -22,12 +22,13 @@ import Input from '../components/Input';
 import PageTransition from '../components/PageTransition';
 import CreateEventModal from '../components/CreateEventModal';
 import CancelarEventoModal from '../components/CancelarEventoModal';
-import { useToast } from '../components/ToastProvider';
+import { useToast } from '../components/useToast';
 
-// Cada ítem lleva a su sección de esta misma página. Reventa y Accesos existen solo cuando hay
-// un evento elegido.
+// Cada ítem lleva a su sección de esta misma página. Ventas, Reventa y Accesos existen solo cuando
+// hay un evento elegido.
 const SECCIONES = [
   { id: 'mis-eventos', nombre: 'Eventos', necesitaEvento: false },
+  { id: 'ventas', nombre: 'Ventas', necesitaEvento: true },
   { id: 'reventa', nombre: 'Reventa', necesitaEvento: true },
   { id: 'accesos', nombre: 'Accesos / staff', necesitaEvento: true },
 ];
@@ -82,14 +83,82 @@ function RegionDesplazable({ etiqueta, children }: { etiqueta: string; children:
   );
 }
 
+// Las ventas por día y la liquidación de un evento (HU-12), tal como las resume Ventas. El panel no
+// recalcula nada: los montos son los del servidor, que es el que aplica la tasa de servicio.
+function VentasDelEvento({ resumen, cancelado }: { resumen: ResumenDeVentas; cancelado: boolean }) {
+  const { liquidacion, porDia } = resumen;
+  const cifras = [
+    { etiqueta: 'Recaudado de los compradores', valor: liquidacion.recaudadoDeLosCompradores },
+    { etiqueta: 'Cargo de Palco', valor: liquidacion.cargoDePalco },
+    { etiqueta: 'A liquidar al organizador', valor: liquidacion.aLiquidarAlOrganizador },
+  ];
+  return (
+    <>
+      <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {cifras.map((c) => (
+          <div key={c.etiqueta} className="flex flex-col justify-between border border-wire p-4">
+            <dt className="font-mono-label text-[10px] text-muted">{c.etiqueta}</dt>
+            <dd className="mt-1 text-xl font-semibold text-ink">{money(c.valor)}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 text-xs text-muted">
+        {numero(liquidacion.ventas)} {liquidacion.ventas === 1 ? 'compra pagada' : 'compras pagadas'} ·{' '}
+        {numero(liquidacion.entradas)} {liquidacion.entradas === 1 ? 'entrada' : 'entradas'}
+      </p>
+      <RegionDesplazable etiqueta="Ventas por día">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead className="bg-fill">
+            <tr>
+              <th className="font-mono-label whitespace-nowrap px-4 py-3 text-left text-[10px] text-muted">Día</th>
+              {['Compras', 'Entradas', 'Subtotal', 'Cargo de Palco', 'Total'].map((h) => (
+                <th key={h} className="font-mono-label whitespace-nowrap px-4 py-3 text-right text-[10px] text-muted">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {porDia.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-3 text-muted">
+                  {cancelado
+                    ? 'No quedan ventas pagadas: las compras de un evento cancelado se anulan y no se liquidan.'
+                    : 'Todavía no hay ventas pagadas de este evento.'}
+                </td>
+              </tr>
+            )}
+            {porDia.map((d) => (
+              <tr key={d.fecha} className="border-t border-wire">
+                <td className="whitespace-nowrap px-4 py-3">{dia(d.fecha)}</td>
+                <td className="px-4 py-3 text-right">{numero(d.ventas)}</td>
+                <td className="px-4 py-3 text-right">{numero(d.entradas)}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-right">{money(d.subtotal)}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-right">{money(d.cargoServicio)}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-right">{money(d.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </RegionDesplazable>
+      <p className="mt-2 text-xs text-muted">
+        Solo compras pagadas; las de la reventa oficial no entran, porque ese lugar se liquida en su compra
+        original. Cada día es el de la confirmación del pago en hora UTC: lo pagado desde las 21 h de Argentina
+        cuenta en el día siguiente. Subtotal: el precio de lista de las entradas, lo que se le liquida al
+        organizador. Total: lo que pagaron los compradores, con el cargo de Palco.
+      </p>
+    </>
+  );
+}
+
 // Panel del organizador. Todo lo que muestra sale del backend y es solo de sus eventos:
-// - lo vendido y lo recaudado, de Ventas (GET /api/v1/resumenes): solo compras pagadas, sin las
-//   de la reventa oficial;
+// - lo vendido y lo recaudado, y de cada evento las ventas por día y la liquidación, de Ventas
+//   (GET /api/v1/resumenes): solo compras pagadas, sin las de la reventa oficial;
 // - el cupo y la ocupación por sector, de Eventos (GET /api/eventos/mios). Eventos cuenta como
 //   ocupado también lo reservado por una compra en curso, por eso se rotula ocupación y no venta;
 // - las publicaciones activas de Reventa;
 // - el registro de la puerta y el equipo de puerta, de Validación.
-// Lo que todavía no tiene pantalla (ventas por día, facturación) no se muestra en vez de
+// Lo que todavía no tiene pantalla para el organizador (la facturación) no se muestra en vez de
 // mostrarse con datos fijos.
 export default function OrganizerPage() {
   const { state, dispatch } = useApp();
@@ -102,8 +171,8 @@ export default function OrganizerPage() {
   const [vueltasAccesos, setVueltasAccesos] = useState(0);
   const [misEventos, setMisEventos] = useState<MisEventos>({ fase: 'cargando' });
   const [vueltasEventos, setVueltasEventos] = useState(0);
-  // Lo cobrado de cada evento, por id. Un evento que todavía no está acá se muestra como cargando.
-  const [liquidaciones, setLiquidaciones] = useState<Record<string, LiquidacionDeEvento>>({});
+  // El resumen de ventas de cada evento, por id. Un evento que todavía no está acá se muestra como cargando.
+  const [resumenes, setResumenes] = useState<Record<string, ResumenDeVentas>>({});
   const [errorVentas, setErrorVentas] = useState('');
   const [vueltasVentas, setVueltasVentas] = useState(0);
   const [equipo, setEquipo] = useState<Equipo>({ fase: 'cargando' });
@@ -134,15 +203,15 @@ export default function OrganizerPage() {
     if (idsDeEventos === null) return;
     const ids = idsDeEventos ? idsDeEventos.split(',') : [];
     let vigente = true;
-    Promise.allSettled(ids.map((id) => liquidacionDelEvento(id)))
+    Promise.allSettled(ids.map((id) => resumenDelEvento(id)))
       .then((resultados) => {
         if (!vigente) return;
-        const porEvento: Record<string, LiquidacionDeEvento> = {};
+        const porEvento: Record<string, ResumenDeVentas> = {};
         resultados.forEach((r, i) => {
           if (r.status === 'fulfilled') porEvento[ids[i]] = r.value;
         });
         const fallo = resultados.find((r) => r.status === 'rejected');
-        setLiquidaciones(porEvento);
+        setResumenes(porEvento);
         setErrorVentas(fallo ? mensajeDeError(fallo.reason) : '');
       })
       // allSettled no rechaza; esto atrapa una falla al armar los totales, que se informa igual que la
@@ -223,7 +292,7 @@ export default function OrganizerPage() {
   }
 
   function reintentarVentas() {
-    setLiquidaciones({});
+    setResumenes({});
     setErrorVentas('');
     setVueltasVentas((n) => n + 1);
   }
@@ -234,7 +303,7 @@ export default function OrganizerPage() {
     // eventos. Las compras se anulan en Ventas por mensajería, en los segundos siguientes.
     dispatch({ type: 'EVENTO_RECIBIDO', payload: cancelado });
     // Lo vendido es lo que tenía Ventas antes de cancelar, el mismo dato que mostró el modal.
-    const vendidasAlCancelar = liquidaciones[cancelado.id]?.entradas;
+    const vendidasAlCancelar = resumenes[cancelado.id]?.liquidacion.entradas;
     mostrarToast(
       vendidasAlCancelar === 0
         ? 'Evento cancelado. No tenía entradas vendidas: no hay pagos para devolver.'
@@ -254,8 +323,8 @@ export default function OrganizerPage() {
   }
 
   const eventosListos = misEventos.fase === 'lista';
-  const ventasCompletas = eventosListos && !errorVentas && eventos.every((e) => e.id in liquidaciones);
-  const delPanel = eventos.map((e) => liquidaciones[e.id]).filter((l) => l !== undefined);
+  const ventasCompletas = eventosListos && !errorVentas && eventos.every((e) => e.id in resumenes);
+  const delPanel = eventos.map((e) => resumenes[e.id]?.liquidacion).filter((l) => l !== undefined);
   const vendidas = ventasCompletas ? delPanel.reduce((acc, l) => acc + l.entradas, 0) : null;
   const recaudado = ventasCompletas ? delPanel.reduce((acc, l) => acc + l.aLiquidarAlOrganizador, 0) : null;
   // Un evento cancelado ya no vende, así que su cupo no está disponible. Además, al anularse sus
@@ -274,7 +343,8 @@ export default function OrganizerPage() {
   const ocupadasEvento = ocupadas(sectoresEvento);
   const cupoEvento = cupoTotal(sectoresEvento);
   const porcentajeEvento = cupoEvento > 0 ? Math.round((ocupadasEvento / cupoEvento) * 100) : 0;
-  const vendidasEvento = eventoId ? liquidaciones[eventoId]?.entradas : undefined;
+  const resumenEvento = eventoId ? resumenes[eventoId] : undefined;
+  const vendidasEvento = resumenEvento?.liquidacion.entradas;
 
   const escaneos = accesos.fase === 'lista' ? accesos.escaneos : [];
   const registroCortado = escaneos.length >= TOPE_DEL_REGISTRO;
@@ -288,8 +358,8 @@ export default function OrganizerPage() {
 
   // Lo que se muestra en la columna Vendidas de un evento mientras Ventas no lo resumió.
   function vendidasDeLaFila(id: string): string {
-    const liquidacion = liquidaciones[id];
-    if (liquidacion) return numero(liquidacion.entradas);
+    const resumen = resumenes[id];
+    if (resumen) return numero(resumen.liquidacion.entradas);
     return errorVentas ? 'Sin dato' : '…';
   }
 
@@ -467,6 +537,26 @@ export default function OrganizerPage() {
                   {numero(ocupadasEvento)} / {numero(cupoEvento)} · {porcentajeEvento}%
                 </p>
               </div>
+
+              <section id="ventas" aria-labelledby="titulo-ventas" className={ANCLA}>
+                <h3 id="titulo-ventas" className="mt-8 text-sm font-semibold text-ink">
+                  Ventas y liquidación
+                </h3>
+                {resumenEvento ? (
+                  <VentasDelEvento resumen={resumenEvento} cancelado={!!evento.cancelado} />
+                ) : errorVentas ? (
+                  <p role="alert" className="mt-3 text-sm text-muted">
+                    {errorVentas}{' '}
+                    <button type="button" className="text-accent underline" onClick={reintentarVentas}>
+                      Reintentar
+                    </button>
+                  </p>
+                ) : (
+                  <p role="status" className="mt-3 text-sm text-muted">
+                    Cargando las ventas…
+                  </p>
+                )}
+              </section>
 
               <h3 id="reventa" className={`mt-8 text-sm font-semibold text-ink ${ANCLA}`}>
                 Reventa oficial
@@ -662,7 +752,7 @@ export default function OrganizerPage() {
       )}
       <CancelarEventoModal
         evento={aCancelar}
-        vendidas={aCancelar ? (liquidaciones[aCancelar.id]?.entradas ?? null) : null}
+        vendidas={aCancelar ? (resumenes[aCancelar.id]?.liquidacion.entradas ?? null) : null}
         onCerrar={() => setACancelar(null)}
         onCancelado={eventoCancelado}
       />

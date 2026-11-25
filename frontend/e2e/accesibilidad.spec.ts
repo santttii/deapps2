@@ -11,8 +11,8 @@ import { CUENTAS, expect, ingresar, test } from './apoyo';
 // moderate) no hacen fallar la prueba, pero quedan en el adjunto "axe" (JSON) de cada recorrido.
 //
 // Las pantallas son las del flujo principal y las de cada rol: catálogo, detalle del evento, ingresar, registro,
-// reventa, checkout (titulares y pago), confirmación, mis entradas, asistente, panel del organizador con el alta de
-// un evento y validación en puerta. Las pantallas con sesión se recorren con la cuenta de su rol, que ingresa una
+// reventa, checkout (titulares y pago), confirmación, mis entradas, asistente, panel del organizador con las ventas
+// por día y el alta de un evento, y validación en puerta. Las pantallas con sesión se recorren con la cuenta de su rol, que ingresa una
 // sola vez por prueba. Cada prueba arma lo que su pantalla necesita para no verse vacía: un evento propio, una
 // entrada emitida, una compra en curso, una puerta asignada.
 //
@@ -247,7 +247,11 @@ test('responsive y accesibilidad del comprador: confirmación, mis entradas y as
   ]);
 });
 
-test('responsive y accesibilidad del organizador: panel de eventos y alta de un evento', async ({ page }) => {
+test('responsive y accesibilidad del organizador: panel de eventos, ventas por día y alta de un evento', async ({ page, api }) => {
+  // Un evento propio con una compra pagada, para que las ventas por día tengan una fila.
+  const evento = await api.crearEvento('E2E accesibilidad');
+  const cuenta = await api.cuentaNueva();
+  await api.comprar(cuenta, evento, evento.sectores[0].id);
   await ingresar(page, CUENTAS.organizador);
   const panelListo = async (p: Page) => {
     await expect(p.getByRole('heading', { level: 1, name: 'Eventos' })).toBeVisible();
@@ -256,6 +260,16 @@ test('responsive y accesibilidad del organizador: panel de eventos y alta de un 
 
   await revisar(page, [
     { nombre: 'organizador', ruta: '/organizador', preparar: panelListo },
+    {
+      nombre: 'organizador, ventas por día',
+      ruta: '/organizador',
+      preparar: async (p) => {
+        await panelListo(p);
+        await p.getByRole('combobox', { name: 'Evento', exact: true }).selectOption(evento.id);
+        const tabla = p.getByRole('region', { name: 'Ventas por día' });
+        await expect(tabla.getByRole('cell', { name: '$22.000', exact: true })).toBeVisible();
+      },
+    },
     {
       nombre: 'organizador, alta de evento',
       ruta: '/organizador',
