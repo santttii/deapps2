@@ -16,6 +16,11 @@ const MENSAJE_SIN_SESION = 'Tenés que iniciar sesión.';
 // login cuando hubo demasiados intentos fallidos.
 const ESTADOS_CON_MENSAJE_PROPIO = [401, 402, 403, 404, 409, 422, 429, 504];
 
+// Estados en los que la API no está atendiendo: 502 y 503 los responde nginx cuando no llega al
+// backend (caído o arrancando), y WildFly mientras despliega un servicio. Para quien usa Palco es lo
+// mismo que un corte de red, así que se muestra el mismo mensaje, venga o no un cuerpo legible.
+const ESTADOS_SIN_CONEXION = [502, 503];
+
 export class ErrorApi extends Error {
   estado: number; // código HTTP; 0 = no hubo una respuesta válida de la API
   campos: Record<string, string>; // errores por campo del formulario; {} si no aplica
@@ -121,6 +126,7 @@ function errorDeRespuesta(estado: number, cuerpo: CuerpoDeError | null): ErrorAp
   const campos = cuerpo?.errores ?? cuerpo?.campos ?? {};
   const tieneCampos = Object.keys(campos).length > 0;
   const tipo = cuerpo?.type?.split('/').pop() ?? '';
+  if (ESTADOS_SIN_CONEXION.includes(estado)) return new ErrorApi(estado, MENSAJE_SIN_CONEXION, {}, tipo);
   if (mensaje && (ESTADOS_CON_MENSAJE_PROPIO.includes(estado) || (estado === 400 && tieneCampos))) {
     return new ErrorApi(estado, mensaje, campos, tipo);
   }

@@ -1,3 +1,4 @@
+import type { Route } from '@playwright/test';
 import { expect, menu, sufijo, test } from './apoyo';
 
 // Catálogo y detalle de un evento, y cómo se ven los errores del servidor. El evento lo crea la
@@ -41,26 +42,63 @@ test('catálogo: busca un evento, lo filtra por categoría y abre su detalle con
   await expect(continuar).toBeEnabled();
 });
 
-test('si el servidor no responde, el catálogo muestra el error con "Reintentar" y después se recupera', async ({ page }) => {
-  // La caída se simula solo en este navegador: el servidor es compartido y no se lo toca.
+// Las formas en que llega un servidor caído: el 502 que arma nginx cuando no llega al backend (el cuerpo es el de
+// frontend/docker/nginx.conf), un 503 que no es de la API (WildFly mientras despliega) y un corte de red. Las tres
+// se muestran con el mismo mensaje de que no hay conexión.
+const CAIDAS: { nombre: string; responder: (ruta: Route) => Promise<void> }[] = [
+  {
+    nombre: '502 de nginx',
+    responder: (ruta) =>
+      ruta.fulfill({
+        status: 502,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({
+          type: '/problemas/servidor-no-disponible',
+          title: 'Servidor no disponible',
+          status: 502,
+          detail: 'No pudimos conectar con el servidor. Probá de nuevo en un momento.',
+        }),
+      }),
+  },
+  {
+    nombre: '503 sin cuerpo de la API',
+    responder: (ruta) => ruta.fulfill({ status: 503, contentType: 'text/html', body: '<html><body>Service Unavailable</body></html>' }),
+  },
+  { nombre: 'corte de red', responder: (ruta) => ruta.abort('connectionrefused') },
+];
+
+for (const caida of CAIDAS) {
+  test(`si el servidor no responde (${caida.nombre}), el catálogo dice que no hay conexión y después se recupera`, async ({ page }) => {
+    // La caída se simula solo en este navegador: el servidor es compartido y no se lo toca.
+    await page.route('**/api/eventos**', caida.responder);
+    await page.goto('/');
+
+    await expect(page.getByText('No pudimos cargar los eventos')).toBeVisible();
+    await expect(page.getByText('No pudimos conectar con el servidor. Probá de nuevo en un momento.')).toBeVisible();
+    // No es una pantalla en blanco: el encabezado sigue ahí y se puede navegar.
+    await expect(menu(page).getByRole('link', { name: 'Reventa' })).toBeVisible();
+
+    await page.unroute('**/api/eventos**');
+    await page.getByRole('button', { name: 'Reintentar' }).click();
+    await expect(page.getByRole('heading', { name: 'Próximos eventos' })).toBeVisible();
+    await expect(page.getByText('No pudimos cargar los eventos')).toHaveCount(0);
+  });
+}
+
+test('un error del servidor que no es una caída sigue diciendo que fue un error inesperado', async ({ page }) => {
   await page.route('**/api/eventos**', (ruta) =>
     ruta.fulfill({
-      status: 503,
+      status: 500,
       contentType: 'application/problem+json',
-      body: JSON.stringify({ type: '/problemas/no-disponible', title: 'No disponible', status: 503, detail: 'Eventos no responde.' }),
+      body: JSON.stringify({ type: '/problemas/error-interno', title: 'Error interno', status: 500, detail: 'NullPointerException' }),
     }),
   );
   await page.goto('/');
 
   await expect(page.getByText('No pudimos cargar los eventos')).toBeVisible();
+  // El detalle de un 500 es técnico: no se muestra.
   await expect(page.getByText('Ocurrió un error inesperado. Probá de nuevo en un momento.')).toBeVisible();
-  // No es una pantalla en blanco: el encabezado sigue ahí y se puede navegar.
-  await expect(menu(page).getByRole('link', { name: 'Reventa' })).toBeVisible();
-
-  await page.unroute('**/api/eventos**');
-  await page.getByRole('button', { name: 'Reintentar' }).click();
-  await expect(page.getByRole('heading', { name: 'Próximos eventos' })).toBeVisible();
-  await expect(page.getByText('No pudimos cargar los eventos')).toHaveCount(0);
+  await expect(page.getByText('NullPointerException')).toHaveCount(0);
 });
 
 test('un evento que no existe: el 404 del servidor se muestra como aviso, no como pantalla en blanco', async ({ page }) => {
