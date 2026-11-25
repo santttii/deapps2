@@ -5,6 +5,19 @@ compra (`PAGO_CONFIRMADO` y `REVENTA_CONFIRMADA`) está en
 [`mensajeria-pago-confirmado.md`](mensajeria-pago-confirmado.md) y no cambia: los dos procesos usan destinos
 distintos y no comparten consumidores.
 
+**Estado al 25/11/2026.** Los dos mensajes, sus clases y el publicador están en `backend/common`, con tests, y los
+cuatro consumidores funcionan. Evidencia:
+
+- El escenario 22 de `scripts/pruebas/escenarios.mjs`: cancela un evento con una compra emitida, una entrada
+  publicada en la reventa y otra ya revendida, y comprueba que se anulan las dos compras, que cada pago se devuelve
+  a quien corresponde, que la reventa se retira y que salen los avisos. Lo corre el job "Integración" de
+  `.github/workflows/ci.yml` en cada push (en verde sobre `12a08f2`, el 25/11); la salida del 20/11, 24 de 24
+  comprobaciones, está en `docs/testing/evidencia/final/cancelacion-con-reventa.txt`.
+- En el navegador, `frontend/e2e/organizador.spec.ts` cancela un evento desde el panel del organizador.
+- Los tests de cada consumidor: `CancelacionDeEventosTest` y `CancelacionConReventaEnH2Test` (Ventas),
+  `ReintentoDeReembolsosTest` (Ventas), `RetiroPorCancelacionTest` (Reventa), y `AvisoDeCancelacionMDBTest` y
+  `AuditoriaDeCancelacionesMDBTest` (Notificaciones).
+
 ## Cuándo se publica
 
 Son dos hechos distintos, y por eso dos mensajes:
@@ -48,8 +61,8 @@ Se publica siempre con la fábrica de conexiones transaccional, `java:/JmsXA`.
 `EVENTO_CANCELADO` lo consumen Ventas y Reventa, cada uno con su suscripción durable. Para sumar a Reventa no
 hubo que tocar Eventos, que publica sin saber quién escucha. La auditoría anota las anulaciones y no la cancelación: su fila
 necesita venta, comprador y monto, y `EVENTO_CANCELADO` no los trae; el rastro de una cancelación es el conjunto
-de filas de sus compras. `DestinosJms.SELECTOR_CANCELACIONES` (los dos tipos) está definido, pero hoy ningún
-consumidor lo usa.
+de filas de sus compras. `DestinosJms.SELECTOR_CANCELACIONES` (los dos tipos) está definido y ningún
+consumidor lo usa: cada uno recibe solo el tipo que le toca.
 
 ## Clases
 
@@ -65,8 +78,9 @@ En el módulo `common`, paquete `com.palco.common.mensajeria`:
 | `PublicadorDeCancelacionesJms` | Su implementación: un Session Bean `@Stateless` con transacción `MANDATORY` |
 
 Los consumidores están en el paquete `mensajeria` de cada servicio y delegan en su capa de negocio, como un
-recurso REST: Ventas (`CancelacionDeEventoMDB` → `negocio/CancelacionDeEventos`) y Notificaciones
-(`AvisoDeCancelacionMDB` → `INotificaciones`, `AuditoriaDeCancelacionesMDB` → `IAuditoria`).
+recurso REST: Ventas (`CancelacionDeEventoMDB` → `negocio/CancelacionDeEventos`), Reventa
+(`CancelacionDeEventoMDB` → `negocio/RetiroPorCancelacion`) y Notificaciones (`AvisoDeCancelacionMDB` →
+`INotificaciones`, `AuditoriaDeCancelacionesMDB` → `IAuditoria`).
 
 ## Formato
 
@@ -79,7 +93,7 @@ recurso REST: Ventas (`CancelacionDeEventoMDB` → `negocio/CancelacionDeEventos
 
 | Propiedad    | Valor              | Lo publica | Selector de quien lo recibe |
 | ------------ | ------------------ | ---------- | --------------------------- |
-| `tipoEvento` | `EVENTO_CANCELADO` | Eventos    | `tipoEvento = 'EVENTO_CANCELADO'` (`DestinosJms.SELECTOR_EVENTO_CANCELADO`): Ventas |
+| `tipoEvento` | `EVENTO_CANCELADO` | Eventos    | `tipoEvento = 'EVENTO_CANCELADO'` (`DestinosJms.SELECTOR_EVENTO_CANCELADO`): Ventas y Reventa |
 | `tipoEvento` | `COMPRA_ANULADA`   | Ventas     | `tipoEvento = 'COMPRA_ANULADA'` (`DestinosJms.SELECTOR_COMPRA_ANULADA`): aviso y auditoría |
 
 El selector de Ventas es lo que evita que se escuche a sí misma: los `COMPRA_ANULADA` que publica van al mismo
@@ -169,8 +183,9 @@ El publicador llama a `validar()` antes de mandar: un mensaje incompleto no lleg
   pero anula cada compra en la suya (`REQUIRES_NEW` en `AnulacionDeCompras.anular`, un bean aparte para que la
   llamada pase por el contenedor: llamado sobre `this`, el atributo no se aplica): la venta pasa a
   `CANCELADA`, sus entradas `PENDIENTE_EMISION`, `VALIDA` y `PUBLICADA` pasan a `ANULADA` y se publica su
-  `COMPRA_ANULADA`, todo junto. Un fallo en la última compra no deshace las anteriores. Las entradas `USADA` y
-  `VENDIDA` no se tocan: con una ya entró alguien y la otra es de otro comprador, que tiene la suya.
+  `COMPRA_ANULADA`, todo junto. Un fallo en la última compra no deshace las anteriores
+  (`CancelacionDeEventosTest#siFallaUnaCompraElErrorLlegaAlMdbYLaReentregaRetomaSoloLasQueFaltan`). Las entradas
+  `USADA` y `VENDIDA` no se tocan: con una ya entró alguien y la otra es de otro comprador, que tiene la suya.
 - **El reembolso no bloquea la anulación.** Va antes de publicar, porque el aviso dice si el dinero volvió. Si Pagos
   no responde, la compra se anula igual, el mensaje sale con `reembolsado` en false y queda una advertencia en el
   log con el `pagoId`; el email le dice al comprador que la devolución está en trámite. El reembolso es una
@@ -185,7 +200,8 @@ El publicador llama a `validar()` antes de mandar: un mensaje incompleto no lleg
   reembolso en el segundo 45 de cada minuto hasta que Pagos conteste: si lo devolvió, saca la marca y lo deja en el
   log (no sale otro mensaje: el comprador ya tiene el aviso de devolución en trámite); si contesta que ese pago no
   se puede devolver, saca la marca y deja un `SEVERE` para revisarlo a mano. Reintentar es seguro por lo mismo de
-  arriba: Pagos devuelve un pago una sola vez.
+  arriba: Pagos devuelve un pago una sola vez. Lo prueban `CancelacionDeEventosTest` y `ReintentoDeReembolsosTest`
+  (CA-11.4).
 - **Idempotencia.**
   - Eventos: cancelar un evento ya cancelado responde 409 `evento-cancelado`, así que no sale un segundo
     `EVENTO_CANCELADO`.

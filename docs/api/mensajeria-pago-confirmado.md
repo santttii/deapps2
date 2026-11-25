@@ -1,19 +1,29 @@
 # Contrato de mensajería: `PAGO_CONFIRMADO`
 
 Documenta el mensaje que publica `ServicioDeVentas` cuando se aprueba un pago,
-según el taller de escenario de mensajería. Cubre el pendiente de la Fase 6 del
-[`TODO.md`](../../TODO.md): *Documentar el contrato en `docs/`*.
+según el taller de escenario de mensajería.
 
 **Actualización del 23/10/2026:** se sumó el evento `REVENTA_CONFIRMADA` (ver más abajo).
 
-**Estado al 14/10/2026.** El mensaje, su validación, las constantes con los
+**Actualización del 24/11/2026:** el titular de cada entrada viaja sin su DNI y la auditoría ya no lo guarda
+(DEF-37, ver [Datos personales](#datos-personales)).
+
+**Estado al 25/11/2026.** El mensaje, su validación, las constantes con los
 nombres y el publicador están en `backend/common`, con tests. Ventas publica el
-mensaje en cada pago aprobado y los tres consumidores funcionan:
-`EmisionDeEntradasMDB` (cola, en Ventas) y `AvisoDeCompraMDB` y
-`AuditoriaDeComprasMDB` (tópico, en Notificaciones). La garantía transaccional
-de más abajo está probada para la transacción que se deshace (el mensaje no
-sale); la caída del servidor entre el commit de la base y el del broker no se
-probó. Evidencia: `docs/entrega3/evidencia/`.
+mensaje en cada pago aprobado y los cuatro consumidores funcionan:
+`EmisionDeEntradasMDB` (cola, en Ventas), `AvisoDeCompraMDB` y
+`AuditoriaDeComprasMDB` (tópico, en Notificaciones) y `FacturacionDeComprasMDB`
+(tópico, en Facturación). Cada garantía de más abajo dice con qué se prueba. Una
+caída del servidor entre el commit de la base y el del broker es el caso que la
+base como último recurso no cubre: está explicado en "Garantías".
+
+Evidencia: los escenarios 7 a 15 y 17 de `scripts/pruebas/escenarios.mjs`, que
+corre el job "Integración" de `.github/workflows/ci.yml` en cada push (en verde
+sobre `12a08f2`, el 25/11); su salida del 19/11, todos en verde, en
+`docs/testing/evidencia/checkpoint-3/escenarios.txt`; la evidencia de la Entrega
+Parcial N.º 2 en `docs/entrega3/evidencia/`, y el broker apagado y el contenedor
+recreado con un mensaje pendiente en `docs/testing/evidencia/checkpoint-3/broker-apagado.txt`
+(10 de 10) y `broker-recreado.txt` (16 de 16).
 
 ## Cuándo se publica
 
@@ -32,7 +42,7 @@ ServicioDeVentas ──► cola.emision-entradas ──► EmisionDeEntradasMDB 
 | `cola.emision-entradas`    | Cola   | `java:/jms/queue/emisionEntradas`  | Emisión de entradas (MDB), uno solo por mensaje | Emitir las entradas exactamente una vez     |
 | `topico.compra-confirmada` | Tópico | `java:/jms/topic/compraConfirmada` | Aviso al comprador (no durable), Auditoría (durable), Facturación (durable) | Que todos los interesados se enteren del hecho |
 
-Los dos destinos ya están creados en `backend/servidor/src/main/wildfly/configurar.cli`.
+Los dos destinos están creados en `backend/servidor/src/main/wildfly/configurar.cli`.
 
 ### Segundo tipo de evento: `REVENTA_CONFIRMADA` (desde el 23/10/2026)
 
@@ -149,21 +159,40 @@ llega al broker.
 - **No es un commit en dos fases.** El broker participa como recurso XA. La base
   no es XA y participa como último recurso.
 - **Si hay una excepción o falla el commit de la base**, no queda ni venta
-  confirmada ni mensaje.
+  confirmada ni mensaje. Lo prueban el escenario 13 (una transacción que se
+  deshace después de publicar: ningún mensaje en la cola, el tópico ni la DLQ)
+  y el 14 (Ventas falla después del cobro: la venta sigue `EN_CHECKOUT`, no sale
+  ningún mensaje y la conciliación la termina con ese mismo pago).
 - **Si el servidor se cae entre el commit de la base y el del broker**, queda
   una venta `CONFIRMADA` con entradas `PENDIENTE_EMISION` y sin mensaje. Es un
-  estado visible; el reenvío queda para más adelante, con la conciliación de
-  pagos. Este caso no se probó.
+  estado visible y es el costo de tener la base como último recurso en lugar de
+  un datasource XA: la consigna pide transacciones declarativas, no un commit en
+  dos fases, y la conciliación de pagos solo toma ventas `EN_CHECKOUT`. Una tabla
+  de salida (*outbox*) lo cerraría (ADR-004 y sección 7.12 del documento único).
 - **La transacción cubre solo ese paso.** Reservar el cupo es una llamada REST
   a Eventos que confirma en el acto, y el cobro es externo: ninguno de los dos
   se deshace con un rollback.
+- **Un mensaje por pago**: un mensaje a la cola y una copia por suscripción del
+  tópico, con el `tipoEvento` y el cuerpo de este contrato (escenario 7); el
+  aviso y la auditoría reciben cada uno la suya (escenario 9).
 - **Emisión idempotente**: si el broker reentrega el mensaje, las entradas no se
-  emiten dos veces.
+  emiten dos veces (escenario 8 y `EmisionEnH2Test`).
+- **Consumidor detenido**: con la emisión detenida, el mensaje espera en la cola
+  y la entrada se emite al volver (escenario 10, el del taller).
 - **Reintentos y DLQ**: un mensaje que falla se entrega hasta 5 veces, con 2
-  segundos entre una y otra, y después pasa a la cola de mensajes fallidos (`DLQ`).
+  segundos entre una y otra, y después pasa a la cola de mensajes fallidos (`DLQ`)
+  sin trabar a los demás (escenario 12).
 - **Auditoría durable**: si el suscriptor de auditoría está detenido, al volver
-  recibe los mensajes pendientes. El aviso al comprador es no durable: se acepta
-  perder un aviso.
+  recibe los mensajes pendientes (escenario 11). El aviso al comprador es no
+  durable: se acepta perder un aviso.
+- **Entrega persistente**: un mensaje pendiente sobrevive a apagar el broker,
+  que es apagar el servidor (`scripts/pruebas/broker-apagado.mjs`, que también
+  corre en el job "Integración"), y en el compose también a recrear el
+  contenedor, porque el journal va en el volumen `datos-servidor` (ADR-005).
+- **Facturación una sola vez**: la compra se factura por el tópico, con una sola
+  factura por venta aunque el mensaje llegue dos veces (escenario 15 y
+  `FacturacionDeComprasMDBTest#elMismoMensajeEntregadoDosVecesNoFacturaDosVeces`).
+  `REVENTA_CONFIRMADA` llega a los tres suscriptores (escenario 17).
 
 ## Datos personales
 
@@ -184,7 +213,7 @@ el aviso lo usa. `REVENTA_CONFIRMADA` tiene el mismo cuerpo, así que vale lo mi
 - **Mensajes publicados antes.** Hasta el 23/11 el mensaje traía `entradas[].titular.dni`. Si queda alguno en la
   cola, en una suscripción durable o en la DLQ, los cuatro consumidores lo procesan igual: el campo se ignora como
   cualquier otro que el contrato no define, y su valor ya no se controla. Al revés no anda (un consumidor anterior
-  al cambio rechazaría un mensaje sin DNI), pero no hace falta: los 8 WAR salen del mismo build y se despliegan
+  al cambio rechazaría un mensaje sin DNI), pero no hace falta: todos los WAR salen del mismo build y se despliegan
   juntos.
 - **Auditoría.** `ServicioDeAuditoria` guarda el cuerpo tal como llegó, menos el `dni` de cada titular: un mensaje
   publicado antes queda guardado igual que uno nuevo. Las filas que ya estaban las limpia, al desplegar, la
