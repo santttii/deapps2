@@ -9,10 +9,14 @@ package com.palco.common;
  */
 public final class ReglasDeNegocio {
 
-    /** Una entrada se revende como máximo a lo pagado + 10%. */
+    /**
+     * Una entrada se revende como máximo al precio de lista de su sector + 10%.
+     * Es el precio de lista y no lo que pagó quien la vende: si fuera lo pagado,
+     * cada reventa de la misma entrada subiría el tope otro 10% (DEF-16).
+     */
     public static final int TOPE_REVENTA_PORCENTAJE = 10;
 
-    /** Una entrada se revende como mínimo al 50% de lo pagado. */
+    /** Una entrada se revende como mínimo al 50% del precio de lista de su sector. */
     public static final int MINIMO_REVENTA_PORCENTAJE = 50;
 
     /** Cargo de servicio sobre el subtotal del checkout. */
@@ -39,14 +43,14 @@ public final class ReglasDeNegocio {
     private ReglasDeNegocio() {
     }
 
-    /** Precio máximo de reventa, redondeado hacia abajo. */
-    public static long topeReventa(long precioPagado) {
-        return Math.floorDiv(precioPagado * (100 + TOPE_REVENTA_PORCENTAJE), 100);
+    /** Precio máximo de reventa, redondeado hacia abajo, a partir del precio de lista del sector. */
+    public static long topeReventa(long precioDeLista) {
+        return Math.floorDiv(precioDeLista * (100 + TOPE_REVENTA_PORCENTAJE), 100);
     }
 
-    /** Precio mínimo de reventa, redondeado hacia arriba. */
-    public static long minimoReventa(long precioPagado) {
-        return Math.ceilDiv(precioPagado * MINIMO_REVENTA_PORCENTAJE, 100);
+    /** Precio mínimo de reventa, redondeado hacia arriba, a partir del precio de lista del sector. */
+    public static long minimoReventa(long precioDeLista) {
+        return Math.ceilDiv(precioDeLista * MINIMO_REVENTA_PORCENTAJE, 100);
     }
 
     /** Cargo de servicio sobre un subtotal, redondeado al peso más cercano. */
