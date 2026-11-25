@@ -41,6 +41,23 @@ class ContrasenasTest {
         assertFalse(Contrasenas.verificar("palco12345", viejo));
     }
 
+    /** DEF-44: el login vuelve a calcular solo los hashes nuestros con menos de 600.000 iteraciones. */
+    @Test
+    void tieneMenosIteracionesSoloUnHashConMenosDe600Mil() {
+        String viejo = "pbkdf2-sha256$310000$FpGLULULLzHBk0RIDgfaWQ==$sgFFg9euagg7EzRgMuR9tu4KCEmXJIRT8l//mZkMA/Q=";
+        assertTrue(Contrasenas.tieneMenosIteraciones(viejo));
+        assertTrue(Contrasenas.tieneMenosIteraciones("pbkdf2-sha256$599999$c2Fs$aGFzaA=="));
+
+        assertFalse(Contrasenas.tieneMenosIteraciones(Contrasenas.hashear("palco1234")));
+        assertFalse(Contrasenas.tieneMenosIteraciones("pbkdf2-sha256$600000$c2Fs$aGFzaA=="));
+        assertFalse(Contrasenas.tieneMenosIteraciones(Contrasenas.INUTILIZABLE),
+                "la cuenta de prueba desactivada no se toca");
+        assertFalse(Contrasenas.tieneMenosIteraciones("texto-cualquiera"));
+        assertFalse(Contrasenas.tieneMenosIteraciones("pbkdf2-sha256$abc$c2Fs$aGFzaA=="));
+        assertFalse(Contrasenas.tieneMenosIteraciones("otro-algoritmo$1000$c2Fs$aGFzaA=="));
+        assertFalse(Contrasenas.tieneMenosIteraciones(null));
+    }
+
     @Test
     void elHashInutilizableTieneLasIteracionesDeSiempreYNoVerificaConNinguna() {
         assertTrue(Contrasenas.INUTILIZABLE.startsWith("pbkdf2-sha256$" + Contrasenas.ITERACIONES + "$"),

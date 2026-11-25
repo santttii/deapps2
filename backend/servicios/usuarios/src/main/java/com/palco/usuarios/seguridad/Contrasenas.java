@@ -15,7 +15,10 @@ import javax.crypto.spec.PBEKeySpec;
  *
  * Las iteraciones van en el hash guardado: subirlas solo cambia los hashes
  * nuevos, y uno viejo (por ejemplo, los de las cuentas de prueba de V2 y V3,
- * con 310.000) se sigue verificando con las suyas.
+ * con 310.000) se sigue verificando con las suyas. Cuando la cuenta inicia
+ * sesión con la contraseña correcta, {@code ServicioDeUsuarios} pregunta
+ * {@link #tieneMenosIteraciones} y, si es así, guarda un hash nuevo con
+ * {@link #ITERACIONES}: es el único momento en que se tiene la contraseña.
  */
 public final class Contrasenas {
 
@@ -53,11 +56,8 @@ public final class Contrasenas {
 
     /** Compara en tiempo constante. Devuelve false si el hash guardado no tiene el formato esperado. */
     public static boolean verificar(String contrasena, String guardado) {
-        if (contrasena == null || guardado == null) {
-            return false;
-        }
-        String[] partes = guardado.split("\\$");
-        if (partes.length != 4 || !PREFIJO.equals(partes[0])) {
+        String[] partes = partes(guardado);
+        if (contrasena == null || partes.length == 0) {
             return false;
         }
         try {
@@ -68,6 +68,28 @@ public final class Contrasenas {
         } catch (IllegalArgumentException e) {
             return false;
         }
+    }
+
+    /**
+     * Si el hash guardado se calculó con menos iteraciones que {@link #ITERACIONES}, como los de
+     * antes del 16/10 (310.000). Un hash que no tiene el formato esperado no se toca: da false.
+     */
+    public static boolean tieneMenosIteraciones(String guardado) {
+        String[] partes = partes(guardado);
+        try {
+            return partes.length > 0 && Integer.parseInt(partes[1]) < ITERACIONES;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /** Las cuatro partes del hash guardado, o ninguna si no tiene el formato esperado. */
+    private static String[] partes(String guardado) {
+        if (guardado == null) {
+            return new String[0];
+        }
+        String[] partes = guardado.split("\\$");
+        return partes.length == 4 && PREFIJO.equals(partes[0]) ? partes : new String[0];
     }
 
     private static byte[] pbkdf2(String contrasena, byte[] sal, int iteraciones) {

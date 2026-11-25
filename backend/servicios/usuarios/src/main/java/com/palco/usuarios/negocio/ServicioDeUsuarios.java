@@ -255,6 +255,12 @@ public class ServicioDeUsuarios implements IUsuarios {
         if (!usuario.get().isEmailVerificado()) {
             throw new ErroresDeNegocio.Conflicto("Verificá tu email antes de iniciar sesión.");
         }
+        // Un hash guardado con menos iteraciones que las de ahora (310.000, de antes del 16/10) se vuelve a
+        // calcular con la contraseña que acaba de verificarse. La cuenta sigue administrada: el cambio se guarda
+        // al confirmar la transacción, como en reiniciarPassword (DEF-44).
+        if (Contrasenas.tieneMenosIteraciones(hash)) {
+            usuario.get().cambiarPassword(Contrasenas.hashear(login.password()));
+        }
         return sesion(usuario.get());
     }
 
