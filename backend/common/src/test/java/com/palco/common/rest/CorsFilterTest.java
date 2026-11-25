@@ -3,6 +3,8 @@ package com.palco.common.rest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -24,6 +26,21 @@ class CorsFilterTest {
         assertTrue(h.get("Access-Control-Allow-Headers").contains("If-Match"));
         assertTrue(h.get("Access-Control-Expose-Headers").contains("ETag"));
         assertEquals("Origin", h.get("Vary"));
+    }
+
+    /**
+     * DEF-14: el navegador solo le deja leer al frontend las cabeceras de la lista. Sin Retry-After, después de un 429
+     * por demasiados ingresos la pantalla no puede decir cuánto esperar; sin Location, no sabe el id de lo que creó.
+     */
+    @Test
+    void elFrontendPuedeLeerRetryAfterYLocation() {
+        Map<String, String> h = CorsFilter.cabecerasPara("http://localhost:5173", PERMITIDOS);
+
+        List<String> expuestas = Arrays.stream(h.get("Access-Control-Expose-Headers").split(","))
+                .map(String::strip)
+                .toList();
+        assertTrue(expuestas.contains("Retry-After"), expuestas::toString);
+        assertTrue(expuestas.contains("Location"), expuestas::toString);
     }
 
     @Test
