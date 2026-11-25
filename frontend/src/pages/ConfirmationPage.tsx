@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useApp } from '../store/AppContext';
+import { useApp } from '../store/useApp';
 import { ErrorApi } from '../lib/api';
 import { fecha, formatearDNI, money } from '../lib/format';
 import { obtenerOrden } from '../servicios/ventas';

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
-import { useApp } from '../store/AppContext';
-import { useToast } from './ToastProvider';
+import { useApp } from '../store/useApp';
+import { useToast } from './useToast';
 import { ErrorApi, mensajeDeError } from '../lib/api';
 import { crearEvento, editarEvento, FOTO_MAXIMO_BYTES, subirImagen, TIPOS_DE_FOTO } from '../servicios/eventos';
 import { imagenPorCategoria } from '../data/events';

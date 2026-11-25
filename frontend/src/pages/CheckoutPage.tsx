@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useApp } from '../store/AppContext';
+import { useApp } from '../store/useApp';
 import type { Carrito } from '../store/actions';
 import { ErrorApi, mensajeDeError } from '../lib/api';
 import { calcularServicio, formatearVencimiento, hora, money } from '../lib/format';

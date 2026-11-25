@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { useToast } from '../components/ToastProvider';
+import { useToast } from '../components/useToast';
 import { ErrorApi, mensajeDeError } from '../lib/api';
 import { pedirCodigoDeReinicio, reiniciarPassword } from '../servicios/usuarios';
 import { esEmailValido, esPasswordFuerte, esRutaInterna, fuerzaPassword } from '../lib/validate';

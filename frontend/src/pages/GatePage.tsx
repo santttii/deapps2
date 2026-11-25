@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useApp } from '../store/AppContext';
+import { useApp } from '../store/useApp';
 import { ErrorApi, mensajeDeError } from '../lib/api';
 import { fechaHora, formatearDNI } from '../lib/format';
 import { listarEventos } from '../servicios/eventos';

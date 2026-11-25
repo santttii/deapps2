@@ -13,7 +13,7 @@
     if (guardado === 'normal' || guardado === 'claro' || guardado === 'oscuro') {
       document.documentElement.setAttribute('data-tema', guardado);
     }
-  } catch (e) {
+  } catch {
     // Con el almacenamiento bloqueado queda el tema normal, como en src/lib/tema.ts.
   }
 })();

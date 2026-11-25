@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useApp } from '../store/AppContext';
+import { useApp } from '../store/useApp';
 import type { Rol } from '../types';
 import { ButtonLink } from './Button';
 

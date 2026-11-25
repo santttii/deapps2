@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { useSesion } from '../store/SesionContext';
-import { useToast } from '../components/ToastProvider';
+import { useSesion } from '../store/useSesion';
+import { useToast } from '../components/useToast';
 import { ErrorApi, mensajeDeError } from '../lib/api';
 import { reenviarCodigo, registrar } from '../servicios/usuarios';
 import {

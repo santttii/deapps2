@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useApp } from '../store/AppContext';
-import { useToast } from '../components/ToastProvider';
+import { useApp } from '../store/useApp';
+import { useToast } from '../components/useToast';
 import { calcularMinimoReventa, calcularTope, fecha, fechaHora, formatearDNI, money } from '../lib/format';
 import { mensajeDeError } from '../lib/api';
 import { listarCompras } from '../servicios/ventas';

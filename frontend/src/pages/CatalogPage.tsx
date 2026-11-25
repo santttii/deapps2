@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useApp } from '../store/AppContext';
+import { useApp } from '../store/useApp';
 import { mensajeDeError } from '../lib/api';
 import { money, precioDesde } from '../lib/format';
 import { useDebouncedValue } from '../lib/useDebouncedValue';

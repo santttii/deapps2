@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useApp } from '../store/AppContext';
+import { useApp } from '../store/useApp';
 import { ErrorApi, mensajeDeError } from '../lib/api';
 import { calcularServicio, fechaHora, money, nombreDelRol } from '../lib/format';
 import { obtenerEvento } from '../servicios/eventos';
@@ -9,7 +9,7 @@ import { MAX_ENTRADAS_POR_ORDEN, TASA_SERVICIO } from '../types';
 import { useAnimatedNumber } from '../lib/useAnimatedNumber';
 import { useReventas } from '../lib/useReventas';
 import { AVISO_REVENTA_CERRADA, reventaCerrada } from '../servicios/reventa';
-import { useToast } from '../components/ToastProvider';
+import { useToast } from '../components/useToast';
 import CompraReventaModal from '../components/CompraReventaModal';
 import type { Evento, Publicacion } from '../types';
 import ImagePlaceholder from '../components/ImagePlaceholder';

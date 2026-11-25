@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { useSesion } from '../store/SesionContext';
+import { useSesion } from '../store/useSesion';
 import { ErrorApi, mensajeDeError } from '../lib/api';
 import { esEmailValido, esPasswordValida, esRutaInterna } from '../lib/validate';
 import Input from '../components/Input';

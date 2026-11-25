@@ -1,18 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
-import type { Action, Carrito } from './actions';
-import type { Evento, Usuario } from '../types';
+import { useCallback, useEffect, useMemo, useReducer, type ReactNode } from 'react';
+import type { Action } from './actions';
 import { mensajeDeError } from '../lib/api';
 import { listarEventos } from '../servicios/eventos';
-import { useSesion } from './SesionContext';
-
-export interface AppState {
-  // Copia del catálogo completo del servidor (GET /api/eventos). No se guarda en el navegador.
-  eventos: Evento[];
-  catalogo: { estado: 'cargando' | 'listo' | 'error'; error: string };
-  // Lo único que vive en este navegador: la compra en curso. Entradas, publicaciones de reventa y
-  // escaneos se piden al backend cada vez, así no hay una copia local que se desactualice.
-  carrito: Carrito | null;
-}
+import { AppContext, type AppState } from './useApp';
+import { useSesion } from './useSesion';
 
 type DatosLocales = Pick<AppState, 'carrito'>;
 
@@ -61,15 +52,6 @@ function reducer(state: AppState, action: Action): AppState {
   }
 }
 
-interface AppContextValue {
-  state: AppState;
-  dispatch: React.Dispatch<Action>;
-  usuarioActual: Usuario | null;
-  recargarCatalogo: () => void;
-}
-
-const AppContext = createContext<AppContextValue | null>(null);
-
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, cargarEstado);
   // El usuario sale de la sesión real (SesionContext), no de este estado.
@@ -108,10 +90,4 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-}
-
-export function useApp(): AppContextValue {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error('useApp debe usarse dentro de AppProvider');
-  return ctx;
 }

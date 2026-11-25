@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useApp } from '../store/AppContext';
+import { useApp } from '../store/useApp';
 import Skeleton from './Skeleton';
 import StatusMessage from './StatusMessage';
 

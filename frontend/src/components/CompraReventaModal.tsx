@@ -5,12 +5,12 @@ import { calcularServicio, money, nombreDelRol } from '../lib/format';
 import { esDNIValido, esNombreValido, esNumeroTarjetaValido, formatearNumeroTarjeta, soloDigitosDNI } from '../lib/validate';
 import { comprarReventa } from '../servicios/reventa';
 import { nuevaClave, tokenDePrueba } from '../servicios/ventas';
-import { useApp } from '../store/AppContext';
+import { useApp } from '../store/useApp';
 import type { Asistente, Evento, MedioPago, Publicacion } from '../types';
 import Button from './Button';
 import Input from './Input';
 import Modal from './Modal';
-import { useToast } from './ToastProvider';
+import { useToast } from './useToast';
 
 interface Props {
   publicacion: Publicacion | null; // null: cerrado

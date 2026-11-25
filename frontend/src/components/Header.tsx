@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useApp } from '../store/AppContext';
-import { useSesion } from '../store/SesionContext';
+import { useApp } from '../store/useApp';
+import { useSesion } from '../store/useSesion';
 import { soltarReserva } from '../servicios/ventas';
 import SelectorDeTema from './SelectorDeTema';
 

@@ -1,16 +1,11 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
+import { ToastContext } from './useToast';
 
 interface ToastItem {
   id: number;
   mensaje: string;
 }
-
-interface ToastContextValue {
-  mostrarToast: (mensaje: string) => void;
-}
-
-const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -44,10 +39,4 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       </div>
     </ToastContext.Provider>
   );
-}
-
-export function useToast(): ToastContextValue {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast debe usarse dentro de ToastProvider');
-  return ctx;
 }

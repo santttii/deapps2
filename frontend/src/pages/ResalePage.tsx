@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useApp } from '../store/AppContext';
-import { useToast } from '../components/ToastProvider';
+import { useApp } from '../store/useApp';
+import { useToast } from '../components/useToast';
 import { money, nombreDelRol } from '../lib/format';
 import { useReventas } from '../lib/useReventas';
 import { AVISO_REVENTA_CERRADA, reventaCerrada } from '../servicios/reventa';
