@@ -38,7 +38,7 @@ Los nombres de los requests dicen el resultado esperado: el código entre parén
 
 ## 4. Cuentas de prueba
 
-Las crea el backend al arrancar (migraciones `V2__usuarios_de_prueba.sql` y `V3__segundo_comprador_de_prueba.sql` de Usuarios). La contraseña de todas es `palco1234`.
+Las crea el backend al arrancar (migraciones `V2__usuarios_de_prueba.sql`, `V3__segundo_comprador_de_prueba.sql` y `V6__segundo_organizador_y_segundo_staff.sql` de Usuarios). La contraseña de todas es `palco1234`.
 
 | Rol | Cuenta | Para qué se usa | Variable donde queda el token |
 |---|---|---|---|
@@ -193,7 +193,7 @@ Resultado de la última comprobación, la del encabezado, con los mismos paráme
 
 En esa corrida Newman contó 219 requests porque suma los cinco intentos de login que SEC-W04 manda antes de enviarse; la colección tiene 214. Ni la emisión, ni la factura ni la anulación tardaron más de un segundo, así que ninguna espera se repitió. Por carpeta: Usuarios 18 requests y 53 tests; Eventos 18 y 49; Ventas 32 y 145; Seguridad 15 y 46; Validación en puerta 27 y 85; Reventa 46 y 127; Facturación 11 y 31; Operaciones del 30/10 42 y 126; Asistente 5 y 20. (El reporte JSON de Newman repite los 5 tests de SEC-W04 en cada uno de sus cinco intentos previos: si se suman sus renglones, Seguridad da 71.) Después, como en el CI, el reenvío y la verificación de "Pasos manuales" con el código del log: 1 request y 1 aserción, y 1 request y 2 aserciones, sin fallas.
 
-En la corrida del 19/11/2026, contra WildFly en `http://localhost:8080`, la colección tenía 166 requests (171 para Newman) y dio 541 aserciones, sin fallas. En la del 16/10/2026 había 69 requests de la colección (74 para Newman) y 252 tests, con 6 fallados en la carpeta 4, por cambios que todavía no estaban desplegados o decididos (sección 13).
+En la corrida del 19/11/2026, contra WildFly en `http://localhost:8080`, la colección tenía 166 requests (171 para Newman) y dio 541 aserciones, sin fallas. En la del 16/10/2026 había 69 requests de la colección (74 para Newman) y 252 tests, con 6 fallados en la carpeta 4, por cambios que en ese momento no estaban desplegados o decididos (sección 13).
 
 Contra un servidor desplegado antes de agregar `otro.titular@palco.test` (comprobado el 14/10/2026) fallan exactamente los tres requests que usan esa cuenta: su login responde 401 y los dos que siguen reciben 401 en lugar de 404 y 200. Son 9 tests fallados y un script cortado, con 201 tests ejecutados. Se arregla redesplegando Usuarios, que corre la migración nueva. Si la emisión tarda más de un segundo, el request que la espera se repite y el total de requests sube; el de tests no cambia.
 
@@ -205,7 +205,7 @@ Después de la corrida, el job hace los dos primeros "Pasos manuales", el reenv�
 
 ### Qué deja cada corrida en el servidor
 
-La base es en memoria: todo esto desaparece al reiniciar WildFly.
+Con `./dev.sh` la base es H2 en memoria: todo esto desaparece al reiniciar WildFly. Con el compose queda en el volumen `datos` de PostgreSQL hasta `docker compose down -v`.
 
 - Una cuenta sin verificar, `postman-…@palco.test`.
 - Tres eventos en el catálogo, de `organizador@palco.test` y con fecha 31/12/2027 para que queden últimos: "Evento de prueba Postman" (carpeta 2), "Evento de prueba Postman para comprar" (carpeta 3) y "Evento de prueba Postman para revender" (carpeta 6). No hay operación para borrar eventos. Ningún evento de la demo vende entradas.
@@ -219,7 +219,7 @@ La base es en memoria: todo esto desaparece al reiniciar WildFly.
 - Una segunda cuenta sin verificar, `olvide-…@palco.test`, sin código para reiniciar la contraseña.
 - Dos líneas en el log del asistente, una por cada pregunta con sesión, con la pregunta enmascarada.
 
-Fuera de la carpeta 6, la segunda cuenta compradora solo lee. La carpeta 4 tampoco deja datos: SEC-W02 no crea el evento (responde 403) y los login fallidos usan emails que no existen, salvo SEC-W03b, que falla una vez con `otro.titular@palco.test`. Cuando esté el límite de intentos de login, esos fallidos van a contar en él (sección 13).
+Fuera de la carpeta 6, la segunda cuenta compradora solo lee. La carpeta 4 tampoco deja datos: SEC-W02 no crea el evento (responde 403) y los login fallidos usan emails que no existen, salvo SEC-W03b, que falla una vez con `otro.titular@palco.test`. Ese fallido cuenta en el límite de intentos de login (sección 13), y el login correcto que sigue lo borra.
 
 ### Si algo falla y no es un error de la API
 
@@ -272,7 +272,7 @@ Cada operación de `docs/api/openapi.yaml` tiene al menos un request de éxito y
 
 Dos operaciones se prueban de otra manera. `GET /usuarios/jwks` es pública y de solo lectura y no tiene un error propio, así que su caso de error es el método equivocado sobre la misma ruta (`POST /jwks`, 405 `about:blank`). Y el caso que sale bien de la verificación del email y del reinicio de la contraseña necesita el código del log, así que está en "Pasos manuales" (sección 8); sus errores sí están en la corrida. Lo mismo el reenvío del código, que pide esperar 30 segundos desde el registro.
 
-Contadas por método y ruta contra los pedidos de la comprobación del 24/11 (la corrida y los dos pasos manuales que corre el CI, el reenvío y la verificación), 50 de las 52 operaciones de `openapi.yaml` tienen al menos un pedido de éxito (2xx) y uno de error (4xx). Las dos que faltan son las del párrafo anterior: el reinicio de la contraseña, cuyo éxito está en los pasos manuales que el CI no corre, y `GET /usuarios/jwks`, cuyo error es el 405 de `POST /usuarios/jwks`, que no es una operación del contrato. En la corrida sola son 48: el éxito del reenvío y el de la verificación están en los pasos manuales.
+Contadas por método y ruta contra los pedidos de la comprobación del 24/11 (la corrida y los dos pasos manuales que corre el CI, el reenvío y la verificación), 50 de las 52 operaciones de `openapi.yaml` tienen al menos un pedido de éxito (2xx) y uno de error (4xx). Las otras dos son las del párrafo anterior: el reinicio de la contraseña, cuyo éxito está en los pasos manuales que el CI no corre, y `GET /usuarios/jwks`, cuyo error es el 405 de `POST /usuarios/jwks`, que no es una operación del contrato. En la corrida sola son 48: el éxito del reenvío y el de la verificación están en los pasos manuales.
 
 Las operaciones de desarrollo de Notificaciones (`/api/notificaciones/pruebas/*` y `auditoria`) no son parte del contrato y no están en la colección. La falla después del cobro y su conciliación se prueban en `scripts/pruebas/escenarios.mjs` (escenario 14), porque necesitan jboss-cli; la subida de la foto a Supabase Storage y el aviso por email al comprador de un evento cancelado, con el sistema configurado para eso (la colección prueba el almacén del backend local, que guarda la foto en la base, y no consulta la auditoría de Notificaciones).
 
@@ -339,7 +339,7 @@ Si se cambia algo desde la ventana de Postman, hay que pasarlo al generador: la 
 
 ## 13. Seguridad (carpeta 4)
 
-Comprueba desde afuera los criterios de la matriz de seguridad de la clase 11 (`actividad_integradora_clase11/`). Cada request lleva en el nombre el id del criterio. Usa dos cuentas compradoras verificadas de las migraciones de Usuarios: **A** es `titular@palco.test` y **B**, `otro.titular@palco.test`. No registra cuentas ni crea compras: toma una compra emitida de A, como la que deja la carpeta 3. Para correrla sola (`--folder "4 Seguridad (clase 11)"`), A tiene que tener al menos una compra con entradas.
+Comprueba desde afuera los criterios de la matriz de seguridad de la clase 11 (`docs/clases/clase-11-actividad-seguridad/`). Cada request lleva en el nombre el id del criterio. Usa dos cuentas compradoras verificadas de las migraciones de Usuarios: **A** es `titular@palco.test` y **B**, `otro.titular@palco.test`. No registra cuentas ni crea compras: toma una compra emitida de A, como la que deja la carpeta 3. Para correrla sola (`--folder "4 Seguridad (clase 11)"`), A tiene que tener al menos una compra con entradas.
 
 | Request | Cuenta | Qué prueba | Estado al 16/10/2026 |
 |---|---|---|---|
@@ -373,7 +373,7 @@ Prueba por la API, contra el servidor, las operaciones que se sumaron para el 30
 | Subir la foto (`POST /api/eventos/imagenes`) y pedirla (`GET /api/eventos/imagenes/{id}`) | Sin `PALCO_IMAGENES` ni Supabase, Eventos la guarda en su base: 200 con solo `imagenUrl`, relativa (`/api/eventos/imagenes/<uuid>.webp`, con la extensión del `Content-Type`). Esa URL responde sin token: 200, `image/webp`, lo mismo que se subió y `Cache-Control: public, max-age=31536000, immutable`. Un texto declarado como PNG: 400 `datos-invalidos` con `errores.imagen`. Un SVG: 415 | Pasa |
 | Olvidé mi contraseña (`POST /api/usuarios/password/olvide` y `/reinicio`) | 204 sin cuerpo para una cuenta que existe y para un email que no: la misma respuesta. El reinicio con un código incorrecto: 400 con `errores.codigo` "El código no es correcto.", y el login con la contraseña de siempre muestra que no cambió | Pasa |
 
-**Lo ajeno responde 404, no 403.** Para otro organizador, el evento de `organizador@palco.test` no existe: editarlo, cancelarlo o pedir su resumen responde 404 `no-encontrado`, igual que un id que no existe, así no se puede saber qué eventos hay. Es el criterio de SEC-W01 con las compras, y el que documenta `openapi.yaml` para la edición y la cancelación (el resumen todavía no está en ese archivo). El 403 `sin-permiso` es del rol equivocado: los mismos pedidos con el token de un comprador.
+**Lo ajeno responde 404, no 403.** Para otro organizador, el evento de `organizador@palco.test` no existe: editarlo, cancelarlo o pedir su resumen responde 404 `no-encontrado`, igual que un id que no existe, así no se puede saber qué eventos hay. Es el criterio de SEC-W01 con las compras, y el que documenta `openapi.yaml` para la edición, la cancelación y el resumen. El 403 `sin-permiso` es del rol equivocado: los mismos pedidos con el token de un comprador.
 
 **La compra en un evento cancelado.** Es una compra de `titular@palco.test` a nombre de Ana, en el evento donde la cuenta tenía la compra que se anuló, con una entrada de Ana. Llega hasta Eventos porque una compra anulada no cuenta para el tope de 6 por evento, ni sus entradas `ANULADA` para la regla de un DNI por evento. Eventos rechaza la reserva con 409 `evento-cancelado`, y Ventas (`ClienteDeEventos`) le pasa ese mismo tipo al comprador, como pasa `evento-finalizado`: el `detail` dice que el evento se canceló y que no se venden más entradas.
 
