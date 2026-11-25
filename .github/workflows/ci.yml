@@ -307,12 +307,12 @@ jobs:
       - name: Broker apagado sin perder mensajes (scripts/pruebas/broker-apagado.mjs)
         if: matrix.grupo == 'general'
         run: node scripts/pruebas/broker-apagado.mjs
-      - name: Control de logs (sin tokens ni DNI de prueba)
+      - name: Control de logs (sin tokens, contraseñas ni DNI de prueba fuera de los emails del modo completo)
+        # Este job corre con PALCO_CORREO_LOG_COMPLETO=true: cada email queda entero en el log, y esos renglones no
+        # se miran para el DNI. Los emails enteros se controlan en contrato.yml y zap.yml, que corren con el valor
+        # por defecto. Qué busca cada expresión, en el guion.
         if: always()
-        run: |
-          if grep -nE 'Bearer [A-Za-z0-9._-]{20,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ' logs/server.log; then
-            echo "El log del servidor tiene tokens"; exit 1
-          fi
+        run: bash scripts/qa/control-de-logs.sh logs/server.log
       - name: Estado de los contenedores
         if: always()
         run: docker compose ps && docker compose logs --no-color > compose.log
