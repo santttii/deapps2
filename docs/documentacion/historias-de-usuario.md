@@ -196,6 +196,10 @@ Escenario: CA-03.4 Falla externa: el servidor de correo no responde
   Y pasados 30 segundos puedo pedir el código otra vez y se manda uno nuevo
 ```
 
+En la aplicación es la pantalla `/recuperar`, a la que se llega desde "¿Olvidaste tu contraseña?" en el ingreso: el
+email primero, y después el código de 6 dígitos con la contraseña nueva (DEF-47). `frontend/e2e/recuperar.spec.ts`
+recorre CA-03.1, CA-03.2 y CA-03.3 en el navegador (CP-03.1.1, CP-03.2.1 y CP-03.3.1).
+
 ## HU-04 Consultar el catálogo · Must
 
 **Como** visitante, con o sin sesión, **quiero** ver y buscar los eventos **para** elegir a cuál ir.
@@ -333,6 +337,13 @@ Escenario: CA-05.11 Falla externa: Usuarios no responde al abrir la compra
   Entonces la respuesta es 504 con type "/problemas/sin-respuesta"
   Y no se reserva cupo ni se abre ninguna compra
 ```
+
+CA-05.10 vale también con dos compras a la vez, del catálogo o de la reventa: Ventas vuelve a mirar cada regla con
+un candado por comprador y evento y otro por DNI y evento (`ventas.candado_de_compra`), y la segunda compra espera a
+la primera y cuenta con ella (DEF-46). En la reventa, el control corre antes de cobrar; si otra compra se cruzó
+entre el control y la transferencia, la transferencia rechaza por la regla, el cobro se devuelve, la publicación
+queda libre y la respuesta es el mismo 409. Lo prueban los tests de `ReglasEntreComprasEnH2Test` que figuran en la
+fila de CA-05.10, más abajo.
 
 ## HU-06 Recibir la factura de mi compra · Should
 
@@ -669,6 +680,11 @@ Escenario: CA-12.4 Falla externa: Eventos no responde
   Y no se muestra ninguna venta: sin saber de quién es el evento no hay resumen
 ```
 
+En la aplicación, el panel de `/organizador` muestra este resumen en "Ventas y liquidación" de cada evento: lo
+recaudado de los compradores, el cargo de Palco, lo que se le liquida al organizador y la tabla "Ventas por día"
+(DEF-48). `frontend/e2e/organizador.spec.ts` lo recorre en el navegador ("organizador: ve las ventas por día y la
+liquidación de su evento (HU-12)"): sin ventas, la tabla vacía y $0, y después de una compra, la fila del día.
+
 ## HU-13 Validar una entrada en la puerta · Must
 
 **Como** personal de puerta **quiero** escanear el QR de cada entrada **para** dejar entrar solo a quien tiene una
@@ -928,7 +944,7 @@ escrito acá no pasa desapercibido.
 | CA-05.7 | ComprasEnCursoTest#unaVentaCanceladaOVencidaNoSePaga, ServicioDeVentasTest#conLaReservaVencidaNoSeCobra, ServicioDeVentasTest#unSegundoAntesDeQueVenzaLaReservaTodaviaSePuedePagar, VencimientoDeReservasTest#unaReservaVencidaPasaAVencidaYRecienDespuesSeDevuelveElCupoDeCadaSector, VentaTest#laReservaValeHastaElInstanteAnteriorAlVencimiento |
 | CA-05.8 | ComprasEnCursoTest#sinLaIdentidadVerificadaNoSeAbreLaCompra |
 | CA-05.9 | ServicioDeVentasTest#pagarCobraConfirmaLaVentaCreaLasEntradasYPublicaElMensajeUnaSolaVez, EmisionDeEntradasMDBTest#siElMensajeLlegaOtraVezNoHayNadaPendienteYSeConfirmaSinError, EmisionEnH2Test#emitirDosVecesLaMismaVentaNoCambiaNadaLaSegundaVez, EmisionDeEntradasMDBTest#unTextoQueNoEsUnPagoConfirmadoVuelveAlBrokerYNoTocaLaBase |
-| CA-05.10 | ServicioDeVentasTest#conLasDeOtrasComprasNoSePuedePasarDeSeisEntradasPorEvento, ServicioDeVentasTest#conElTopeJustoLaCompraSeAbre, ServicioDeVentasTest#conSeisEntradasYaNoPuedeComprarMasParaEseEvento, ServicioDeVentasTest#unDniQueYaTieneEntradaParaElEventoNoPuedeSerTitularDeOtra, ServicioDeVentasTest#antesDeCobrarSeVuelveAMirarElDniYSiOtraCompraLoUsoNoSeCobra, ServicioDeVentasTest#siOtraCompraDelCompradorSeGuardoMientrasSeReservabaLaSegundaCuentaFrenaEstaYDevuelveElCupo, ServicioDeVentasTest#antesDeCobrarElDniSeMiraConElCandadoDeCadaDniYLaCopiaVaDespues, ComprasEnCursoTest#siOtraCompraUsoElDniDeUnTitularNoSeCobraYSeQuitaLaMarca, ConciliacionEnH2Test#lasEntradasDelCompradorCuentanLasEnCursoVigentesYLasPagadasMenosLasRevendidas, ConciliacionEnH2Test#unDniTieneEntradaSiEsTitularDeUnaEnPieOEstaEnUnaCompraQueSeEstaCobrando, ReglasEntreComprasEnH2Test#dosComprasDeSeisDelMismoCompradorALaVezAbreUnaSolaYLaOtraDevuelveSuCupo, ReglasEntreComprasEnH2Test#conLaFilaDelCandadoYaCreadaPorUnaCompraAnteriorLaSegundaTambienEspera, ReglasEntreComprasEnH2Test#conElCandadoDosComprasDeDistintosCompradoresNoSeEsperan, ReglasEntreComprasEnH2Test#unPedidoRepetidoConLaMismaClaveSigueSiendoClaveRepetidaYNoTopePorEvento, ReglasEntreComprasEnH2Test#dosComprasConElMismoDniALaVezSoloUnaLlegaACobrar, ServicioDeReventaTest#antesDeTomarYDeCobrarVentasControlaAlCompradorYAlTitular, ServicioDeReventaTest#unCompradorConSeisEntradasParaElEventoNoCompraOtraEnLaReventa, ServicioDeReventaTest#unTitularQueYaTieneEntradaParaElEventoNoCompraEnLaReventa, ReventaDeEntradasEnH2Test#conSeisEntradasParaElEventoNoCompraOtraEnLaReventa, ReventaDeEntradasEnH2Test#conCincoEntradasParaElEventoLaDeLaReventaEsLaSextaYPasa, ReventaDeEntradasEnH2Test#unDniQueYaTieneEntradaParaElEventoNoRecibeLaDeLaReventa, ReventaDeEntradasEnH2Test#laEntradaQueSeRevendeNoCuentaParaElDniPeroLasOtrasDeEsaVentaSi, ReventaDeEntradasEnH2Test#lasEntradasYLosDniDeOtroEventoNoCuentan, ClientesTest#elControlDeLaCompraDevuelveElTopeYElDniConElTipoYElDetalleDeVentas |
+| CA-05.10 | ServicioDeVentasTest#conLasDeOtrasComprasNoSePuedePasarDeSeisEntradasPorEvento, ServicioDeVentasTest#conElTopeJustoLaCompraSeAbre, ServicioDeVentasTest#conSeisEntradasYaNoPuedeComprarMasParaEseEvento, ServicioDeVentasTest#unDniQueYaTieneEntradaParaElEventoNoPuedeSerTitularDeOtra, ServicioDeVentasTest#antesDeCobrarSeVuelveAMirarElDniYSiOtraCompraLoUsoNoSeCobra, ServicioDeVentasTest#siOtraCompraDelCompradorSeGuardoMientrasSeReservabaLaSegundaCuentaFrenaEstaYDevuelveElCupo, ServicioDeVentasTest#antesDeCobrarElDniSeMiraConElCandadoDeCadaDniYLaCopiaVaDespues, ComprasEnCursoTest#siOtraCompraUsoElDniDeUnTitularNoSeCobraYSeQuitaLaMarca, ConciliacionEnH2Test#lasEntradasDelCompradorCuentanLasEnCursoVigentesYLasPagadasMenosLasRevendidas, ConciliacionEnH2Test#unDniTieneEntradaSiEsTitularDeUnaEnPieOEstaEnUnaCompraQueSeEstaCobrando, ReglasEntreComprasEnH2Test#dosComprasDeSeisDelMismoCompradorALaVezAbreUnaSolaYLaOtraDevuelveSuCupo, ReglasEntreComprasEnH2Test#conLaFilaDelCandadoYaCreadaPorUnaCompraAnteriorLaSegundaTambienEspera, ReglasEntreComprasEnH2Test#conElCandadoDosComprasDeDistintosCompradoresNoSeEsperan, ReglasEntreComprasEnH2Test#unPedidoRepetidoConLaMismaClaveSigueSiendoClaveRepetidaYNoTopePorEvento, ReglasEntreComprasEnH2Test#dosComprasConElMismoDniALaVezSoloUnaLlegaACobrar, ServicioDeReventaTest#antesDeTomarYDeCobrarVentasControlaAlCompradorYAlTitular, ServicioDeReventaTest#unCompradorConSeisEntradasParaElEventoNoCompraOtraEnLaReventa, ServicioDeReventaTest#unTitularQueYaTieneEntradaParaElEventoNoCompraEnLaReventa, ReventaDeEntradasEnH2Test#conSeisEntradasParaElEventoNoCompraOtraEnLaReventa, ReventaDeEntradasEnH2Test#conCincoEntradasParaElEventoLaDeLaReventaEsLaSextaYPasa, ReventaDeEntradasEnH2Test#unDniQueYaTieneEntradaParaElEventoNoRecibeLaDeLaReventa, ReventaDeEntradasEnH2Test#laEntradaQueSeRevendeNoCuentaParaElDniPeroLasOtrasDeEsaVentaSi, ReventaDeEntradasEnH2Test#lasEntradasYLosDniDeOtroEventoNoCuentan, ClientesTest#elControlDeLaCompraDevuelveElTopeYElDniConElTipoYElDetalleDeVentas, ReglasEntreComprasEnH2Test#unaCompraDelCatalogoConElCandadoFrenaLaTransferenciaDeLaReventaQueLaPasaria, ReglasEntreComprasEnH2Test#unaTransferenciaConElCandadoFrenaLaCompraDelCatalogoQueLaPasaria, ReglasEntreComprasEnH2Test#unaCompraDelCatalogoQueSeEstaCobrandoConElMismoDniFrenaLaTransferencia, ReventaDeEntradasEnH2Test#laTransferenciaVuelveAMirarElTopeConLasComprasQueEntraronDespuesDelControl, ReventaDeEntradasEnH2Test#laTransferenciaVuelveAMirarElDniConLasComprasQueEntraronDespuesDelControl, ServicioDeReventaTest#siVentasNoTransfierePorElTopeSeDevuelveElPagoYLaPublicacionQuedaLibre, ServicioDeReventaTest#siVentasNoTransfierePorElDniYPagosNoRespondeElPagoSeVaADevolver, ConciliacionDeReventasTest#siVentasNoTransfierePorUnaReglaEntreComprasLaLiberaYDevuelveElPago, ClientesTest#unaTransferenciaRechazadaPorUnaReglaEntreComprasSeDistingueDeUnaEntradaQueYaNoEstaPublicada |
 | CA-05.11 | ComprasEnCursoTest#siUsuariosNoRespondeNoSeAbreLaCompra, ClienteDeUsuariosTest#siUsuariosNoRespondeEsSinRespuesta |
 | CA-06.1 | ServicioDeFacturacionTest#unaCompraSeFacturaConElNumeroYElCaeQueDaArca, ArcaSimuladoTest#elPrimerComprobanteSeApruebaConElNumeroUnoYUnCaeDeCatorceDigitos, FacturasResourceTest#elCompradorVeLaFacturaDeSuCompra |
 | CA-06.2 | FacturacionDeComprasMDBTest#elMismoMensajeEntregadoDosVecesNoFacturaDosVeces, ServicioDeFacturacionTest#unMensajeRepetidoDevuelveLaMismaFacturaSinVolverAPedirleAArca, FacturaEnH2Test#unaSegundaFacturaDeLaMismaVentaEsUnConflictoYNoSeGuarda |
