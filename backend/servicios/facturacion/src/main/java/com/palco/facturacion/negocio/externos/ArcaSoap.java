@@ -54,8 +54,12 @@ public class ArcaSoap implements Arca {
 
     private static final Logger LOG = Logger.getLogger(ArcaSoap.class.getName());
 
-    static final QName SERVICIO = new QName(PuertoArca.ESPACIO_DE_NOMBRES, "ArcaSimulado");
-    static final QName PUERTO = new QName(PuertoArca.ESPACIO_DE_NOMBRES, "ArcaSimuladoPort");
+    /**
+     * Cómo se llaman el servicio y el puerto en el WSDL del simulado. Van con {@code NOMBRE_DEL_} para que no
+     * se confundan con el campo {@code servicio} ni con el método {@code puerto()}, que son otra cosa.
+     */
+    static final QName NOMBRE_DEL_SERVICIO = new QName(PuertoArca.ESPACIO_DE_NOMBRES, "ArcaSimulado");
+    static final QName NOMBRE_DEL_PUERTO = new QName(PuertoArca.ESPACIO_DE_NOMBRES, "ArcaSimuladoPort");
 
     /** Los nombres de los tiempos de espera en CXF, el cliente de WildFly. Aceptan un número en milisegundos. */
     static final String CXF_CONEXION = "jakarta.xml.ws.client.connectionTimeout";
@@ -134,7 +138,7 @@ public class ArcaSoap implements Arca {
 
     /** Un puerto nuevo con la dirección y los tiempos de espera. */
     private PuertoArca puerto() {
-        PuertoArca puerto = servicio().getPort(PUERTO, PuertoArca.class);
+        PuertoArca puerto = servicio().getPort(NOMBRE_DEL_PUERTO, PuertoArca.class);
         Map<String, Object> pedido = ((BindingProvider) puerto).getRequestContext();
         // La dirección del WSDL manda sobre la que trae el WSDL adentro (soap:address), que el
         // servidor arma con el nombre con que se lo llamó.
@@ -149,7 +153,7 @@ public class ArcaSoap implements Arca {
     /** Si falla la descarga del WSDL no queda nada guardado: el próximo pedido lo intenta otra vez. */
     private synchronized Service servicio() {
         if (servicio == null) {
-            servicio = Service.create(wsdl, SERVICIO);
+            servicio = Service.create(wsdl, NOMBRE_DEL_SERVICIO);
         }
         return servicio;
     }

@@ -26,7 +26,7 @@ import com.palco.pagos.dominio.EstadoPago;
 public class PagosFake implements PasarelaDePagos {
 
     /** Valor de {@code palco.pagos.proveedor} que elige esta pasarela. */
-    public static final String NOMBRE = "fake";
+    public static final String PROVEEDOR = "fake";
 
     public static final String TOKEN_RECHAZADO = "tok_rechazado";
     public static final String TOKEN_SIN_RESPUESTA = "tok_sin_respuesta";
@@ -34,7 +34,7 @@ public class PagosFake implements PasarelaDePagos {
 
     @Override
     public String nombre() {
-        return NOMBRE;
+        return PROVEEDOR;
     }
 
     @Override

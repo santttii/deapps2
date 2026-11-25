@@ -51,9 +51,9 @@ public class CobrosFake implements Cobros {
         }
         String pagoId = idDelPago(claveIdempotencia);
         if (TOKEN_RECHAZADO.equals(token)) {
-            return new ResultadoDeCobro(pagoId, ResultadoDeCobro.RECHAZADO, MOTIVO_DE_RECHAZO);
+            return new ResultadoDeCobro(pagoId, ResultadoDeCobro.ESTADO_RECHAZADO, MOTIVO_DE_RECHAZO);
         }
-        return new ResultadoDeCobro(pagoId, ResultadoDeCobro.APROBADO, null);
+        return new ResultadoDeCobro(pagoId, ResultadoDeCobro.ESTADO_APROBADO, null);
     }
 
     /**

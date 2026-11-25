@@ -34,19 +34,19 @@ public class FabricaDePasarela {
         // getOptionalValue y no @ConfigProperty: con la anotación, una propiedad sin valor impide el despliegue.
         String proveedor = ConfigProvider.getConfig()
                 .getOptionalValue(PROPIEDAD, String.class)
-                .orElse(PagosFake.NOMBRE);
+                .orElse(PagosFake.PROVEEDOR);
         return crear(proveedor);
     }
 
     /** Aparte del método de arriba para poder probarlo sin servidor. */
     static PasarelaDePagos crear(String proveedor) {
         String nombre = proveedor.strip().toLowerCase(Locale.ROOT);
-        if (nombre.equals(PagosFake.NOMBRE)) {
+        if (nombre.equals(PagosFake.PROVEEDOR)) {
             return new PagosFake();
         }
         // Acá se suma Mercado Pago cuando exista su adaptador.
         throw new IllegalStateException("La propiedad " + PROPIEDAD + " vale \"" + proveedor
                 + "\" y no hay ninguna pasarela con ese nombre. El único valor posible hoy es \""
-                + PagosFake.NOMBRE + "\".");
+                + PagosFake.PROVEEDOR + "\".");
     }
 }

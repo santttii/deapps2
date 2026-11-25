@@ -5,13 +5,17 @@ package com.palco.ventas.negocio.externos;
  * después de creado.
  *
  * @param pagoId el id del pago ("P-" más 8 caracteres); null en un rechazo que no llegó a guardarse como pago
- * @param estado {@link #APROBADO} o {@link #RECHAZADO}
+ * @param estado {@link #ESTADO_APROBADO} o {@link #ESTADO_RECHAZADO}
  * @param motivo por qué se rechazó; null si se aprobó
  */
 public record ResultadoDeCobro(String pagoId, String estado, String motivo) {
 
-    public static final String APROBADO = "APROBADO";
-    public static final String RECHAZADO = "RECHAZADO";
+    /**
+     * Los valores de {@code estado}, los mismos que responde Pagos. Van con {@code ESTADO_} para que no
+     * se confundan con el método {@link #aprobado()}, que es la pregunta y no el valor.
+     */
+    public static final String ESTADO_APROBADO = "APROBADO";
+    public static final String ESTADO_RECHAZADO = "RECHAZADO";
 
     /**
      * El motivo de un rechazo sin pago porque quien cobra no aceptó la clave de
@@ -22,6 +26,6 @@ public record ResultadoDeCobro(String pagoId, String estado, String motivo) {
 
     /** Solo un cobro aprobado confirma la venta. */
     public boolean aprobado() {
-        return APROBADO.equals(estado);
+        return ESTADO_APROBADO.equals(estado);
     }
 }

@@ -380,7 +380,7 @@ public class ClienteDePagos implements Cobros {
      */
     private static ResultadoDeCobro sinCobro(String ventaId, int estado, String motivo) {
         LOG.warning("Pagos respondió " + estado + " al cobrar la venta " + ventaId + ": no cobró (" + motivo + ").");
-        return new ResultadoDeCobro(null, ResultadoDeCobro.RECHAZADO, motivo);
+        return new ResultadoDeCobro(null, ResultadoDeCobro.ESTADO_RECHAZADO, motivo);
     }
 
     /**
@@ -461,11 +461,11 @@ public class ClienteDePagos implements Cobros {
         if (pago == null || pago.pagoId() == null || pago.pagoId().isBlank()) {
             throw new ErroresDeNegocio.SinRespuesta("Pagos respondió algo que no es un pago.");
         }
-        if (ResultadoDeCobro.APROBADO.equals(pago.estado())) {
-            return new ResultadoDeCobro(pago.pagoId(), ResultadoDeCobro.APROBADO, null);
+        if (ResultadoDeCobro.ESTADO_APROBADO.equals(pago.estado())) {
+            return new ResultadoDeCobro(pago.pagoId(), ResultadoDeCobro.ESTADO_APROBADO, null);
         }
-        if (ResultadoDeCobro.RECHAZADO.equals(pago.estado())) {
-            return new ResultadoDeCobro(pago.pagoId(), ResultadoDeCobro.RECHAZADO, pago.motivo());
+        if (ResultadoDeCobro.ESTADO_RECHAZADO.equals(pago.estado())) {
+            return new ResultadoDeCobro(pago.pagoId(), ResultadoDeCobro.ESTADO_RECHAZADO, pago.motivo());
         }
         // Un estado que hoy Pagos no devuelve (por ejemplo PENDIENTE, que llega con el webhook).
         throw new ErroresDeNegocio.SinRespuesta("El pago " + pago.pagoId() + " todavía no tiene resultado.");

@@ -69,9 +69,10 @@ class ConciliacionDePagosTest {
     private static final String CLAVE = "0b7e2a55-3c1d-4e8f-a9b0-c1d2e3f4a5b6";
     private static final String PAGO_ID = "P-598c58a0";
 
-    private static final ResultadoDeCobro APROBADO = new ResultadoDeCobro(PAGO_ID, ResultadoDeCobro.APROBADO, null);
+    private static final ResultadoDeCobro APROBADO =
+            new ResultadoDeCobro(PAGO_ID, ResultadoDeCobro.ESTADO_APROBADO, null);
     private static final ResultadoDeCobro RECHAZADO =
-            new ResultadoDeCobro(PAGO_ID, ResultadoDeCobro.RECHAZADO, "fondos_insuficientes");
+            new ResultadoDeCobro(PAGO_ID, ResultadoDeCobro.ESTADO_RECHAZADO, "fondos_insuficientes");
 
     private final VentaRepository ventas = mock(VentaRepository.class);
     private final ClienteDeEventos eventos = mock(ClienteDeEventos.class);
