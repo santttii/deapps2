@@ -20,9 +20,16 @@
 # pierden: auditoría los registra al reanudar.
 # Sale con código 0 si todo dio lo esperado y con 1 si no.
 
-# Secreto para pedir el token de rol servicio: PALCO_SECRETO_SERVICIOS, el de backend/.env o el de desarrollo.
-SECRETO=${PALCO_SECRETO_SERVICIOS:-$(sed -n 's/^PALCO_SECRETO_SERVICIOS=//p' backend/.env 2>/dev/null)}
-SECRETO=${SECRETO:-palco-desarrollo}
+# Secreto para pedir el token de rol servicio, buscado como en scripts/pruebas/lib.mjs: PALCO_SECRETO_SERVICIOS, el
+# de backend/.env o el que dejó backend/dev.sh al arrancar (backend/servidor/target/secreto-servicios). No hay uno
+# por defecto, porque el servidor tampoco lo tiene: sin el secreto de la corrida, el token se rechaza con 401.
+SECRETO=${PALCO_SECRETO_SERVICIOS:-$(sed -n 's/^PALCO_SECRETO_SERVICIOS=//p' backend/.env 2>/dev/null | tr -d '\r')}
+SECRETO=${SECRETO:-$(tr -d '\r\n' 2>/dev/null < backend/servidor/target/secreto-servicios)}
+if [ -z "$SECRETO" ]; then
+  echo "No está el secreto entre servicios: definí PALCO_SECRETO_SERVICIOS con el del servidor, ponelo en" >&2
+  echo "backend/.env o levantá el servidor con backend/dev.sh, que lo deja en backend/servidor/target/secreto-servicios." >&2
+  exit 1
+fi
 export NOPAUSE=true                                   # sin esto, jboss-cli.bat espera una tecla al terminar
 # El JDK de jboss-cli: el JAVA_HOME del entorno; si no hay, ~/.jdks/temurin-25 si esa carpeta existe; si no,
 # el java del PATH (como scripts/pruebas/escenarios.mjs).
