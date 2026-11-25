@@ -84,6 +84,25 @@ class EmisionDeEntradasMDBTest {
     }
 
     @Test
+    void unMensajePublicadoAntesConElDniDeLosTitularesSeEmiteIgual() throws JMSException {
+        // Hasta el 23/11 el mensaje traía el DNI de cada titular (DEF-37). Uno que haya quedado en la
+        // cola se procesa igual: la emisión nunca lo usó.
+        existeLaVenta();
+        when(entradas.emitirPendientes(VENTA, AHORA)).thenReturn(2);
+        when(ventas.marcarEmitida(VENTA)).thenReturn(true);
+        String conDni = pagoConfirmado().aJson()
+                .replace("{\"nombre\":\"Ana Gómez\"}", "{\"dni\":\"30123456\",\"nombre\":\"Ana Gómez\"}")
+                .replace("{\"nombre\":\"Luis Pérez\"}", "{\"dni\":\"31234567\",\"nombre\":\"Luis Pérez\"}");
+        assertTrue(conDni.contains("\"dni\":\"30123456\""), conDni);
+
+        mdb.onMessage(mensajeDeTexto(conDni));
+
+        verify(entradas).emitirPendientes(VENTA, AHORA);
+        verify(ventas).marcarEmitida(VENTA);
+        verify(contexto, never()).setRollbackOnly();
+    }
+
+    @Test
     void siElMensajeLlegaOtraVezNoHayNadaPendienteYSeConfirmaSinError() throws JMSException {
         existeLaVenta();
         // Así responde la base a una entrega repetida: ningún UPDATE cambia una fila.
@@ -228,9 +247,9 @@ class EmisionDeEntradasMDBTest {
     private static PagoConfirmadoMensaje pagoConfirmado() {
         return new PagoConfirmadoMensaje(VENTA, "user-titular", "ev-1",
                 List.of(new PagoConfirmadoMensaje.Entrada("T-9c41d07e", "Platea B",
-                                new PagoConfirmadoMensaje.Titular("Ana Gómez", "30123456")),
+                                new PagoConfirmadoMensaje.Titular("Ana Gómez")),
                         new PagoConfirmadoMensaje.Entrada("T-51b7a2f0", "Platea B",
-                                new PagoConfirmadoMensaje.Titular("Luis Pérez", "31234567"))),
+                                new PagoConfirmadoMensaje.Titular("Luis Pérez"))),
                 60_500, Instant.parse("2026-10-16T21:30:00Z"));
     }
 }

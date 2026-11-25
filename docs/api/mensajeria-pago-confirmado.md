@@ -23,13 +23,14 @@ canales, porque se usan para cosas distintas:
 ```
 ServicioDeVentas ──► cola.emision-entradas ──► EmisionDeEntradasMDB (Ventas, consumidor único)
                  └─► topico.compra-confirmada ─┬► AvisoDeCompraMDB (Notificaciones, no durable)
-                                               └► AuditoriaDeComprasMDB (Notificaciones, durable)
+                                               ├► AuditoriaDeComprasMDB (Notificaciones, durable)
+                                               └► FacturacionDeComprasMDB (Facturación, durable)
 ```
 
 | Canal                      | Tipo   | Nombre JNDI                        | Consumidores                                  | Para qué                                    |
 | -------------------------- | ------ | ---------------------------------- | --------------------------------------------- | ------------------------------------------- |
 | `cola.emision-entradas`    | Cola   | `java:/jms/queue/emisionEntradas`  | Emisión de entradas (MDB), uno solo por mensaje | Emitir las entradas exactamente una vez     |
-| `topico.compra-confirmada` | Tópico | `java:/jms/topic/compraConfirmada` | Aviso al comprador (no durable), Auditoría (durable) | Que todos los interesados se enteren del hecho |
+| `topico.compra-confirmada` | Tópico | `java:/jms/topic/compraConfirmada` | Aviso al comprador (no durable), Auditoría (durable), Facturación (durable) | Que todos los interesados se enteren del hecho |
 
 Los dos destinos ya están creados en `backend/servidor/src/main/wildfly/configurar.cli`.
 
@@ -92,9 +93,8 @@ de selector se despliega con las suscripciones al día (sin pendientes), como el
 | `entradas`                | array    | Una por entrada de la venta, entre 1 y 6      |
 | `entradas[].entradaId`    | string   | Id de la entrada                              |
 | `entradas[].sector`       | string   | Nombre del sector de la entrada, no su id     |
-| `entradas[].titular`      | objeto   | Titular nominativo de la entrada              |
+| `entradas[].titular`      | objeto   | Titular nominativo de la entrada, sin su DNI  |
 | `entradas[].titular.nombre` | string | Nombre y apellido                             |
-| `entradas[].titular.dni`  | string   | DNI, 7 u 8 dígitos                            |
 | `montoTotal`              | número   | Total cobrado con el cargo de servicio, en pesos enteros (`long`) |
 | `timestamp`               | string   | Instante de la confirmación, en UTC y truncado a segundos: `2026-10-16T21:30:00Z` |
 
@@ -116,8 +116,8 @@ y la clase dejan de coincidir, el build falla.
 {
   "compradorId": "user-titular",
   "entradas": [
-    { "entradaId": "T-9c41d07e", "sector": "Platea B", "titular": { "dni": "30123456", "nombre": "Ana Gómez" } },
-    { "entradaId": "T-51b7a2f0", "sector": "Platea B", "titular": { "dni": "31234567", "nombre": "Luis Pérez" } }
+    { "entradaId": "T-9c41d07e", "sector": "Platea B", "titular": { "nombre": "Ana Gómez" } },
+    { "entradaId": "T-51b7a2f0", "sector": "Platea B", "titular": { "nombre": "Luis Pérez" } }
   ],
   "eventoId": "ev-1",
   "montoTotal": 60500,
@@ -133,8 +133,7 @@ o no es JSON, y también si el mensaje no pasa `validar()`, que exige:
 
 - `ventaId`, `compradorId`, `eventoId` y cada `entradaId` no vacíos y de hasta 40 caracteres;
 - entre 1 y 6 entradas (`ReglasDeNegocio.MAX_ENTRADAS_POR_ORDEN`), ninguna nula;
-- cada titular con nombre y con un DNI de 7 u 8 dígitos, sin puntos (`ReglasDeNegocio.esDniValido`,
-  la misma regla que aplica el registro de usuarios);
+- cada titular con nombre (el DNI ya no se lee: si un mensaje viejo lo trae, no se controla);
 - `montoTotal` mayor que 0;
 - `timestamp` presente.
 
@@ -166,6 +165,30 @@ llega al broker.
   recibe los mensajes pendientes. El aviso al comprador es no durable: se acepta
   perder un aviso.
 
-## Pendientes
+## Datos personales
 
-- DNI en el tópico: definir si viaja completo o solo los ids (Fase 12). Hoy viaja completo.
+Desde el 24/11/2026 (DEF-37, criterio SEC-D05: minimizar los datos personales, Ley 25.326) cada titular viaja
+solo con su nombre. Lo que ningún consumidor necesita no viaja, y el DNI no lo necesita ninguno:
+
+| Consumidor | Qué usa del mensaje | DNI |
+| ---------- | ------------------- | --- |
+| `EmisionDeEntradasMDB` (Ventas) | `ventaId`: las entradas, con su titular, las lee de su base | No lo usa |
+| `AvisoDeCompraMDB` (Notificaciones) | Comprador, venta, evento, monto y, de cada entrada, el sector y el nombre del titular | No lo usa: el email nombra a cada titular y nunca llevó su DNI |
+| `AuditoriaDeComprasMDB` (Notificaciones) | Venta, comprador, evento, monto y el cuerpo | No lo usa |
+| `FacturacionDeComprasMDB` (Facturación) | Venta, comprador, evento, monto y `timestamp` | No lo usa: la factura B a consumidor final no identifica al comprador, y el pedido del CAE a ARCA no tiene documento |
+
+El DNI queda solo en Ventas, en la entrada que el titular presenta en la puerta. El nombre sigue viajando porque
+el aviso lo usa. `REVENTA_CONFIRMADA` tiene el mismo cuerpo, así que vale lo mismo; los mensajes de la cancelación
+(`mensajeria-cancelacion-de-eventos.md`) no llevan titulares.
+
+- **Mensajes publicados antes.** Hasta el 23/11 el mensaje traía `entradas[].titular.dni`. Si queda alguno en la
+  cola, en una suscripción durable o en la DLQ, los cuatro consumidores lo procesan igual: el campo se ignora como
+  cualquier otro que el contrato no define, y su valor ya no se controla. Al revés no anda (un consumidor anterior
+  al cambio rechazaría un mensaje sin DNI), pero no hace falta: los 8 WAR salen del mismo build y se despliegan
+  juntos.
+- **Auditoría.** `ServicioDeAuditoria` guarda el cuerpo tal como llegó, menos el `dni` de cada titular: un mensaje
+  publicado antes queda guardado igual que uno nuevo. Las filas que ya estaban las limpia, al desplegar, la
+  migración V3 de Notificaciones (`V3__sacar_el_dni_de_la_auditoria.sql`). La API de auditoría sigue sin devolver
+  el cuerpo.
+- **Idempotencia.** No cambia: la emisión, la auditoría (por `JMSMessageID`) y la factura (por `ventaId`) se
+  deciden con datos que el mensaje sigue trayendo.

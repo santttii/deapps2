@@ -25,6 +25,15 @@ import com.palco.common.ReglasDeNegocio;
  * Los métodos propios no empiezan con "get" ni "is": JSON-B los tomaría por
  * campos y los escribiría en el mensaje.
  *
+ * El titular viaja sin su DNI (DEF-37, desde el 24/11): ninguno de los
+ * cuatro consumidores lo usa (la emisión lee la venta de su base, el aviso
+ * nombra a cada titular, la auditoría anota venta, comprador, evento y monto,
+ * y Facturación le pide a ARCA una factura B a consumidor final, que no lleva
+ * documento), y lo que no hace falta no se copia a otro servicio. El DNI queda en Ventas, en la
+ * entrada que se presenta en la puerta. Un mensaje publicado antes, que
+ * todavía lo trae, se lee igual: JSON-B ignora el campo que este record no
+ * tiene.
+ *
  * @param ventaId     id de la venta
  * @param compradorId id del usuario que compró (el claim "sub" de su token)
  * @param eventoId    id del evento
@@ -39,8 +48,8 @@ public record PagoConfirmadoMensaje(String ventaId, String compradorId, String e
     public record Entrada(String entradaId, String sector, Titular titular) {
     }
 
-    /** @param nombre nombre y apellido */
-    public record Titular(String nombre, String dni) {
+    /** @param nombre nombre y apellido; el DNI no viaja (ver arriba) */
+    public record Titular(String nombre) {
     }
 
     /** Largo de la columna de los ids en todas las tablas. */
@@ -101,11 +110,6 @@ public record PagoConfirmadoMensaje(String ventaId, String compradorId, String e
             Titular titular = entrada.titular();
             if (titular == null || titular.nombre() == null || titular.nombre().isBlank()) {
                 throw new MensajeInvalido("Falta el nombre del titular de la entrada " + entrada.entradaId() + ".");
-            }
-            // La regla del DNI está en un solo lugar: es la misma que aplica el registro de usuarios.
-            if (!ReglasDeNegocio.esDniValido(titular.dni())) {
-                throw new MensajeInvalido("El DNI del titular de la entrada " + entrada.entradaId()
-                        + " no tiene 7 u 8 dígitos.");
             }
         }
         if (montoTotal <= 0) {

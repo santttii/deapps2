@@ -644,11 +644,15 @@ public class ServicioDeVentas implements IVentas {
      * entrada, por eso las entradas se crean acá y no al emitirlas.
      * {@code timestamp} es el instante de la confirmación, el mismo que se
      * guarda en la venta. Lo usa también {@link ConfirmacionConciliada}.
+     *
+     * De cada titular va solo el nombre, que el aviso al comprador usa. El
+     * DNI no sale de Ventas: ningún consumidor lo necesita (DEF-37, contrato
+     * en {@code docs/api/mensajeria-pago-confirmado.md}).
      */
     static PagoConfirmadoMensaje mensaje(Venta venta, List<Entrada> entradas, LocalDateTime confirmada) {
         List<PagoConfirmadoMensaje.Entrada> delMensaje = entradas.stream()
                 .map(e -> new PagoConfirmadoMensaje.Entrada(e.getId(), e.getSector(),
-                        new PagoConfirmadoMensaje.Titular(e.getTitularNombre(), e.getTitularDni())))
+                        new PagoConfirmadoMensaje.Titular(e.getTitularNombre())))
                 .toList();
         return new PagoConfirmadoMensaje(venta.getId(), venta.getCompradorId(), venta.getEventoId(), delMensaje,
                 venta.getMontoTotal(), confirmada.toInstant(ZoneOffset.UTC));

@@ -2,6 +2,7 @@ package com.palco.common.mensajeria;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -31,8 +32,19 @@ class PagoConfirmadoMensajeTest {
     private static final Path CONTRATO = Path.of("..", "..", "docs", "api", "mensajeria-pago-confirmado.md");
 
     private static final Instant CONFIRMADA = Instant.parse("2026-10-16T21:30:00Z");
-    private static final Titular ANA = new Titular("Ana Gómez", "30123456");
-    private static final Titular LUIS = new Titular("Luis Pérez", "31234567");
+    private static final Titular ANA = new Titular("Ana Gómez");
+    private static final Titular LUIS = new Titular("Luis Pérez");
+
+    /**
+     * El ejemplo del contrato como se publicaba hasta el 23/11, con el DNI de
+     * cada titular (DEF-37). Puede quedar alguno así en la cola, en una
+     * suscripción durable o en la DLQ.
+     */
+    private static final String PUBLICADO_CON_DNI = """
+            {"compradorId":"user-titular","entradas":[\
+            {"entradaId":"T-9c41d07e","sector":"Platea B","titular":{"dni":"30123456","nombre":"Ana Gómez"}},\
+            {"entradaId":"T-51b7a2f0","sector":"Platea B","titular":{"dni":"31234567","nombre":"Luis Pérez"}}],\
+            "eventoId":"ev-1","montoTotal":60500,"timestamp":"2026-10-16T21:30:00Z","ventaId":"V-3f9a1c2b"}""";
 
     /** El mismo mensaje que el ejemplo del contrato, armado como lo arma Ventas. */
     private static PagoConfirmadoMensaje ejemplo() {
@@ -102,6 +114,30 @@ class PagoConfirmadoMensajeTest {
         assertEquals(ejemplo(), PagoConfirmadoMensaje.desdeJson(conCampoNuevo));
     }
 
+    // --- El DNI de los titulares no viaja (DEF-37) ---------------------------------------------
+
+    @Test
+    void elMensajeNoLlevaElDniDeNingunTitular() throws IOException {
+        assertFalse(ejemplo().aJson().contains("dni"), ejemplo().aJson());
+        assertFalse(ejemploDelContrato().contains("dni"), "el ejemplo del contrato todavía trae un DNI");
+    }
+
+    @Test
+    void unMensajePublicadoConElDniSeLeeIgualYAlEscribirloYaNoLoLleva() {
+        PagoConfirmadoMensaje leido = PagoConfirmadoMensaje.desdeJson(PUBLICADO_CON_DNI);
+
+        assertEquals(ejemplo(), leido);
+        assertFalse(leido.aJson().contains("30123456") || leido.aJson().contains("31234567"), leido.aJson());
+    }
+
+    @Test
+    void unDniQueYaNoSeLeeTampocoSeValida() {
+        // Un mensaje viejo no se rechaza por un campo que el contrato dejó de leer.
+        String conDniMalo = PUBLICADO_CON_DNI.replace("30123456", "123");
+
+        assertEquals(ejemplo(), PagoConfirmadoMensaje.desdeJson(conDniMalo));
+    }
+
     // --- Textos que no son un mensaje ----------------------------------------------------------
 
     @Test
@@ -141,12 +177,12 @@ class PagoConfirmadoMensajeTest {
     @Test
     void alLeerTambienSeValida() throws IOException {
         String sinVenta = ejemploDelContrato().replace("\"V-3f9a1c2b\"", "\"\"");
-        String conDniCorto = ejemploDelContrato().replace("30123456", "123");
+        String sinNombre = ejemploDelContrato().replace("\"Ana Gómez\"", "\" \"");
         String conEntradaNula = "{\"ventaId\":\"V-3f9a1c2b\",\"compradorId\":\"user-titular\",\"eventoId\":\"ev-1\","
                 + "\"entradas\":[null],\"montoTotal\":60500,\"timestamp\":\"2026-10-16T21:30:00Z\"}";
 
         assertThrows(MensajeInvalido.class, () -> PagoConfirmadoMensaje.desdeJson(sinVenta));
-        assertThrows(MensajeInvalido.class, () -> PagoConfirmadoMensaje.desdeJson(conDniCorto));
+        assertThrows(MensajeInvalido.class, () -> PagoConfirmadoMensaje.desdeJson(sinNombre));
         assertThrows(MensajeInvalido.class, () -> PagoConfirmadoMensaje.desdeJson(conEntradaNula));
     }
 
@@ -195,17 +231,12 @@ class PagoConfirmadoMensajeTest {
     }
 
     @Test
-    void cadaTitularLlevaNombreYUnDniDe7U8Digitos() {
+    void cadaTitularLlevaNombre() {
         assertInvalido(conTitular(null));
-        assertInvalido(conTitular(new Titular(null, "30123456")));
-        assertInvalido(conTitular(new Titular("  ", "30123456")));
-        assertInvalido(conTitular(new Titular("Ana Gómez", null)));
-        assertInvalido(conTitular(new Titular("Ana Gómez", "123456")));     // 6 dígitos
-        assertInvalido(conTitular(new Titular("Ana Gómez", "123456789")));  // 9 dígitos
-        assertInvalido(conTitular(new Titular("Ana Gómez", "30.123.456"))); // con puntos
-        assertInvalido(conTitular(new Titular("Ana Gómez", "3012345A")));
+        assertInvalido(conTitular(new Titular(null)));
+        assertInvalido(conTitular(new Titular("  ")));
 
-        assertDoesNotThrow(() -> conTitular(new Titular("Ana Gómez", "3012345")).validar()); // 7 dígitos
+        assertDoesNotThrow(() -> conTitular(new Titular("Ana Gómez")).validar());
     }
 
     @Test

@@ -30,9 +30,20 @@ public final class Ejemplos {
 
     public static PagoConfirmadoMensaje pagoConfirmado(String ventaId) {
         return new PagoConfirmadoMensaje(ventaId, COMPRADOR, "ev-1",
-                List.of(new Entrada("T-9c41d07e", "Platea B", new Titular("Ana Gómez", "30123456")),
-                        new Entrada("T-51b7a2f0", "Platea B", new Titular("Luis Pérez", "31234567"))),
+                List.of(new Entrada("T-9c41d07e", "Platea B", new Titular("Ana Gómez")),
+                        new Entrada("T-51b7a2f0", "Platea B", new Titular("Luis Pérez"))),
                 60500, Instant.parse("2026-10-17T01:30:00Z"));
+    }
+
+    /**
+     * {@link #pagoConfirmado()} como se publicaba hasta el 23/11, con el DNI de
+     * cada titular (DEF-37). Uno así puede llegar todavía desde la suscripción
+     * durable o desde la DLQ.
+     */
+    public static String pagoConfirmadoConDni() {
+        return pagoConfirmado().aJson()
+                .replace("{\"nombre\":\"Ana Gómez\"}", "{\"dni\":\"30123456\",\"nombre\":\"Ana Gómez\"}")
+                .replace("{\"nombre\":\"Luis Pérez\"}", "{\"dni\":\"31234567\",\"nombre\":\"Luis Pérez\"}");
     }
 
     /** Una factura ya guardada de esa venta y ese comprador. */

@@ -1,7 +1,9 @@
 package com.palco.facturacion.mensajeria;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -66,6 +68,21 @@ class FacturacionDeComprasMDBTest {
 
         assertEquals(1, repositorio.cantidad());
         assertEquals(1, arca.pedidos.size());
+        verify(contexto, never()).setRollbackOnly();
+    }
+
+    @Test
+    void unMensajePublicadoAntesConElDniDeLosTitularesSeFacturaIgual() throws JMSException {
+        // Hasta el 23/11 el mensaje traía el DNI (DEF-37). La factura B a consumidor final nunca lo usó:
+        // a ARCA se le pide lo mismo que con un mensaje nuevo.
+        String conDni = Ejemplos.pagoConfirmadoConDni();
+        assertTrue(conDni.contains("\"dni\":\"30123456\""), conDni);
+
+        mdb.onMessage(mensajeDeTexto(conDni, 1));
+
+        assertEquals(1, repositorio.cantidad());
+        assertEquals(1, arca.pedidos.size());
+        assertFalse(arca.pedidos.get(0).toString().contains("30123456"), arca.pedidos.get(0).toString());
         verify(contexto, never()).setRollbackOnly();
     }
 
