@@ -267,8 +267,8 @@ public class ServicioDeEventos implements IEventos {
                             + sector.getVendidas() + " entradas ya vendidas.");
         }
         if (pedido.precio() != sector.getPrecio() && sector.getVendidas() > 0) {
-            // El tope de la reventa se calcula sobre lo que pagó cada comprador: mover el
-            // precio de lista después de vender dejaría topes que no se corresponden.
+            // El rango de la reventa sale del precio de lista del sector: moverlo después de
+            // vender cambiaría el tope de las entradas que ya se vendieron.
             throw new ErroresDeNegocio.Conflicto(TiposDeProblema.SECTOR_CON_VENTAS,
                     "No se puede cambiar el precio de " + sector.getNombre() + ": ya tiene entradas vendidas.");
         }

@@ -7,7 +7,7 @@
 //   node scripts/pruebas/escenarios.mjs 1 2 7        corre solo esos
 //
 // Se corre desde cualquier carpeta: las rutas salen de la ubicación de este archivo. Necesita Node 18 o
-// más nuevo (fetch nativo; no hay dependencias que instalar), WildFly levantado con los 8 WAR
+// más nuevo (fetch nativo; no hay dependencias que instalar), WildFly levantado con todos los WAR
 // (backend/dev.sh) y, para los contadores del broker y el log, que el servidor sea el armado en
 // backend/servidor/target/server de esta máquina.
 // Sale con código 0 si todas las comprobaciones pasan y con 1 si alguna falla.
@@ -16,7 +16,7 @@
 // otra (move-messages), y el 14 prende por unos segundos una propiedad de sistema que hace fallar todo
 // pago después del cobro. El 18 saca de servicio por un rato el WAR de Eventos: mientras tanto nadie puede
 // ver el catálogo ni comprar. Si otra persona está usando el servidor, se corren solo los demás:
-//   node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17 21
+//   node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 9 13 15 16 17 19 20 21 22 23 24
 // El 14 espera a la conciliación de pagos, que corre una vez por minuto con 2 minutos de margen: tarda
 // entre 2 y 4 minutos. El 18 espera al barrido de devoluciones, que corre una vez por minuto: tarda hasta 1.
 // El 19 y el 20 esperan a la conciliación de reventas, que corre una vez por minuto con 2 minutos de margen:
