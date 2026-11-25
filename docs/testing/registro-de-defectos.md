@@ -60,7 +60,7 @@ contra el máximo.
 | DEF-11 | El log decía "aviso enviado" sin que el aviso se mandara | Cosmética | Baja | Cerrado | Santiago Loto | 14/10 | `846c6f4` |
 | DEF-12 | El 401 por token inválido salía sin CORS ni Problem Details | Mayor | Alta | Cerrado | Santiago Loto | 16/10 | `93ce226` |
 | DEF-13 | El ingreso no mostraba el mensaje del 429 | Menor | Media | Cerrado | Santiago Loto | 16/10 | `0cbb2e9` |
-| DEF-14 | El frontend no podía leer `Retry-After` en el 429 | Menor | Media | Corregido, a verificar (falta el test que lo controle) | Santiago Loto | 05/11 | `997e2d7` |
+| DEF-14 | El frontend no podía leer `Retry-After` en el 429 | Menor | Media | Corregido, a verificar sobre el tag (`CorsFilterTest`) | Santiago Loto | 05/11 | `997e2d7` |
 | DEF-15 | Las publicaciones de un evento cancelado seguían activas en la reventa | Menor | Media | Cerrado | Valentina Frisoli | 18/11 | `51af1af` |
 | DEF-16 | El tope de la reventa se calculaba sobre lo pagado y no sobre el precio de lista | Crítica | Alta | Cerrado | Santiago Loto | 19/11 | `45e2355` y textos |
 | DEF-17 | La cancelación anulaba todas las compras de un evento en una sola transacción | Mayor | Alta | Cerrado | Santiago Loto | 19/11 | `7095356` |
@@ -76,57 +76,59 @@ contra el máximo.
 | DEF-27 | El broker perdía los mensajes pendientes al recrear el contenedor | Crítica | Alta | Cerrado | Santiago Loto | 19/11 | `030e2eb` |
 | DEF-28 | El procedimiento de reproceso de la DLQ no devolvía la copia de Facturación | Mayor | Alta | Cerrado | Santiago Loto | 19/11 | Sección 10.6 del documento único |
 | DEF-29 | Al cancelar un evento, quien compró en la reventa no recibía la devolución | Crítica | Alta | Cerrado | Julián Zuchowicki | 20/11 | `da928f6` |
-| DEF-30 | La compra en la reventa no aplica un DNI por evento ni el tope de 6 por persona y evento | Mayor | Alta | Corregido, a verificar sobre el tag (escenario 23) | Julián Zuchowicki | 20/11 | Corrección del 20/11 |
+| DEF-30 | La compra en la reventa no aplica un DNI por evento ni el tope de 6 por persona y evento | Mayor | Alta | Corregido, a verificar sobre el tag (tests de Ventas y Reventa) | Julián Zuchowicki | 20/11 | Corrección del 20/11 |
 | DEF-31 | Al cancelar un evento, la venta nacida en la reventa devolvía un cupo que nunca reservó | Menor | Media | Cerrado | Julián Zuchowicki | 20/11 | `da928f6` |
 | DEF-32 | El registro de la puerta muestra el id interno de la cuenta de puerta y no su email | Menor | Baja | Corregido, a verificar sobre el tag (escenario 16) | Joaquin Molina | 20/11 | Corrección del 20/11 |
 | DEF-33 | Una factura rechazada o en la DLQ figura como "todavía se está generando" | Menor | Baja | Corregido, a verificar sobre el tag (`factura-rechazada.spec.ts`) | Sebastian Deya | 20/11 | Corrección del 20/11 y del 24/11 |
 | DEF-34 | Los límites de largo de Usuarios y Eventos respondían el 400 en inglés | Cosmética | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 20/11 | Corrección del 20/11 |
 | DEF-35 | El contrato de la asignación de puerta decía que no controla el rol de la cuenta, y la API responde 422 `no-es-de-puerta` | Menor | Baja | Corregido, a verificar sobre el tag (contrato y Postman) | Joaquin Molina | 20/11 | Corrección del 20/11 |
 | DEF-36 | El log guardaba el email de quien usa el asistente y, sin SMTP, cada email completo con sus códigos (SEC-D03) | Mayor | Alta | Corregido, a verificar sobre el tag | Sebastian Deya y Valentina Frisoli | 20/11 | Corrección del 20/11 y del 24/11 (el compose, por defecto, sin el email entero) |
-| DEF-37 | El DNI de cada titular viaja completo en `PAGO_CONFIRMADO` y queda completo en la auditoría (SEC-D05) | Mayor | Media | Nuevo (confirmado en el código) | Julián Zuchowicki | 20/11 | Pendiente |
+| DEF-37 | El DNI de cada titular viaja completo en `PAGO_CONFIRMADO` y queda completo en la auditoría (SEC-D05) | Mayor | Media | Corregido, a verificar sobre el tag | Julián Zuchowicki | 20/11 | Corrección del 24/11 |
 | DEF-38 | La sesión dura 8 horas y cerrar sesión no revoca el token (SEC-W05c) | Mayor | Baja | Aceptado (riesgo aceptado el 16/10) | Santiago Loto | 20/11 | Riesgo aceptado |
 | DEF-39 | El broker no tiene usuarios ni permisos por destino (SEC-I02) | Menor | Baja | Aceptado (riesgo aceptado el 16/10) | Julián Zuchowicki | 20/11 | Riesgo aceptado |
-| DEF-40 | El paso del CI "Control de logs (sin tokens ni DNI de prueba)" no busca DNI (SEC-D01) | Menor | Media | Nuevo (confirmado en el código) | Santiago Loto | 20/11 | Pendiente |
-| DEF-41 | El límite de ingresos cuenta por email: cualquiera puede bloquearle el ingreso a otra persona 15 minutos (SEC-W04) | Menor | Baja | Nuevo (confirmado en el código) | Santiago Loto | 20/11 | Pendiente |
-| DEF-42 | El compose acepta `http://localhost:5173` en CORS además de la URL pública (SEC-W13) | Menor | Baja | Nuevo (confirmado en el código) | Santiago Loto | 20/11 | Pendiente |
-| DEF-43 | Ningún test falla si una operación de 7 de los 13 recursos queda sin `@RolesAllowed` ni `@PermitAll` (SEC-W02) | Menor | Alta | Nuevo (confirmado en el código) | Valentina Frisoli | 20/11 | Pendiente |
-| DEF-44 | Las contraseñas guardadas con 310.000 iteraciones no pasan a 600.000 al iniciar sesión (SEC-D02) | Menor | Baja | Nuevo (confirmado en el código) | Santiago Loto | 20/11 | Pendiente |
-| DEF-45 | El ARCA simulado no pide autenticación y el nginx del compose lo publica | Menor | Baja | Nuevo (confirmado en el código) | Santiago Loto | 20/11 | Pendiente |
-| DEF-46 | Dos compras a la vez del mismo comprador, o con el mismo DNI, pasan el tope de 6 y el control de un DNI por evento | Mayor | Alta | En corrección: el catálogo ya está corregido (a verificar sobre el tag); falta la compra por la reventa | Julián Zuchowicki | 20/11 | Corrección del 24/11, en parte |
+| DEF-40 | El paso del CI "Control de logs (sin tokens ni DNI de prueba)" no busca DNI (SEC-D01) | Menor | Media | Corregido, a verificar sobre el tag | Sebastian Deya | 20/11 | Corrección del 25/11 |
+| DEF-41 | El límite de ingresos cuenta por email: cualquiera puede bloquearle el ingreso a otra persona 15 minutos (SEC-W04) | Menor | Baja | Aceptado (decisión de diseño, CA-02.3) | Santiago Loto | 20/11 | Riesgo aceptado |
+| DEF-42 | El compose acepta `http://localhost:5173` en CORS además de la URL pública (SEC-W13) | Menor | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 20/11 | Corrección del 25/11 |
+| DEF-43 | Ningún test falla si una operación de 7 de los 13 recursos queda sin `@RolesAllowed` ni `@PermitAll` (SEC-W02) | Menor | Alta | Corregido, a verificar sobre el tag | Valentina Frisoli | 20/11 | Corrección del 24/11 |
+| DEF-44 | Las contraseñas guardadas con 310.000 iteraciones no pasan a 600.000 al iniciar sesión (SEC-D02) | Menor | Baja | Corregido, a verificar sobre el tag | Santiago Loto | 20/11 | Corrección del 24/11 |
+| DEF-45 | El ARCA simulado no pide autenticación y el nginx del compose lo publica | Menor | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 20/11 | Corrección del 25/11 |
+| DEF-46 | Dos compras a la vez del mismo comprador, o con el mismo DNI, pasan el tope de 6 y el control de un DNI por evento | Mayor | Alta | Corregido, a verificar sobre el tag | Julián Zuchowicki | 20/11 | Corrección del 24/11 (catálogo y reventa) |
 | DEF-47 | Recuperar la contraseña (HU-03) no tenía pantalla | Mayor | Alta | Corregido, a verificar sobre el tag (`recuperar.spec.ts`) | Valentina Frisoli | 20/11 | Corrección del 20/11 |
-| DEF-48 | Las ventas por día (HU-12) no tienen pantalla | Menor | Baja | Nuevo (confirmado en el código) | Valentina Frisoli | 20/11 | Pendiente |
-| DEF-49 | El JavaScript del frontend sale en un solo archivo de más de 500 kB | Menor | Baja | Nuevo (confirmado en el build) | Valentina Frisoli | 20/11 | Pendiente |
-| DEF-50 | Cuatro avisos de oxlint: tres `react(only-export-components)` y un `no-unused-vars` | Cosmética | Baja | Nuevo (confirmado con el lint) | Valentina Frisoli | 20/11 | Pendiente |
+| DEF-48 | Las ventas por día (HU-12) no tienen pantalla | Menor | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 20/11 | Corrección del 24/11 |
+| DEF-49 | El JavaScript del frontend sale en un solo archivo de más de 500 kB | Menor | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 20/11 | Corrección del 24/11 |
+| DEF-50 | Cuatro avisos de oxlint: tres `react(only-export-components)` y un `no-unused-vars` | Cosmética | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 20/11 | Corrección del 24/11 |
 | DEF-51 | La imagen web partía de `nginx:1.27-alpine`, que no se publica desde el 16/04/2025 | Menor | Alta | Cerrado | Joaquin Molina | 21/11 | `64288b2` |
 | DEF-52 | CA-06.3 y CP-06.3.3 describían el rechazo de ARCA de antes de DEF-33 y citaban dos tests que ya no existen | Menor | Alta | Corregido, a verificar sobre el tag (matriz) | Valentina Frisoli | 20/11 | Corrección del 20/11 |
 | DEF-53 | CA-01.6, CA-03.4, CP-01.6.1 y CP-03.4.1 esperaban el email completo en el aviso de falla del SMTP, que sale enmascarado | Cosmética | Media | Corregido, a verificar sobre el tag | Sebastian Deya | 20/11 | Corrección del 20/11 |
-| DEF-54 | Con el backend caído, la pantalla dice "Ocurrió un error inesperado" en lugar de que no hay conexión | Cosmética | Baja | Nuevo (confirmado en el código) | Valentina Frisoli | 20/11 | Pendiente |
+| DEF-54 | Con el backend caído, la pantalla dice "Ocurrió un error inesperado" en lugar de que no hay conexión | Cosmética | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 20/11 | Corrección del 24/11 |
 | DEF-55 | El ejemplo de `ResultadoDeEscaneo.escaneadoPor` en el OpenAPI era `user-puerta`, una cuenta que no existe | Cosmética | Baja | Corregido, a verificar sobre el tag | Joaquin Molina | 20/11 | Corrección del 20/11 |
-| DEF-56 | Los guiones de `docs/entrega3/evidencia/` usan por defecto un secreto entre servicios que el servidor ya no acepta | Cosmética | Baja | Nuevo (confirmado en el código) | Santiago Loto | 20/11 | Pendiente |
+| DEF-56 | Los guiones de `docs/entrega3/evidencia/` usan por defecto un secreto entre servicios que el servidor ya no acepta | Cosmética | Baja | Corregido, a verificar sobre el tag | Julián Zuchowicki | 20/11 | Corrección del 25/11 |
 | DEF-57 | El OpenAPI no documentaba `GET /eventos/imagenes/{id}` ni `GET /usuarios/cuentas`, y contaba la subida de fotos solo con Supabase | Menor | Media | Corregido, a verificar sobre el tag (contrato) | Sebastian Deya | 20/11 | Corrección del 20/11 |
 | DEF-58 | El token de sesión queda en `localStorage`, donde un script inyectado en la página podría leerlo | Menor | Baja | Aceptado (decisión de diseño, documento único 5.7) | Valentina Frisoli | 20/11 | Riesgo aceptado |
 | DEF-59 | `POST /usuarios/password/olvide` (y los demás endpoints que reciben un email) responde 500 si el email trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Sebastian Deya | 21/11 | Corrección del 21/11 |
 | DEF-60 | `POST /v1/operaciones-de-reventa/transferencias` responde 500 si un id del pedido trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Julián Zuchowicki | 21/11 | Corrección del 21/11 |
 | DEF-61 | `POST /v1/validacion/escaneos` responde 500 si el `codigoQr` trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Joaquin Molina | 21/11 | Corrección del 21/11 |
-| DEF-62 | Un 400 de validación lista los campos de `errores` en un orden que cambia entre pedidos iguales | Menor | Baja | Nuevo (reproducido) | Sebastian Deya | 21/11 | Pendiente |
+| DEF-62 | Un 400 de validación lista los campos de `errores` en un orden que cambia entre pedidos iguales | Menor | Baja | Corregido, a verificar sobre el tag | Sebastian Deya | 21/11 | Corrección del 24/11 |
 | DEF-63 | Una pregunta muy larga al asistente deja colgado el pedido: el enmascarado del email tarda con el cuadrado del largo | Crítica | Alta | Corregido, a verificar sobre el tag (contrato) | Valentina Frisoli | 21/11 | Corrección del 21/11 |
 | DEF-64 | El registro tardaba con el cubo del largo de un nombre o un apellido lleno de espacios: un pedido sin sesión de 1,6 KB ocupaba un hilo del servidor 7 segundos (SEC-W15) | Crítica | Alta | Corregido, a verificar sobre el tag (`NombreYApellidoTest` y los `curl` de la evidencia) | Joaquin Molina | 24/11 | Corrección del 24/11 |
 | DEF-65 | El bug `java:S5850` de SonarCloud en `Textos.slug` dejaba la confiabilidad del código total en C, y la cátedra pide A | Menor | Alta | Corregido, a verificar sobre el tag (análisis de SonarCloud) | Sebastian Deya | 24/11 | Corrección del 24/11 |
 | DEF-66 | La colección de Postman no tenía ningún pedido para `POST /v1/operaciones-de-reventa/controles-de-compra` | Menor | Alta | Corregido, a verificar sobre el tag (Newman) | Julián Zuchowicki | 24/11 | Corrección del 24/11 |
-| DEF-67 | Tres code smells BLOCKER de SonarCloud (`java:S1845`): nombres que solo difieren en mayúsculas en `ArcaSoap`, `PagosFake` y `ResultadoDeCobro` | Cosmética | Baja | Nuevo (confirmado en SonarCloud) | Santiago Loto, Valentina Frisoli y Julián Zuchowicki | 24/11 | Pendiente |
+| DEF-67 | Tres code smells BLOCKER de SonarCloud (`java:S1845`): nombres que solo difieren en mayúsculas en `ArcaSoap`, `PagosFake` y `ResultadoDeCobro` | Cosmética | Baja | Corregido, a verificar sobre el tag | Santiago Loto, Valentina Frisoli y Julián Zuchowicki | 24/11 | Corrección del 24/11 |
 | DEF-68 | La imagen backend lleva seis vulnerabilidades altas de Jackson 2.21.5 y Guava 33.0.0 que vienen en los módulos de WildFly 41.0.1, aceptadas en `.trivyignore` hasta el 31/12/2026 (SEC-E02) | Menor | Baja | Aceptado (riesgo aceptado el 21/11, vence el 31/12/2026) | Santiago Loto | 24/11 | Riesgo aceptado |
 | DEF-69 | La CSP permite estilos en línea (`style-src 'unsafe-inline'`) e imágenes de cualquier origen `https:`: dos alertas Medium de ZAP, justificadas (SEC-W12, SEC-E01) | Menor | Baja | Aceptado (justificado en `.zap/reglas.tsv`) | Valentina Frisoli | 24/11 | Riesgo aceptado |
 | DEF-70 | La CSP habilitaba `https://fonts.googleapis.com` y `https://fonts.gstatic.com`, aunque las fuentes se sirven desde el propio sitio (SEC-W12) | Menor | Baja | Corregido, a verificar sobre el tag (ZAP y pruebas de seguridad) | Valentina Frisoli | 24/11 | Corrección del 24/11 |
 | DEF-71 | El proceso principal de nginx corre como root en la imagen web (hallazgo de SonarCloud aceptado) (SEC-E04) | Menor | Baja | Aceptado (en SonarCloud, 21/11) | Joaquin Molina | 24/11 | Riesgo aceptado |
-| DEF-72 | El email de la cuenta de puerta viaja en la ruta (`PUT` y `DELETE /api/v1/validacion/puertas/{eventoId}/{email}`) o en la consulta (`GET /api/usuarios/cuentas?email=`) y queda en el log de accesos de nginx (SEC-D03) | Menor | Baja | Nuevo (confirmado en el log del run 44867187257) | Joaquin Molina | 24/11 | Pendiente |
-| DEF-73 | El análisis de dependencias no escanea la imagen `postgres:17-alpine` del compose (SEC-E02b) | Menor | Baja | Nuevo (confirmado en el workflow) | Joaquin Molina | 24/11 | Pendiente |
-| DEF-74 | ZAP informa 5 alertas Low sin justificar: faltan las cabeceras `Cross-Origin-Resource-Policy`, `Cross-Origin-Opener-Policy` y `Cross-Origin-Embedder-Policy`, y 14 respuestas salen en `text/html` donde ZAP esperaba JSON (SEC-W12, SEC-E01) | Cosmética | Baja | Nuevo (confirmado en el reporte de ZAP) | Valentina Frisoli | 24/11 | Pendiente |
+| DEF-72 | El email de la cuenta de puerta viaja en la ruta (`PUT` y `DELETE /api/v1/validacion/puertas/{eventoId}/{email}`) o en la consulta (`GET /api/usuarios/cuentas?email=`) y queda en el log de accesos de nginx (SEC-D03) | Menor | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 24/11 | Corrección del 25/11 |
+| DEF-73 | El análisis de dependencias no escanea la imagen `postgres:17-alpine` del compose (SEC-E02b) | Menor | Baja | Corregido, a verificar sobre el tag | Sebastian Deya | 24/11 | Corrección del 25/11 |
+| DEF-74 | ZAP informa 5 alertas Low sin justificar: faltan las cabeceras `Cross-Origin-Resource-Policy`, `Cross-Origin-Opener-Policy` y `Cross-Origin-Embedder-Policy`, y 14 respuestas salen en `text/html` donde ZAP esperaba JSON (SEC-W12, SEC-E01) | Cosmética | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 24/11 | Corrección del 25/11 |
 | DEF-75 | El registro dice si un email o un DNI ya tienen cuenta y no cuenta intentos (SEC-W03) | Menor | Baja | Aceptado (decisión de diseño, CA-01.2) | Santiago Loto | 24/11 | Riesgo aceptado |
+| DEF-76 | El bug `java:S8696` de SonarCloud en `AsistenteIA` dejaba la confiabilidad del código nuevo en D y el Quality Gate en rojo | Menor | Alta | Corregido, a verificar sobre el tag (análisis de SonarCloud) | Valentina Frisoli | 25/11 | `1bab37a` |
+| DEF-77 | `GET /v1/pagos?claveIdempotencia=` responde 500 si la clave trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Valentina Frisoli | 25/11 | `a33194d` |
 
-Totales: 75 defectos. 29 cerrados, 21 corregidos que falta verificar (DEF-02, DEF-14, DEF-30, DEF-32, DEF-33, DEF-34,
-DEF-35, DEF-36, DEF-47, DEF-52, DEF-53, DEF-55, DEF-57, DEF-59, DEF-60, DEF-61, DEF-63, DEF-64, DEF-65, DEF-66 y
-DEF-70), 1 en corrección (DEF-46), 7 aceptados (DEF-38, DEF-39, DEF-58, DEF-68, DEF-69, DEF-71 y DEF-75) y 17 nuevos
-abiertos. Por severidad: 1 bloqueante, 8 críticos, 16 mayores, 40 menores y 10 cosméticos.
+Totales: 77 defectos. 29 cerrados, 40 corregidos que falta verificar sobre el tag (DEF-02, DEF-14, DEF-30, DEF-32 a
+DEF-37, DEF-40, DEF-42 a DEF-50, DEF-52 a DEF-57, DEF-59 a DEF-67, DEF-70, DEF-72 a DEF-74, DEF-76 y DEF-77), ninguno
+nuevo ni en corrección, y 8 aceptados (DEF-38, DEF-39, DEF-41, DEF-58, DEF-68, DEF-69, DEF-71 y DEF-75). Por
+severidad: 1 bloqueante, 8 críticos, 16 mayores, 42 menores y 10 cosméticos.
 
 ## 3. Defectos abiertos y corregidos que falta verificar
 
@@ -166,9 +168,11 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
   (409 sin tomar ni llamar a Pagos, entre ellos
   `#elReintentoConOtroDniSeControlaYSiVentasDiceQueNoLaTomaQuedaComoEstaba`), `ClientesTest` y
   `ReventaDeEntradasResourceTest`. La operación nueva está documentada en `docs/api/openapi.yaml`.
-- **Prueba que lo va a cerrar:** sobre el tag, los dos pasos de arriba contra el sistema levantado: 409 y ningún
-  cobro en Pagos con la clave `<idPublicación>:<clave>`. El escenario 23 recorre la compra del catálogo; esos dos
-  pasos por la reventa se suman ahí. La carrera entre dos compras a la vez queda aparte, en DEF-46.
+- **Prueba que lo va a cerrar:** en el CI del tag, `ReventaDeEntradasEnH2Test`
+  (`#conSeisEntradasParaElEventoNoCompraOtraEnLaReventa`, `#unDniQueYaTieneEntradaParaElEventoNoRecibeLaDeLaReventa` y
+  `#laEntradaQueSeRevendeNoCuentaParaElDniPeroLasOtrasDeEsaVentaSi`, contra H2 con las consultas reales) y
+  `ServicioDeReventaTest` (409 sin tomar la publicación ni llamar a Pagos). El escenario 23 recorre las mismas reglas
+  por la compra del catálogo. La carrera entre dos compras a la vez queda aparte, en DEF-46.
 
 ### DEF-32 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
@@ -322,7 +326,7 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
   con el código corregido y el backend sin la variable (`docs/testing/evidencia/final/correo-en-el-log.txt`): 0
   emails enteros y 0 códigos en el log. Falta repetirlos sobre el tag.
 
-### DEF-37 · Mayor · Prioridad Media · Nuevo (confirmado en el código)
+### DEF-37 · Mayor · Prioridad Media · Corregido, a verificar sobre el tag
 
 **El DNI de cada titular viaja completo en `PAGO_CONFIRMADO` y queda completo en la auditoría (SEC-D05)**
 
@@ -345,6 +349,27 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
   los ids. Cambia el contrato de mensajería: se acuerda antes con el grupo.
 - **Prueba que lo va a cubrir:** un caso de `ServicioDeAuditoriaTest` que registre un `PAGO_CONFIRMADO` y compruebe que
   el cuerpo guardado no tiene el DNI completo.
+- **Corrección (24/11):** ningún consumidor usaba el DNI del mensaje. La emisión lee las entradas de su base con
+  el `ventaId`; el aviso nombra a cada titular; la auditoría anota venta, comprador, evento y monto; Facturación le
+  pide a ARCA una factura B a consumidor final, sin documento (`Arca.SolicitudDeCae`). `COMPRA_ANULADA` y
+  `EVENTO_CANCELADO` no llevan titulares. El titular de `PAGO_CONFIRMADO` y de `REVENTA_CONFIRMADA` viaja solo con
+  `nombre` (`PagoConfirmadoMensaje.Titular`, `ServicioDeVentas.mensaje`), y el DNI queda en Ventas, en la entrada. Un
+  mensaje publicado antes, con el DNI, se procesa igual: el campo se ignora y ya no se valida. La auditoría guarda el
+  cuerpo sin el `dni` de cada titular (`ServicioDeAuditoria.sinElDniDeLosTitulares`), y la migración V3 de
+  Notificaciones (`V3__sacar_el_dni_de_la_auditoria.sql`) se lo saca a las filas que ya estaban. Contrato:
+  `docs/api/mensajeria-pago-confirmado.md`, sección "Datos personales".
+- **Pruebas de la corrección:** `PagoConfirmadoMensajeTest` (`#elMensajeNoLlevaElDniDeNingunTitular`,
+  `#unMensajePublicadoConElDniSeLeeIgualYAlEscribirloYaNoLoLleva`, `#unDniQueYaNoSeLeeTampocoSeValida`),
+  `ServicioDeVentasTest#elMensajeQueSalePorLaColaYElTopicoNoLlevaElDniDeNingunTitular`,
+  `EmisionDeEntradasMDBTest#unMensajePublicadoAntesConElDniDeLosTitularesSeEmiteIgual`, `ServicioDeAuditoriaTest`
+  (`#unPagoConfirmadoPublicadoConElDniSeGuardaSinElDniDeNingunTitular` y cuatro más),
+  `AuditoriaDeComprasMDBTest#unMensajePublicadoAntesConElDniDeLosTitularesSeRegistraIgual`,
+  `FacturacionDeComprasMDBTest#unMensajePublicadoAntesConElDniDeLosTitularesSeFacturaIgual`, y la V3 en
+  `MigracionesEnH2Test#laV3LeSacaElDniALasFilasQueYaEstaban` y `MigracionesEnPostgresIT` (PostgreSQL 17 en un
+  contenedor). `mvn verify` de common, Ventas, Notificaciones y Facturación en verde el 24/11.
+- **Prueba que lo va a cerrar:** sobre el tag, pagar una compra y leer `cuerpo` de la última fila de
+  `notificaciones.registro_auditoria`: no tiene `dni`; `select count(*) ... where cuerpo like '%"dni"%'` da 0, también
+  para las filas anteriores al despliegue; los escenarios 7, 9, 11, 15 y 17 siguen en verde.
 
 ### DEF-38 · Mayor · Prioridad Baja · Aceptado (riesgo aceptado el 16/10)
 
@@ -380,7 +405,7 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
 - **Alternativa:** si el sistema se despliega en más de un servidor, un usuario por servicio y un `security-setting`
   por destino en `configurar.cli`.
 
-### DEF-40 · Menor · Prioridad Media · Nuevo (confirmado en el código)
+### DEF-40 · Menor · Prioridad Media · Corregido, a verificar sobre el tag
 
 **El paso del CI "Control de logs (sin tokens ni DNI de prueba)" no busca DNI (SEC-D01)**
 
@@ -397,8 +422,17 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
   `contrato.yml`, `zap.yml` y `lighthouse.yml` corren con el valor por defecto (`false`, DEF-36): el control de los
   emails puede ir en el paso "Control de logs" de `contrato.yml` o de `zap.yml`.
 - **Prueba que lo va a cubrir:** el mismo paso contra un log con un DNI de prueba escrito a propósito: tiene que fallar.
+- **Corrección (25/11):** `scripts/qa/control-de-logs.sh`, que corren los pasos "Control de logs" de `ci.yml`,
+  `contrato.yml`, `pruebas-seguridad.yml` y `zap.yml`. Además de los tokens, busca las contraseñas de prueba, los DNI
+  de las seis cuentas de prueba (con puntos o sin ellos) y cualquier "dni" seguido de un número de 7 u 8 dígitos. Con
+  los emails enmascarados, el valor por defecto del compose, falla también con un email @palco.test entero; con
+  `PALCO_CORREO_LOG_COMPLETO=true`, los renglones de los emails no se miran para el DNI. Lo que encuentra sale con el
+  número de renglón, nunca con el renglón.
+- **Pruebas de la corrección:** contra el compose (25/11), después de los escenarios, Newman, la E2E, `seguridad.mjs`
+  y el broker apagado: "Control de logs: logs/server.log está limpio (3181 renglones)". Con un log armado con un
+  token, un `"dni":"31234567"` y un email de prueba, falla y nombra los tres renglones, sin mostrarlos.
 
-### DEF-41 · Menor · Prioridad Baja · Nuevo (confirmado en el código)
+### DEF-41 · Menor · Prioridad Baja · Aceptado (decisión de diseño, CA-02.3)
 
 **El límite de ingresos cuenta por email: cualquiera puede bloquearle el ingreso a otra persona 15 minutos (SEC-W04)**
 
@@ -410,11 +444,20 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
   `LimiteDeIntentosDeLoginTest#cincoFallidosYElSextoConLaClaveBuenaRecibe429`.
 - **Por qué es Menor:** el 429 contra la fuerza bruta se cumple (CA-02.3, criterio SEC-W04); el bloqueo dura 15
   minutos y no expone datos. Alternativa: esperar lo que dice `Retry-After`.
-- **Corrección propuesta:** contar también por IP de origen, con su propio límite.
-- **Prueba que lo va a cubrir:** un caso de `LimiteDeIntentosDeLoginTest` con los fallidos desde otra IP que no
-  bloquean a la dueña.
+- **Riesgo aceptado (24/11):** corregirlo cambia el criterio: CA-02.3 de HU-02 pide justamente que, con 5 fallidos en
+  15 minutos para el email, el ingreso siguiente responda 429 aunque la contraseña sea la correcta. Contar por IP
+  necesita la dirección del cliente, y hoy no se tiene de forma segura: WildFly ve la de nginx, nginx agrega la suya a
+  `X-Forwarded-For` y el backend también se usa directo en `127.0.0.1:8080`, donde esa cabecera la escribe entera
+  quien llama; confiar en ella daría intentos ilimitados cambiando la IP en cada pedido y debilitaría SEC-W04. Y aun
+  con la IP real, contar por email e IP deja la fuerza bruta sin tope con muchas direcciones, salvo un tope por email,
+  que devuelve el bloqueo (el compromiso conocido del bloqueo de cuentas, OWASP Authentication Cheat Sheet).
+  Mitigaciones que ya están: el bloqueo dura como mucho 15 minutos y `Retry-After` dice cuánto falta; el 429 dice lo
+  mismo exista o no la cuenta; y la dueña entra enseguida con "Olvidé mi contraseña" (HU-03), que borra los fallidos
+  de su email (`ReinicioDePasswordTest#cambiarLaContrasenaOlvidaLosIntentosDeLoginFallidos`), algo que quien ataca no
+  puede hacer sin su correo. Si se revisa CA-02.3: contar por email y origen, con un tope más alto por email solo, y el
+  origen tomado de `X-Real-IP` puesto por nginx y aceptado solo desde nginx.
 
-### DEF-42 · Menor · Prioridad Baja · Nuevo (confirmado en el código)
+### DEF-42 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **El compose acepta `http://localhost:5173` en CORS además de la URL pública (SEC-W13)**
 
@@ -428,8 +471,14 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
 - **Corrección propuesta:** que el compose use solo la URL pública y el origen de Vite quede para desarrollo
   (`backend/.env.example` ya lo trae).
 - **Prueba que lo va a cubrir:** el mismo `curl` sobre el compose: sin cabeceras CORS para ese origen.
+- **Corrección (25/11):** en `docker-compose.yml`, `PALCO_CORS_ORIGENES` vale por defecto solo `PALCO_URL_PUBLICA`
+  (`https://localhost`). El servidor de desarrollo de Vite queda para `backend/dev.sh`, que tiene su configuración;
+  para usar `npm run dev` contra el compose se define la variable con los dos orígenes.
+- **Pruebas de la corrección:** contra el compose (25/11), `GET /api/eventos` con `Origin: http://localhost:5173` no
+  trae `Access-Control-Allow-Origin` y con `Origin: https://localhost` sí; `seguridad.mjs`, bloque E (CORS sin
+  comodín), 21 de 21.
 
-### DEF-43 · Menor · Prioridad Alta · Nuevo (confirmado en el código)
+### DEF-43 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
 
 **Ningún test falla si una operación de 7 de los 13 recursos queda sin `@RolesAllowed` ni `@PermitAll` (SEC-W02)**
 
@@ -448,8 +497,19 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
   `@DELETE` de cada recurso y falle si alguno no tiene `@RolesAllowed` ni `@PermitAll`, con los `health` como excepción
   escrita.
 - **Prueba que lo va a cubrir:** ese test, y los pasos de arriba: tiene que fallar.
+- **Corrección (24/11):** `SeguridadDeclarativaTest` en el paquete `api` de cada servicio con recursos JAX-RS
+  (Asistente, Eventos, Facturación, Notificaciones, Pagos, Reventa, Usuarios, Validación y Ventas). Busca por
+  reflexión las clases con `@Path` entre las compiladas del servicio, toma los métodos con una anotación marcada con
+  `@HttpMethod` y falla con la lista de las operaciones sin `@RolesAllowed`, `@PermitAll` ni `@DenyAll`, ni en el
+  método ni en la clase. Un recurso o una operación nuevos entran solos, y exige que aparezcan los 13 recursos de hoy,
+  así una búsqueda vacía no pasa en verde. El `health` de `common` es la excepción escrita: público a propósito, para
+  el control de salud del compose. Hay una copia por servicio porque los servicios no comparten clases, tampoco las de
+  prueba.
+- **Pruebas de la corrección:** `SeguridadDeclarativaTest#cadaOperacionDiceQuienLaPuedeLlamar`, en verde en los 9
+  servicios con `mvn verify` (24/11). Sin el `@RolesAllowed("organizer")` del alta de eventos y sin el `@PermitAll` del
+  login, falla en los dos y nombra `EventosResource#crear` y `UsuariosResource#login`.
 
-### DEF-44 · Menor · Prioridad Baja · Nuevo (confirmado en el código)
+### DEF-44 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **Las contraseñas guardadas con 310.000 iteraciones no pasan a 600.000 al iniciar sesión (SEC-D02)**
 
@@ -465,8 +525,17 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
 - **Corrección propuesta:** después de un ingreso correcto, si el hash tiene menos iteraciones que
   `Contrasenas.ITERACIONES`, guardarlo de nuevo.
 - **Prueba que lo va a cubrir:** un test con base en H2 en el que una cuenta de 310.000 ingresa y queda con 600.000.
+- **Corrección (24/11):** `Contrasenas.tieneMenosIteraciones(hash)` dice si un hash tiene menos iteraciones que
+  `Contrasenas.ITERACIONES` (600.000). `ServicioDeUsuarios.iniciarSesion`, después de verificar la contraseña y que el
+  email esté verificado, guarda un hash nuevo (`Usuario.cambiarPassword`) si el guardado tiene menos: es el único
+  momento en que se tiene la contraseña. No cambia nada con la contraseña equivocada, con el email sin verificar ni
+  con un hash que ya tiene 600.000; cuesta un cálculo PBKDF2 más, una sola vez por cuenta.
+- **Pruebas de la corrección:** `IteracionesAlIniciarSesionEnH2Test` (H2 en modo PostgreSQL con las migraciones):
+  `#unaCuentaCon310MilIteracionesIngresaYQuedaCon600Mil`, `#conLaContrasenaEquivocadaElHashNoCambia` y
+  `#unHashQueYaTiene600MilNoSeVuelveACalcular`; y `ContrasenasTest#tieneMenosIteracionesSoloUnHashConMenosDe600Mil`.
+  Sin la línea nueva del login, el primero falla. `mvn verify` de Usuarios (24/11): 96 tests y 9 IT, 0 fallas.
 
-### DEF-45 · Menor · Prioridad Baja · Nuevo (confirmado en el código)
+### DEF-45 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **El ARCA simulado no pide autenticación y el nginx del compose lo publica**
 
@@ -481,8 +550,14 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
 - **Corrección propuesta:** fuera de la demo, no publicarlo en nginx: Facturación lo llama por la dirección interna
   (`FabricaDeArca`, `PALCO_URL_INTERNA`), no por nginx.
 - **Prueba que lo va a cubrir:** con esa configuración, `https://localhost/legado/arca?wsdl` responde 404.
+- **Corrección (25/11):** `frontend/docker/nginx.conf` ya no pasa `/legado/` al backend: responde 404. Facturación
+  le pide el CAE al ARCA simulado por la red interna (`PALCO_URL_INTERNA`, `http://localhost:8080` dentro del
+  backend), y las pruebas lo usan por el puerto del backend, que el compose publica solo en `127.0.0.1`.
+- **Pruebas de la corrección:** contra el compose (25/11), `https://localhost/legado/arca?wsdl` da 404 y
+  `http://localhost:8080/legado/arca?wsdl`, 200; los escenarios con factura y CAE en verde; `seguridad.mjs`, bloque D
+  (XXE en el canal SOAP), 6 de 6 por el puerto del backend.
 
-### DEF-46 · Mayor · Prioridad Alta · En corrección
+### DEF-46 · Mayor · Prioridad Alta · Corregido, a verificar sobre el tag
 
 **Dos compras a la vez del mismo comprador, o con el mismo DNI, pasan el tope de 6 entradas por evento y el control
 de un DNI por evento**
@@ -531,14 +606,34 @@ de un DNI por evento**
   los tres tests de la carrera (la segunda compra no espera a la primera y el segundo pago no espera el candado del
   DNI); sin el `FOR UPDATE` falla el de la fila que ya existía. `mvn -f backend/servicios/ventas/pom.xml test`: 388
   tests, 0 fallas (24/11). En PostgreSQL no corrió ningún test de la carrera: a verificar sobre el tag.
-- **Lo que falta, la reventa:** la compra en la reventa no deja nada en el esquema de Ventas hasta la transferencia,
-  que llega después del cobro, así que una compra del catálogo o de otra publicación que se cruce con ella no la ve, y
-  un candado en `controlarCompra` no lo cambia. Cerrarlo pide un cambio en Reventa: que la toma quede anotada en Ventas
-  bajo el mismo candado (por ejemplo, una retención que deja el control, que la transferencia convierte en la venta y
-  que Reventa suelta si el cobro no sale). La ventana es la del cobro de la reventa, y la alternativa es la misma. Con
-  esa corrección el estado pasa a *Corregido, a verificar*.
-- **Prueba que lo va a cubrir (la reventa):** un test con base y dos hilos: con 5 entradas, una compra en la reventa
-  entre el control y la transferencia y una del catálogo del mismo comprador a la vez: pasa una sola.
+- **Corrección (24/11), en la reventa:** la compra en la reventa no deja nada en el esquema de Ventas hasta la
+  transferencia, que llega después del cobro, así que la mirada de `controlarCompra` no alcanza con dos compras a la
+  vez. Ahora `ReventaDeEntradas.transferir`, en la transacción que escribe la venta nueva, toma los mismos candados que
+  el catálogo (el del comprador y el evento, y el del DNI y el evento) y vuelve a mirar el tope y el DNI antes de
+  escribir. La compra que entra segunda cuenta a la primera: si con ella se pasa una regla, la transferencia responde
+  el mismo 409 (`tope-por-evento` o `dni-con-entrada`) y no cambia nada. Reventa lo recibe como
+  `ClienteDeVentas.CompraFueraDeLasReglas`: anota el reembolso con un motivo propio
+  (`DevolucionDeCobros.motivoPorRegla`), deja la publicación libre (la entrada sigue publicada en Ventas, a diferencia
+  de una que ya no está en la reventa, que se anula), le pide a Pagos que devuelva el cobro y le responde al comprador
+  el 409 de la regla con "Te devolvimos el pago." o "El pago se va a devolver.". La conciliación hace lo mismo cuando
+  es ella la que transfiere, y si la base falla entre anotar el reembolso y soltar la publicación, el motivo del
+  reembolso decide que se libere y no que se anule. Solo pasa si otra compra se cruzó entre el control y la
+  transferencia: en el caso común, el control frena la compra antes de cobrar.
+- **Pruebas de la corrección, la reventa:** en `ReglasEntreComprasEnH2Test` (dos hilos, una conexión cada uno),
+  `#unaCompraDelCatalogoConElCandadoFrenaLaTransferenciaDeLaReventaQueLaPasaria`,
+  `#unaTransferenciaConElCandadoFrenaLaCompraDelCatalogoQueLaPasaria` y
+  `#unaCompraDelCatalogoQueSeEstaCobrandoConElMismoDniFrenaLaTransferencia`: con 5 entradas, la compra del catálogo y
+  la de la reventa del mismo comprador a la vez, pasa una sola, en los dos órdenes, y con el mismo DNI la transferencia
+  ve la compra que se está cobrando. En `ReventaDeEntradasEnH2Test`,
+  `#laTransferenciaVuelveAMirarElTopeConLasComprasQueEntraronDespuesDelControl` y
+  `#laTransferenciaVuelveAMirarElDniConLasComprasQueEntraronDespuesDelControl`. Sin el candado y la mirada en la
+  transferencia fallan los cinco. En Reventa, `ServicioDeReventaTest` (el reembolso, la publicación libre y el 409 de
+  la regla, también en el reintento con la misma clave), `ConciliacionDeReventasTest` (lo mismo desde la conciliación),
+  `ClientesTest#unaTransferenciaRechazadaPorUnaReglaEntreComprasSeDistingueDeUnaEntradaQueYaNoEstaPublicada` y
+  `DevolucionDeCobrosTest#distingueElReembolsoPorUnaReglaEntreComprasDelDeUnaEntradaQueYaNoEstaPublicada`.
+  `mvn test` de Ventas: 393 tests, y de Reventa: 98, 0 fallas (24/11).
+- **Prueba que lo va a cerrar:** los tests de arriba en el CI del tag, y los escenarios 17 y 23 contra el compose del
+  tag.
 
 ### DEF-47 · Mayor · Prioridad Alta · Corregido, a verificar sobre el tag
 
@@ -555,7 +650,7 @@ de un DNI por evento**
 - **Prueba que lo va a cerrar:** `frontend/e2e/recuperar.spec.ts` (CP-03.1.1, CP-03.2.1, CP-03.3.1 y los anchos de
   360, 768 y 1280 px) en el job "E2E" del CI sobre el tag.
 
-### DEF-48 · Menor · Prioridad Baja · Nuevo (confirmado en el código)
+### DEF-48 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **Las ventas por día (HU-12) no tienen pantalla**
 
@@ -570,8 +665,19 @@ de un DNI por evento**
 - **Corrección propuesta:** una tabla por día en el panel del organizador.
 - **Prueba que lo va a cubrir:** un paso en `frontend/e2e/organizador.spec.ts` que, después de una compra, vea la fila
   del día.
+- **Corrección (24/11):** en `/organizador`, "Detalle por evento" suma la sección "Ventas y liquidación" (y el menú
+  lateral, "Ventas"): lo recaudado de los compradores, el cargo de Palco, lo que hay que liquidarle al organizador,
+  las compras pagadas y las entradas, y la tabla "Ventas por día" (día, compras, entradas, subtotal, cargo de Palco y
+  total) con `porDia` de `GET /api/v1/resumenes`. Usa el mismo pedido que ya hacía el panel (`resumenDelEvento`, en
+  `frontend/src/servicios/ventas.ts`). Tiene estados de carga, de error con "Reintentar" y sin ventas. El día se
+  muestra como lo agrupa Ventas, en UTC, y lo aclara una nota debajo de la tabla.
+- **Pruebas de la corrección:** `frontend/e2e/organizador.spec.ts`, «organizador: ve las ventas por día y la
+  liquidación de su evento (HU-12)»: sin ventas, la tabla vacía y $0; después de una compra de Campo, $22.000
+  recaudado, $2.000 de cargo, $20.000 a liquidar y una fila del día. `frontend/e2e/accesibilidad.spec.ts` suma la
+  pantalla con una compra real: axe WCAG A/AA sin violaciones serias ni críticas y sin desborde a 360, 768 y 1280 px.
+  La suite E2E, 39 de 39 en Edge, el 24/11.
 
-### DEF-49 · Menor · Prioridad Baja · Nuevo (confirmado en el build)
+### DEF-49 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **El JavaScript del frontend sale en un solo archivo de más de 500 kB**
 
@@ -584,8 +690,17 @@ de un DNI por evento**
 - **Corrección propuesta:** cargar con `React.lazy` las pantallas del organizador, la puerta, el checkout y el
   asistente.
 - **Prueba que lo va a cubrir:** el build del job "Frontend (lint y build)" sin el aviso de Vite.
+- **Corrección (24/11):** `frontend/src/App.tsx` carga cada pantalla con `React.lazy` e `import()`, menos el catálogo
+  (la portada), dentro de un `Suspense` con el mismo esqueleto de carga de `RequireCatalog`. Si el archivo de una
+  pantalla no llega (un corte de red, o una versión nueva publicada con la pestaña abierta), muestra "No pudimos
+  abrir esta pantalla" con "Recargar la página" en lugar de una pantalla en blanco. El build deja el principal en
+  245,9 kB, un compartido de 174,8 kB (React y framer-motion) y cada pantalla entre 2,8 y 31,3 kB: la primera carga
+  baja unos 423 kB, contra 561 kB del archivo único.
+- **Pruebas de la corrección:** `npm run build` sin el aviso de 500 kB, en el job "Frontend (lint y build)";
+  `frontend/e2e/carga-diferida.spec.ts`: el archivo de una pantalla no llega, se ve el aviso y, al recargar, la
+  pantalla abre; la suite E2E entera, contra el build, 39 de 39 el 24/11.
 
-### DEF-50 · Cosmética · Prioridad Baja · Nuevo (confirmado con el lint)
+### DEF-50 · Cosmética · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **Cuatro avisos de oxlint: tres `react(only-export-components)` y un `no-unused-vars`**
 
@@ -600,6 +715,11 @@ de un DNI por evento**
   del componente; el cuarto es una variable sin usar. Para quien usa Palco no cambia nada.
 - **Corrección propuesta:** mover cada hook a su propio archivo y dejar el `catch` de `tema-inicial.js` sin parámetro.
 - **Prueba que lo va a cubrir:** `npm run lint` sin avisos, en el job "Frontend (lint y build)" del CI.
+- **Corrección (24/11):** `useToast`, `useSesion` y `useApp`, con su contexto y sus tipos, pasan a
+  `src/components/useToast.ts`, `src/store/useSesion.ts` y `src/store/useApp.ts`; `ToastProvider.tsx`,
+  `SesionContext.tsx` y `AppContext.tsx` exportan solo el proveedor; `public/tema-inicial.js` usa `catch` sin
+  parámetro. No se desactivó ninguna regla.
+- **Pruebas de la corrección:** `npm run lint` con 0 avisos y 0 errores el 24/11, en el job "Frontend (lint y build)".
 
 ### DEF-52 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
 
@@ -642,7 +762,7 @@ enmascarado**
   dirección enmascarada y sin la traza.
 - **Prueba que lo va a cerrar:** la revisión de los cuatro textos contra `CorreoSmtpTest` sobre el tag.
 
-### DEF-54 · Cosmética · Prioridad Baja · Nuevo (confirmado en el código)
+### DEF-54 · Cosmética · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **Con el backend caído, la pantalla dice "Ocurrió un error inesperado" en lugar de que no hay conexión**
 
@@ -656,6 +776,13 @@ enmascarado**
 - **Corrección propuesta:** sumar 502 y 503 a `ESTADOS_CON_MENSAJE_PROPIO`.
 - **Prueba que lo va a cubrir:** un caso de la suite de la interfaz que responda 502 con `page.route` y busque el
   mensaje de nginx.
+- **Corrección (24/11):** `frontend/src/lib/api.ts` (`errorDeRespuesta`, `ESTADOS_SIN_CONEXION`) muestra un 502 o un
+  503 con el mismo mensaje que un corte de red: "No pudimos conectar con el servidor. Probá de nuevo en un momento.",
+  el mismo texto que el `detail` que arma nginx, venga o no un cuerpo legible. Un 500 sigue diciendo "Ocurrió un error
+  inesperado" y un 504, el mensaje del backend.
+- **Pruebas de la corrección:** `frontend/e2e/catalogo.spec.ts`: el 502 de nginx, un 503 que no viene de la API y un
+  corte de red muestran el mensaje y se recuperan con "Reintentar"; un 500 sigue con "Ocurrió un error inesperado" sin
+  el detalle técnico. La suite E2E, 39 de 39 en Edge, el 24/11.
 
 ### DEF-55 · Cosmética · Prioridad Baja · Corregido, a verificar sobre el tag
 
@@ -668,7 +795,7 @@ enmascarado**
 - **Corrección (20/11):** `example: user-staff`.
 - **Prueba que lo va a cerrar:** la revisión del contrato del tag.
 
-### DEF-56 · Cosmética · Prioridad Baja · Nuevo (confirmado en el código)
+### DEF-56 · Cosmética · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **Los guiones de `docs/entrega3/evidencia/` usan por defecto un secreto entre servicios que el servidor ya no acepta**
 
@@ -686,6 +813,12 @@ enmascarado**
 - **Corrección propuesta:** que, como `scripts/pruebas/lib.mjs`, lean también `backend/servidor/target/secreto-servicios`
   y, si no encuentran el secreto, terminen con un aviso en lugar de usar `palco-desarrollo`.
 - **Prueba que lo va a cubrir:** uno de los guiones contra el compose.
+- **Corrección (25/11):** los tres guiones buscan el secreto como `scripts/pruebas/lib.mjs`:
+  `PALCO_SECRETO_SERVICIOS`, el de `backend/.env` o el que deja `backend/dev.sh` en
+  `backend/servidor/target/secreto-servicios`. Sin ninguno, avisan dónde ponerlo y salen con error, sin un secreto por
+  defecto.
+- **Pruebas de la corrección:** `bash -n` de los tres; ninguno tiene `palco-desarrollo`; sin el secreto, la búsqueda
+  de `reproducir.sh` avisa y sale con 1 (25/11).
 
 ### DEF-57 · Menor · Prioridad Media · Corregido, a verificar sobre el tag
 
@@ -786,7 +919,7 @@ carácter nulo U+0000**
 - **Prueba que lo cubre:** `ServicioDeValidacionTest` (código, evento, id y email con el carácter nulo) y la corrida
   de Schemathesis del tag.
 
-### DEF-62 · Menor · Prioridad Baja · Nuevo (reproducido)
+### DEF-62 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **Un 400 de validación lista los campos de `errores` en un orden que cambia entre pedidos iguales**
 
@@ -802,6 +935,14 @@ carácter nulo U+0000**
   `.zap/reglas.tsv`.
 - **Corrección propuesta:** ordenar los campos antes de armar el mapa (por ejemplo, las violaciones ordenadas por su
   ruta). Es un cambio en `backend/common`, compartido, que se acuerda con su dueño.
+- **Corrección (24/11):** `ManejadoresDeErrores.Validacion` (`backend/common`) recorre las violaciones ordenadas por
+  campo y, dentro de un campo, por mensaje: `errores` sale en orden alfabético, y un campo que rompe dos anotaciones
+  lleva siempre el mismo mensaje. El 400 sin cuerpo no cambió.
+- **Pruebas de la corrección:** `ErroresDeValidacionTest` (`common`):
+  `#losCamposSalenEnOrdenAlfabeticoAunqueLasViolacionesLleguenEnOtroOrden`,
+  `#unCampoQueRompeDosAnotacionesLlevaSiempreElMismoMensaje` y
+  `#sinCuerpoElMensajeVaEnElDetalleYNoHayErroresPorCampo`; con el recorrido anterior fallan los dos primeros. Se
+  cierra también con el ZAP del tag: los tres falsos positivos 40018 de `.zap/reglas.tsv` no tendrían que volver a salir.
 
 ### DEF-63 · Crítica · Prioridad Alta · Corregido, a verificar sobre el tag
 
@@ -904,7 +1045,7 @@ largo**
   `dni-con-entrada`; y con el token de un comprador, 403 `sin-permiso`.
 - **Prueba que lo va a cerrar:** la corrida de Newman del tag (job "API"), con las 52 operaciones cubiertas.
 
-### DEF-67 · Cosmética · Prioridad Baja · Nuevo (confirmado en SonarCloud)
+### DEF-67 · Cosmética · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **Tres code smells de severidad BLOCKER en SonarCloud**
 
@@ -919,6 +1060,12 @@ largo**
 - **Por qué es Cosmética:** es un nombre, no cambia lo que hace el código.
 - **Corrección propuesta:** renombrar el campo o la constante de cada par.
 - **Prueba que lo va a cubrir:** el análisis de SonarCloud del tag, sin hallazgos Blocker.
+- **Corrección (24/11):** se renombró la constante de cada par, sin cambiar ningún valor: `ArcaSoap.SERVICIO` y
+  `PUERTO` pasan a `NOMBRE_DEL_SERVICIO` y `NOMBRE_DEL_PUERTO`; `PagosFake.NOMBRE`, a `PagosFake.PROVEEDOR`;
+  `ResultadoDeCobro.APROBADO` y `RECHAZADO`, a `ESTADO_APROBADO` y `ESTADO_RECHAZADO`. Los métodos quedan con su
+  nombre (`puerto()`, `nombre()` de `PasarelaDePagos`, `aprobado()`).
+- **Pruebas de la corrección:** `mvn verify` (24/11), 0 fallas: Facturación 52 tests y 9 IT, Pagos 41, Ventas 396 y
+  28 IT. Se cierra con el análisis de SonarCloud del tag, sin hallazgos Blocker.
 
 ### DEF-68 · Menor · Prioridad Baja · Aceptado (vence el 31/12/2026)
 
@@ -1005,7 +1152,7 @@ SEC-E01)**
 - **Prueba que lo va a cubrir:** el análisis de SonarCloud sin issues aceptadas y la suite E2E por
   `https://localhost`.
 
-### DEF-72 · Menor · Prioridad Baja · Nuevo (confirmado en el log de nginx)
+### DEF-72 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **El email de la cuenta de puerta queda en el log de accesos de nginx (SEC-D03)**
 
@@ -1025,8 +1172,13 @@ SEC-E01)**
 - **Corrección propuesta:** mandar el email en el cuerpo (asignar y quitar con un cuerpo JSON, y la consulta interna
   por `POST`), o un `log_format` de nginx que no escriba la ruta de esas operaciones.
 - **Prueba que lo va a cubrir:** los mismos pasos, sin resultados en el `grep`.
+- **Corrección (25/11):** `frontend/docker/nginx.conf` escribe el log de accesos con el formato `palco`: en
+  `/api/v1/validacion/puertas/{eventoId}/{email}` y en un `?email=` el email se reemplaza por `<email>`, y si después
+  queda un `@` o un `%40`, la ruta no se escribe. El Referer pasa por el mismo control. La API no cambia.
+- **Pruebas de la corrección:** después de las suites contra el compose (25/11), en el log de accesos de nginx ningún
+  renglón tiene un `@` o un `%40` en la ruta, y 131 tienen `<email>`.
 
-### DEF-73 · Menor · Prioridad Baja · Nuevo (confirmado en el workflow)
+### DEF-73 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **El análisis de dependencias no escanea la imagen `postgres:17-alpine` del compose (SEC-E02b)**
 
@@ -1040,8 +1192,12 @@ SEC-E01)**
 - **Corrección propuesta:** sumar al workflow "Seguridad" un `trivy image postgres:17-alpine`, con la imagen fijada por
   su hash.
 - **Prueba que lo va a cubrir:** ese paso en verde, sin CVE críticas ni altas sin justificar.
+- **Corrección (25/11):** el job de imágenes de `seguridad.yml` escanea también `db` (`postgres:17-alpine`, que el
+  compose usa tal como se publica: se baja en lugar de armarse). Las CVE de esa imagen que no se alcanzan en Palco
+  (libxml2 y la biblioteca estándar de Go de `gosu`) quedan en `.trivyignore` con su motivo y vencen el 31/12/2026.
+- **Prueba que lo va a cerrar:** el job "Imagen: db (trivy image)" del workflow Seguridad sobre el tag.
 
-### DEF-74 · Cosmética · Prioridad Baja · Nuevo (confirmado en el reporte de ZAP)
+### DEF-74 · Cosmética · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **ZAP informa 5 alertas Low sin justificar (SEC-W12, SEC-E01)**
 
@@ -1061,6 +1217,12 @@ SEC-E01)**
   en los dos bloques de cabeceras de nginx, y que los errores bajo `/api` (rutas que no existen y el 405 de nginx)
   respondan en Problem Details.
 - **Prueba que lo va a cubrir:** el resumen de ZAP sin esas alertas.
+- **Corrección (25/11):** nginx manda `Cross-Origin-Opener-Policy: same-origin` y
+  `Cross-Origin-Resource-Policy: same-origin`. `Cross-Origin-Embedder-Policy` no va, porque con `require-corp` el
+  navegador bloquearía las fotos de los eventos que vienen de otro origen; queda justificada en `.zap/reglas.tsv`, igual
+  que el Content-Type de las rutas de la app (regla 100001).
+- **Pruebas de la corrección:** contra el compose (25/11), `curl -I https://localhost/` trae las dos cabeceras.
+- **Prueba que lo va a cerrar:** el ZAP del tag, sin alertas Low sin justificar.
 
 ### DEF-75 · Menor · Prioridad Baja · Aceptado (decisión de diseño, CA-01.2)
 
@@ -1081,6 +1243,54 @@ SEC-E01)**
   limitar los registros por origen; cualquiera de las dos cambia CA-01.2.
 - **Prueba que lo va a cubrir:** un caso de `RegistroYVerificacionTest` con el email de una cuenta existente que
   responda como un registro nuevo.
+
+### DEF-76 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
+
+**El bug `java:S8696` de SonarCloud en `AsistenteIA` dejaba la confiabilidad del código nuevo en D y el Quality Gate en rojo**
+
+- **Pasos:** el análisis de SonarCloud de `ffded8f` y de `5d3c784` (24/11), en el check "SonarCloud Code Analysis" de
+  GitHub.
+- **Esperado:** Quality Gate aprobado, con la confiabilidad del código nuevo en A (eje B de los Criterios de Testing).
+- **Obtenido:** "Quality Gate failed: D Reliability Rating on New Code". Un bug Critical, `java:S8696` ("Use .equals()
+  instead of == or != to compare objects of value-based types"), en `AsistenteIA.instrucciones`, renglón 158:
+  `hoy.getDayOfWeek() == DayOfWeek.SUNDAY`. Era el único bug abierto del proyecto.
+- **Causa raíz:** el cálculo del fin de semana que se sumó con los eventos del catálogo comparaba con `==`.
+  `DayOfWeek` es un enum, así que la comparación era correcta, pero la regla toma los tipos de `java.time` como
+  value-based y la marca como bug. El análisis local (PMD) no tiene esa regla, y el CI no espera el Quality Gate.
+- **Por qué es Menor:** el comportamiento era el correcto. Lo que fallaba era una condición de la cátedra (Quality Gate
+  aprobado y ratings A).
+- **Corrección (25/11):** `LocalDate sabado = hoy.with(DayOfWeek.SATURDAY)`: el sábado de la semana de lunes a domingo,
+  el mismo resultado sin ninguna comparación (`1bab37a`).
+- **Pruebas de la corrección:** `AsistenteIATest#elFinDeSemanaEsElDeLaSemanaDeLunesADomingo`, con lunes, viernes,
+  sábado, domingo y el lunes siguiente; pasa con el código anterior y con el nuevo (`ff12b59`). El Quality Gate de
+  `ff12b59` y de `12a08f2` dio "passed", sin ningún bug abierto.
+- **Prueba que lo va a cerrar:** el Quality Gate del tag.
+
+### DEF-77 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
+
+**`GET /v1/pagos?claveIdempotencia=` responde 500 si la clave trae el carácter nulo U+0000**
+
+- **Pasos:** el pedido de Schemathesis del workflow "Contrato" sobre `ff12b59` (run 45635998907, caso P1ZaxF, la
+  corrida con el token de servicio): `GET /api/v1/pagos?claveIdempotencia=%09%F3%9E%AF%82%C2%BC%00%F1%90%9A%81%27`.
+- **Esperado:** 400 en Problem Details (el contrato documenta 200, 400, 401, 403 y 404).
+- **Obtenido:** 500 `/problemas/error-inesperado`.
+- **Causa raíz:** `ServicioDePagos` usaba los textos del pedido en la consulta y en el INSERT sin controlar los
+  caracteres de control, y PostgreSQL rechaza 0x00 en un texto. Pasaba lo mismo con la clave, la venta y el medio de
+  pago de `POST /v1/pagos`, con el `pagoId` de la ruta y con el motivo del reembolso, que además se guardaba después de
+  devolver en la pasarela. Es el caso de DEF-59, DEF-60 y DEF-61 en otros servicios: Pagos había quedado sin el
+  control.
+- **Por qué es Menor:** la API de Pagos es interna (rol `servicio`) y sus clientes, Ventas y Reventa, no mandan ese
+  carácter; el pedido no cobra ni guarda nada. Hace fallar la prueba de contrato.
+- **Corrección (25/11):** `ServicioDePagos.sinCaracteresDeControl` rechaza con 400 `datos-invalidos` la clave,
+  `ventaId`, `medioDePago` y `motivo` con un carácter de control (`Textos.esDeControl`, la regla de Ventas y
+  Validación), antes de buscar, de cobrar o de devolver. Un `pagoId` así da 404 sin consultar, porque el contrato de
+  `GET /v1/pagos/{pagoId}` no tiene 400 (`a33194d`).
+- **Pruebas de la corrección:** `ServicioDePagosTest#buscarConLaClaveDelContratoEsUn400SinConsultarLaBase` (con la
+  clave exacta del caso), `#unCobroConUnCaracterDeControlEsUn400SinCobrarNiGuardar`,
+  `#unIdDePagoConElCaracterNuloEsUn404SinConsultarLaBase` y `#unMotivoConElCaracterNuloEsUn400SinDevolverEnLaPasarela`,
+  con `PagoRepositoryEnMemoria`, que ahora falla como PostgreSQL con el carácter nulo. Sin la corrección fallan los
+  cuatro (`12a08f2`). El Contrato de `12a08f2` pasó.
+- **Prueba que lo va a cerrar:** la corrida de Schemathesis del tag.
 
 ## 4. Defectos cerrados: bloqueantes, críticos y mayores
 
@@ -1439,15 +1649,16 @@ chocaban en Pagos**
 - **Causa raíz:** el 429 no estaba entre los estados con mensaje propio de `frontend/src/lib/api.ts`.
 - **Corrección y evidencia:** `0cbb2e9`. El 429 del servidor lo prueba la petición SEC-W04 de Postman.
 
-### DEF-14 · Menor · Prioridad Media · Corregido, a verificar
+### DEF-14 · Menor · Prioridad Media · Corregido, a verificar sobre el tag
 
 - **Pasos y obtenido:** en el mismo 429, el frontend no podía decir cuánto esperar: el navegador no le dejaba leer
   `Retry-After`.
 - **Causa:** `Access-Control-Expose-Headers` tenía solo `Location` y `ETag`.
 - **Corrección:** `997e2d7`, `backend/common/.../rest/CorsFilter.java`, que hoy expone `Location, ETag, Retry-After`.
-- **Prueba que lo va a cerrar:** la aserción de `Retry-After` en `CorsFilterTest#unOrigenPermitidoRecibeLasCabeceras`,
-  que hoy mira `ETag`, para que un cambio no la vuelva a sacar. Las pruebas E2E corren por nginx, en el mismo origen
-  que la API, y no pasan por CORS.
+- **Prueba de la corrección (25/11):** `CorsFilterTest#elFrontendPuedeLeerRetryAfterYLocation`, que separa la lista de
+  `Access-Control-Expose-Headers` y exige `Retry-After` y `Location`. Con el filtro sin `Retry-After`, falla. Hace
+  falta en el backend porque las pruebas E2E corren por nginx, en el mismo origen que la API, y no pasan por CORS.
+- **Prueba que lo va a cerrar:** `CorsFilterTest` en el CI del tag.
 
 ### DEF-15 · Menor · Prioridad Media · Cerrado el 18/11
 
@@ -1519,15 +1730,19 @@ chocaban en Pagos**
 ## 6. Riesgos aceptados
 
 Las decisiones con riesgo aceptado se cuentan como defectos abiertos, en estado *Aceptado*, con su riesgo y su
-alternativa en la sección 3: las dos del 16/10, la del token en el navegador y las cuatro que salen del informe de
+alternativa en la sección 3: las dos del 16/10, la del token en el navegador y las cinco que salen del informe de
 seguridad del 24/11 (`docs/testing/informe-de-seguridad.md`).
 
 - **DEF-38 (SEC-W05c), la sesión dura 8 horas sin refresh token ni revocación.** Documento único, secciones 5.6, 9.4 y
   14.2; la petición SEC-W05c de Postman comprueba esa vigencia.
 - **DEF-39 (SEC-I02), el broker no tiene permisos por destino.** El broker está embebido en el mismo WildFly y los
   servicios se conectan por in-vm. Documento único, secciones 10.3 y 14.8, y `docs/adr/ADR-005-broker-embebido.md`.
-- **DEF-58, el token de sesión queda en `localStorage`.** Documento único, sección 5.7, y la sección "Limitaciones
-  conocidas" del README; lo acotan la CSP y el escapado de React.
+- **DEF-41 (SEC-W04), el límite de ingresos cuenta por email.** Lo pide CA-02.3 de HU-02: con 5 fallidos en 15
+  minutos, el ingreso siguiente responde 429 aunque la contraseña sea la correcta. Contar por origen necesita la
+  dirección real del cliente, que detrás de nginx no se tiene de forma segura. La dueña de la cuenta entra enseguida
+  con "Olvidé mi contraseña" (HU-03), que borra los fallidos de su email.
+- **DEF-58, el token de sesión queda en `localStorage`.** Documento único, sección 5.7; lo acotan la CSP y el escapado
+  de React.
 - **DEF-68 (SEC-E02), seis CVE altas de Jackson y Guava dentro de WildFly 41.0.1.** Ninguna se alcanza en Palco
   (motivos en `.trivyignore`); cada una vence el 31/12/2026 y entonces el job de Trivy vuelve a fallar.
 - **DEF-69 (SEC-W12, SEC-E01), la CSP con `style-src 'unsafe-inline'` e `img-src https:`.** Las dos alertas Medium de
@@ -1542,7 +1757,7 @@ Mientras la cátedra no diga otra cosa, un riesgo aceptado cuenta como defecto a
 
 ## 7. Abiertos contra el máximo admitido
 
-Al 24/11/2026, contra el máximo de la sección 9 de los Criterios de Testing de la cátedra, que se admite al cierre
+Al 25/11/2026, contra el máximo de la sección 9 de los Criterios de Testing de la cátedra, que se admite al cierre
 (27/11): 0 bloqueantes, 0 críticos y hasta 3 mayores con su alternativa escrita; menores y cosméticos sin límite.
 "Abiertos" son los nuevos, los que están en corrección y los aceptados. Los corregidos que falta verificar van aparte:
 se cierran si su prueba pasa sobre el tag y, si no, vuelven a contar como abiertos.
@@ -1551,9 +1766,9 @@ se cierran si su prueba pasa sobre el tag y, si no, vuelven a contar como abiert
 |---|---|---|---|---|
 | Bloqueante | 0 | 0 | 0 | Dentro del máximo |
 | Crítica | 0 | 2: DEF-63 y DEF-64 | 0 | Dentro del máximo, si las dos correcciones pasan sobre el tag |
-| Mayor | 3: DEF-37, DEF-38 (aceptado) y DEF-46 (en corrección), cada uno con su alternativa en la sección 3 | 3: DEF-30, DEF-36 y DEF-47 | 3, cada uno con su alternativa | En el máximo, si las tres correcciones pasan sobre el tag |
-| Menor | 17: DEF-39, DEF-58, DEF-68, DEF-69, DEF-71 y DEF-75 (aceptados), y DEF-40 a DEF-45, DEF-48, DEF-49, DEF-62, DEF-72 y DEF-73 | 13: DEF-02, DEF-14, DEF-32, DEF-33, DEF-35, DEF-52, DEF-57, DEF-59, DEF-60, DEF-61, DEF-65, DEF-66 y DEF-70 | Sin máximo | Dentro del máximo |
-| Cosmética | 5: DEF-50, DEF-54, DEF-56, DEF-67 y DEF-74 | 3: DEF-34, DEF-53 y DEF-55 | Sin máximo | Dentro del máximo |
+| Mayor | 1: DEF-38 (aceptado), con su alternativa en la sección 3 | 5: DEF-30, DEF-36, DEF-37, DEF-46 y DEF-47 | 3, cada uno con su alternativa | Dentro del máximo, con margen de dos |
+| Menor | 7, todos aceptados: DEF-39, DEF-41, DEF-58, DEF-68, DEF-69, DEF-71 y DEF-75 | 25: DEF-02, DEF-14, DEF-32, DEF-33, DEF-35, DEF-40, DEF-42 a DEF-45, DEF-48, DEF-49, DEF-52, DEF-57, DEF-59 a DEF-62, DEF-65, DEF-66, DEF-70, DEF-72, DEF-73, DEF-76 y DEF-77 | Sin máximo | Dentro del máximo |
+| Cosmética | 0 | 8: DEF-34, DEF-50, DEF-53 a DEF-56, DEF-67 y DEF-74 | Sin máximo | Dentro del máximo |
 
 No queda ningún bloqueante ni ningún crítico abierto: los dos críticos que siguen sin cerrar están corregidos y falta
 verificarlos sobre el tag. DEF-63 se verifica con la corrida de Schemathesis del tag (la de `fbd31dc` ya no lo
@@ -1561,6 +1776,6 @@ reproduce), y DEF-64, corregido el 24/11, con `NombreYApellidoTest` en el CI del
 `docs/testing/evidencia/final/registro-nombre-largo.txt` contra el compose del tag. Si alguna de esas pruebas falla,
 el defecto vuelve a abrirse y la entrega no cumple el "0 críticos".
 
-Con DEF-37, DEF-38 y DEF-46 abiertos, los mayores quedan justo en el máximo: si DEF-30, DEF-36 o DEF-47 no pasa su
-prueba sobre el tag, vuelve a abrirse y la entrega queda fuera del máximo. Para tener margen hay que cerrar uno de los
-tres mayores abiertos antes del tag (a DEF-46 le falta la compra por la reventa).
+Con DEF-38 aceptado como único mayor abierto, los mayores quedan dos debajo del máximo: si una o dos de las
+correcciones de DEF-30, DEF-36, DEF-37, DEF-46 o DEF-47 no pasan su prueba sobre el tag, esos defectos vuelven a
+abrirse y los mayores siguen dentro del máximo; con tres, la entrega queda fuera.
