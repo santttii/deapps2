@@ -189,7 +189,7 @@
                      H2, y el consumidor de Facturación contra Artemis 2.54.0 (el broker de WildFly 41), también
                      en un contenedor. Surefire no las toma (busca *Test); las corre failsafe en "mvn verify",
                      después de los tests unitarios, y si alguna falla el build falla. Lo usa cada módulo que
-                     tiene IT nombrándolo en su pom (Usuarios, Eventos, Ventas y Facturación).
+                     tiene IT nombrándolo en su pom (Usuarios, Eventos, Ventas, Notificaciones y Facturación).
 
                      La JVM de los IT arranca con -Dpalco.pruebas.integracion=true, y cada IT corre solo con esa
                      marca (@EnabledIfSystemProperty). Así no los corre PIT, que toma todas las clases de test del
