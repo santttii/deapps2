@@ -567,6 +567,77 @@ class ServicioDeReventaTest {
         verify(publicaciones).anular(eq("R-1"), eq(CLAVE), any());
     }
 
+    // ---- DEF-46: otra compra se cruzó entre el control y la transferencia ----
+
+    private static final String YA_TENES_SEIS = "Cada persona puede tener hasta 6 entradas por evento, sumando todas"
+            + " sus compras. Ya tenés 6: no podés comprar más para este evento.";
+
+    @Test
+    void siVentasNoTransfierePorElTopeSeDevuelveElPagoYLaPublicacionQuedaLibre() {
+        cobroAprobado();
+        when(ventas.transferir(anyString(), anyString(), anyString(), anyString(), any(), anyLong(), anyString()))
+                .thenThrow(new ClienteDeVentas.CompraFueraDeLasReglas(TiposDeProblema.TOPE_POR_EVENTO, YA_TENES_SEIS));
+        when(devoluciones.intentar(eq("P-1"), eq("R-1"), anyString())).thenReturn(ClienteDePagos.Devolucion.HECHA);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        // El comprador recibe el error de la regla, con el texto de Ventas y lo que pasa con su pago.
+        assertEquals(TiposDeProblema.TOPE_POR_EVENTO, error.tipo());
+        assertEquals(YA_TENES_SEIS + " Te devolvimos el pago.", error.getMessage());
+        // El reembolso se anota antes de soltar la publicación, con el motivo de una regla: la entrada sigue en la
+        // reventa, así que la publicación queda libre para otra persona y no anulada.
+        long monto = 55_000 + ReglasDeNegocio.cargoServicio(55_000);
+        String motivo = DevolucionDeCobros.motivoPorRegla("T-1", TiposDeProblema.TOPE_POR_EVENTO);
+        InOrder orden = inOrder(devoluciones, publicaciones);
+        orden.verify(devoluciones).anotar("R-1", COMPRADOR, "P-1", monto, motivo);
+        orden.verify(publicaciones).liberar("R-1", CLAVE);
+        orden.verify(devoluciones).intentar("P-1", "R-1", motivo);
+        verify(publicaciones, never()).anular(anyString(), anyString(), any());
+        verify(publicaciones, never()).marcarVendida(anyString(), anyString(), anyString(), anyString(), anyString(),
+                any());
+    }
+
+    @Test
+    void siVentasNoTransfierePorElDniYPagosNoRespondeElPagoSeVaADevolver() {
+        cobroAprobado();
+        String yaTiene = "El DNI 40111222 ya tiene una entrada para este evento. Cada persona puede tener una sola"
+                + " entrada por evento.";
+        when(ventas.transferir(anyString(), anyString(), anyString(), anyString(), any(), anyLong(), anyString()))
+                .thenThrow(new ClienteDeVentas.CompraFueraDeLasReglas(TiposDeProblema.DNI_CON_ENTRADA, yaTiene));
+        when(devoluciones.intentar(anyString(), anyString(), anyString()))
+                .thenReturn(ClienteDePagos.Devolucion.SIN_RESPUESTA);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, error.tipo());
+        assertEquals(yaTiene + " El pago se va a devolver.", error.getMessage());
+        verify(devoluciones).anotar(eq("R-1"), eq(COMPRADOR), eq("P-1"), anyLong(),
+                eq(DevolucionDeCobros.motivoPorRegla("T-1", TiposDeProblema.DNI_CON_ENTRADA)));
+        verify(publicaciones).liberar("R-1", CLAVE);
+        verify(publicaciones, never()).anular(anyString(), anyString(), any());
+    }
+
+    @Test
+    void unPagoConElReembolsoPorUnaReglaAnotadoLiberaLaPublicacionSinTransferir() {
+        // Un reintento con la misma clave después del corte: el cobro se devuelve y la entrada sigue en la reventa.
+        cobroAprobado();
+        when(devoluciones.estaAnotado("P-1")).thenReturn(true);
+        when(devoluciones.esPorReglaEntreCompras("P-1")).thenReturn(true);
+
+        ErroresDeNegocio.Conflicto error = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> servicio.comprar(COMPRADOR, "R-1", compra(), CLAVE));
+
+        assertEquals(TiposDeProblema.PUBLICACION_NO_ACTIVA, error.tipo());
+        assertEquals("Esta compra ya se anuló y el pago se devuelve. Para comprar de nuevo usá otra Idempotency-Key.",
+                error.getMessage());
+        verify(publicaciones).liberar("R-1", CLAVE);
+        verify(publicaciones, never()).anular(anyString(), anyString(), any());
+        verify(ventas, never()).transferir(anyString(), anyString(), anyString(), anyString(), any(), anyLong(),
+                anyString());
+    }
+
     @Test
     void unCobroYaReembolsadoPideOtraClaveSinTransferir() {
         publicacionActivaTomable();

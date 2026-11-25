@@ -193,6 +193,59 @@ class ConciliacionDeReventasTest {
     }
 
     @Test
+    void siVentasNoTransfierePorUnaReglaEntreComprasLaLiberaYDevuelveElPago() {
+        // DEF-46: otra compra del comprador se cruzó con esta. La entrada sigue en la reventa: no se anula.
+        Publicacion publicacion = tomada("R-1", true);
+        when(pagos.buscarCobro("R-1", CLAVE)).thenReturn(Optional.of(new ClienteDePagos.Cobro("P-1", true, null)));
+        when(ventas.transferir(any(), any(), any(), any(), any(), anyLong(), any()))
+                .thenThrow(new ClienteDeVentas.CompraFueraDeLasReglas("tope-por-evento", "Ya tenés 6."));
+        when(publicaciones.liberarConciliada("R-1", CLAVE, HASTA)).thenReturn(true);
+
+        assertEquals(Desenlace.LIBERADA, conciliacion.conciliar(publicacion, AHORA, HASTA));
+
+        long monto = 55_000 + ReglasDeNegocio.cargoServicio(55_000);
+        String motivo = DevolucionDeCobros.motivoPorRegla("T-1", "tope-por-evento");
+        InOrder orden = inOrder(devoluciones, publicaciones);
+        orden.verify(devoluciones).anotar("R-1", "U-comprador", "P-1", monto, motivo);
+        orden.verify(publicaciones).liberarConciliada("R-1", CLAVE, HASTA);
+        orden.verify(devoluciones).intentar("P-1", "R-1", motivo);
+        verify(publicaciones, never()).anular(anyString(), anyString(), any());
+        verify(publicaciones, never()).marcarVendida(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void siVentasNoTransfierePorUnaReglaYElCompradorReintentoLaTomaNoSeTocaPeroElPagoSeDevuelve() {
+        Publicacion publicacion = tomada("R-1", true);
+        when(pagos.buscarCobro("R-1", CLAVE)).thenReturn(Optional.of(new ClienteDePagos.Cobro("P-1", true, null)));
+        when(ventas.transferir(any(), any(), any(), any(), any(), anyLong(), any()))
+                .thenThrow(new ClienteDeVentas.CompraFueraDeLasReglas("dni-con-entrada", "El DNI ya tiene entrada."));
+        when(publicaciones.liberarConciliada("R-1", CLAVE, HASTA)).thenReturn(false);
+
+        assertEquals(Desenlace.CERRADA_POR_OTRO, conciliacion.conciliar(publicacion, AHORA, HASTA));
+
+        verify(devoluciones).anotar(eq("R-1"), eq("U-comprador"), eq("P-1"), anyLong(),
+                eq(DevolucionDeCobros.motivoPorRegla("T-1", "dni-con-entrada")));
+        verify(devoluciones).intentar(eq("P-1"), eq("R-1"), anyString());
+        verify(publicaciones, never()).anular(anyString(), anyString(), any());
+    }
+
+    @Test
+    void conElReembolsoPorUnaReglaYaAnotadoLaLiberaSinTransferir() {
+        // La base falló justo después de anotarlo: la toma quedó, pero la entrada sigue publicada en Ventas.
+        Publicacion publicacion = tomada("R-1", true);
+        when(pagos.buscarCobro("R-1", CLAVE)).thenReturn(Optional.of(new ClienteDePagos.Cobro("P-1", true, null)));
+        when(devoluciones.estaAnotado("P-1")).thenReturn(true);
+        when(devoluciones.esPorReglaEntreCompras("P-1")).thenReturn(true);
+        when(publicaciones.liberarConciliada("R-1", CLAVE, HASTA)).thenReturn(true);
+
+        assertEquals(Desenlace.LIBERADA, conciliacion.conciliar(publicacion, AHORA, HASTA));
+
+        verify(publicaciones, never()).anular(anyString(), anyString(), any());
+        verify(ventas, never()).transferir(any(), any(), any(), any(), any(), anyLong(), any());
+        verify(devoluciones, never()).intentar(anyString(), anyString(), anyString());
+    }
+
+    @Test
     void unCobroYaReembolsadoLaLiberaComoUnRechazo() {
         Publicacion publicacion = tomada("R-1", true);
         when(pagos.buscarCobro("R-1", CLAVE)).thenReturn(

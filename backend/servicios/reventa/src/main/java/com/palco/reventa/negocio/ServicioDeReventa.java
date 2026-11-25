@@ -189,6 +189,12 @@ public class ServicioDeReventa implements IReventa {
      * puede terminar. Se anota el reembolso, la publicación queda
      * {@code ANULADA} y se le pide a Pagos que devuelva el cobro; si Pagos no
      * responde, lo reintenta {@link DevolucionDeCobros} (limitación L2).</li>
+     * <li>Ventas la rechaza porque con ella el comprador pasa una regla entre
+     * compras: otra compra suya, o con el mismo DNI, se cruzó con esta entre
+     * el control y la transferencia (DEF-46). Ventas vuelve a mirar las reglas
+     * con un candado y no transfiere. Se anota el reembolso, la publicación
+     * queda libre (la entrada sigue en la reventa) y se devuelve el cobro; el
+     * comprador recibe el 409 de la regla.</li>
      * <li>Ventas no responde: pudo haber transferido. La toma queda, igual que
      * cuando Pagos no responde, y la resuelve un reintento con la misma clave
      * (Pagos devuelve el mismo pago, sin cobrar de nuevo) o la conciliación.</li>
@@ -251,6 +257,12 @@ public class ServicioDeReventa implements IReventa {
         }
         // Un pago con el reembolso anotado es de una compra que ya se anuló: su entrada no se transfiere.
         if (devoluciones.estaAnotado(cobro.pagoId())) {
+            if (devoluciones.esPorReglaEntreCompras(cobro.pagoId())) {
+                // Se cortó por una regla entre compras y la entrada sigue en la reventa: la publicación queda libre.
+                publicaciones.liberar(publicacion.getId(), clave);
+                throw new ErroresDeNegocio.Conflicto(TiposDeProblema.PUBLICACION_NO_ACTIVA, "Esta compra ya se"
+                        + " anuló y el pago se devuelve. Para comprar de nuevo usá otra Idempotency-Key.");
+            }
             publicaciones.anular(publicacion.getId(), clave, ahoraUtc());
             throw new ErroresDeNegocio.Conflicto(TiposDeProblema.PUBLICACION_NO_ACTIVA,
                     "La entrada ya no está disponible. El pago se devuelve.");
@@ -259,6 +271,9 @@ public class ServicioDeReventa implements IReventa {
         ClienteDeVentas.Transferencia transferencia;
         try {
             transferencia = transferir(publicacion, compradorId, compra.titular(), cobro.pagoId());
+        } catch (ClienteDeVentas.CompraFueraDeLasReglas e) {
+            // Otra compra se cruzó con esta: la entrada sigue en la reventa y el cobro se devuelve.
+            throw devolverYLiberar(publicacion, compradorId, clave, cobro.pagoId(), monto, e);
         } catch (ErroresDeNegocio.Conflicto | ErroresDeNegocio.NoEncontrado | ErroresDeNegocio.ReglaIncumplida e) {
             // Ventas contestó que no: la entrada ya no se puede transferir, y esta compra no va a terminar.
             throw anularYDevolver(publicacion, compradorId, clave, cobro.pagoId(), monto, e);
@@ -302,6 +317,29 @@ public class ServicioDeReventa implements IReventa {
         return new ErroresDeNegocio.Conflicto(TiposDeProblema.PUBLICACION_NO_ACTIVA, devuelto
                 ? "La entrada ya no está disponible. Te devolvimos el pago."
                 : "La entrada ya no está disponible. El pago se va a devolver.");
+    }
+
+    /**
+     * Ventas no transfirió la entrada de una compra cobrada porque con ella el
+     * comprador pasaba una regla entre compras (DEF-46): se anota el reembolso,
+     * la publicación queda libre para otra persona (la entrada sigue
+     * publicada en Ventas) y se le pide a Pagos que devuelva el cobro. Si la
+     * base falla al anotar, la excepción sale y la publicación sigue tomada:
+     * la conciliación lo vuelve a intentar. Devuelve el 409 de la regla, con
+     * el detalle de Ventas y qué pasa con el pago.
+     */
+    private ErroresDeNegocio.Conflicto devolverYLiberar(Publicacion publicacion, String compradorId, String clave,
+            String pagoId, long monto, ClienteDeVentas.CompraFueraDeLasReglas rechazo) {
+        String motivo = DevolucionDeCobros.motivoPorRegla(publicacion.getEntradaId(), rechazo.tipo());
+        devoluciones.anotar(publicacion.getId(), compradorId, pagoId, monto, motivo);
+        publicaciones.liberar(publicacion.getId(), clave);
+        LOG.warning("Reventa " + publicacion.getId() + ": el cobro " + Textos.enUnaLinea(pagoId) + " de $" + monto
+                + " al comprador " + Textos.enUnaLinea(compradorId) + " se aprobó pero Ventas no transfirió la entrada "
+                + publicacion.getEntradaId() + " (" + rechazo.tipo() + "). La publicación quedó libre y el pago se"
+                + " devuelve.");
+        boolean devuelto = devoluciones.intentar(pagoId, publicacion.getId(), motivo) == ClienteDePagos.Devolucion.HECHA;
+        return new ErroresDeNegocio.Conflicto(rechazo.tipo(), rechazo.getMessage()
+                + (devuelto ? " Te devolvimos el pago." : " El pago se va a devolver."));
     }
 
     /** El cobro, liberando la publicación cuando se sabe que no se cobró. */

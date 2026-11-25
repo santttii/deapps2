@@ -206,6 +206,35 @@ class ClientesTest {
     }
 
     @Test
+    void unaTransferenciaRechazadaPorUnaReglaEntreComprasSeDistingueDeUnaEntradaQueYaNoEstaPublicada() {
+        // DEF-46: con la regla, la entrada sigue en la reventa y la publicación puede quedar libre; sin publicar, no.
+        ClienteDeVentas ventas = new ClienteDeVentas();
+        ventas.rest = rest;
+        when(rest.llamar(eq("POST"), eq(ClienteDeVentas.RAIZ + "/transferencias"), anyMap(), anyMap(), any()))
+                .thenReturn(new Respuesta(409, "{\"type\":\"/problemas/tope-por-evento\",\"detail\":\"Ya tenés 6.\"}"),
+                        new Respuesta(409, "{\"type\":\"/problemas/dni-con-entrada\"}"),
+                        new Respuesta(409, "{\"type\":\"/problemas/entrada-no-publicada\"}"));
+        ClienteDeVentas.Titular titular = new ClienteDeVentas.Titular("Bruno Díaz", "40111222");
+
+        ClienteDeVentas.CompraFueraDeLasReglas tope = assertThrows(ClienteDeVentas.CompraFueraDeLasReglas.class,
+                () -> ventas.transferir("R-1", "T-1", "U-vendedor", "U-comprador", titular, 55_000, "P-1"));
+        assertEquals(TiposDeProblema.TOPE_POR_EVENTO, tope.tipo());
+        assertEquals("Ya tenés 6.", tope.getMessage());
+
+        // Sin detalle, el texto de la regla con el DNI del titular.
+        ClienteDeVentas.CompraFueraDeLasReglas dni = assertThrows(ClienteDeVentas.CompraFueraDeLasReglas.class,
+                () -> ventas.transferir("R-1", "T-1", "U-vendedor", "U-comprador", titular, 55_000, "P-1"));
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, dni.tipo());
+        assertTrue(dni.getMessage().startsWith("El DNI 40111222 ya tiene una entrada para este evento."),
+                dni.getMessage());
+
+        ErroresDeNegocio.Conflicto noPublicada = assertThrows(ErroresDeNegocio.Conflicto.class,
+                () -> ventas.transferir("R-1", "T-1", "U-vendedor", "U-comprador", titular, 55_000, "P-1"));
+        assertFalse(noPublicada instanceof ClienteDeVentas.CompraFueraDeLasReglas);
+        assertEquals(TiposDeProblema.PUBLICACION_NO_ACTIVA, noPublicada.tipo());
+    }
+
+    @Test
     void elControlDeLaCompraDevuelveElTopeYElDniConElTipoYElDetalleDeVentas() {
         ClienteDeVentas ventas = new ClienteDeVentas();
         ventas.rest = rest;

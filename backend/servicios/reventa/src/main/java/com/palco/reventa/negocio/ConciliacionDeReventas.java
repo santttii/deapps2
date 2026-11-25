@@ -37,8 +37,12 @@ import com.palco.reventa.negocio.externos.ClienteDeVentas;
  * <li>Pago aprobado: Ventas transfiere la entrada al titular que quedó anotado
  * en la toma y la publicación queda {@code VENDIDA}. Ventas transfiere una
  * sola vez por publicación, así que un reintento del comprador al mismo tiempo
- * no la duplica. Si Ventas rechaza la transferencia, la publicación queda
- * {@code ANULADA} y el pago se devuelve con {@link DevolucionDeCobros}.</li>
+ * no la duplica. Si Ventas rechaza la transferencia porque la entrada ya no
+ * está publicada, la publicación queda {@code ANULADA} y el pago se devuelve
+ * con {@link DevolucionDeCobros}. Si la rechaza por una regla entre compras
+ * (otra compra del comprador, o con el mismo DNI, se cruzó con esta: DEF-46),
+ * la entrada sigue en la reventa: la publicación queda libre y el pago se
+ * devuelve igual.</li>
  * <li>Pago rechazado, o ningún pago con esa clave: la publicación se libera y
  * otro la puede comprar.</li>
  * <li>Pagos o Ventas no responden: no cambia nada y se pregunta de nuevo en un
@@ -73,7 +77,10 @@ public class ConciliacionDeReventas {
     enum Desenlace {
         /** Había un pago aprobado: la entrada se transfirió y la publicación quedó VENDIDA. */
         VENDIDA,
-        /** No había pago, o fue rechazado: la publicación quedó libre. */
+        /**
+         * No había pago, o fue rechazado: la publicación quedó libre. También cuando el pago se aprobó y Ventas
+         * no transfirió por una regla entre compras (DEF-46): el pago se devuelve.
+         */
         LIBERADA,
         /** El cobro se aprobó pero Ventas no aceptó la transferencia: la publicación se anuló y el pago se devuelve (L2). */
         ANULADA,
@@ -163,6 +170,11 @@ public class ConciliacionDeReventas {
         if (devoluciones.estaAnotado(pagoId)) {
             // La compra ya se anuló antes (la base falló justo después de anotar el reembolso):
             // la entrada no se transfiere, y el reembolso lo reintenta el barrido de reembolsos.
+            if (devoluciones.esPorReglaEntreCompras(pagoId)) {
+                // Por una regla entre compras (DEF-46): la entrada sigue en la reventa, la publicación queda libre.
+                return publicaciones.liberarConciliada(id, clave, intentadasHasta) ? Desenlace.LIBERADA
+                        : Desenlace.CERRADA_POR_OTRO;
+            }
             publicaciones.anular(id, clave, ahora);
             return Desenlace.ANULADA;
         }
@@ -178,6 +190,20 @@ public class ConciliacionDeReventas {
                     publicacion.getCompradorId(),
                     new ClienteDeVentas.Titular(publicacion.getTitularNombre(), publicacion.getTitularDni()),
                     publicacion.getPrecio(), pagoId);
+        } catch (ClienteDeVentas.CompraFueraDeLasReglas e) {
+            // Otra compra del comprador, o con el mismo DNI, se cruzó con esta (DEF-46): la entrada sigue en la
+            // reventa. Se anota el reembolso, la publicación queda libre y se devuelve el pago.
+            String motivo = DevolucionDeCobros.motivoPorRegla(publicacion.getEntradaId(), e.tipo());
+            long monto = publicacion.getPrecio() + ReglasDeNegocio.cargoServicio(publicacion.getPrecio());
+            devoluciones.anotar(id, publicacion.getCompradorId(), pagoId, monto, motivo);
+            boolean liberada = publicaciones.liberarConciliada(id, clave, intentadasHasta);
+            LOG.warning("ConciliacionDeReventas: la publicación " + id + " tiene el pago aprobado "
+                    + Textos.enUnaLinea(pagoId) + " del comprador " + Textos.enUnaLinea(publicacion.getCompradorId())
+                    + " pero Ventas no transfirió la entrada " + publicacion.getEntradaId() + " (" + e.tipo() + ")."
+                    + (liberada ? " La publicación quedó libre" : " La toma ya la cerró otro pedido")
+                    + " y el pago se devuelve.");
+            devoluciones.intentar(pagoId, id, motivo);
+            return liberada ? Desenlace.LIBERADA : Desenlace.CERRADA_POR_OTRO;
         } catch (ErroresDeNegocio.Conflicto | ErroresDeNegocio.NoEncontrado | ErroresDeNegocio.ReglaIncumplida e) {
             // Ventas contestó que no: la entrada ya no se puede transferir. Se anula y se devuelve el pago (L2).
             String motivo = DevolucionDeCobros.motivo(publicacion.getEntradaId());

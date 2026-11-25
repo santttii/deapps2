@@ -2,6 +2,7 @@ package com.palco.reventa.negocio;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -15,6 +16,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 
 import jakarta.ejb.EJBException;
 
@@ -72,6 +74,22 @@ class DevolucionDeCobrosTest {
     void elMotivoEntraEnLoQueAceptaPagos() {
         String motivo = DevolucionDeCobros.motivo("T-" + "x".repeat(38));
         assertTrue(motivo.length() <= 200, motivo);
+    }
+
+    @Test
+    void distingueElReembolsoPorUnaReglaEntreComprasDelDeUnaEntradaQueYaNoEstaPublicada() {
+        // DEF-46: del motivo depende si la publicación tomada por ese pago queda libre o anulada.
+        when(reembolsos.buscar("P-1")).thenReturn(Optional.of(new Reembolso("P-1", "R-1", "U-comprador", 60_500,
+                DevolucionDeCobros.motivoPorRegla("T-1", "tope-por-evento"), AHORA)));
+        when(reembolsos.buscar("P-2")).thenReturn(Optional.of(new Reembolso("P-2", "R-2", "U-comprador", 60_500,
+                DevolucionDeCobros.motivo("T-2"), AHORA)));
+        when(reembolsos.buscar("P-3")).thenReturn(Optional.empty());
+
+        assertTrue(devoluciones.esPorReglaEntreCompras("P-1"));
+        assertFalse(devoluciones.esPorReglaEntreCompras("P-2"));
+        assertFalse(devoluciones.esPorReglaEntreCompras("P-3"));
+        String largo = DevolucionDeCobros.motivoPorRegla("T-" + "x".repeat(38), "tope-por-evento");
+        assertTrue(largo.length() <= 200, largo);
     }
 
     @Test

@@ -62,6 +62,21 @@ public class ClienteDeVentas {
     public record PedidoDeControl(String entradaId, String vendedorId, String compradorId, Titular titular) {
     }
 
+    /**
+     * Ventas no transfirió la entrada porque con ella el comprador pasaba una
+     * regla entre compras: 409 {@code tope-por-evento} o
+     * {@code dni-con-entrada}, con el tipo y el detalle de Ventas. Pasa cuando
+     * otra compra del mismo comprador, o con el mismo DNI, se cruzó entre el
+     * control y la transferencia (DEF-46). A diferencia de una entrada que ya
+     * no está publicada, la entrada sigue en la reventa: la publicación puede
+     * quedar libre para otra persona.
+     */
+    public static class CompraFueraDeLasReglas extends ErroresDeNegocio.Conflicto {
+        public CompraFueraDeLasReglas(String tipo, String mensaje) {
+            super(tipo, mensaje);
+        }
+    }
+
     @Inject
     ClienteRest rest;
 
@@ -103,16 +118,9 @@ public class ClienteDeVentas {
         if (respuesta.estado() == 204) {
             return;
         }
-        String detalle = respuesta.detalle() == null || respuesta.detalle().isBlank() ? null : respuesta.detalle();
-        if (respuesta.estado() == 409 && ("/problemas/" + TiposDeProblema.TOPE_POR_EVENTO).equals(respuesta.tipo())) {
-            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.TOPE_POR_EVENTO, detalle != null ? detalle
-                    : "Cada persona puede tener hasta " + ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO
-                            + " entradas por evento, sumando todas sus compras: no podés comprar más para este evento.");
-        }
-        if (respuesta.estado() == 409 && ("/problemas/" + TiposDeProblema.DNI_CON_ENTRADA).equals(respuesta.tipo())) {
-            throw new ErroresDeNegocio.Conflicto(TiposDeProblema.DNI_CON_ENTRADA, detalle != null ? detalle
-                    : "El DNI " + titular.dni() + " ya tiene una entrada para este evento. Cada persona puede tener"
-                            + " una sola entrada por evento.");
+        CompraFueraDeLasReglas regla = reglaEntreCompras(respuesta, titular);
+        if (regla != null) {
+            throw regla;
         }
         // Que la entrada ya no sea del vendedor (404) es que la publicación quedó vieja: no se vende.
         if (respuesta.estado() == 404 && "/problemas/no-encontrado".equals(respuesta.tipo())) {
@@ -127,15 +135,44 @@ public class ClienteDeVentas {
     /**
      * La original queda VENDIDA y nace la venta del comprador con su entrada
      * nueva. Ventas lo hace en una transacción y es idempotente por
-     * publicación y comprador: repetirlo devuelve la misma venta.
+     * publicación y comprador: repetirlo devuelve la misma venta. Antes vuelve
+     * a mirar las reglas entre compras: si alguna no se cumple, lanza
+     * {@link CompraFueraDeLasReglas}.
      */
     public Transferencia transferir(String publicacionId, String entradaId, String vendedorId, String compradorId,
             Titular titular, long precio, String pagoId) {
         String cuerpo = ClienteRest.JSONB.toJson(new PedidoDeTransferencia(publicacionId, entradaId, vendedorId,
                 compradorId, titular, precio, pagoId));
         Respuesta respuesta = rest.llamar("POST", RAIZ + "/transferencias", Map.of(), Map.of(), cuerpo);
+        CompraFueraDeLasReglas regla = reglaEntreCompras(respuesta, titular);
+        if (regla != null) {
+            throw regla;
+        }
         return leer(respuesta, 201, Transferencia.class, "transferir la entrada " + entradaId,
                 TiposDeProblema.PUBLICACION_NO_ACTIVA);
+    }
+
+    /**
+     * El 409 de una regla entre compras, con el tipo y el detalle de Ventas,
+     * que arma el texto porque tiene la regla; null si la respuesta es otra
+     * cosa.
+     */
+    private static CompraFueraDeLasReglas reglaEntreCompras(Respuesta respuesta, Titular titular) {
+        if (respuesta.estado() != 409) {
+            return null;
+        }
+        String detalle = respuesta.detalle() == null || respuesta.detalle().isBlank() ? null : respuesta.detalle();
+        if (("/problemas/" + TiposDeProblema.TOPE_POR_EVENTO).equals(respuesta.tipo())) {
+            return new CompraFueraDeLasReglas(TiposDeProblema.TOPE_POR_EVENTO, detalle != null ? detalle
+                    : "Cada persona puede tener hasta " + ReglasDeNegocio.MAX_ENTRADAS_POR_EVENTO
+                            + " entradas por evento, sumando todas sus compras: no podés comprar más para este evento.");
+        }
+        if (("/problemas/" + TiposDeProblema.DNI_CON_ENTRADA).equals(respuesta.tipo())) {
+            return new CompraFueraDeLasReglas(TiposDeProblema.DNI_CON_ENTRADA, detalle != null ? detalle
+                    : "El DNI " + titular.dni() + " ya tiene una entrada para este evento. Cada persona puede tener"
+                            + " una sola entrada por evento.");
+        }
+        return null;
     }
 
     /**

@@ -22,15 +22,17 @@ import com.palco.reventa.negocio.externos.ClienteDePagos;
 import com.palco.reventa.negocio.externos.ClienteDePagos.Devolucion;
 
 /**
- * La devolución de los cobros de reventa cuya entrada Ventas no transfirió
- * (limitación L2). La usan la compra ({@code ServicioDeReventa}) y la
- * conciliación ({@code ConciliacionDeReventas}), en dos pasos:
+ * La devolución de los cobros de reventa cuya entrada Ventas no transfirió:
+ * porque ya no estaba publicada (limitación L2) o porque con ella el
+ * comprador pasaba una regla entre compras (DEF-46). La usan la compra
+ * ({@code ServicioDeReventa}) y la conciliación
+ * ({@code ConciliacionDeReventas}), en dos pasos:
  *
  * <ol>
  * <li>{@link #anotar}: el reembolso queda en la base, {@code PENDIENTE}, antes
- * de anular la publicación. Si la base falla acá, la publicación sigue tomada
- * y la conciliación lo vuelve a intentar: nunca queda una publicación anulada
- * con un cobro que nadie va a devolver.</li>
+ * de anular o liberar la publicación. Si la base falla acá, la publicación
+ * sigue tomada y la conciliación lo vuelve a intentar: nunca queda una
+ * publicación cerrada con un cobro que nadie va a devolver.</li>
  * <li>{@link #intentar}: se le pide a Pagos. Si no responde, el reembolso sigue
  * {@code PENDIENTE} y {@link #reintentarPendientes} lo repite cada minuto. Pagos
  * devuelve un pago una sola vez, así que repetir es seguro.</li>
@@ -56,14 +58,43 @@ public class DevolucionDeCobros {
     @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.systemUTC();
 
+    /**
+     * Cómo empieza el motivo de un reembolso por una regla entre compras
+     * ({@link #motivoPorRegla}). Es lo que lo distingue de uno por una entrada
+     * que ya no estaba publicada: sin columna nueva, porque el motivo ya se
+     * guarda con cada reembolso.
+     */
+    static final String PREFIJO_POR_REGLA = "Reventa: el comprador ya no podía quedarse con la entrada ";
+
     /** El motivo que viaja a Pagos y queda con el pago. Entra en las 200 posiciones de Pagos. */
     static String motivo(String entradaId) {
         return "Reventa: Ventas no transfirió la entrada " + entradaId + " al comprador (ya no estaba publicada).";
     }
 
+    /**
+     * El motivo cuando Ventas no transfirió la entrada porque con ella el
+     * comprador pasaba el tope por evento o su DNI ya tenía entrada: otra
+     * compra se cruzó entre el control y la transferencia (DEF-46). La entrada
+     * sigue publicada, así que la publicación queda libre en lugar de anulada.
+     * Entra en las 200 posiciones de Pagos.
+     */
+    static String motivoPorRegla(String entradaId, String tipo) {
+        return PREFIJO_POR_REGLA + entradaId + " (" + tipo + ").";
+    }
+
     /** Si ese pago ya tiene un reembolso anotado, en cualquier estado. */
     public boolean estaAnotado(String pagoId) {
         return reembolsos.buscar(pagoId).isPresent();
+    }
+
+    /**
+     * Si el reembolso anotado de ese pago es por una regla entre compras
+     * ({@link #motivoPorRegla}). Decide qué se hace con una publicación que
+     * sigue tomada por ese pago: libre si la entrada sigue publicada (este
+     * caso), anulada si Ventas ya no la tenía publicada.
+     */
+    public boolean esPorReglaEntreCompras(String pagoId) {
+        return reembolsos.buscar(pagoId).map(r -> r.getMotivo().startsWith(PREFIJO_POR_REGLA)).orElse(false);
     }
 
     /**
