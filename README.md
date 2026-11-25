@@ -7,9 +7,10 @@ DNI y un canal de reventa oficial con tope de precio de +10% sobre el precio ori
 El repo tiene dos partes:
 
 - **`frontend/`**: SPA en React. Todo lo que muestra sale del backend: el
-  ingreso y el registro, el catálogo, la compra, Mis entradas, la reventa, la
-  puerta y el panel del organizador. En el navegador solo quedan la sesión (el
-  token) y el carrito de la compra en curso.
+  ingreso, el registro y la recuperación de la contraseña, el catálogo, la
+  compra, Mis entradas, la reventa, la puerta, el panel del organizador y el
+  asistente. En el navegador solo quedan la sesión (el token), el carrito de la
+  compra en curso y el tema elegido.
 - **`backend/`**: Jakarta EE sobre WildFly. Son 9 servicios independientes (un
   WAR cada uno) desplegados en el mismo WildFly, con el broker JMS (ActiveMQ
   Artemis) que trae el servidor: Usuarios; Eventos (también la edición y la
@@ -20,7 +21,8 @@ El repo tiene dos partes:
   (factura cada compra confirmada pidiéndole el CAE por SOAP a un ARCA
   simulado, que se despliega aparte en `/legado/arca`), y el Asistente (la IA,
   detrás de su gateway). Los servicios se hablan
-  solo por REST, SOAP o JMS. El plan completo está en [`TODO.md`](TODO.md).
+  solo por REST, SOAP o JMS. El estado de cada fase está en [`TODO.md`](TODO.md), y el detalle, en
+  [`docs/documentacion/Palco_Documentacion_Completa.md`](docs/documentacion/Palco_Documentacion_Completa.md).
 
 ## Levantar todo desde cero
 
@@ -64,6 +66,37 @@ están en el repo: el backend los genera en cada arranque, y el log lo avisa ("P
 entorno: se generó uno nuevo para este arranque."). Por eso, después de reiniciar el backend, las sesiones abiertas
 se cierran y hay que volver a entrar.
 
+### El `.env` de la raíz (opcional)
+
+`docker compose` toma estas variables del entorno o de un archivo `.env` en la carpeta de `docker-compose.yml`. Ese
+archivo no se sube al repo (lo ignora `.gitignore`) y sin él todo anda con los valores de la segunda columna:
+
+| Variable | Sin definirla | Para qué sirve |
+|---|---|---|
+| `PALCO_SECRETO_SERVICIOS` | El backend genera uno en cada arranque (`backend/docker/arrancar.sh`) | El secreto con el que los servicios piden el token de rol `servicio`. Hace falta definirlo solo para correr `scripts/pruebas` contra el compose (ver [Cómo correrlo](#todo-junto-con-un-solo-comando-docker)) |
+| `PALCO_JWT_CLAVE_PRIVADA` | Usuarios genera una al arrancar, y al reiniciar se cierran las sesiones abiertas | La clave que firma las sesiones (cómo generarla, en `backend/.env.example`) |
+| `PALCO_DB_PASSWORD` | `palco-local` | La contraseña de la base del compose, que no se publica fuera de su red |
+| `PALCO_PUERTO_HTTP`, `PALCO_PUERTO_HTTPS`, `PALCO_URL_PUBLICA` y `PALCO_PUERTO_BACKEND` | `80`, `443`, `https://localhost` y `8080` | Otros puertos (ver [Si algo traba](#si-algo-traba)) |
+| `PALCO_CORS_ORIGENES` | La URL pública (`https://localhost`) | Los orígenes que pueden llamar a la API. Para usar `npm run dev` contra el compose: `https://localhost,http://localhost:5173` (DEF-42) |
+| `PALCO_CORREO_LOG_COMPLETO` | `false`: de cada email, el log tiene solo el destinatario enmascarado y el asunto | Con `true`, cada email entero en el log, con su código. El compose no tiene SMTP, así que hace falta para registrar una cuenta nueva |
+| `PALCO_DIR_LOGS` | Un volumen de Docker | Con `./logs`, el `server.log` queda en esa carpeta (lo leen `scripts/pruebas` y las pruebas E2E) |
+| `PALCO_ASISTENTE_MODELO`, `PALCO_ASISTENTE_OPENAI_URL`, `PALCO_ASISTENTE_OPENAI_MODELO` y `PALCO_ASISTENTE_OPENAI_CLAVE` | El modelo simulado del asistente | Un modelo real, de cualquier proveedor compatible con la API de chat de OpenAI (abajo) |
+
+**El asistente con un modelo real.** Con estas líneas en el `.env` de la raíz y otro `docker compose up --build --wait`,
+el asistente le pregunta al proveedor en lugar de al modelo simulado. La clave es secreta: va solo en ese `.env`, que
+no se sube al repo, y el backend no la escribe en el log.
+
+```
+PALCO_ASISTENTE_MODELO=openai
+PALCO_ASISTENTE_OPENAI_URL=https://api.openai.com/v1
+PALCO_ASISTENTE_OPENAI_MODELO=gpt-4o-mini
+PALCO_ASISTENTE_OPENAI_CLAVE=<la clave del proveedor>
+```
+
+Sin la URL ni el modelo, usa esos dos valores. Sirve cualquier proveedor con esa API (OpenAI, Gemini, Groq u Ollama)
+cambiando la URL y el modelo. Si el proveedor no responde en 5 segundos o falla, el asistente contesta con las
+preguntas frecuentes.
+
 ### Cuánto tarda
 
 La primera vez baja unos 1,9 GB de imágenes base (PostgreSQL, Maven con el JDK 25, el JRE 25, Node y nginx) y arma
@@ -94,8 +127,8 @@ Se ve el catálogo con los seis eventos de prueba. También quedan:
 | Qué | Dónde |
 |---|---|
 | El estado de un servicio | https://localhost/api/eventos/health (cada servicio responde en `<su raíz>/health`, ver [Backend](#backend)) |
-| El WSDL del ARCA simulado | https://localhost/legado/arca?wsdl |
 | La API directa, solo desde esta máquina (Postman) | http://localhost:8080 |
+| El WSDL del ARCA simulado, solo desde esta máquina | http://localhost:8080/legado/arca?wsdl (nginx no lo publica: `https://localhost/legado/` responde 404, DEF-45) |
 
 ### Cuentas de prueba
 
@@ -154,7 +187,7 @@ PALCO_PUERTO_BACKEND=8081
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Arquitectura y estado](#arquitectura-y-estado)
 - [Decisiones de diseño](#decisiones-de-diseño)
-- [Limitaciones conocidas](#limitaciones-conocidas)
+- [Decisiones de alcance](#decisiones-de-alcance)
 
 ## Requisitos
 
@@ -175,10 +208,12 @@ Para levantar todo con Docker no hace falta nada de esto: ver
 Los requisitos, el comando, cuánto tarda, las cuentas de prueba y cómo bajarlo están en
 [Levantar todo desde cero](#levantar-todo-desde-cero).
 
-Levanta tres contenedores: `db` (PostgreSQL), `backend` (WildFly con los 9 servicios, el broker y el ARCA simulado)
-y `web` (nginx con el frontend, TLS y las cabeceras de seguridad, que pasa `/api` y `/legado` al backend). La API
-también queda en `http://localhost:8080`, solo para esta máquina (Postman y `scripts/pruebas`). Ningún secreto está
-en el repo: el secreto entre servicios y la clave de los tokens se generan en cada arranque si no se definen.
+Levanta tres contenedores: `db` (PostgreSQL 17), `backend` (WildFly con los 9 servicios, el broker y el ARCA
+simulado) y `web` (nginx con el frontend, TLS y las cabeceras de seguridad, que pasa `/api` al backend). El ARCA
+simulado no se publica por nginx: Facturación lo llama por la red interna. La API también queda en
+`http://localhost:8080`, solo para esta máquina (Postman, `scripts/pruebas` y el WSDL del ARCA simulado). Ningún
+secreto está en el repo: el secreto entre servicios y la clave de los tokens se generan en cada arranque si no se
+definen (ver [El `.env` de la raíz](#el-env-de-la-raíz-opcional)).
 
 | Para | Comando |
 |---|---|
@@ -223,9 +258,13 @@ error con el botón "Reintentar".
   copiar `frontend/.env.example` como `frontend/.env`, editar `VITE_API_URL` y
   reiniciar `npm run dev`.
 - **Origen:** hay que abrir la app en `http://localhost:5173` tal cual. El
-  backend solo acepta pedidos desde los orígenes de `PALCO_CORS_ORIGENES`, así
-  que con `127.0.0.1:5173` o con `npm run preview` (puerto 4173) las llamadas
-  fallan.
+  backend solo acepta pedidos desde los orígenes de `PALCO_CORS_ORIGENES` (con
+  `./dev.sh`, `http://localhost:5173` si no se define otra cosa), así que con
+  `127.0.0.1:5173` o con `npm run preview` (puerto 4173) las llamadas fallan.
+- **Contra el backend del compose:** el compose acepta solo la URL pública
+  (DEF-42). Para usar `npm run dev` contra él, se lo levanta con
+  `PALCO_CORS_ORIGENES=https://localhost,http://localhost:5173` en el `.env` de
+  la raíz.
 
 ### Backend
 
@@ -262,16 +301,19 @@ cd backend && rm -rf servidor/target && ./dev.sh
 ```
 
 Sin configurar nada usa **H2 en memoria**: la base se borra al reiniciar y las
-migraciones vuelven a cargar los datos de prueba. Para usar **Supabase**,
+migraciones vuelven a cargar los datos de prueba. Para usar un **PostgreSQL**
+(uno propio o Supabase; el del compose no se publica fuera de su red),
 completar las variables `PALCO_DB_*` del `.env` y volver a correr `./dev.sh`:
-las mismas migraciones crean las tablas allá.
+las mismas migraciones crean las tablas, y son las que corren contra el
+PostgreSQL 17 del compose y del CI.
 
 **Asistente con IA** (`/api/v1/asistente`). Sin configurar nada responde con el
 modelo simulado. Para usar un modelo real basta un proveedor con la API de chat
 de OpenAI (OpenAI, Gemini, Groq u Ollama local): en el `.env` del backend, o en
-el `.env` de la raíz para Docker, se ponen `PALCO_ASISTENTE_MODELO=openai`,
-`PALCO_ASISTENTE_OPENAI_URL`, `PALCO_ASISTENTE_OPENAI_MODELO` y
-`PALCO_ASISTENTE_OPENAI_CLAVE` (ver `backend/.env.example`). El gateway le da
+el `.env` de la raíz para Docker ([ejemplo](#el-env-de-la-raíz-opcional)), se
+ponen `PALCO_ASISTENTE_MODELO=openai`, `PALCO_ASISTENTE_OPENAI_URL`,
+`PALCO_ASISTENTE_OPENAI_MODELO` y `PALCO_ASISTENTE_OPENAI_CLAVE` (ver
+`backend/.env.example`). Ninguno de los dos `.env` se sube al repo. El gateway le da
 5 segundos al modelo; si no responde o falla, contesta con las preguntas
 frecuentes.
 
@@ -280,7 +322,7 @@ frecuentes.
 | `./dev.sh` | Compila todo, arma WildFly con los 9 servicios y lo levanta |
 | `./redesplegar.sh eventos` | Recompila un servicio y lo redespliega sin reiniciar |
 | `mvn test` | Corre los tests (ver [Tests](#tests)) |
-| `mvn clean install` | Arma todo; el server queda en `servidor/target/server`, listo para hostear |
+| `mvn clean install` | Arma todo; el server queda en `servidor/target/server`, como el que arma la imagen del compose (`backend/Dockerfile`, que lo arma sin correr los tests) |
 
 ### API disponible
 
@@ -300,6 +342,7 @@ resumen. "Rol" es lo que pide el token: `user`, `organizer`, `staff` o
 | Usuarios | `POST /api/usuarios/login` | pública | `{"email", "password"}` → `{"token", "usuario", ...}` |
 | Usuarios | `GET /api/usuarios/yo` | `user`, `organizer`, `staff` | Usuario del token |
 | Usuarios | `GET /api/usuarios/{usuarioId}` | `servicio` | Un usuario por su id (lo usa Notificaciones para el email del comprador) |
+| Usuarios | `GET /api/usuarios/cuentas?email=` | `servicio` | El rol de una cuenta verificada (lo usa Validación: la puerta solo se asigna a cuentas `staff`) |
 | Usuarios | `POST /api/usuarios/servicios/token` | pública, con secreto | `{"secreto"}` → token de rol `servicio` para llamar a otros servicios |
 | Usuarios | `GET /api/usuarios/jwks` | pública | Clave pública para validar tokens (la usan los otros servicios) |
 | Eventos | `GET /api/eventos?categoria=Música&q=texto` | pública | Catálogo sin los eventos cancelados (filtros opcionales, búsqueda sin acentos) |
@@ -309,7 +352,7 @@ resumen. "Rol" es lo que pide el token: `user`, `organizer`, `staff` o
 | Eventos | `PUT /api/eventos/{eventoId}` | `organizer` | Editar un evento propio (reemplazo completo; un sector con ventas no cambia de precio ni se quita) |
 | Eventos | `POST /api/eventos/{eventoId}/cancelacion` | `organizer` | Cancelar un evento propio con `{"motivo"}` opcional: publica `EVENTO_CANCELADO`, y Ventas anula y reembolsa sus compras |
 | Eventos | `POST /api/eventos/imagenes` | `organizer` | Sube la foto (JPG, PNG o WEBP, hasta 2 MB) y devuelve su URL: a Supabase Storage si está configurado y, si no, a la base de Palco (`PALCO_IMAGENES`: `supabase`, `base` o `ninguno`) |
-| Eventos | `GET /api/eventos/imagenes/{id}` | público | La foto de un evento guardada en la base, con caché de un año |
+| Eventos | `GET /api/eventos/imagenes/{id}` | pública | La foto de un evento guardada en la base, con caché de un año |
 | Eventos | `GET /api/eventos/{eventoId}/organizador` | `servicio` | El dueño de un evento (lo usan Ventas y Validación) |
 | Eventos | `POST /api/eventos/{eventoId}/sectores/{sectorId}/cupo` | `servicio` | Sumar (`{"cantidad": 2}`) o liberar (`-2`) entradas vendidas, sin pasarse del cupo |
 | Ventas | `POST /api/v1/ventas` | `user` | Abre una compra y reserva el cupo por 10 minutos: 201, venta `EN_CHECKOUT`. Pide la cabecera `Idempotency-Key` (un UUID) |
@@ -336,8 +379,9 @@ resumen. "Rol" es lo que pide el token: `user`, `organizer`, `staff` o
 | Notificaciones | `POST /api/notificaciones/pruebas/pago-confirmado` | `servicio` | Publica un `PAGO_CONFIRMADO` de prueba |
 | Notificaciones | `POST /api/notificaciones/pruebas/pago-confirmado-con-falla` | `servicio` | Publica y falla: la transacción se deshace y el mensaje no sale (409) |
 | Notificaciones | `POST /api/notificaciones/pruebas/mensaje-invalido` | `servicio` | Publica un texto inválido, para ver los reintentos y la DLQ |
-| Facturación | `GET /api/v1/facturas/{ventaId}` | `user`, `servicio` | La factura de una compra (número de comprobante y CAE). El comprador ve solo la suya; ajena o todavía sin facturar: 404 |
-| ARCA simulado | `POST /legado/arca` (SOAP, `FECAESolicitar`); WSDL en `GET /legado/arca?wsdl` | pública | Sistema externo simulado: da número y CAE. No es parte de la API de Palco. El WSDL está copiado en [`docs/api/arca.wsdl`](docs/api/arca.wsdl) |
+| Facturación | `GET /api/v1/facturas/{ventaId}` | `user`, `servicio` | La factura de una compra (número de comprobante y CAE). El comprador ve solo la suya; ajena, inexistente o sin factura emitida: 404; rechazada por ARCA: 409 `comprobante-rechazado` |
+| Asistente | `POST /api/v1/asistente/preguntas` | `user`, `organizer`, `staff` | Una pregunta sobre Palco, por el gateway de IA: 200 con la `respuesta` y su `origen` (`MODELO`, `FALLBACK` o `BLOQUEADA`) |
+| ARCA simulado | `POST /legado/arca` (SOAP, `FECAESolicitar`); WSDL en `GET /legado/arca?wsdl` | pública | Sistema externo simulado: da número y CAE. No es parte de la API de Palco. Con el compose responde solo en el puerto del backend (`http://localhost:8080`, en esta máquina): nginx no lo publica. El WSDL está copiado en [`docs/api/arca.wsdl`](docs/api/arca.wsdl) |
 
 La pasarela de Pagos es simulada: el token de pago `tok_test` aprueba,
 `tok_rechazado` rechaza y `tok_sin_respuesta` simula que la pasarela no
@@ -412,7 +456,7 @@ Reventa piden el rol `user`. En producción se desactivan con
 |---|---|---|
 | `titular@palco.test` | `user` | Comprar, ver sus entradas, y publicar y comprar en la reventa |
 | `otro.titular@palco.test` | `user` | Lo mismo, como segundo comprador: compra en la reventa lo que publica `titular` |
-| `organizador@palco.test` | `organizer` | `/organizador`: es el dueño de los seis eventos de prueba (`ev-1` a `ev-6`). Crea eventos, ve sus números, asigna el personal de puerta y, por la API, edita y cancela los suyos |
+| `organizador@palco.test` | `organizer` | `/organizador`: es el dueño de los seis eventos de prueba (`ev-1` a `ev-6`). Crea, edita y cancela sus eventos, ve sus números, las ventas por día y la liquidación, y asigna el personal de puerta |
 | `otro.organizador@palco.test` | `organizer` | Organizador sin eventos: no ve ni puede tocar los de `organizador` (responden 404) |
 | `puerta@palco.test` | `staff` | `/puerta` en los seis eventos de prueba y en los que le asigne su organizador |
 | `otra.puerta@palco.test` | `staff` | Cuenta de puerta sin eventos asignados: escanear responde 403 hasta que un organizador la asigne |
@@ -426,8 +470,10 @@ cuenta ya puede comprar.
 ## Funcionalidades
 
 La columna "Datos" dice de qué servicio sale la información de cada pantalla.
-Todo sale de la API: en el navegador solo quedan la sesión y el carrito de la
-compra en curso, que permite recargar el checkout sin perder la reserva.
+Todo sale de la API: en el navegador solo quedan la sesión, el tema elegido y el
+carrito de la compra en curso, que permite recargar el checkout sin perder la
+reserva. Cada pantalla, menos el catálogo, se baja recién la primera vez que se
+abre (`React.lazy` en `App.tsx`, DEF-49).
 
 | Ruta | Pantalla | Acceso | Datos |
 |---|---|---|---|
@@ -438,13 +484,15 @@ compra en curso, que permite recargar el checkout sin perder la reserva.
 | `/mis-entradas` | Entradas con su QR, publicación y retiro en la reventa con validación de tope y mínimo, historial | Rol `user` | API (Ventas: `GET /api/v1/ventas`; Reventa: `GET /api/v1/reventas/mias`) |
 | `/ingresar` | Login (en desarrollo, con las credenciales de prueba a la vista) | Pública | API (Usuarios) |
 | `/registro` | Alta de cuenta en 2 pasos: datos y verificación de email con código | Pública | API (Usuarios) |
+| `/recuperar` | Recuperar la contraseña en 2 pasos: el email y el código de 6 dígitos con la contraseña nueva (desde "¿Olvidaste tu contraseña?" en el ingreso) | Pública | API (Usuarios) |
+| `/asistente` | Asistente con IA: preguntas sobre Palco, con el origen de cada respuesta | Con sesión (cualquier rol) | API (Asistente) |
 | `/reventa` | Reventa oficial: filtros por evento y sector, orden por precio, listado con el tope de cada publicación y compra con confirmación | Pública (comprar requiere login) | API (Reventa, que cobra en Pagos) |
-| `/organizador` | Panel del organizador: entradas vendidas, recaudado sin el cargo de servicio, cupo restante, entradas en reventa, mis eventos, ocupación por sector, reventa activa, accesos en puerta, equipo de puerta y **crear evento** | Rol `organizer` | API (Eventos, Ventas, Reventa y Validación) |
+| `/organizador` | Panel del organizador: entradas vendidas, recaudado sin el cargo de servicio, cupo restante, entradas en reventa, mis eventos y, de cada evento, ventas y liquidación (recaudado de los compradores, cargo de Palco, lo que se le liquida al organizador y la tabla de ventas por día), ocupación por sector, reventa activa, accesos en puerta y equipo de puerta. Además, **crear**, **editar** y **cancelar** un evento, con su foto | Rol `organizer` | API (Eventos, Ventas, Reventa y Validación) |
 | `/puerta` | Validación en puerta: elige uno de sus eventos y carga el código (se tipea o se pega; el visor de cámara es ilustrativo). Muestra el resultado (válida, ya usada, inexistente, de otro evento o no habilitada, y "sin respuesta" si Ventas no contesta) con el nombre y el DNI del titular, contadores y últimos escaneos | Rol `staff` | API (Validación) |
 
-Recuperar la contraseña y ver las ventas por día existen en la API y todavía no
-tienen pantalla. Editar y cancelar un evento y subir su foto se hacen desde el
-panel del organizador.
+Las ventas por día y la liquidación salen del resumen de Ventas
+(`GET /api/v1/resumenes`): solo compras pagadas, sin las de la reventa oficial,
+con los montos que calcula el servidor (DEF-48).
 
 Si no hay sesión, las rutas protegidas redirigen a `/ingresar?next=<ruta>` y
 vuelven a la ruta original después del login. Si la sesión no tiene el rol
@@ -454,14 +502,14 @@ servidor), la sesión se cierra con un aviso.
 
 ## Reglas de negocio
 
-Las constantes viven en [`frontend/src/types/index.ts`](frontend/src/types/index.ts) (y en el backend, en [`ReglasDeNegocio.java`](backend/common/src/main/java/com/palco/common/ReglasDeNegocio.java)):
+Las constantes viven en el backend, en [`ReglasDeNegocio.java`](backend/common/src/main/java/com/palco/common/ReglasDeNegocio.java), que decide. El frontend repite en [`frontend/src/types/index.ts`](frontend/src/types/index.ts) las que usa para avisar antes de mandar el pedido, con los porcentajes como fracción (`TOPE_REVENTA = 0.1`, `MINIMO_REVENTA = 0.5` y `TASA_SERVICIO = 0.1`); `MAX_ENTRADAS_POR_EVENTO` está solo en el backend:
 
-| Constante | Valor | Regla |
+| Constante (backend) | Valor | Regla |
 |---|---|---|
-| `TOPE_REVENTA` | `0.10` | Una entrada se puede revender como máximo al precio de lista de su sector +10% (redondeado hacia abajo). El mínimo es el 50% de ese precio. |
-| `TASA_SERVICIO` | `0.10` | Cargo de servicio sobre el subtotal en el checkout. |
+| `TOPE_REVENTA_PORCENTAJE` y `MINIMO_REVENTA_PORCENTAJE` | `10` y `50` | Una entrada se puede revender como máximo al precio de lista de su sector +10% (redondeado hacia abajo). El mínimo es el 50% de ese precio (redondeado hacia arriba). Los dos salen del precio de lista y no de lo pagado: así cada reventa no sube el tope otro 10% (DEF-16). |
+| `TASA_SERVICIO_PORCENTAJE` | `10` | Cargo de servicio sobre el subtotal en el checkout. |
 | `MAX_ENTRADAS_POR_ORDEN` | `6` | Máximo de entradas por compra, sumando todos los sectores. Tampoco se puede superar el cupo disponible de un sector. |
-| `MAX_ENTRADAS_POR_EVENTO` | `6` | Máximo de entradas de un mismo comprador para un evento, sumando todas sus compras (pagadas y en curso; no cuentan las canceladas, vencidas ni revendidas). 409 `tope-por-evento`. |
+| `MAX_ENTRADAS_POR_EVENTO` | `6` | Máximo de entradas de un mismo comprador para un evento, sumando todas sus compras, también las de la reventa (pagadas y en curso; no cuentan las canceladas, vencidas ni revendidas). 409 `tope-por-evento`. |
 | `HORAS_LIMITE_REVENTA` | `3` | La reventa de un evento cierra 3 horas antes de que empiece. |
 | `MINUTOS_RESERVA` | `10` | Tiempo de reserva de los lugares durante el checkout. Al vencer, se liberan. |
 
@@ -472,12 +520,16 @@ Otras reglas:
 - **Un DNI, una entrada por evento**: un DNI que ya es titular de una entrada en pie para el evento (en otra compra,
   de cualquier cuenta) no puede ser titular de otra: 409 `dni-con-entrada`. Se mira al abrir la compra y otra vez
   antes de cobrar, por si otra compra abierta con el mismo DNI se pagó primero; en ese caso no se cobra.
+- **Dos compras a la vez**: el tope por evento y el DNI por evento valen también con dos compras simultáneas, del
+  catálogo o de la reventa. Ventas toma un candado por comprador y evento y otro por DNI y evento
+  (`ventas.candado_de_compra`, DEF-46). En la reventa, si otra compra se cruzó entre el control y la transferencia,
+  el cobro ya hecho se devuelve, la publicación queda libre y la respuesta es el 409 de la regla.
 - **DNI**: 7 u 8 dígitos. Tarjeta: 16 dígitos, vencimiento `MM/AA`, CVV de 3 dígitos.
 - **Reventa**: al comprar una publicación, la entrada original pasa a `vendida` y
   se emite una entrada nueva para el comprador (origen `reventa`). Una publicación
   se puede retirar y la entrada vuelve a `valida`.
 
-Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anulada`.
+Estados posibles de una entrada: `pendiente_emision` (pagada, hasta que la emite la cola), `valida`, `usada`, `publicada`, `vendida`, `anulada`.
 
 ## Recorrido sugerido de demo
 
@@ -502,8 +554,8 @@ Estados posibles de una entrada: `valida`, `usada`, `publicada`, `vendida`, `anu
    inexistente, uno de otro evento y el de una entrada publicada en la reventa
    (no habilitada).
 9. Entrar como `organizador@palco.test` y revisar `/organizador`: entradas
-   vendidas, recaudado, ocupación por sector, reventa activa, accesos en puerta
-   y equipo de puerta.
+   vendidas, recaudado, las ventas por día y la liquidación del evento,
+   ocupación por sector, reventa activa, accesos en puerta y equipo de puerta.
 10. Desde `/organizador`, tocar "+ Crear evento": cargar título, lugar, fecha,
     descripción y sectores, y confirmar: el evento se crea en el backend y
     aparece en el catálogo y en "Mis eventos" con la foto de su categoría.
@@ -514,7 +566,7 @@ Con el backend levantado, desde la raíz del repo y en Git Bash:
 
 | Qué | Cómo | Detalle |
 |---|---|---|
-| Demo de la compra con mensajería | `bash scripts/demo-entrega3.sh` (o `bash scripts/demo-entrega3.sh rechazado`) | Compra de punta a punta con `curl`, con los contadores del broker y la fila de auditoría. Ver [`scripts/LEEME.md`](scripts/LEEME.md) |
+| Compra con mensajería, por la API | `node scripts/pruebas/escenarios.mjs 1 3 7 9` | Compra de punta a punta, pago rechazado, un mensaje a la cola y una copia por suscripción del tópico, y el aviso y la auditoría. Ver [`scripts/LEEME.md`](scripts/LEEME.md) |
 | Colección de Postman | Importar `docs/api/palco-api.postman_collection.json`, o `npx newman run docs/api/palco-api.postman_collection.json` | Se corre entera, en orden, sin environment. Ver [`docs/api/GUIA_POSTMAN.md`](docs/api/GUIA_POSTMAN.md) |
 | Evidencia de la Entrega Parcial N.º 2 | `bash docs/entrega3/evidencia/reproducir.sh` | Repite el proceso asincrónico completo. Ver [`docs/entrega3/evidencia/LEEME.txt`](docs/entrega3/evidencia/LEEME.txt) |
 
@@ -525,20 +577,29 @@ cd backend && mvn -q test
 ```
 
 Hay tests en `common`, en los nueve servicios y en el ARCA simulado, y corren
-sin WildFly. La prueba en vivo de pagos simultáneos
+sin WildFly. `mvn verify` suma JaCoCo, PMD y las pruebas de integración
+(`*IT`) contra PostgreSQL 17 y Artemis en contenedores, con Testcontainers:
+necesitan Docker y, sin él, se saltean con un aviso. La prueba en vivo de pagos simultáneos
 (`backend/servicios/ventas/src/test/en-vivo/pagos-simultaneos.mjs`) sí necesita
 el servidor levantado.
 
-El frontend tiene pruebas de punta a punta con Playwright en `frontend/e2e/`:
-recorren en el navegador el login de cada rol, el catálogo, la compra, la
-reventa, el panel del organizador, la puerta, el asistente, el registro y los
-avisos de una factura rechazada o demorada.
+El frontend tiene pruebas de punta a punta con Playwright en `frontend/e2e/`
+(39 pruebas en 15 archivos, según `npx playwright test --list`): recorren en el
+navegador el login de cada rol, el registro, recuperar la contraseña, el
+catálogo (también sin conexión con el servidor), la compra, la reventa, el panel
+del organizador (las ventas por día y la liquidación, la foto, la edición y la
+cancelación), la puerta, el asistente, los avisos de una factura rechazada o
+demorada, la carga diferida de las pantallas, los temas, el HTML guardado que se
+muestra como texto y la accesibilidad (axe) a 360, 768 y 1280 px.
 Necesitan el backend y la app levantados; cada prueba crea sus propios datos.
+El CI las corre con el Chromium que baja Playwright; con
+`PALCO_E2E_CANAL=msedge` usan el Edge instalado en la máquina.
 
 ```bash
-cd frontend && npx playwright install chromium   # una sola vez
+cd frontend && npx playwright install chromium   # una sola vez (no hace falta con PALCO_E2E_CANAL=msedge)
 cd frontend && npm run e2e                       # contra http://localhost:5173
 PALCO_E2E_URL=https://localhost PALCO_LOG=../logs/server.log npm run e2e   # contra el compose (ver abajo)
+PALCO_E2E_CANAL=msedge npm run e2e               # con Edge en lugar de Chromium
 ```
 
 Para dar de alta cuentas nuevas leen el código de verificación del log del
@@ -554,6 +615,27 @@ docker compose up --build --wait
 
 Además, `npm run lint` y `npm run build` controlan el código del frontend.
 
+### Integración continua
+
+Los workflows de GitHub Actions están en [`.github/workflows/`](.github/workflows/). Cada job que prueba el sistema
+levantado arma su propio compose, de cero, con `docker compose up --build --detach --wait`.
+
+| Workflow | Cuándo corre | Qué corre |
+|---|---|---|
+| `ci.yml` (CI) | Cada push a `master`, cada pull request, los tags `v*` y a mano | gitleaks sobre todo el historial; `mvn verify` (tests, IT con Testcontainers, JaCoCo y PMD, con la tabla de cobertura en el resumen); el análisis de SonarCloud; lint y build del frontend; la integración contra el compose (`scripts/pruebas/escenarios.mjs` repartido en cuatro jobs, `etag.mjs`, `patron-state.mjs`, `asistente.mjs` y `broker-apagado.mjs`); las E2E con Playwright y Chromium por `https://localhost`, y la colección de Postman con Newman |
+| `seguridad.yml` (Seguridad) | Como CI | Trivy sobre las dependencias del repo y sobre las tres imágenes del compose (backend, web y `postgres:17-alpine`, DEF-73), con cada excepción justificada en `.trivyignore` |
+| `zap.yml` (ZAP) | Como CI | OWASP ZAP contra el compose: el baseline de la app y el escaneo de la API autenticada (`scripts/qa/zap.sh`), con cada alerta Medium justificada en `.zap/reglas.tsv` |
+| `contrato.yml` (Contrato) | Como CI | Schemathesis contra `docs/api/openapi.yaml`, una vez por rol |
+| `pruebas-seguridad.yml` (Pruebas de seguridad) | Como CI | `scripts/pruebas/seguridad.mjs` (tokens manipulados, mass assignment, XSS, XXE, cookies y cabeceras) y `frontend/e2e/xss.spec.ts` contra el compose |
+| `mutacion.yml` (Mutación) | Como CI | PIT sobre el paquete `dominio` de cada servicio, con un mínimo de 60 % de mutantes muertos por módulo |
+| `lighthouse.yml` (Lighthouse) | Cada push a `master`, los tags `v*` y a mano | Lighthouse CI sobre las pantallas públicas, en teléfono y en escritorio |
+| `carga.yml` (Carga) | Los tags `v*` y a mano | k6 con 50 usuarios virtuales durante 5 minutos contra el compose |
+| `estabilidad.yml` (Estabilidad) | Los tags `v*` y a mano | `mvn test` tres veces seguidas, comparadas test por test |
+
+El job de integración de `ci.yml` y los de `contrato.yml`, `pruebas-seguridad.yml` y `zap.yml` tienen el paso
+"Control de logs" ([`scripts/qa/control-de-logs.sh`](scripts/qa/control-de-logs.sh)): falla si el `server.log` tiene
+un token, una contraseña de prueba, un DNI o, con los emails enmascarados, un email `@palco.test` entero (DEF-40).
+
 ## Stack
 
 ### Backend
@@ -562,10 +644,10 @@ Además, `npm run lint` y `npm run build` controlan el código del frontend.
 - JAX-RS para la API REST
 - JMS con el ActiveMQ Artemis embebido en WildFly
 - MicroProfile JWT para las sesiones y `@RolesAllowed` en todos los servicios
-- JPA + Hibernate; H2 en desarrollo y PostgreSQL en Supabase
+- JPA + Hibernate; H2 en modo PostgreSQL para desarrollar y PostgreSQL 17 en el compose y en el CI
 - Flyway para las migraciones (un esquema por servicio)
 - JSON-B para el JSON de la API
-- Maven multimódulo (un WAR por servicio), JUnit para tests
+- Maven multimódulo (un WAR por servicio); JUnit 6, Mockito y Testcontainers para los tests
 
 ### Frontend
 
@@ -577,8 +659,8 @@ Además, `npm run lint` y `npm run build` controlan el código del frontend.
 - Context + `useReducer` para el estado global (sin Redux ni Zustand)
 - `fetch` del navegador para hablar con el backend (sin axios ni librería de
   datos)
-- `framer-motion` para animaciones (`index.css` reduce las transiciones CSS con
-  `prefers-reduced-motion`)
+- `framer-motion` para animaciones (con `prefers-reduced-motion`, `MotionConfig
+  reducedMotion="user"` en `main.tsx` las apaga y `index.css` reduce las transiciones CSS)
 - `qrcode` para dibujar el código QR de cada entrada
 - Validaciones de formulario escritas a mano (sin Formik ni React Hook Form)
 - oxlint para lint
@@ -589,7 +671,8 @@ Además, `npm run lint` y `npm run build` controlan el código del frontend.
 
 ```
 frontend/                 # SPA React (Vite)
-docs/                     # Spec de diseño original
+docs/                     # Documento único, ADR, contratos de la API, pruebas y manual de usuario
+scripts/                  # Pruebas contra el sistema levantado, carga y calidad (ver scripts/LEEME.md)
 backend/
 ├── pom.xml               # Proyecto Maven padre (versiones de Java, Jakarta EE y WildFly)
 ├── dev.sh                # Arma y levanta WildFly con los 9 servicios
@@ -602,14 +685,15 @@ backend/
 └── servidor/             # Arma WildFly (base, broker JMS) y despliega los 10 WAR
 ```
 
-Cada servicio sigue las tres capas de la Entrega 1:
+Cada servicio sigue las mismas capas:
 
 ```
 servicios/eventos/src/main/
 ├── java/com/palco/eventos/
 │   ├── api/              # Presentación: recurso JAX-RS y DTOs
-│   ├── negocio/          # Negocio: interfaz IEventos + Session Bean
-│   └── dominio/          # Datos: entidades JPA
+│   ├── negocio/          # Negocio: interfaz IEventos + Session Bean (en externos/, los clientes de otros sistemas)
+│   ├── datos/            # Datos: un repositorio por entidad, el único que usa el EntityManager
+│   └── dominio/          # Entidades JPA
 └── resources/
     ├── META-INF/persistence.xml
     └── db/migracion/     # Scripts SQL de Flyway (V1__..., V2__...)
@@ -628,14 +712,17 @@ src/
 ├── index.css             # Estilos base y fuentes
 ├── types/index.ts        # Modelo de datos y constantes de negocio
 ├── servicios/            # Una función por endpoint del backend
-│   ├── usuarios.ts       # /api/usuarios: ingresar, registrar, verificar email, perfil
-│   ├── eventos.ts        # /api/eventos: listar, detalle, mis eventos, crear
+│   ├── usuarios.ts       # /api/usuarios: ingresar, registrar, verificar email, recuperar la contraseña, perfil
+│   ├── eventos.ts        # /api/eventos: listar, detalle, mis eventos, crear, editar, cancelar, subir la foto
 │   ├── ventas.ts         # /api/v1/ventas, /entradas y /resumenes: comprar, pagar, cancelar, liquidación
 │   ├── reventa.ts        # /api/v1/reventas: listar, mis publicaciones, publicar, retirar, comprar
-│   └── validacion.ts     # /api/v1/validacion: escanear, registro de la puerta, equipo de puerta
+│   ├── validacion.ts     # /api/v1/validacion: escanear, registro de la puerta, equipo de puerta
+│   ├── facturacion.ts    # /api/v1/facturas: la factura de una compra
+│   └── asistente.ts      # /api/v1/asistente: preguntarle al asistente
 ├── store/
 │   ├── SesionContext.tsx # Quién está logueado: ingresar, verificar email, salir
 │   ├── AppContext.tsx    # Catálogo del servidor y carrito de la compra en curso (reducer y localStorage)
+│   ├── useSesion.ts, useApp.ts  # Los hooks de esos dos contextos, en archivos propios (DEF-50)
 │   └── actions.ts        # Tipos de acciones del reducer
 ├── data/
 │   └── events.ts         # Fotos locales de los eventos (por id y por categoría)
@@ -644,12 +731,13 @@ src/
 │   ├── sesion.ts         # Lee y guarda la sesión en localStorage
 │   ├── format.ts         # Formato de moneda y fechas; cálculo de tope, mínimo y cargo de servicio
 │   ├── validate.ts       # Validaciones de formularios
+│   ├── tema.ts           # Tema normal, claro u oscuro, elegido desde el encabezado
 │   ├── useReventas.ts    # Publicaciones activas de uno o varios eventos, de Reventa
 │   ├── useDebouncedValue.ts
 │   └── useAnimatedNumber.ts
 ├── components/           # Componentes reutilizables (Button, Input, Modal, QRCode,
-│                         # Stepper, Toast, CreateEventModal, ProtectedRoute,
-│                         # RequireCatalog, StatusMessage, etc.)
+│                         # Stepper, ToastProvider y useToast, CreateEventModal,
+│                         # CancelarEventoModal, ProtectedRoute, RequireCatalog, etc.)
 └── pages/                # Una página por ruta
 ```
 
@@ -688,8 +776,8 @@ src/
 - **Cómo se hablan los servicios del backend**: por REST, en el momento,
   Ventas le pregunta a Usuarios (identidad del comprador), a Eventos (cupo y
   dueño del evento) y a Pagos (cobro y reembolso); Reventa, a Ventas, a Pagos y
-  a Eventos; Validación, a Ventas (usar la entrada) y a Eventos (dueño del
-  evento); Notificaciones, a Usuarios (el email del comprador), y Eventos sube
+  a Eventos; Validación, a Ventas (usar la entrada), a Eventos (dueño del
+  evento) y a Usuarios (el rol de la cuenta que se asigna a la puerta); Notificaciones, a Usuarios (el email del comprador), y Eventos sube
   las fotos a Supabase Storage cuando está configurado (si no, las guarda en su
   esquema de la base). Por SOAP, Facturación le pide el CAE al ARCA
   simulado. Por JMS van la cola `cola.emision-entradas` y los tópicos
@@ -701,7 +789,7 @@ src/
 - **Cada dato, de su servicio**: el frontend no guarda copias de lo que es del
   backend, así no hay nada que se desactualice ni que dependa del navegador
   (las compras se ven igual desde otro dispositivo). En el navegador quedan solo
-  la sesión y el carrito. El porqué de cada decisión está en la sección 15 de
+  la sesión, el carrito y el tema. El porqué de cada decisión está en la sección 15 de
   [`docs/documentacion/Palco_Documentacion_Completa.md`](docs/documentacion/Palco_Documentacion_Completa.md).
 - **Compra contra `ServicioDeVentas`**: la reserva del cupo se crea al terminar
   el paso "Titulares", porque el backend pide los titulares en ese pedido. Los
@@ -738,26 +826,47 @@ src/
   un toast ("Iniciá sesión para comprar en la reventa oficial.") y redirige al
   ingreso, que después vuelve a la misma pantalla.
 
-## Limitaciones conocidas
+## Decisiones de alcance
 
-El plan de trabajo está en [`TODO.md`](TODO.md).
+Lo que el trabajo decidió simular o dejar afuera, y por qué. El alcance completo
+está en la sección 1.5 de
+[`docs/documentacion/Palco_Documentacion_Completa.md`](docs/documentacion/Palco_Documentacion_Completa.md),
+y los defectos conocidos, con su estado, en
+[`docs/testing/registro-de-defectos.md`](docs/testing/registro-de-defectos.md).
 
-- **Token en `localStorage`**: las contraseñas no se guardan en el navegador
-  y los roles los valida el backend. El token de sesión queda en `localStorage`,
-  donde un script inyectado en la página podría leerlo; hoy el frontend no carga
-  scripts de terceros.
-- **Pantallas pendientes**: recuperar la contraseña y ver las ventas por día
-  están en la API (ver [API disponible](#api-disponible)) y todavía no tienen
-  pantalla. Editar y cancelar un evento y subir su foto se hacen desde el panel
-  del organizador.
-- **Verificación de identidad**: no hay control con foto del DNI. Verificar el
-  email marca la identidad como verificada, y con eso la cuenta puede comprar.
+- **Token en `localStorage`, sin cookies** (riesgo aceptado, DEF-58): el token
+  viaja en la cabecera `Authorization`, así no hay cookies que un sitio ajeno
+  pueda mandar (CSRF). Las contraseñas no se guardan en el navegador y los roles
+  los valida el backend. Un script inyectado podría leer el token: por eso el
+  frontend no carga scripts de terceros, nginx manda una
+  `Content-Security-Policy` con `script-src 'self'` y React muestra como texto lo
+  que escribe la gente (`frontend/e2e/xss.spec.ts`).
+- **Sesión de 8 horas, sin revocación** (riesgo aceptado el 16/10, DEF-38):
+  cerrar sesión descarta el token en el navegador, y el token vale hasta que
+  vence. Reiniciar el backend sin `PALCO_JWT_CLAVE_PRIVADA` genera una clave
+  nueva y cierra todas las sesiones.
+- **Verificación de identidad por email**: verificar el email marca la
+  identidad como verificada, y con eso la cuenta puede comprar. La validación
+  documental del DNI (foto o un servicio externo) queda fuera del alcance.
 - **Pagos simulados**: el cobro y el reembolso pasan por `ServicioDePagos`,
-  pero su pasarela es simulada (no se procesa ningún pago real; el formulario de
-  tarjeta no manda sus datos, solo un token de prueba).
-- **Emails sin proveedor configurado**: sin `PALCO_SMTP_HOST` los emails quedan
-  en el log del servidor (ver "Emails" en [API disponible](#api-disponible)).
-- **Fotos en la base**: sin `PALCO_SUPABASE_URL` y `PALCO_SUPABASE_CLAVE`, las
-  fotos de los eventos se guardan en la base de Palco (tabla `eventos.imagen`,
-  hasta 2 MB cada una). Alcanza para el volumen del proyecto; con muchas fotos
-  conviene Supabase Storage, que se usa solo con configurar esas variables.
+  con la pasarela simulada `PagosFake`, que la cátedra aceptó el 16/10. No se
+  procesa ningún pago real: el formulario de tarjeta no manda sus datos, solo un
+  token de prueba. Una pasarela real se suma como otra implementación de
+  `PasarelaDePagos`, sin tocar a Ventas ni a Reventa.
+- **ARCA simulado**: la factura se pide por SOAP a un ARCA propio, en un WAR
+  aparte (`/legado/arca`), con la aceptación de la cátedra del 16/10. No pide
+  autenticación, así que el nginx del compose no lo publica (DEF-45):
+  Facturación lo llama por la red interna.
+- **Emails según la configuración**: con `PALCO_SMTP_HOST` y las demás
+  `PALCO_SMTP_*` en `backend/.env` (con `./dev.sh`) salen por SMTP; sin ellas
+  quedan en el log del servidor (ver "Emails" en [API disponible](#api-disponible)),
+  así el sistema se levanta y se prueba sin una cuenta de correo. El compose no
+  le pasa esas variables al backend: con Docker, los emails quedan en el log.
+- **Fotos según la configuración**: sin `PALCO_SUPABASE_URL` y
+  `PALCO_SUPABASE_CLAVE`, las fotos de los eventos se guardan en la base de
+  Palco (tabla `eventos.imagen`, hasta 2 MB cada una), que alcanza para el
+  volumen del proyecto. Con esas variables (en `backend/.env`, con `./dev.sh`)
+  van a Supabase Storage; `PALCO_IMAGENES` (`supabase`, `base` o `ninguno`)
+  fuerza la elección. Con el compose, van a la base.
+- **Un solo servidor**: el sistema corre en un WildFly local o en el compose.
+  La consigna no pide desplegarlo en la nube.
