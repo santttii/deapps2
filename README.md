@@ -42,7 +42,8 @@ sin configurar nada.
   - Docker tiene que estar corriendo antes del comando: en Windows y macOS, con Docker Desktop abierto.
 - **Git**, para clonar.
 - **Memoria y disco:** conviene una máquina con 8 GB de RAM, para que Docker tenga unos 4, y unos 10 GB libres en
-  disco: la primera vez baja 1,9 GB de imágenes base y arma dos imágenes propias.
+  disco: la primera vez baja las imágenes base y arma dos imágenes propias (la del backend ocupa unos 860 MB y la
+  web, unos 110 MB).
 - **Internet**, la primera vez: baja las imágenes de Docker Hub y las dependencias de Maven y de npm.
 - **Los puertos 80, 443 y 8080 libres.** Si alguno está ocupado, ver [Si algo traba](#si-algo-traba).
 
@@ -99,12 +100,11 @@ preguntas frecuentes.
 
 ### Cuánto tarda
 
-La primera vez baja unos 1,9 GB de imágenes base (PostgreSQL, Maven con el JDK 25, el JRE 25, Node y nginx) y arma
-las dos imágenes de Palco, con las dependencias de Maven y WildFly. Medido el 30/10/2026 en un entorno Linux de 4
-núcleos, con las imágenes base ya bajadas y sin caché de Maven: 112 s la imagen del backend, 30 s la del frontend y
-28 s hasta que los tres contenedores quedaron sanos, unos 3 minutos en total. La descarga depende de la conexión:
-con 50 Mbps, la cuenta da unos 5 minutos más. Las siguientes veces las imágenes ya están armadas y es solo el
-arranque. El CI lo levanta igual, de cero, en cada corrida ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+La primera vez baja las imágenes base (PostgreSQL, Maven con el JDK 25, el JRE 25, Node y nginx) y arma las dos
+imágenes de Palco, con las dependencias de Maven y WildFly. Medido el 25/11/2026 sobre `93d34d2`, en un clon nuevo y
+sin ninguna imagen ni caché de Docker (Windows 11 con Docker Desktop, 12 núcleos): `docker compose up --build --wait`
+terminó en 172 s, con la descarga incluida, y los tres contenedores sanos. La descarga depende de la conexión. Las
+siguientes veces las imágenes ya están armadas y es solo el arranque. El CI lo levanta igual, de cero, en cada corrida ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ### Cómo saber que está listo
 
