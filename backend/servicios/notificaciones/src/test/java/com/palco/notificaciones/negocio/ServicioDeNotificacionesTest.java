@@ -38,7 +38,10 @@ class ServicioDeNotificacionesTest {
 
     @Test
     void elAvisoNoLlevaElDniDeNingunTitular() {
-        String aviso = ServicioDeNotificaciones.textoDelAviso(Ejemplos.pagoConfirmado(), false);
+        // Ni siquiera el de un mensaje publicado antes del 24/11, que todavía lo trae (DEF-37).
+        PagoConfirmadoMensaje conDni = PagoConfirmadoMensaje.desdeJson(Ejemplos.PAGO_CONFIRMADO_CON_DNI);
+
+        String aviso = ServicioDeNotificaciones.textoDelAviso(conDni, false);
 
         assertFalse(aviso.contains(Ejemplos.DNI_DE_ANA), aviso);
         assertFalse(aviso.contains(Ejemplos.DNI_DE_LUIS), aviso);
@@ -52,7 +55,7 @@ class ServicioDeNotificacionesTest {
                 + " (falso) LINEA FALSA DE LA REVISION";
         PagoConfirmadoMensaje conSaltos = new PagoConfirmadoMensaje("V-3f9a1c2b", "user-titular", "ev-1",
                 List.of(new Entrada("T-9c41d07e", "Campo\r\nsector falso",
-                        new Titular("Rev Linea\n" + renglonFalso, Ejemplos.DNI_DE_ANA))),
+                        new Titular("Rev Linea\n" + renglonFalso))),
                 30250, Instant.parse("2026-10-16T21:30:00Z"));
 
         String aviso = ServicioDeNotificaciones.textoDelAviso(conSaltos, false);
@@ -66,7 +69,7 @@ class ServicioDeNotificacionesTest {
     @Test
     void conUnaSolaEntradaLoDiceEnSingular() {
         PagoConfirmadoMensaje deUna = new PagoConfirmadoMensaje("V-3f9a1c2b", "user-titular", "ev-1",
-                List.of(new Entrada("T-9c41d07e", "Campo", new Titular("Ana Gómez", Ejemplos.DNI_DE_ANA))),
+                List.of(new Entrada("T-9c41d07e", "Campo", new Titular("Ana Gómez"))),
                 30250, Instant.parse("2026-10-16T21:30:00Z"));
 
         String aviso = ServicioDeNotificaciones.textoDelAviso(deUna, false);
@@ -120,9 +123,10 @@ class ServicioDeNotificacionesTest {
     void elEmailTampocoLlevaElDniDeNingunTitular() {
         Armado armado = new Armado("ana@palco.test", "Ana");
 
-        armado.servicio.enviarConfirmacion(Ejemplos.pagoConfirmado());
+        armado.servicio.enviarConfirmacion(PagoConfirmadoMensaje.desdeJson(Ejemplos.PAGO_CONFIRMADO_CON_DNI));
 
         String cuerpo = armado.correos.enviados.get(0).cuerpo();
+        assertTrue(cuerpo.contains("Platea B (Ana Gómez)"), cuerpo);
         assertFalse(cuerpo.contains(Ejemplos.DNI_DE_ANA), cuerpo);
         assertFalse(cuerpo.contains(Ejemplos.DNI_DE_LUIS), cuerpo);
     }
@@ -155,7 +159,7 @@ class ServicioDeNotificacionesTest {
     @Test
     void conUnaSolaEntradaElEmailLoDiceEnSingular() {
         PagoConfirmadoMensaje deUna = new PagoConfirmadoMensaje("V-3f9a1c2b", "user-titular", "ev-1",
-                List.of(new Entrada("T-9c41d07e", "Campo", new Titular("Ana Gómez", Ejemplos.DNI_DE_ANA))),
+                List.of(new Entrada("T-9c41d07e", "Campo", new Titular("Ana Gómez"))),
                 30250, Instant.parse("2026-10-16T21:30:00Z"));
 
         String cuerpo = ServicioDeNotificaciones.cuerpoDelEmail(deUna, "Ana", false);

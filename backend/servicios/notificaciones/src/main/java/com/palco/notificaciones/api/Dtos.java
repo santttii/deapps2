@@ -10,7 +10,8 @@ public final class Dtos {
 
     /**
      * Un mensaje {@code PAGO_CONFIRMADO} que auditoría recibió por el tópico.
-     * No incluye el cuerpo del mensaje: adentro va el DNI de los titulares.
+     * No incluye el cuerpo del mensaje: trae el nombre de cada titular, y quien
+     * consulta la auditoría no lo necesita. El DNI ya no se guarda (DEF-37).
      *
      * @param mensajeId  el {@code JMSMessageID}
      * @param recibidoEn instante en que se registró; sale como {@code 2026-10-16T21:30:05Z}

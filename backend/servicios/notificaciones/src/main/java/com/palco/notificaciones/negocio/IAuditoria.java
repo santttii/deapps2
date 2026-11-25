@@ -25,7 +25,8 @@ public interface IAuditoria {
      * @param mensajeId  el {@code JMSMessageID}
      * @param tipoEvento {@code PAGO_CONFIRMADO} o {@code REVENTA_CONFIRMADA}
      * @param mensaje    el mensaje ya leído y validado
-     * @param cuerpo     el JSON tal como llegó
+     * @param cuerpo     el JSON tal como llegó; se guarda sin el DNI de los
+     *                   titulares, si un mensaje publicado antes del 24/11 lo trae
      */
     void registrar(String mensajeId, String tipoEvento, PagoConfirmadoMensaje mensaje, String cuerpo);
 

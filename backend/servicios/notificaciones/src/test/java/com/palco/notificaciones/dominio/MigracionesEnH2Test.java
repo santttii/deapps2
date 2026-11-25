@@ -24,8 +24,9 @@ import com.palco.common.mensajeria.PagoConfirmadoMensaje.Titular;
 
 /**
  * Corre las migraciones de db/migracion sobre H2 en modo PostgreSQL, con las
- * mismas opciones que el datasource de WildFly en desarrollo, y guarda en
- * registro_auditoria el cuerpo más largo que el contrato admite.
+ * mismas opciones que el datasource de WildFly en desarrollo, guarda en
+ * registro_auditoria el cuerpo más largo que el contrato admite y comprueba
+ * que la V3 le saca el DNI a las filas que ya estaban.
  */
 class MigracionesEnH2Test {
 
@@ -38,11 +39,26 @@ class MigracionesEnH2Test {
 
     @BeforeEach
     void crearBase() {
-        base = new JdbcDataSource();
-        // Una base nueva por test: el nombre al azar evita que se compartan entre tests.
-        base.setURL("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1;MODE=PostgreSQL;"
-                + "DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH");
+        base = baseNueva();
         BaseDeDatos.migrar(base, "notificaciones");
+    }
+
+    /** Una base nueva por test: el nombre al azar evita que se compartan entre tests. */
+    private static JdbcDataSource baseNueva() {
+        JdbcDataSource nueva = new JdbcDataSource();
+        nueva.setURL("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1;MODE=PostgreSQL;"
+                + "DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH");
+        return nueva;
+    }
+
+    @Test
+    void laV3LeSacaElDniALasFilasQueYaEstaban() throws Exception {
+        JdbcDataSource deAntes = baseNueva();
+        CuerposDeAntesDeLaV3.migrarHastaLaV2YGuardarFilasConDni(deAntes);
+
+        BaseDeDatos.migrar(deAntes, "notificaciones");
+
+        CuerposDeAntesDeLaV3.comprobarQueQuedaronSinDni(deAntes);
     }
 
     @Test
@@ -101,7 +117,7 @@ class MigracionesEnH2Test {
         String sector = "\"".repeat(LARGO_SECTOR);
         List<Entrada> entradas = new ArrayList<>();
         for (int i = 1; i <= ReglasDeNegocio.MAX_ENTRADAS_POR_ORDEN; i++) {
-            entradas.add(new Entrada("T-" + "0".repeat(37) + i, sector, new Titular(nombre, "3012345" + i)));
+            entradas.add(new Entrada("T-" + "0".repeat(37) + i, sector, new Titular(nombre)));
         }
         return new PagoConfirmadoMensaje("V-" + "a".repeat(38), "user-" + "b".repeat(35), "ev-" + "c".repeat(37),
                 entradas, 363000, Instant.parse("2026-10-16T21:30:00Z"));

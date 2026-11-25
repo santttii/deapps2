@@ -19,7 +19,6 @@ import com.palco.notificaciones.AvisosAnotados;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje.Entrada;
 import com.palco.common.mensajeria.PagoConfirmadoMensaje.Titular;
-import com.palco.notificaciones.Ejemplos;
 import com.palco.notificaciones.LogCapturado;
 import com.palco.notificaciones.negocio.IAuditoria;
 
@@ -38,7 +37,7 @@ class LogEnUnSoloRenglonTest {
     /** Un id con un salto de línea adentro. Pasa la validación del mensaje, que solo mira el largo. */
     private static final String VENTA_CON_SALTO = "V-1" + RENGLON_FALSO;
 
-    private static final Titular ANA = new Titular("Ana Gómez", Ejemplos.DNI_DE_ANA);
+    private static final Titular ANA = new Titular("Ana Gómez");
 
     /** Un mensaje válido cuyo id de venta trae el renglón falso. */
     private static String validoConSaltoEnElId() {

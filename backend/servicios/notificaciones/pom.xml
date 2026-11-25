@@ -40,9 +40,26 @@
             <version>7.4.5.Final</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <!-- Para MigracionesEnPostgresIT: la migración V3 contra PostgreSQL 17 en un contenedor.
+                 Versiones y alcance (test) vienen del pom padre. -->
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
         <finalName>notificaciones</finalName>
+        <plugins>
+            <plugin>
+                <!-- Corre los *IT en "mvn verify" (la configuración está en backend/pom.xml) -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
+        </plugins>
     </build>
 </project>

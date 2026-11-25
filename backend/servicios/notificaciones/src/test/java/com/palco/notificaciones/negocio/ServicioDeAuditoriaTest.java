@@ -1,6 +1,8 @@
 package com.palco.notificaciones.negocio;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,6 +59,66 @@ class ServicioDeAuditoriaTest {
         assertEquals("ev-1", fila.getEventoId());
         assertEquals(60500, fila.getMontoTotal());
         assertEquals(mensaje.aJson(), fila.getCuerpo());
+    }
+
+    // --- El DNI de los titulares no se guarda (DEF-37) ---
+
+    @Test
+    void unPagoConfirmadoPublicadoConElDniSeGuardaSinElDniDeNingunTitular() {
+        // Un mensaje de antes del 24/11 que llega tarde (de la suscripción durable o de la DLQ).
+        String llego = Ejemplos.PAGO_CONFIRMADO_CON_DNI;
+
+        servicio.registrar(ID_DEL_MENSAJE, "PAGO_CONFIRMADO", PagoConfirmadoMensaje.desdeJson(llego), llego);
+
+        String guardado = filaGuardada().getCuerpo();
+        assertFalse(guardado.contains(Ejemplos.DNI_DE_ANA) || guardado.contains(Ejemplos.DNI_DE_LUIS), guardado);
+        assertFalse(guardado.contains("\"dni\""), guardado);
+        // Queda igual que el de un mensaje nuevo: el mismo texto, con los campos en el mismo orden.
+        assertEquals(Ejemplos.pagoConfirmado().aJson(), guardado);
+    }
+
+    @Test
+    void unaReventaPublicadaConElDniTambienSeGuardaSinEl() {
+        String llego = Ejemplos.PAGO_CONFIRMADO_CON_DNI;
+
+        servicio.registrar(ID_DEL_MENSAJE, "REVENTA_CONFIRMADA", PagoConfirmadoMensaje.desdeJson(llego), llego);
+
+        String guardado = filaGuardada().getCuerpo();
+        assertFalse(guardado.contains("\"dni\""), guardado);
+    }
+
+    @Test
+    void unCuerpoSinDniSeGuardaConElMismoTextoQueLlego() {
+        // Con espacios y saltos de línea, como lo escribiría otro publicador: no se vuelve a escribir.
+        String llego = "{ \"entradas\": [ { \"entradaId\": \"T-1\", \"titular\": { \"nombre\": \"Ana Gómez\" } } ],\n"
+                + "  \"canal\": \"web\" }";
+
+        assertSame(llego, ServicioDeAuditoria.sinElDniDeLosTitulares(llego));
+    }
+
+    @Test
+    void saleElDniDeCadaTitularQueLoTraeYElRestoQuedaComoEstaba() {
+        String llego = "{\"canal\":\"web\",\"entradas\":["
+                + "{\"entradaId\":\"T-1\",\"titular\":{\"dni\":\"30123456\",\"nombre\":\"Ana Gómez\"}},"
+                + "{\"entradaId\":\"T-2\",\"titular\":{\"nombre\":\"Luis Pérez\"}},"
+                + "{\"entradaId\":\"T-3\",\"titular\":{\"nombre\":\"Eva Ruiz\",\"dni\":\"3123456\"}}],\"ventaId\":\"V-1\"}";
+
+        assertEquals("{\"canal\":\"web\",\"entradas\":["
+                + "{\"entradaId\":\"T-1\",\"titular\":{\"nombre\":\"Ana Gómez\"}},"
+                + "{\"entradaId\":\"T-2\",\"titular\":{\"nombre\":\"Luis Pérez\"}},"
+                + "{\"entradaId\":\"T-3\",\"titular\":{\"nombre\":\"Eva Ruiz\"}}],\"ventaId\":\"V-1\"}",
+                ServicioDeAuditoria.sinElDniDeLosTitulares(llego));
+    }
+
+    @Test
+    void unaAnulacionSeGuardaTalComoLlego() {
+        // COMPRA_ANULADA no trae titulares: su cuerpo no se toca.
+        CompraAnuladaMensaje mensaje = Ejemplos.compraAnulada(true);
+        String llego = mensaje.aJson();
+
+        servicio.registrarAnulacion(ID_DEL_MENSAJE, mensaje, llego);
+
+        assertSame(llego, filaGuardada().getCuerpo());
     }
 
     @Test

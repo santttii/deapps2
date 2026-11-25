@@ -42,8 +42,10 @@ public class RegistroDeAuditoria {
     private long montoTotal;
 
     /**
-     * El JSON tal como llegó. El largo es el de la migración V2: el contrato no
-     * limita el nombre del titular ni del sector, así que 4000 no alcanzaba.
+     * El JSON tal como llegó, sin el DNI de los titulares (DEF-37: lo saca
+     * {@code ServicioDeAuditoria} y, de las filas anteriores, la migración V3).
+     * El largo es el de la migración V2: el contrato no limita el nombre del
+     * titular ni del sector, así que 4000 no alcanzaba.
      */
     @Column(nullable = false, length = RegistroDeAuditoria.LARGO_MAXIMO_CUERPO)
     private String cuerpo;

@@ -59,6 +59,18 @@ class AuditoriaDeComprasMDBTest {
     }
 
     @Test
+    void unMensajePublicadoAntesConElDniDeLosTitularesSeRegistraIgual() throws JMSException {
+        // Hasta el 23/11 el mensaje traía el DNI (DEF-37). Se lee igual y el negocio recibe el texto tal
+        // como llegó: sacarle el DNI antes de guardarlo es cosa de ServicioDeAuditoria.
+        String json = Ejemplos.PAGO_CONFIRMADO_CON_DNI;
+
+        mdb.onMessage(mensajeDeTexto(json));
+
+        verify(auditoria).registrar(ID_DEL_MENSAJE, "PAGO_CONFIRMADO", Ejemplos.pagoConfirmado(), json);
+        verify(contexto, never()).setRollbackOnly();
+    }
+
+    @Test
     void siRegistrarFallaLaFallaSaleDelMDB() throws JMSException {
         PagoConfirmadoMensaje mensaje = Ejemplos.pagoConfirmado();
         String json = mensaje.aJson();

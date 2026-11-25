@@ -107,8 +107,8 @@ public class PruebasDeMensajeria {
                 ventaId,
                 "user-titular",
                 "ev-1",
-                List.of(new Entrada(ventaId + "-1", "Platea B", new Titular("Ana Gómez", "30123456")),
-                        new Entrada(ventaId + "-2", "Platea B", new Titular("Luis Pérez", "31234567"))),
+                List.of(new Entrada(ventaId + "-1", "Platea B", new Titular("Ana Gómez")),
+                        new Entrada(ventaId + "-2", "Platea B", new Titular("Luis Pérez"))),
                 60500,
                 ahora.truncatedTo(ChronoUnit.SECONDS));
     }
