@@ -7,9 +7,9 @@
 #                 armado de la imagen. De los pom.xml Trivy solo cuenta lo que va con scope compile o
 #                 runtime: lo que pone WildFly (provided) y lo de los tests no está ahí, y por eso hacen
 #                 falta las imágenes.
-#   imagenes      las dos imágenes que arma docker-compose.yml, backend y web, con todo lo que llevan: los
-#                 paquetes del sistema de la imagen base, WildFly con sus módulos, los WAR con sus librerías
-#                 y nginx.
+#   imagenes      las tres imágenes que levanta docker-compose.yml: las dos que arma, backend y web, con todo lo
+#                 que llevan (los paquetes del sistema de la imagen base, WildFly con sus módulos, los WAR con sus
+#                 librerías y nginx), y la de la base, db (postgres:17-alpine), que usa tal como se publica.
 #
 # Cuenta las vulnerabilidades CRITICAL y HIGH, tengan arreglo o no, y el job falla si queda alguna que no
 # esté en .trivyignore. Ahí va cada excepción con su justificación: por qué no aplica a Palco o qué la mitiga.
@@ -114,26 +114,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        servicio: [backend, web]
+        servicio: [backend, web, db]
     env:
       SERVICIO: ${{ matrix.servicio }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - name: Armar la imagen con docker compose (con reintentos si falla la red)
-        # La misma imagen que levantan los jobs de ci.yml, armada desde docker-compose.yml. Bajar la imagen
-        # base de Docker Hub puede fallar por la red del runner o por su límite de descargas: se reintenta
-        # hasta 4 veces, como en ci.yml.
+      - name: Armar o bajar la imagen con docker compose (con reintentos si falla la red)
+        # La misma imagen que levantan los jobs de ci.yml, sacada de docker-compose.yml: backend y web se
+        # arman (build) y db se baja tal como la nombra el compose (pull). Bajar una imagen de Docker Hub puede
+        # fallar por la red del runner o por su límite de descargas: se reintenta hasta 4 veces, como en ci.yml.
         run: |
+          # Un servicio con "image" en el compose usa una imagen publicada; uno sin "image" la arma.
+          publicada=$(docker compose config --format json | jq -r --arg s "$SERVICIO" '.services[$s].image // empty')
+          if [ -n "$publicada" ]; then accion=pull; else accion=build; fi
           for intento in 1 2 3 4; do
-            docker compose build "$SERVICIO" && break
-            echo "Falló el armado de la imagen (intento $intento de 4)"
+            docker compose "$accion" "$SERVICIO" && break
+            echo "Falló docker compose $accion (intento $intento de 4)"
             [ "$intento" -lt 4 ] || exit 1
             sleep $((intento * 30))
           done
           # El nombre que le da compose a una imagen que arma: <proyecto>-<servicio> (palco-backend,
           # palco-web). "config --images" no sirve: lista también las imágenes de las dependencias
           # (db, y backend para web).
-          imagen="$(docker compose config --format json | jq -r .name)-$SERVICIO"
+          imagen=${publicada:-"$(docker compose config --format json | jq -r .name)-$SERVICIO"}
           docker image inspect "$imagen" > /dev/null
           echo "IMAGEN=$imagen" >> "$GITHUB_ENV"
           mkdir -p reporte-trivy

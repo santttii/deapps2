@@ -54,3 +54,53 @@ CVE-2026-91777 exp:2026-12-31
 #     application-users.properties de la imagen no tiene ninguno.
 #   - No hay ningún @PATCH, así que json-patch no lee nada.
 CVE-2026-102554 exp:2026-12-31
+
+# libxml2 2.13.9-r2, imagen db (postgres:17-alpine, que el compose usa tal como se publica; Alpine 3.24.4). La
+# arregla 2.13.9-r3, que Alpine ya publicó pero la imagen todavía no trae: la última postgres:17-alpine (armada el
+# 18/11, PostgreSQL 17.12) viene con r2. No hay una imagen 17 más nueva, y pasar a otra versión mayor de PostgreSQL
+# pide migrar los datos del volumen de la base, así que no se arregla subiendo la versión.
+# La falla está en el parser de XML de libxml2. En la imagen lo usan el binario postgres, para el tipo xml y sus
+# funciones (xmlparse, xpath, xmltable), la extensión xml2 (pgxml.so) y llvmjit.so, que lo trae por LLVM. En Palco
+# no hay por dónde llegar a ese parser, comprobado el 24/11:
+#   - Ninguna migración crea columnas xml ni instala la extensión xml2, y ningún código de backend/servicios usa
+#     xmlparse, xpath, xmltable ni ::xml.
+#   - Las consultas salen de JPA (JPQL y dos consultas nativas fijas de Ventas), siempre con parámetros: lo que
+#     manda un pedido nunca llega a la base como SQL ni como XML.
+#   - El servicio db no publica ningún puerto: solo lo alcanza el backend, por la red del compose.
+CVE-2026-86144 exp:2026-12-31
+
+# Biblioteca estándar de Go 1.24.6 en gosu 1.20 (/usr/local/bin/gosu), imagen db (postgres:17-alpine). Viene así
+# compilado en la imagen oficial, y la última postgres:17-alpine (18/11) no trae otro. El docker-entrypoint.sh lo
+# corre una sola vez, al arrancar el contenedor como root ("exec gosu postgres ..."): cambia al usuario postgres y
+# se reemplaza por el proceso de PostgreSQL. No queda corriendo, no abre conexiones ni lee nada de la red.
+# Trivy marca la versión de la biblioteca estándar entera, y las 26 están en paquetes que gosu no tiene adentro.
+# Comprobado sobre el binario de la imagen (24/11, los nombres de las funciones que guarda un binario de Go): no
+# aparecen net/http, crypto/tls, crypto/x509, encoding/asn1, net/url, net/mail, mime, html/template,
+# encoding/xml, golang.org/x/net, el resolvedor y el Dial del paquete net ni os.Root; sí aparecen os/exec, syscall
+# y github.com/moby/sys/user, que son los que usa. Hoy ninguna de las 26 sale en las imágenes backend y web.
+CVE-2025-68121 exp:2026-12-31
+CVE-2025-61726 exp:2026-12-31
+CVE-2025-61729 exp:2026-12-31
+CVE-2026-111943 exp:2026-12-31
+CVE-2026-25679 exp:2026-12-31
+CVE-2026-27145 exp:2026-12-31
+CVE-2026-32280 exp:2026-12-31
+CVE-2026-32281 exp:2026-12-31
+CVE-2026-32283 exp:2026-12-31
+CVE-2026-33811 exp:2026-12-31
+CVE-2026-33814 exp:2026-12-31
+CVE-2026-33818 exp:2026-12-31
+CVE-2026-39820 exp:2026-12-31
+CVE-2026-39821 exp:2026-12-31
+CVE-2026-39822 exp:2026-12-31
+CVE-2026-39836 exp:2026-12-31
+CVE-2026-42499 exp:2026-12-31
+CVE-2026-42504 exp:2026-12-31
+CVE-2026-56853 exp:2026-12-31
+CVE-2026-56858 exp:2026-12-31
+CVE-2026-56859 exp:2026-12-31
+CVE-2026-56860 exp:2026-12-31
+CVE-2026-56862 exp:2026-12-31
+CVE-2026-78667 exp:2026-12-31
+CVE-2026-78669 exp:2026-12-31
+CVE-2026-97031 exp:2026-12-31
