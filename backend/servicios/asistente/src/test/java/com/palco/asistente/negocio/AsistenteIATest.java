@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,8 @@ import java.util.logging.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import com.palco.asistente.negocio.Respuesta.Origen;
 import com.palco.asistente.negocio.externos.CatalogoDeEventos;
@@ -255,6 +258,25 @@ class AsistenteIATest {
                 + " entradas agotadas."), recibidas);
         assertTrue(recibidas.contains("- \"Kiroshi - Tour Continental\" (Música), viernes 08/01/2027 a las 21:00, en"
                 + " Arena Central; entradas desde $32.000."), recibidas);
+    }
+
+    /** El fin de semana es el de la semana de lunes a domingo: el domingo, todavía es el de ayer y hoy. */
+    @ParameterizedTest(name = "{0}: sábado {1} y domingo {2}")
+    @CsvSource({
+            "2026-11-23, 28/11, 29/11", // lunes
+            "2026-11-27, 28/11, 29/11", // viernes
+            "2026-11-28, 28/11, 29/11", // sábado
+            "2026-11-29, 28/11, 29/11", // domingo
+            "2026-11-30, 05/12, 06/12", // el lunes siguiente
+    })
+    void elFinDeSemanaEsElDeLaSemanaDeLunesADomingo(LocalDate dia, String sabado, String domingo) {
+        asistente.reloj = Clock.fixed(dia.atTime(18, 0).atZone(CatalogoDeEventos.ARGENTINA).toInstant(),
+                CatalogoDeEventos.ARGENTINA);
+
+        String instrucciones = asistente.instrucciones(List.of());
+
+        assertTrue(instrucciones.contains("Este fin de semana es el sábado " + sabado + " y el domingo " + domingo + "."),
+                instrucciones);
     }
 
     /** Inyección indirecta (LLM01): un organizador puso una orden en el título y en el lugar de sus eventos. */
