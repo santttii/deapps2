@@ -51,9 +51,14 @@ import com.palco.ventas.api.Dtos.NuevaVentaDto;
 import com.palco.ventas.api.Dtos.NuevoPagoDto;
 import com.palco.ventas.api.Dtos.TitularDto;
 import com.palco.ventas.api.Dtos.VentaDto;
+import com.palco.ventas.api.DtosDeReventa.ControlDeCompraDto;
+import com.palco.ventas.api.DtosDeReventa.TransferenciaDto;
+import com.palco.ventas.api.DtosDeReventa.TransferenciaHechaDto;
 import com.palco.ventas.datos.EntradaRepositoryJpa;
+import com.palco.ventas.datos.ReventaDeEntradasRepositoryJpa;
 import com.palco.ventas.datos.VentaRepositoryJpa;
 import com.palco.ventas.dominio.Entrada;
+import com.palco.ventas.dominio.EstadoEntrada;
 import com.palco.ventas.dominio.TitularDeVenta;
 import com.palco.ventas.dominio.Venta;
 import com.palco.ventas.dominio.VentaItem;
@@ -241,7 +246,8 @@ class ReglasEntreComprasEnH2Test {
         deAna.enTransaccion(() -> deAna.ventas.guardarClaveDePago(ventaDeAna.id(), "clave-ana", AHORA));
         deLuis.enTransaccion(() -> deLuis.ventas.guardarClaveDePago(ventaDeLuis.id(), "clave-luis", AHORA));
         when(deAna.cobros.cobrar(eq(ventaDeAna.id()), anyLong(), anyString(), anyString(), anyString()))
-                .thenReturn(new ResultadoDeCobro("P-00000001", ResultadoDeCobro.RECHAZADO, "fondos_insuficientes"));
+                .thenReturn(new ResultadoDeCobro("P-00000001", ResultadoDeCobro.ESTADO_RECHAZADO,
+                        "fondos_insuficientes"));
         Pausa pausa = deAna.reglas.detenerAntesDeConfirmar();
 
         Future<Object> pagoDeAna = hilos.submit(() -> resultado(
@@ -268,6 +274,128 @@ class ReglasEntreComprasEnH2Test {
         Pedido mirada = new Pedido();
         assertEquals(2, mirada.ventas.buscarTitulares(ventaDeAna.id()).size());
         assertTrue(mirada.ventas.buscarTitulares(ventaDeLuis.id()).isEmpty());
+    }
+
+    // ---- Una compra en la reventa contra una del catálogo ----
+    // La compra en la reventa no deja nada en Ventas hasta la transferencia, que llega después del cobro. Por eso la
+    // transferencia toma los mismos candados y vuelve a mirar las reglas: la que entra segunda cuenta a la primera.
+
+    @Test
+    void unaCompraDelCatalogoConElCandadoFrenaLaTransferenciaDeLaReventaQueLaPasaria() throws Exception {
+        // El comprador tiene 5 entradas y compra a la vez una en la reventa y una en el catálogo: cada una sola llega
+        // a 6. El control de la reventa pasó antes de cobrar (5 + 1) y Reventa ya cobró.
+        Pedido base = new Pedido();
+        entradaPublicadaEnLaReventa(base);
+        ventaEmitida(base, "V-00000005", "U-comprador", "40000001", "40000002", "40000003", "40000004", "40000005");
+        base.enTransaccion(() -> {
+            reventaDe(base).controlarCompra(new ControlDeCompraDto(QUE_SE_REVENDE, VENDEDOR, "U-comprador",
+                    new TitularDto("Bruno Díaz", "40111222")));
+            return null;
+        });
+
+        Pedido catalogo = new Pedido();
+        Pausa pausa = catalogo.reglas.detenerAntesDeConfirmar();
+        Future<Object> compra = hilos.submit(() -> resultado(
+                () -> catalogo.compra.iniciarCompra("U-comprador", entradas("3000000", 1), UUID.randomUUID().toString())));
+        assertTrue(pausa.escribio.await(10, TimeUnit.SECONDS), "la compra del catálogo no llegó a guardar su venta");
+
+        // La compra del catálogo guardó su venta y tiene el candado del comprador, sin confirmar: la transferencia
+        // lo espera.
+        Pedido deLaReventa = new Pedido();
+        ReventaDeEntradas reventa = reventaDe(deLaReventa);
+        Future<Object> transferencia = hilos.submit(() -> resultado(
+                () -> deLaReventa.enTransaccion(() -> reventa.transferir(transferenciaA("U-comprador", "40111222")))));
+        assertFalse(terminaEn(transferencia, ESPERA_MS), "la transferencia no esperó el candado del comprador");
+
+        pausa.seguir.countDown();
+        assertInstanceOf(VentaDto.class, compra.get(10, TimeUnit.SECONDS));
+        ErroresDeNegocio.Conflicto conflicto = assertInstanceOf(ErroresDeNegocio.Conflicto.class,
+                transferencia.get(10, TimeUnit.SECONDS));
+        assertEquals(TiposDeProblema.TOPE_POR_EVENTO, conflicto.tipo());
+        // No cambió nada en la reventa: la entrada sigue publicada y el comprador queda con 6.
+        Pedido mirada = new Pedido();
+        assertEquals(EstadoEntrada.PUBLICADA, mirada.entradas.buscarPorId(QUE_SE_REVENDE).orElseThrow().getEstado());
+        assertTrue(mirada.ventas.buscarPorClave("U-comprador", "reventa:R-00000001").isEmpty());
+        assertEquals(6, mirada.ventas.entradasDelCompradorParaElEvento("U-comprador", EVENTO, AHORA));
+    }
+
+    @Test
+    void unaTransferenciaConElCandadoFrenaLaCompraDelCatalogoQueLaPasaria() throws Exception {
+        Pedido base = new Pedido();
+        entradaPublicadaEnLaReventa(base);
+        ventaEmitida(base, "V-00000005", "U-comprador", "40000001", "40000002", "40000003", "40000004", "40000005");
+
+        // La transferencia toma los candados y escribe la venta nueva, sin confirmar todavía.
+        Pedido deLaReventa = new Pedido();
+        ReventaDeEntradas reventa = reventaDe(deLaReventa);
+        CountDownLatch transfirio = new CountDownLatch(1);
+        CountDownLatch confirmar = new CountDownLatch(1);
+        Future<Object> transferencia = hilos.submit(() -> resultado(() -> deLaReventa.enTransaccion(() -> {
+            TransferenciaHechaDto hecha = reventa.transferir(transferenciaA("U-comprador", "40111222"));
+            transfirio.countDown();
+            esperar(confirmar);
+            return hecha;
+        })));
+        assertTrue(transfirio.await(10, TimeUnit.SECONDS), "la transferencia no llegó a escribir la venta nueva");
+
+        // La compra del catálogo no ve la venta sin confirmar: pasa la primera mirada, reserva y espera el candado.
+        Pedido catalogo = new Pedido();
+        CountDownLatch reservo = avisarAlReservar(catalogo);
+        Future<Object> compra = hilos.submit(() -> resultado(
+                () -> catalogo.compra.iniciarCompra("U-comprador", entradas("3000000", 1), UUID.randomUUID().toString())));
+        assertTrue(reservo.await(10, TimeUnit.SECONDS), "la compra del catálogo no llegó a reservar su cupo");
+        assertFalse(terminaEn(compra, ESPERA_MS), "la compra del catálogo no esperó el candado de la transferencia");
+
+        confirmar.countDown();
+        assertInstanceOf(TransferenciaHechaDto.class, transferencia.get(10, TimeUnit.SECONDS));
+        ErroresDeNegocio.Conflicto conflicto = assertInstanceOf(ErroresDeNegocio.Conflicto.class,
+                compra.get(10, TimeUnit.SECONDS));
+        assertEquals(TiposDeProblema.TOPE_POR_EVENTO, conflicto.tipo());
+        verify(catalogo.eventos).liberarCupo(anyString(), eq(EVENTO), eq("sec-1-1"), eq(1));
+        assertEquals(6, new Pedido().ventas.entradasDelCompradorParaElEvento("U-comprador", EVENTO, AHORA));
+    }
+
+    @Test
+    void unaCompraDelCatalogoQueSeEstaCobrandoConElMismoDniFrenaLaTransferencia() throws Exception {
+        // Luis paga en el catálogo una entrada a nombre de 40111222, y a la vez la reventa transfiere otra a nombre
+        // del mismo DNI. El control de la reventa pasó antes: nadie tenía ese DNI.
+        Pedido base = new Pedido();
+        entradaPublicadaEnLaReventa(base);
+        Pedido deLuis = new Pedido();
+        VentaDto ventaDeLuis = deLuis.compra.iniciarCompra("U-luis", pedido(new TitularDto("Rosa Díaz", "40111222")),
+                UUID.randomUUID().toString());
+        deLuis.enTransaccion(() -> deLuis.ventas.guardarClaveDePago(ventaDeLuis.id(), "clave-luis", AHORA));
+        CountDownLatch cobrando = new CountDownLatch(1);
+        CountDownLatch terminarCobro = new CountDownLatch(1);
+        when(deLuis.cobros.cobrar(eq(ventaDeLuis.id()), anyLong(), anyString(), anyString(), anyString()))
+                .thenAnswer(llamada -> {
+                    cobrando.countDown();
+                    esperar(terminarCobro);
+                    return new ResultadoDeCobro("P-00000002", ResultadoDeCobro.ESTADO_RECHAZADO,
+                            "fondos_insuficientes");
+                });
+        Pausa pausa = deLuis.reglas.detenerAntesDeConfirmar();
+        Future<Object> pagoDeLuis = hilos.submit(() -> resultado(
+                () -> deLuis.compra.confirmarCompra(new NuevoPagoDto("tarjeta", "tok_test"), "clave-luis")));
+        assertTrue(pausa.escribio.await(10, TimeUnit.SECONDS), "el pago de Luis no llegó a copiar su titular");
+
+        // Luis miró el DNI y copió su titular, sin confirmar: la transferencia espera el candado del DNI.
+        Pedido deLaReventa = new Pedido();
+        ReventaDeEntradas reventa = reventaDe(deLaReventa);
+        Future<Object> transferencia = hilos.submit(() -> resultado(
+                () -> deLaReventa.enTransaccion(() -> reventa.transferir(transferenciaA("U-comprador", "40111222")))));
+        assertFalse(terminaEn(transferencia, ESPERA_MS), "la transferencia no esperó el candado del DNI");
+
+        // Luis confirma la copia y queda cobrando: la transferencia la ve y no da el DNI otra vez.
+        pausa.seguir.countDown();
+        assertTrue(cobrando.await(10, TimeUnit.SECONDS), "el pago de Luis no llegó a cobrar");
+        ErroresDeNegocio.Conflicto conflicto = assertInstanceOf(ErroresDeNegocio.Conflicto.class,
+                transferencia.get(10, TimeUnit.SECONDS));
+        terminarCobro.countDown();
+        assertEquals(TiposDeProblema.DNI_CON_ENTRADA, conflicto.tipo());
+        assertInstanceOf(ErroresDeNegocio.PagoRechazado.class, pagoDeLuis.get(10, TimeUnit.SECONDS));
+        assertEquals(EstadoEntrada.PUBLICADA,
+                new Pedido().entradas.buscarPorId(QUE_SE_REVENDE).orElseThrow().getEstado());
     }
 
     // ---- Lo que hace el contenedor ----
@@ -439,6 +567,74 @@ class ReglasEntreComprasEnH2Test {
             return new Sector("sec-1-1", "Campo", 50_000, 2000, 0);
         });
         return reservo;
+    }
+
+    private static final String VENDEDOR = "U-vendedor";
+    /** La entrada que se revende: la primera de la venta V-0000vend del vendedor, a nombre de 30111222. */
+    private static final String QUE_SE_REVENDE = "T-0000vend-1";
+
+    /** El bean de la reventa sobre la conexión de ese pedido, con los repositorios de verdad. */
+    private static ReventaDeEntradas reventaDe(Pedido pedido) {
+        ReventaDeEntradas bean = new ReventaDeEntradas();
+        ReventaDeEntradasRepositoryJpa reventa = new ReventaDeEntradasRepositoryJpa();
+        conEntityManager(reventa, pedido.em);
+        bean.entradas = pedido.entradas;
+        bean.ventas = pedido.ventas;
+        bean.reventa = reventa;
+        bean.publicador = new PublicadorPagoConfirmado() {
+            @Override
+            public void publicar(PagoConfirmadoMensaje mensaje) {
+                throw new AssertionError("La transferencia de una reventa no publica PAGO_CONFIRMADO.");
+            }
+
+            @Override
+            public void publicarReventa(PagoConfirmadoMensaje mensaje) {
+                // Sale al tópico en la transacción de la transferencia; acá no hace falta mirarlo.
+            }
+        };
+        bean.reloj = Clock.fixed(AHORA.toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
+        return bean;
+    }
+
+    /** La venta del vendedor con su entrada emitida, publicada en la reventa. */
+    private void entradaPublicadaEnLaReventa(Pedido pedido) {
+        ventaEmitida(pedido, "V-0000vend", VENDEDOR, "30111222");
+        pedido.enTransaccion(() -> reventaDe(pedido).publicar(QUE_SE_REVENDE, VENDEDOR));
+    }
+
+    /** Una venta pagada y emitida de ese comprador para el evento, con una entrada por DNI: T-xxxxxxxx-1, -2... */
+    private static void ventaEmitida(Pedido pedido, String ventaId, String compradorId, String... dnis) {
+        pedido.enTransaccion(() -> {
+            Venta venta = new Venta(ventaId, compradorId, EVENTO, UUID.randomUUID().toString(), AHORA.minusDays(2),
+                    AHORA.minusDays(2).plusMinutes(10));
+            venta.agregarItem("sec-1-1", "Campo", 50_000, dnis.length);
+            pedido.ventas.guardar(venta);
+            List<Entrada> nuevas = new ArrayList<>();
+            for (String dni : dnis) {
+                nuevas.add(new Entrada("T-" + ventaId.substring(2) + "-" + (nuevas.size() + 1),
+                        venta.getItems().get(0), "Titular " + dni, dni, nuevas.size() + 1));
+            }
+            pedido.entradas.guardar(nuevas);
+            pedido.ventas.confirmar(ventaId, "P-" + ventaId.substring(2), AHORA.minusDays(2));
+            return pedido.entradas.emitirPendientes(ventaId, AHORA.minusDays(2));
+        });
+    }
+
+    /** La transferencia de la entrada que se revende a ese comprador, a nombre de ese DNI. */
+    private static TransferenciaDto transferenciaA(String compradorId, String dni) {
+        return new TransferenciaDto("R-00000001", QUE_SE_REVENDE, VENDEDOR, compradorId,
+                new TitularDto("Bruno Díaz", dni), 55_000, "P-reventa1");
+    }
+
+    private static void esperar(CountDownLatch senal) {
+        try {
+            if (!senal.await(10, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("El test no dio la señal.");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
     }
 
     /** Una entrada de Campo por titular. */

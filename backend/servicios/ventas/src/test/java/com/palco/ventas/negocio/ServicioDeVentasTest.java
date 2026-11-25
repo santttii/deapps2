@@ -90,9 +90,10 @@ class ServicioDeVentasTest {
     private static final TitularDto EVA = new TitularDto("Eva Ruiz", "32345678");
 
     private static final NuevoPagoDto CON_TARJETA = new NuevoPagoDto("tarjeta", "tok_test");
-    private static final ResultadoDeCobro APROBADO = new ResultadoDeCobro(PAGO_ID, ResultadoDeCobro.APROBADO, null);
+    private static final ResultadoDeCobro APROBADO =
+            new ResultadoDeCobro(PAGO_ID, ResultadoDeCobro.ESTADO_APROBADO, null);
     private static final ResultadoDeCobro RECHAZADO =
-            new ResultadoDeCobro(PAGO_ID, ResultadoDeCobro.RECHAZADO, "fondos_insuficientes");
+            new ResultadoDeCobro(PAGO_ID, ResultadoDeCobro.ESTADO_RECHAZADO, "fondos_insuficientes");
 
     /** El instante del reloj detenido, como lo ve el servicio: en UTC y sin fracción de segundo. */
     private static final LocalDateTime AHORA = LocalDateTime.of(2026, 10, 19, 21, 0, 7);
@@ -657,11 +658,27 @@ class ServicioDeVentasTest {
         assertEquals(Instant.parse("2026-10-19T21:00:07Z"), mensaje.timestamp());
         assertEquals(List.of(
                 new PagoConfirmadoMensaje.Entrada(deAna.getId(), "Platea B",
-                        new PagoConfirmadoMensaje.Titular("Ana Gómez", "30123456")),
+                        new PagoConfirmadoMensaje.Titular("Ana Gómez")),
                 new PagoConfirmadoMensaje.Entrada(deLuis.getId(), "Platea B",
-                        new PagoConfirmadoMensaje.Titular("Luis Pérez", "31234567"))), mensaje.entradas());
+                        new PagoConfirmadoMensaje.Titular("Luis Pérez"))), mensaje.entradas());
         // El publicador real lo valida antes de mandarlo: tiene que estar completo.
         assertDoesNotThrow(mensaje::validar);
+    }
+
+    @Test
+    void elMensajeQueSalePorLaColaYElTopicoNoLlevaElDniDeNingunTitular() {
+        // DEF-37: el DNI de cada titular queda en la entrada, en Ventas. El mensaje es el mismo para la
+        // compra del catálogo y para la de la reventa (ReventaDeEntradas también lo arma con este método).
+        Venta venta = new Venta("V-3f9a1c2b", COMPRADOR, "ev-1", CLAVE, LocalDateTime.of(2026, 10, 19, 21, 0, 0),
+                LocalDateTime.of(2026, 10, 19, 21, 10, 0));
+        venta.agregarItem("sec-1-4", "Platea B", 27_500, 2);
+        List<Entrada> entradas = ServicioDeVentas.entradasPara(venta, List.of(ANA, LUIS));
+
+        String publicado = ServicioDeVentas.mensaje(venta, entradas, LocalDateTime.parse("2026-10-19T21:00:07"))
+                .aJson();
+
+        assertFalse(publicado.contains(ANA.dni()) || publicado.contains(LUIS.dni()), publicado);
+        assertTrue(publicado.contains("\"titular\":{\"nombre\":\"Ana Gómez\"}"), publicado);
     }
 
     @Test
@@ -754,7 +771,7 @@ class ServicioDeVentasTest {
     void siPagosNoAceptaLaClaveSePideUnaClaveNuevaYNoOtroMedioDePago() {
         String ventaId = compraAbierta();
         when(cobros.cobrar(eq(ventaId), eq(60_500L), anyString(), anyString(), anyString()))
-                .thenReturn(new ResultadoDeCobro(null, ResultadoDeCobro.RECHAZADO,
+                .thenReturn(new ResultadoDeCobro(null, ResultadoDeCobro.ESTADO_RECHAZADO,
                         ResultadoDeCobro.MOTIVO_CLAVE_REUTILIZADA));
 
         ErroresDeNegocio.PagoRechazado rechazo = assertThrows(ErroresDeNegocio.PagoRechazado.class,
