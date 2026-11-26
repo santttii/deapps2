@@ -13,14 +13,15 @@ comando para mostrar cada una en vivo.
 | 1.0 | 24/11/2026 | Matriz de 36 criterios con la evidencia de las corridas del CI sobre `fbd31dc`: pruebas de seguridad (`seguridad.mjs` y `xss.spec.ts`), ZAP, Trivy, gitleaks, contrato y SonarCloud, y con la del 24/11 en `docs/testing/evidencia/final/` (SonarCloud sobre todo el código y el registro con un nombre largo). Los ocho controles del eje D que hasta el 20/11 no tenían prueba ejecutada (JWT vencido y de otro emisor, mass assignment de estado, precio y dueño, XSS almacenado, cookies, XXE, ZAP y dependencias) ahora la tienen. Se suman SEC-W05f, SEC-W15, SEC-D06, SEC-E02b, SEC-E04 y SEC-E04b. Los hallazgos nuevos están en el registro como DEF-64 y DEF-68 a DEF-75; DEF-64 y DEF-70 se corrigieron el 24/11 y se verifican sobre el tag | Valentina Frisoli |
 | 1.1 | 25/11/2026 | Matriz reevaluada sobre `93d34d2` con las corridas del CI del 25/11 y con las correcciones de DEF-38, DEF-69 y DEF-71, probadas ese día contra el compose. Pasan a CUMPLE SEC-W05c, SEC-W15, SEC-D03, SEC-D05 y SEC-E02b; DEF-69 y DEF-71 dejan de ser riesgos aceptados. Queda NO CUMPLE solo SEC-I02, como riesgo aceptado (DEF-39) | Valentina Frisoli |
 
-**Código evaluado.** `master` en `93d34d2` (25/11/2026), más las correcciones del 25/11 de DEF-38 (la sesión de una
-hora), DEF-69 (la CSP) y DEF-71 (nginx sin root), que se probaron ese día contra el sistema levantado con el compose.
+**Código evaluado.** `master` en `93d34d2` (25/11/2026), más las correcciones del 25/11 de DEF-38 (la sesión de 15
+minutos), DEF-69 (la CSP) y DEF-71 (nginx sin root), que se probaron ese día contra el sistema levantado con el compose,
+y la del 26/11 de DEF-78 (la imagen web sobre la oficial de nginx, sin las CVE de `nginx-unprivileged`).
 La evidencia detallada de cada criterio es la de las corridas sobre `fbd31dc` (21/11), y las de `93d34d2` repiten las
 mismas pruebas, en verde (sección 1). Las rutas y líneas de código que describen un hallazgo son las de `fbd31dc`,
 donde se encontró; la sección 7 nombra constantes y métodos. Todos los workflows corren también con cada tag `v*`, así
 que el tag `v1.0-final` tiene su propia corrida de cada uno (sección 9). Las correcciones posteriores a `fbd31dc`
 figuran con el estado que tienen en el registro, "corregido, a verificar sobre el tag": DEF-36 (el compose), DEF-37,
-DEF-38, DEF-40, DEF-42, DEF-43, DEF-44, DEF-45, DEF-62, DEF-64, DEF-69 a DEF-74, DEF-76 y DEF-77.
+DEF-38, DEF-40, DEF-42, DEF-43, DEF-44, DEF-45, DEF-62, DEF-64, DEF-69 a DEF-74 y DEF-76 a DEF-78.
 
 **Regla de estado.**
 
@@ -677,8 +678,8 @@ la salida textual de cada prueba.
 - Check "SonarCloud Code Analysis" sobre `fbd31dc` (21/11, 04:45 UTC): "Quality Gate passed"; "0 Security Hotspots";
   "95.0% Coverage on New Code"; "0.0% Duplication on New Code"; "128 New issues" abiertas y "1 Accepted issue".
 - La aceptada en ese análisis es `docker:S6471`: el proceso principal de nginx arrancaba con root en la imagen web
-  (`frontend/Dockerfile`), DEF-71. Corrección (25/11): la imagen parte de `nginxinc/nginx-unprivileged:1.30-alpine` y
-  termina con `USER 101`, así que nginx entero corre sin root; sigue escuchando en 80 y 443 dentro del contenedor
+  (`frontend/Dockerfile`), DEF-71. Corrección (25/11): la imagen termina con `USER 101`, así que nginx entero corre
+  sin root (desde el 26/11 parte de la oficial `nginx:1.30-alpine` con los ajustes de `nginx-unprivileged`, DEF-78); sigue escuchando en 80 y 443 dentro del contenedor
   (Docker lo permite sin root desde la versión 20.10), y `nginx.conf` y el compose no cambian. Contra el compose
   (25/11), `id -u` en el contenedor web da 101; el análisis del tag lo verifica.
 - Después de `fbd31dc`, el Quality Gate quedó en rojo en `ffded8f` y `5d3c784` por un bug Critical de confiabilidad
@@ -823,8 +824,10 @@ Es DEF-68 (Menor, Aceptado).
 | jackson-databind 2.21.5 | CVE-2026-91776, CVE-2026-91777, CVE-2026-68497 | Lo mismo; además CVE-2026-91776 exige `@JsonTypeInfo` con `defaultImpl` y CVE-2026-91777, `@JsonIdentityInfo`, que Palco no usa |
 | guava 33.0.0-jre | CVE-2026-102554 | Agotamiento de memoria al deserializar con `ObjectInputStream` ciertas colecciones armadas por el atacante. Ningún código de Palco importa `com.google.common`; la mensajería es solo `TextMessage` con JSON (no hay `ObjectMessage` ni `ObjectInputStream`), el broker va por `in-vm` y las entradas remotas de WildFly piden un usuario del ApplicationRealm, que la imagen no tiene |
 
-En esta corrida, la imagen web partía de `nginx:1.30-alpine`; desde el 25/11 parte de
-`nginxinc/nginx-unprivileged:1.30-alpine` (DEF-71). En los dos casos actualiza los paquetes de Alpine al armarse
+En esta corrida, la imagen web partía de `nginx:1.30-alpine`. El 25/11 pasó a
+`nginxinc/nginx-unprivileged:1.30-alpine` (DEF-71), que traía nginx 1.30.6 con cuatro CVE críticas y dos altas y dejó
+en rojo el job de la imagen web (DEF-78); desde el 26/11 vuelve a la oficial `nginx:1.30-alpine` (nginx 1.30.8), con
+los ajustes para correr sin root, y Trivy da 0 críticas y 0 altas sin excepciones nuevas. En todos los casos actualiza los paquetes de Alpine al armarse
 (`apk upgrade`), y en esta corrida salió sin vulnerabilidades altas ni críticas (DEF-51, corregido el 21/11 en
 `64288b2`). En esta corrida, la imagen de la base no se escaneaba; con la corrección de DEF-73, el job de imágenes
 escanea también `postgres:17-alpine`, con sus excepciones justificadas en `.trivyignore`, y en el run 45709490636
@@ -885,11 +888,12 @@ evidencia, su corrección con los archivos y las pruebas que la verifican.
 | DEF-68 | SEC-E02 | 6 HIGH de Jackson y Guava dentro de WildFly 41.0.1 | Menor | Aceptado (vence el 31/12/2026) | Mitigación comprobada en la sección 4.2; corrección: la versión de WildFly que traiga las librerías arregladas |
 | DEF-69 | SEC-W12, SEC-E01 | CSP con `style-src 'unsafe-inline'` e `img-src https:` (2 Medium de ZAP) | Menor | Corregido, a verificar sobre el tag | Desde el 25/11, `style-src 'self'` e `img-src 'self' data: blob: https://picsum.photos` en los dos bloques de cabeceras de `nginx.conf`. Contra el compose (25/11): 0 avisos de CSP en la consola, la E2E 39 de 39 y `seguridad.mjs` 64 de 64 (SEC-W12). Se cierra con el ZAP del tag sin las dos Medium de la CSP |
 | DEF-70 | SEC-W12 | La CSP habilitaba los orígenes de Google Fonts, que la app ya no usa | Menor | Corregido, a verificar sobre el tag | Desde el 24/11, los dos bloques de cabeceras de `nginx.conf` quedan sin `https://fonts.googleapis.com` ni `https://fonts.gstatic.com`; lo confirman sobre el tag el bloque E de `seguridad.mjs`, `cabeceras.txt` y ZAP |
-| DEF-71 | SEC-E04 | El proceso principal de nginx corría con root en la imagen web | Menor | Corregido, a verificar sobre el tag | Desde el 25/11, la imagen web parte de `nginxinc/nginx-unprivileged:1.30-alpine` y termina con `USER 101`: nginx entero corre sin root (contra el compose, `id -u` en el contenedor da 101). Sigue en 80 y 443 dentro del contenedor (Docker lo permite sin root desde la 20.10); `nginx.conf` y el compose no cambian. Se cierra con SonarCloud y el Trivy de la imagen web sobre el tag |
+| DEF-71 | SEC-E04 | El proceso principal de nginx corría con root en la imagen web | Menor | Corregido, a verificar sobre el tag | Desde el 25/11, la imagen web termina con `USER 101` (desde el 26/11, sobre la oficial `nginx:1.30-alpine` con los ajustes de `nginx-unprivileged`, DEF-78): nginx entero corre sin root (contra el compose, `id -u` en el contenedor da 101). Sigue en 80 y 443 dentro del contenedor (Docker lo permite sin root desde la 20.10); `nginx.conf` y el compose no cambian. Se cierra con SonarCloud y el Trivy de la imagen web sobre el tag |
 | DEF-72 | SEC-D03 | El email de la cuenta de puerta quedaba en el log de accesos de nginx (va en la ruta o en la consulta) | Menor | Corregido, a verificar sobre el tag | El formato de log `palco` de `nginx.conf` escribe `<email>` en su lugar, y no escribe la ruta si le queda un `@` o un `%40` (SEC-D03). Se cierra con el `grep` sobre `docker compose logs web` en el compose del tag |
 | DEF-73 | SEC-E02b | Trivy no escaneaba `postgres:17-alpine` | Menor | Corregido, a verificar sobre el tag | La matriz del job de imágenes de `seguridad.yml` suma `db`, con sus excepciones justificadas en `.trivyignore` hasta el 31/12/2026 (SEC-E02b); el job "Imagen: db (trivy image)" del run 45709490636 (`93d34d2`) terminó en verde. Se cierra con ese job en verde sobre el tag |
 | DEF-74 | SEC-W12, SEC-E01 | Alertas Low de ZAP: sin `Cross-Origin-Resource-Policy`, `Cross-Origin-Opener-Policy` ni `Cross-Origin-Embedder-Policy`; 14 respuestas en `text/html` donde ZAP esperaba JSON (sección 4.1) | Cosmética | Corregido, a verificar sobre el tag | nginx manda `Cross-Origin-Resource-Policy` y `Cross-Origin-Opener-Policy` en `same-origin`; COEP y las 14 de Content-Type quedan justificadas en `.zap/reglas.tsv` (renglones 56 y 57). Se cierra con el resumen de ZAP del tag sin Low sin justificar |
 | DEF-75 | SEC-W03 | El registro dice si un email o un DNI ya tienen cuenta, sin límite de intentos | Menor | Aceptado (decisión de diseño, CA-01.2) | El login y "olvidé mi contraseña" no lo revelan; si se cambia, cambia CA-01.2 |
+| DEF-78 | SEC-E02 | La imagen web sobre `nginxinc/nginx-unprivileged:1.30-alpine` traía nginx 1.30.6, con cuatro CVE críticas y dos altas | Menor | Corregido, a verificar sobre el tag | Desde el 26/11, la imagen parte de la oficial `nginx:1.30-alpine` (nginx 1.30.8) con los ajustes para correr sin root; Trivy 0.76.2 sobre la imagen da 0 críticas y 0 altas, sin las seis excepciones temporales de `.trivyignore`. Se cierra con el Trivy de la imagen web sobre el tag |
 
 Defectos de seguridad ya corregidos: DEF-12 (el 401 por token inválido salía sin CORS ni Problem Details), DEF-25
 (guardrail del asistente), DEF-26 (cuentas de prueba con contraseña pública en cualquier entorno) y DEF-51 (imagen web
