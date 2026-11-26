@@ -48,7 +48,7 @@ pasos completos están en `docs/testing/plan-de-pruebas.md`.
 | **Total** | **281** | 100 % |
 
 - Negativos o de borde: **241 de 281 (85,8 %)**. El mínimo pedido es el 40 %.
-- Automatizados: **272 de 281 (96,8 %)**. Los 9 manuales son: CP-02.4.3, CP-02.4.4, CP-04.4.3, CP-07.2.2, CP-09.3.3, CP-12.4.1, CP-16.2.4, CP-16.3.5, CP-16.4.2.
+- Automatizados: **272 de 281 (96,8 %)**. Los 9 manuales son: CP-02.4.3, CP-02.4.4, CP-04.4.3, CP-07.2.2, CP-09.3.3, CP-12.4.1, CP-16.2.4, CP-16.3.5, CP-16.4.2. Se ejecutaron el 26/11 contra el compose con el código del tag (`9caa865`) y pasan los 9: seis a mano y tres con las pruebas automáticas que los cubren (`seguridad.mjs` y `xss.spec.ts`), en `docs/testing/evidencia/final/casos-manuales-26-11.txt`.
 - Criterios: los 89 de las historias tienen al menos un caso.
 
 | HU | Historia | Prioridad | Criterios | Casos | Positivos | Negativos | Borde | Automatizados |

@@ -1,0 +1,15 @@
+Casos manuales de docs/testing/especificacion-de-casos.md, ejecutados el 26/11/2026 contra el compose con el backend
+de 9caa865 (el código del tag v1.0-final). Los seis primeros, por la API, jboss-cli y el navegador (Edge), con
+cuentas creadas para la prueba. Los otros tres los cubren pruebas automáticas de la corrida de 9caa865.
+
+PASA  CP-09.3.3: publicar 201, retirar 204, comprarla con otra cuenta 409 /problemas/publicacion-no-activa, cobro con esa clave en Pagos: 404
+PASA  CP-12.4.1: con Eventos sin desplegar: 504 /problemas/sin-respuesta; desplegado de nuevo: 200
+PASA  CP-07.2.2: cuenta nueva (registro 201, verificación 200); /mis-entradas dice "Todavía no tenés entradas emitidas.": sí
+PASA  CP-16.2.4: un .txt en "Subir foto": aviso "La imagen tiene que ser JPG, PNG o WEBP." sí; queda elegido para subir: no
+PASA  CP-16.3.5: un JPG de 3 MB: aviso "La imagen no puede pasar de 2 MB." sí; queda elegido para subir: no
+PASA  CP-16.4.2: con foto propia: imagenUrl con valor; después de "quitar foto" y guardar: imagenUrl null (el catálogo vuelve a la foto de la categoría)
+PASA  CP-02.4.3: scripts/pruebas/seguridad.mjs, bloque A, "vencido hace una hora, bien firmado": 401 token-invalido (Pruebas de seguridad, run 45889484808)
+PASA  CP-02.4.4: scripts/pruebas/seguridad.mjs, bloque A, "firmado con otra clave RSA" y "de otro emisor": 401 token-invalido (run 45889484808)
+PASA  CP-04.4.3: frontend/e2e/xss.spec.ts, "una búsqueda con HTML se ve como texto" (run 45889484808)
+
+9 de 9 en PASA.
