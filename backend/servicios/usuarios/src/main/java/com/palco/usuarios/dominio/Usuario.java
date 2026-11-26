@@ -87,7 +87,7 @@ public class Usuario {
      * Pone otro hash de contraseña. No invalida las sesiones que ya estén
      * abiertas: el token es un JWT firmado, se valida sin consultar la base y
      * no hay lista de revocados, así que una sesión robada sigue sirviendo
-     * hasta que vence (8 horas). Queda anotado como limitación.
+     * hasta que vence, como mucho 15 minutos (ServicioDeUsuarios.DURACION_SESION).
      */
     public void cambiarPassword(String passwordHash) {
         this.passwordHash = passwordHash;

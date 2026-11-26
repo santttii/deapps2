@@ -80,7 +80,12 @@ public class ServicioDeUsuarios implements IUsuarios {
     private static final Logger LOG = Logger.getLogger(ServicioDeUsuarios.class.getName());
 
     static final int EDAD_MINIMA = 16;
-    static final Duration DURACION_SESION = Duration.ofHours(8);
+    /**
+     * Quince minutos (SEC-W05c pide exp - iat de 900 s o menos; DEF-38). El token es un JWT que cada servicio valida
+     * sin consultar a Usuarios, así que no hay revocación: lo que acota una sesión robada es que dure poco. Alcanza
+     * para una compra entera (la reserva dura 10 minutos) y, al vencer, el frontend pide ingresar de nuevo.
+     */
+    static final Duration DURACION_SESION = Duration.ofMinutes(15);
     /** Corto a propósito: si se filtra sirve pocos minutos, y el servicio pide otro solo. */
     static final Duration DURACION_TOKEN_DE_SERVICIO = Duration.ofMinutes(5);
     static final Duration VIGENCIA_CODIGO = Duration.ofMinutes(15);

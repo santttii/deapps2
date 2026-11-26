@@ -1237,15 +1237,15 @@ const seguridad = carpeta('4 Seguridad (clase 11)',
       ],
       tests: [estado(401), esProblema],
     }),
-    pedido('SEC-W05c Login: la sesión dura 8 horas', 'POST', url('baseUsuarios', ['login']), {
-      descripcion: 'El criterio de la matriz pide una vigencia corta. El grupo decidió el 16/10 mantener la sesión '
-        + 'en 8 horas, sin refresh token, y justificarlo: comprueba que el token dura exactamente eso.',
+    pedido('SEC-W05c Login: la sesión dura 15 minutos', 'POST', url('baseUsuarios', ['login']), {
+      descripcion: 'El criterio de la matriz pide una vigencia corta o la revocación. El token es un JWT que cada '
+        + 'servicio valida sin consultar a Usuarios: la sesión dura 15 minutos (DEF-38). Comprueba que dura exactamente eso.',
       cabeceras: [JSON_CT],
       cuerpo: TITULAR,
       tests: [
         estado(200),
         "const p = JSON.parse(atob(pm.response.json().token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));",
-        "pm.test('exp - iat = 8 h (28.800 s)', () => pm.expect(p.exp - p.iat).to.eql(28800));",
+        "pm.test('exp - iat = 15 min (900 s)', () => pm.expect(p.exp - p.iat).to.eql(900));",
       ],
     }),
     pedido('SEC-W06 POST /v1/ventas sin Idempotency-Key (400, sin información interna)', 'POST',
