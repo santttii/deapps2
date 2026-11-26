@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -190,6 +191,21 @@ class ServicioDeFacturacionTest {
         FacturaDto factura = servicio.consultarFacturaDelComprador(Ejemplos.COMPRADOR, Ejemplos.VENTA);
 
         assertEquals("00001-00000001", factura.comprobante());
+    }
+
+    /** DEF-81: un id de venta con el carácter nulo es un 404 sin consultar la base, que con PostgreSQL daba un 500. */
+    @Test
+    void unIdDeVentaConElCaracterNuloEsUn404SinConsultarLaBase() {
+        servicio.facturas = new FacturaRepositoryEnMemoria() {
+            @Override
+            public Optional<Factura> buscarPorVenta(String ventaId) {
+                throw new AssertionError("no tenía que consultar la base");
+            }
+        };
+
+        assertThrows(ErroresDeNegocio.NoEncontrado.class, () -> servicio.consultarFactura("V-\u0000x"));
+        assertThrows(ErroresDeNegocio.NoEncontrado.class,
+                () -> servicio.consultarFacturaDelComprador(Ejemplos.COMPRADOR, "V-\u0000x"));
     }
 
     @Test

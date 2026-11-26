@@ -201,6 +201,12 @@ public class ServicioDeFacturacion implements IFacturacion {
      * puede ver responde lo mismo que lo que no existe.
      */
     private FacturaDto consultar(String ventaId, Predicate<String> puedeVerAlComprador) {
+        // Ningún id de venta tiene caracteres de control (la regla de Textos.esDeControl), y PostgreSQL no acepta el
+        // carácter nulo en un texto: la consulta fallaba y el pedido terminaba en un 500. Es una venta que no existe
+        // (DEF-81), como el pagoId de Pagos (DEF-77).
+        if (ventaId.codePoints().anyMatch(Textos::esDeControl)) {
+            throw sinFactura();
+        }
         Optional<Factura> factura = facturas.buscarPorVenta(ventaId);
         if (factura.isPresent()) {
             return factura.filter(f -> puedeVerAlComprador.test(f.getCompradorId()))
