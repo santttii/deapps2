@@ -1,7 +1,7 @@
 # Declaración de uso de inteligencia artificial
 
 **Proyecto:** Palco, plataforma de venta de entradas nominativas con reventa oficial (tope +10 %).  
-**Instancia:** Entrega Final, viernes 27/11/2026 (sobre el repositorio en `master`, commit `70242ce` y tag `v1.0-final`).  
+**Instancia:** Entrega Final, viernes 27/11/2026 (sobre el repositorio en `master`, commit `9caa865` y tag `v1.0-final`).  
 **Integrantes:** Santiago Loto, Valentina Frisoli, Sebastian Deya, Julián Zuchowicki y Joaquin Molina.  
 **Alcance:** Responde al criterio G8 y a la sección 8 de los Criterios de Testing (8.1 uso en el desarrollo, 8.2 plan de uso futuro y 8.3 funcionalidad de IA del producto), contrastado con el historial de Git, las corridas del CI, SonarCloud y las evidencias de prueba.
 
