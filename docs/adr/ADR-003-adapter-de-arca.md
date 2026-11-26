@@ -2,6 +2,8 @@
 
 **Estado:** Aceptada · implementada. Revisada el 20/11 (DEF-33): un comprobante rechazado ya no se reintenta.
 
+**Fecha:** 19/11/2026 (revisada el 24/11/2026).
+
 **Contexto.** Facturación pide el CAE a ARCA, un sistema legado que habla SOAP. En el TP ARCA es un servicio SOAP simulado en un WAR aparte (`/legado/arca`, WSDL publicado por WildFly). ARCA puede tardar, rechazar o no estar.
 
 **Decisión.** El negocio (`ServicioDeFacturacion`) depende de una interfaz propia, `Arca`. `ArcaSoap` la implementa: traduce el pedido a la interfaz anotada `PuertoArca`, la respuesta XML (`RespuestaCaeXml`) a un resultado del dominio y cualquier `WebServiceException` (tiempo vencido, conexión rechazada, SOAP Fault) a `SinRespuesta`. `FabricaDeArca` (`@Produces`) arma el cliente con los tiempos de espera de la configuración (2000 ms de conexión y 5000 ms de lectura por defecto) y se niega a crearlo si está habilitado el lector XML inseguro (XXE, criterio SEC-I01).

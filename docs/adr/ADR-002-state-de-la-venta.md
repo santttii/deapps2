@@ -2,6 +2,8 @@
 
 **Estado:** Aceptada · implementada.
 
+**Fecha:** 19/11/2026 (revisada el 25/11/2026).
+
 **Contexto.** La venta tiene cinco estados (`EstadoVenta`: `EN_CHECKOUT`, `CONFIRMADA`, `EMITIDA`, `CANCELADA` y `VENCIDA`) y el comprador puede pedir pagarla o cancelarla en cualquiera de ellos. Qué pasa depende del estado: pagar vale solo `EN_CHECKOUT` y con la reserva vigente; cancelar una venta paga es un error, y cancelar una que ya está cerrada no hace nada. Cada caso inválido responde un 409 con su `type` (`venta-ya-paga`, `reserva-vencida`). Lo preguntan dos lugares antes de tocar la base: `ServicioDeVentas.exigirQueSePuedaPagar`, que `ComprasEnCurso.pagar` llama antes de anotar el intento de pago, y `ComprasEnCurso.cancelar`.
 
 **Decisión.** State con una clase por estado, en `ventas/.../dominio/estado/`. La `sealed interface` `EstadoDeVenta` declara `pagar(venta, ahora)` y `cancelar()`, y la implementan `EnCheckout`, `Confirmada`, `Emitida`, `Cancelada` y `Vencida`, con una sola instancia cada una porque no tienen datos propios. `EstadoDeVenta.de(venta.getEstado())` devuelve el estado que corresponde a lo guardado, y `ServicioDeVentas` y `ComprasEnCurso` le delegan la decisión de si se puede pagar o cancelar, en lugar de preguntar por el `enum` con `if`. Una operación que el estado no permite lanza `TransicionInvalida`, que es un `ErroresDeNegocio.Conflicto`: la API la responde con 409 en Problem Details. `cancelar()` devuelve `false` en una venta `CANCELADA` o `VENCIDA`, porque cancelar dos veces no es un error. El cambio de estado en la base lo siguen haciendo los `UPDATE` condicionales de `VentaRepositoryJpa`.

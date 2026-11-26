@@ -2,6 +2,8 @@
 
 **Estado:** Aceptada · implementada.
 
+**Fecha:** 19/11/2026 (revisada el 25/11/2026).
+
 **Contexto.** Una compra involucra al componente stateful de la compra (`ServicioDeVentas`), dos repositorios, Usuarios (identidad verificada) y Eventos (reserva y devolución de cupo). Algunos pasos quedan fuera de la transacción del stateful y el orden importa: consultar a Usuarios antes de abrir la compra, anotar el intento de pago antes de cobrar, devolver el cupo después de confirmar la cancelación. Los pedidos llegan por REST (`VentasResource`, `EntradasResource`).
 
 **Decisión.** Los recursos JAX-RS solo traducen HTTP: validan la forma del pedido (cuerpo, `Idempotency-Key`), sacan el comprador del token, delegan y arman la respuesta (código, `Location`, `_links`). El caso de uso lo coordina `ComprasEnCurso` (`@ApplicationScoped`), que es el controlador GRASP del caso de uso "comprar" y hacia afuera funciona como fachada del subsistema de la compra.
