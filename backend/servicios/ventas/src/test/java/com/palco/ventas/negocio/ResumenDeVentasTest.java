@@ -103,6 +103,23 @@ class ResumenDeVentasTest {
         verifyNoInteractions(resumen.ventas);
     }
 
+    /**
+     * DEF-80: el id del caso de Schemathesis que daba 504 (con el carácter nulo). Ahora es un 400 del campo eventoId,
+     * sin preguntarle a Eventos ni leer las ventas.
+     */
+    @Test
+    void unEventoIdConUnCaracterDeControlEsUn400SinConsultarAEventos() {
+        ResumenDeVentas resumen = new ResumenDeVentas();
+        resumen.eventos = mock(com.palco.ventas.negocio.externos.ClienteDeEventos.class);
+        resumen.ventas = mock(com.palco.ventas.datos.VentaRepository.class);
+
+        ErroresDeNegocio.DatosInvalidos error = assertThrows(ErroresDeNegocio.DatosInvalidos.class,
+                () -> resumen.delEvento("d\u0000GÕ ´F", "user-organizador"));
+
+        assertTrue(error.campos().containsKey("eventoId"));
+        verifyNoInteractions(resumen.eventos, resumen.ventas);
+    }
+
     @Test
     void unEventoSinVentasPagadasDaUnResumenVacioYEnCero() {
         ResumenDeVentasDto resumen = ResumenDeVentas.resumir(EVENTO, List.of());

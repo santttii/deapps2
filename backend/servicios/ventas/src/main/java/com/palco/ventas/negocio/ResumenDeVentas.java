@@ -11,6 +11,7 @@ import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 
 import com.palco.common.ErroresDeNegocio;
+import com.palco.common.Textos;
 import com.palco.ventas.api.Dtos.DiaDeVentasDto;
 import com.palco.ventas.api.Dtos.LiquidacionDto;
 import com.palco.ventas.api.Dtos.ResumenDeVentasDto;
@@ -53,8 +54,16 @@ public class ResumenDeVentas {
      *
      * Si Eventos no responde, lanza {@code SinRespuesta}: sin saber de quién
      * es el evento no se muestran sus ventas.
+     *
+     * Un id con caracteres de control (la regla de {@code Textos.esDeControl})
+     * es un 400 antes de preguntarle a Eventos: ningún id de Palco los tiene, y
+     * con el carácter nulo la consulta a Eventos fallaba y el resumen
+     * terminaba en un 504 (DEF-80).
      */
     public ResumenDeVentasDto delEvento(String eventoId, String organizadorId) {
+        if (eventoId.codePoints().anyMatch(Textos::esDeControl)) {
+            throw new ErroresDeNegocio.DatosInvalidos("eventoId", "El id no puede tener caracteres de control.");
+        }
         if (!organizadorId.equals(eventos.organizadorDe(eventoId))) {
             throw new ErroresDeNegocio.NoEncontrado("No existe ese evento entre los tuyos.");
         }
