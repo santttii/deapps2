@@ -298,20 +298,20 @@ para LLM).
 ## 9. Calidad y pruebas
 
 El plan (`docs/testing/plan-de-pruebas.md`) define niveles, técnicas de diseño de casos, entornos, criterios y
-riesgos. La corrida final es la de `70242ce` (26/11), el último commit de código antes del tag: el código del tag es
+riesgos. La corrida final es la de `9caa865` (26/11), el último commit de código antes del tag: el código del tag es
 el mismo. Tiene su informe (`docs/testing/informe-de-ejecucion.md`, versión 2.0) y su evidencia en
 `docs/testing/evidencia/final/`; los workflows del tag `v1.0-final` la repiten.
 
 ### 9.1 Niveles y resultados
 
-"CI" es el run 45880936756 sobre `70242ce`.
+"CI" es el run 45889485001 sobre `9caa865`.
 
 | Nivel | Herramienta | Resultado |
 |---|---|---|
-| Unitarias e integración con base | JUnit 6, Mockito y H2 (`*EnH2Test`) | 1274 tests (1150 unitarios y 124 con base) en los 11 módulos del backend, 0 fallas (CI) |
+| Unitarias e integración con base | JUnit 6, Mockito y H2 (`*EnH2Test`) | 1277 tests (1153 unitarios y 124 con base) en los 11 módulos del backend, 0 fallas (CI) |
 | Integración con dependencias reales | Testcontainers (`*EnPostgresIT` y `FacturacionDeComprasEnArtemisIT`) | 61 tests contra PostgreSQL 17 y Artemis 2.54.0, 0 fallas y ninguno salteado (CI) |
-| Cobertura | JaCoCo | 82,1 % de las líneas y 78,6 % de las ramas; `negocio` y `dominio` juntos, 96,4 % y 92,4 %. Umbral de 80 % y 70 % en cada módulo (CI) |
-| Mutación | PIT sobre el `dominio` | 93,8 % de los mutantes muertos (226 de 241); mínimo, 60 % por módulo (run 45880936817) |
+| Cobertura | JaCoCo | 82,2 % de las líneas y 78,7 % de las ramas; `negocio` y `dominio` juntos, 96,4 % y 92,4 %. Umbral de 80 % y 70 % en cada módulo (CI) |
+| Mutación | PIT sobre el `dominio` | 93,8 % de los mutantes muertos (226 de 241); mínimo, 60 % por módulo (run 45889484994) |
 | Análisis estático | PMD y SonarCloud | Quality Gate aprobado |
 | Integración de sistema | `escenarios.mjs` contra el sistema levantado | 24 de 24, 389 comprobaciones (CI) |
 | Resiliencia | `broker-apagado.mjs`, `etag.mjs` y `patron-state.mjs` | 10 de 10, 19 de 19 y 10 de 10 (CI) |
@@ -322,19 +322,19 @@ el mismo. Tiene su informe (`docs/testing/informe-de-ejecucion.md`, versión 2.0
 ### 9.2 La CI
 
 `.github/workflows/ci.yml` corre en cada push a `master` o `main`, en cada pull request y en los tags `v*`, con 10
-jobs en paralelo; sobre `70242ce` (26/11), los 22 checks terminaron en verde y el pipeline entero tardó 6 min 36 s. Los
-análisis que atacan al sistema o tardan más van en workflows propios, con estos resultados sobre `70242ce`:
+jobs en paralelo; sobre `9caa865` (26/11), los 22 checks terminaron en verde y el pipeline entero tardó 7 min 03 s. Los
+análisis que atacan al sistema o tardan más van en workflows propios, con estos resultados sobre `9caa865`:
 
 | Workflow | Criterio | Resultado |
 |---|---|---|
 | `mutacion.yml` (PIT) | 60 % de mutantes muertos por módulo | 93,8 % (226 de 241) |
-| `contrato.yml` (Schemathesis, una vez por rol) | Sin 5xx y cuerpos que cumplen el esquema | 5642 casos sin fallas |
+| `contrato.yml` (Schemathesis, una vez por rol) | Sin 5xx y cuerpos que cumplen el esquema | 5633 casos sin fallas |
 | `pruebas-seguridad.yml` | Tokens manipulados: 401; HTML como texto; XXE rechazado | 64 de 64 y 2 de 2 |
 | `zap.yml` (OWASP ZAP) | Ninguna alerta High; cada Medium justificada | 0 High y 0 Medium, descontados los falsos positivos verificados en `.zap/reglas.tsv`; 2 Low, justificadas |
 | `seguridad.yml` (Trivy) | Ninguna crítica o alta fuera de `.trivyignore` | 0 críticas o altas fuera de `.trivyignore` |
-| `carga.yml` (k6, 50 usuarios virtuales durante 5 minutos) | p95 menor a 500 ms y menos de 1 % de errores | 14792 pedidos, 0 % de errores; el p95 más alto, 93,1 ms |
+| `carga.yml` (k6, 50 usuarios virtuales durante 5 minutos) | p95 menor a 500 ms y menos de 1 % de errores | 15044 pedidos, 0 % de errores; el p95 más alto, 17,3 ms |
 | `lighthouse.yml` | Accesibilidad de 90 o más | 100 en accesibilidad y en buenas prácticas en las 5 pantallas, en teléfono y escritorio |
-| `estabilidad.yml` (`mvn test` tres veces) | Resultado idéntico test por test | 3 corridas idénticas de 1274 tests |
+| `estabilidad.yml` (`mvn test` tres veces) | Resultado idéntico test por test | 3 corridas idénticas de 1277 tests |
 | SonarCloud (job del CI) | Quality Gate aprobado | Aprobado, sin hallazgos Blocker |
 
 ### 9.3 Casos, trazabilidad y defectos
@@ -342,8 +342,8 @@ análisis que atacan al sistema o tardan más van en workflows propios, con esto
 Las 16 historias de usuario (`docs/documentacion/historias-de-usuario.md`) tienen 89 criterios de aceptación; los 281
 casos de `docs/testing/especificacion-de-casos.md` son 241 negativos o de borde y 272 automatizados, y la matriz de
 trazabilidad (`docs/testing/evidencia/matriz-de-trazabilidad.md`), armada con los reportes de la corrida de
-`70242ce`, da los 89 criterios en verde, cada caso con su evidencia y sus defectos. El registro de defectos
-(`docs/testing/registro-de-defectos.md`) tiene, al 26/11, 80 defectos: 74 cerrados, ninguno bloqueante, crítico ni
+`9caa865`, da los 89 criterios en verde, cada caso con su evidencia y sus defectos. El registro de defectos
+(`docs/testing/registro-de-defectos.md`) tiene, al 26/11, 81 defectos: 75 cerrados, ninguno bloqueante, crítico ni
 mayor sin cerrar, los cinco menores abiertos aceptados como riesgo, con su motivo, y DEF-02 a verificar en una máquina
 lenta. El criterio de salida
 está en la sección 4 del plan.
