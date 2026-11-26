@@ -408,7 +408,7 @@ con `Content-Type: application/problem+json`. Los errores por campo van en
 ```
 
 **Sesión:** el login devuelve un token JWT que se manda en cada pedido como
-`Authorization: Bearer <token>` y dura 8 horas. Cerrar sesión es descartarlo.
+`Authorization: Bearer <token>` y dura 15 minutos. Cerrar sesión es descartarlo.
 Sin token, los endpoints protegidos responden 401; con un rol que no
 corresponde, 403. Las cuentas de prueba son las mismas de la tabla de abajo.
 
@@ -497,7 +497,7 @@ con los montos que calcula el servidor (DEF-48).
 Si no hay sesión, las rutas protegidas redirigen a `/ingresar?next=<ruta>` y
 vuelven a la ruta original después del login. Si la sesión no tiene el rol
 requerido, la pantalla explica para qué cuentas es y ofrece volver al inicio.
-Si el backend deja de aceptar el token (venció a las 8 horas o se reinició el
+Si el backend deja de aceptar el token (venció a los 15 minutos o se reinició el
 servidor), la sesión se cierra con un aviso.
 
 ## Reglas de negocio
@@ -841,10 +841,13 @@ y los defectos conocidos, con su estado, en
   frontend no carga scripts de terceros, nginx manda una
   `Content-Security-Policy` con `script-src 'self'` y React muestra como texto lo
   que escribe la gente (`frontend/e2e/xss.spec.ts`).
-- **Sesión de 8 horas, sin revocación** (riesgo aceptado el 16/10, DEF-38):
-  cerrar sesión descarta el token en el navegador, y el token vale hasta que
-  vence. Reiniciar el backend sin `PALCO_JWT_CLAVE_PRIVADA` genera una clave
-  nueva y cierra todas las sesiones.
+- **Sesión de 15 minutos, sin revocación** (DEF-38, corregido el 25/11): el
+  token es un JWT que cada servicio valida sin consultar a Usuarios, así que
+  cerrar sesión lo descarta en el navegador y no hay lista de revocados; lo que
+  acota una sesión robada es que dure 15 minutos. Alcanza para una compra entera
+  (la reserva dura 10 minutos) y, al vencer, el frontend pide ingresar de nuevo.
+  Reiniciar el backend sin `PALCO_JWT_CLAVE_PRIVADA` genera una clave nueva y
+  cierra todas las sesiones.
 - **Verificación de identidad por email**: verificar el email marca la
   identidad como verificada, y con eso la cuenta puede comprar. La validación
   documental del DNI (foto o un servicio externo) queda fuera del alcance.

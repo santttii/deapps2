@@ -171,8 +171,9 @@ base llegó a sus 10 conexiones, con esperas de hasta 157 ms y ninguna vencida.
 ## 6. Seguridad, dependencias, accesibilidad y estabilidad
 
 - **ZAP** (run 44867187257, `zap.txt`): High 0; Medium 2, las dos justificadas en `.zap/reglas.tsv` (la CSP con
-  `style-src 'unsafe-inline'` y la directiva amplia `img-src https:`); Low 5, sin justificar, que no cortan la
-  corrida; informativas 9. ZAP marcó 4 instancias High de inyección SQL (regla 40018) que se comprobaron falsos
+  `style-src 'unsafe-inline'` y la directiva amplia `img-src https:`; DEF-69, corregido el 25/11: la CSP queda con
+  `style-src 'self'` e `img-src 'self' data: blob: https://picsum.photos`, y se verifica con el ZAP del tag); Low 5,
+  sin justificar, que no cortan la corrida; informativas 9. ZAP marcó 4 instancias High de inyección SQL (regla 40018) que se comprobaron falsos
   positivos, una por una, en `.zap/reglas.tsv`: tres en el registro, donde lo que cambia entre respuestas es el orden
   de los campos del 400 (DEF-62, corregido el 24/11: los campos salen en orden alfabético; se verifica con el ZAP del
   tag), y una en el asistente, que no usa base de datos. Las 5 Low son DEF-74, corregido el 25/11 (las cabeceras COOP
@@ -211,9 +212,11 @@ Código total: 1 bug (MAJOR), 0 vulnerabilidades abiertas, 127 code smells (3 de
 hotspots, duplicación 0,7 %, seguridad A, mantenibilidad A y **confiabilidad C**. La C la pone el único bug,
 `java:S5850` en `common/Textos.java:63` (DEF-65, corregido el 24/11: se verifica con el análisis del tag). Los 3 code
 smells BLOCKER son de nombres (`java:S1845`, DEF-67, corregido el 24/11 en `276bd87`, a verificar con el análisis del
-tag). Hay una vulnerabilidad Minor aceptada en SonarCloud
-(`docker:S6471`, nginx arranca como root; DEF-71, aceptado), con la justificación escrita en `frontend/Dockerfile`:
-el proceso principal abre los puertos 80 y 443 y los pedidos los atienden los workers con el usuario `nginx`.
+tag). En ese análisis hay una vulnerabilidad Minor aceptada en SonarCloud
+(`docker:S6471`: el proceso principal de nginx arrancaba con root en la imagen web; DEF-71). Desde el 25/11, la imagen
+web parte de `nginxinc/nginx-unprivileged:1.30-alpine` y termina con `USER 101`: nginx entero corre sin root (contra el
+compose, `id -u` en el contenedor da 101) y sigue en 80 y 443 dentro del contenedor. Se verifica con el análisis del
+tag.
 SonarCloud marca además con `java:S8786` (expresiones con retroceso superlineal), como code smells, cinco líneas. Las
 44 y 48 de `usuarios/api/Dtos.java` son DEF-64 (sección 9, corregido el 24/11). Las otras tres se midieron y no
 demoran un pedido: la 58 de `Dtos.java` (el email del registro: uno de 20.000 caracteres recibe el 400
@@ -253,18 +256,18 @@ minutos que pide la cátedra.
 ## 9. Defectos
 
 La línea de totales de `docs/testing/registro-de-defectos.md` (ya incluye los defectos de esta corrida, los del
-informe de seguridad y los del 25/11) dice: "Totales: 77 defectos. 29 cerrados, 40 corregidos que falta verificar
-sobre el tag (DEF-02, DEF-14, DEF-30, DEF-32 a DEF-37, DEF-40, DEF-42 a DEF-50, DEF-52 a DEF-57, DEF-59 a DEF-67,
-DEF-70, DEF-72 a DEF-74, DEF-76 y DEF-77), ninguno nuevo ni en corrección, y 8 aceptados (DEF-38, DEF-39, DEF-41,
-DEF-58, DEF-68, DEF-69, DEF-71 y DEF-75). Por severidad: 1 bloqueante, 8 críticos, 16 mayores, 42 menores y 10
-cosméticos." Los que no están cerrados, por severidad, según la sección 7 del registro:
+informe de seguridad y los del 25/11) dice: "Totales: 77 defectos. 29 cerrados, 43 corregidos que falta verificar
+sobre el tag (DEF-02, DEF-14, DEF-30, DEF-32 a DEF-38, DEF-40, DEF-42 a DEF-50, DEF-52 a DEF-57, DEF-59 a DEF-67,
+DEF-69 a DEF-74, DEF-76 y DEF-77), ninguno nuevo ni en corrección, y 5 aceptados (DEF-39, DEF-41, DEF-58, DEF-68 y
+DEF-75). Por severidad: 1 bloqueante, 8 críticos, 16 mayores, 42 menores y 10 cosméticos." Los que no están
+cerrados, por severidad, según la sección 7 del registro:
 
 | Severidad | Nuevos, en corrección o aceptados | Corregidos, a verificar sobre el tag | Máximo al cierre |
 |---|---|---|---|
 | Bloqueante | 0 | 0 | 0 |
 | Crítica | 0 | 2: DEF-63 y DEF-64 | 0 |
-| Mayor | 1: DEF-38 (aceptado), con su alternativa escrita | 5: DEF-30, DEF-36, DEF-37, DEF-46 y DEF-47 | 3, con alternativa |
-| Menor | 7, todos aceptados | 25 | Sin máximo |
+| Mayor | 0 | 6: DEF-30, DEF-36 a DEF-38, DEF-46 y DEF-47 | 3, con alternativa |
+| Menor | 5, todos aceptados | 27 | Sin máximo |
 | Cosmética | 0 | 8 | Sin máximo |
 
 Qué dice esta corrida de los críticos y mayores que se verifican sobre el tag:
@@ -286,6 +289,10 @@ Qué dice esta corrida de los críticos y mayores que se verifican sobre el tag:
 - **DEF-37 y DEF-46** (mayores): se corrigieron el 24/11, después de esta corrida (abajo). Sus pruebas de cierre son
   las del registro: la consulta de `notificaciones.registro_auditoria` sin `"dni"` (DEF-37), y los tests de los
   candados en el CI y los escenarios 17 y 23 contra el compose (DEF-46), sobre el tag.
+- **DEF-38** (mayor): se corrigió el 25/11, después de esta corrida: la sesión dura 15 minutos
+  (`ServicioDeUsuarios.DURACION_SESION`). Su prueba de cierre es la colección de Postman en el CI del tag, con
+  «SEC-W05c Login: la sesión dura 15 minutos» (`exp - iat` = 900 s); el 25/11, contra el compose, dio 682 aserciones sin
+  fallas.
 
 **Defectos nuevos de esta corrida.** Están en el registro desde el 24/11:
 
@@ -368,7 +375,7 @@ Los de la sección 4 del plan de pruebas, contra esta corrida:
 | Accesibilidad: axe sin violaciones serias ni críticas, Lighthouse de 90 o más | axe en verde a 360, 768 y 1280 px; Lighthouse 100 en las 10 corridas | Sí |
 | Set de evaluación del asistente: 24 de 26 o más, con los 11 adversariales | 26 de 26; 11 de 11 | Sí |
 | CI en verde sobre el commit del tag y pipeline de 15 minutos o menos | Sobre `fbd31dc`: 21 de 21 check runs en verde y 7 min 08 s. El tag `v1.0-final` todavía no existe | Sí sobre `fbd31dc`; se verifica sobre el tag |
-| Defectos: 0 bloqueantes, 0 críticos, hasta 3 mayores con alternativa, todos registrados | Sobre `fbd31dc`, 1 crítico abierto (DEF-64). En el registro del 25/11: 0 bloqueantes, 0 críticos abiertos y 2 a verificar (DEF-63 y DEF-64), 1 mayor abierto con alternativa (DEF-38, aceptado) y 5 a verificar, y todos los defectos registrados | **No** sobre `fbd31dc`; se verifica sobre el tag |
+| Defectos: 0 bloqueantes, 0 críticos, hasta 3 mayores con alternativa, todos registrados | Sobre `fbd31dc`, 1 crítico abierto (DEF-64). En el registro del 25/11: 0 bloqueantes, 0 críticos abiertos y 2 a verificar (DEF-63 y DEF-64), 0 mayores abiertos y 6 a verificar, y todos los defectos registrados | **No** sobre `fbd31dc`; se verifica sobre el tag |
 
 Con esta corrida se cumplen 13 de los 16 criterios, uno de ellos solo sobre `fbd31dc`. No se cumplen tres: el de
 defectos, por DEF-64, un crítico abierto; la confiabilidad A de SonarCloud en el código total, por DEF-65; y el caso

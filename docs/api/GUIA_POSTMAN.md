@@ -4,7 +4,7 @@ La colección `docs/api/palco-api.postman_collection.json` se corre entera, en o
 
 La colección no se edita a mano: la genera `scripts/postman/generar.js` (sección 12).
 
-Última comprobación: 24/11/2026, con Newman 6.2.3 contra el sistema levantado con `docker compose` (el backend en `http://localhost:8080`): las nueve carpetas, 219 requests (los 214 de la colección y los cinco intentos de login previos de SEC-W04) y 682 aserciones, sin fallas. Las comprobaciones anteriores, del 14/10, del 16/10 y del 19/11/2026, están en las secciones 7 y 13.
+Última comprobación: 24/11/2026, con Newman 6.2.3 contra el sistema levantado con `docker compose` (el backend en `http://localhost:8080`): las nueve carpetas, 219 requests (los 214 de la colección y los cinco intentos de login previos de SEC-W04) y 682 aserciones, sin fallas. El 25/11, después de bajar la sesión a 15 minutos (SEC-W05c, DEF-38), la colección completa contra el compose volvió a dar 682 aserciones sin fallas. Las comprobaciones anteriores, del 14/10, del 16/10 y del 19/11/2026, están en las secciones 7 y 13.
 
 ## 1. Qué hace falta
 
@@ -350,14 +350,14 @@ Comprueba desde afuera los criterios de la matriz de seguridad de la clase 11 (`
 | SEC-W02b | Ninguna | Sin token: 401 `no-autenticado` con `WWW-Authenticate: Bearer` | Pasa |
 | SEC-W03a y SEC-W03b | B | Login con un email que no existe y con la clave mal: el mismo 401 con el mismo mensaje, así no se puede saber qué cuentas hay. El email inexistente es nuevo en cada corrida | Pasa |
 | SEC-W05a y SEC-W05b | A | Token con la firma alterada y token `alg=none` (sin firma, que dice ser de organizer): 401 | Pasa: 401 en `application/problem+json` (`/problemas/token-invalido`), con `WWW-Authenticate` y CORS |
-| SEC-W05c | A | La sesión dura 8 horas | Pasa. El criterio de la matriz pide una vigencia corta; el grupo decidió el 16/10 mantener 8 horas sin refresh token y justificarlo, y la prueba comprueba esa vigencia |
+| SEC-W05c | A | La sesión dura 15 minutos: `exp - iat` = 900 s | Pasa. El criterio de la matriz pide una vigencia corta o la revocación. El token es un JWT que cada servicio valida sin consultar a Usuarios, así que no se revoca: desde el 25/11 la sesión dura 15 minutos (DEF-38). El 16/10 la prueba comprobaba las 8 horas que el grupo había decidido ese día |
 | SEC-W06 | A | `POST /v1/ventas` sin `Idempotency-Key`: 400 `datos-invalidos`, sin nombres de clases, trazas ni SQL en el cuerpo | Pasa |
 | SEC-D02 | A | `GET /yo` no devuelve la contraseña ni el hash | Pasa |
 | SEC-W04 | Email propio | Cinco login fallidos seguidos y el sexto: 429 `demasiados-intentos` con `Retry-After` | Pasa: los cinco primeros responden 401 y el sexto 429 con `Retry-After` |
 
 **SEC-W04 no toca las cuentas de prueba.** Antes de enviarse genera un email nuevo, `intentos-…@palco.test`, y manda con él los cinco intentos fallidos, uno después del otro; el request es el sexto. Así el límite no bloquea las cuentas que usan los demás requests, y una corrida no arrastra los intentos de la anterior. Va último en la colección.
 
-Corrida del 16/10 con el servidor armado desde cero con esos cambios y la decisión de mantener la sesión en 8 horas: 74 requests, 252 aserciones, 0 fallas. Newman se corre con `--env-var secretoServicios=<el secreto del servidor>` (sección 7).
+Corrida del 16/10 con el servidor armado desde cero con esos cambios y la decisión de mantener la sesión en 8 horas: 74 requests, 252 aserciones, 0 fallas. El 25/11, con la sesión de 15 minutos, la colección completa contra el compose dio 682 aserciones sin fallas. Newman se corre con `--env-var secretoServicios=<el secreto del servidor>` (sección 7).
 
 ## 14. Operaciones del 30/10 (carpeta 8)
 

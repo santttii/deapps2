@@ -234,21 +234,21 @@ Decidido fuera del alcance:
       el código de 6 dígitos (`RecuperarPage.tsx`, probada en
       `recuperar.spec.ts`).
 - [x] Decidido: al cambiar la contraseña, las sesiones abiertas siguen valiendo
-      hasta que vencen, porque el token es un JWT firmado y no hay lista de
-      revocados. Es el mismo riesgo aceptado que la vigencia de 8 horas
-      (DEF-38).
+      hasta que vencen, como mucho 15 minutos, porque el token es un JWT firmado
+      y no hay lista de revocados (DEF-38).
 - [x] Límite de intentos de login: 5 fallidos y 15 minutos de espera, con 429
       y `Retry-After`. Es por email, no por IP: decisión con riesgo aceptado,
       porque es lo que pide CA-02.3 (DEF-41). Registro y escaneos no tienen
       límite (Fase 12).
-- [x] Vigencia de la sesión (SEC-W05), decidido el 16/10: se mantiene en 8
-      horas, sin refresh token. Una sesión de compra o de un organizador dura
-      una jornada; el token se firma con RS256 y cada servicio lo valida con la
-      clave pública; la clave se regenera al redesplegar Usuarios si no se
-      define `PALCO_JWT_CLAVE_PRIVADA`; el token entre servicios dura 5
-      minutos. El riesgo de un token robado se acepta para el alcance del
-      trabajo. SEC-W05c queda como riesgo aceptado (DEF-38) y la prueba
-      SEC-W05c de Postman comprueba que el token dura 8 horas.
+- [x] Vigencia de la sesión (SEC-W05). El 16/10 se decidió mantenerla en 8
+      horas, sin refresh token, como riesgo aceptado (DEF-38). El 25/11 bajó a
+      15 minutos (`ServicioDeUsuarios.DURACION_SESION`): el token es un JWT que
+      cada servicio valida sin consultar a Usuarios, así que no hay
+      revocación, y lo que acota una sesión robada es la vigencia corta.
+      Alcanza para una compra entera (la reserva dura 10 minutos) y, al vencer,
+      el frontend pide ingresar de nuevo. El token entre servicios dura 5
+      minutos. La prueba SEC-W05c de Postman comprueba que el token dura 1
+      hora.
 
 ## Fase 3. `ServicioDeEventos`
 
@@ -1025,7 +1025,8 @@ SOA al día (`docs/documentacion/diagramas/integracion-soa.svg`).
 
 ### Decisiones del grupo (16/10)
 
-- Vigencia de la sesión: 8 horas, sin refresh token (Fase 2).
+- Vigencia de la sesión: 8 horas, sin refresh token (Fase 2). Desde el 25/11,
+  15 minutos (DEF-38).
 - Permisos por destino en el broker: riesgo aceptado (Fase 12).
 - Facturación por SOAP: todo simulado, con el diseño de la Fase 5. La
   implementa Santiago Loto para el 13/11.
