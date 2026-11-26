@@ -1,14 +1,14 @@
 # Matriz de trazabilidad
 
-Generada por `scripts/qa/matriz.mjs` el 2026-11-26 19:22 UTC con estos reportes:
+Generada por `scripts/qa/matriz.mjs` el 2026-11-26 20:32 UTC con estos reportes:
 
 - escenarios.mjs: escenarios.txt.
 - JUnit: reportes-backend/common/target/surefire-reports (16 archivos), reportes-backend/servicios/arca/target/surefire-reports (3 archivos), reportes-backend/servicios/asistente/target/surefire-reports (10 archivos), reportes-backend/servicios/eventos/target/failsafe-reports (2 archivos), reportes-backend/servicios/eventos/target/surefire-reports (8 archivos), reportes-backend/servicios/facturacion/target/failsafe-reports (3 archivos), reportes-backend/servicios/facturacion/target/surefire-reports (7 archivos), reportes-backend/servicios/notificaciones/target/failsafe-reports (2 archivos), reportes-backend/servicios/notificaciones/target/surefire-reports (12 archivos), reportes-backend/servicios/pagos/target/surefire-reports (5 archivos), reportes-backend/servicios/reventa/target/surefire-reports (8 archivos), reportes-backend/servicios/usuarios/target/failsafe-reports (3 archivos), reportes-backend/servicios/usuarios/target/surefire-reports (16 archivos), reportes-backend/servicios/validacion/target/surefire-reports (9 archivos), reportes-backend/servicios/ventas/target/failsafe-reports (6 archivos), reportes-backend/servicios/ventas/target/surefire-reports (31 archivos).
 - Newman: reporte-api/newman/coleccion.xml (214 pedidos), reporte-api/newman/reenvio.xml (1 pedido), reporte-api/newman/verificacion.xml (1 pedido).
 - Playwright: reporte-e2e/playwright-report (39 pruebas).
 
-Son los artefactos de la corrida del CI sobre `70242ce` (26/11/2026), el código del tag `v1.0-final`,
-[run 45880936756](https://github.com/santttii/deapps2/actions/runs/45880936756): `reportes-backend`, `reporte-api` y
+Son los artefactos de la corrida del CI sobre `9caa865` (26/11/2026), el código del tag `v1.0-final`,
+[run 45889485001](https://github.com/santttii/deapps2/actions/runs/45889485001): `reportes-backend`, `reporte-api` y
 `reporte-e2e`; `escenarios.txt` es la salida de `escenarios.mjs` en los cuatro jobs de integración de esa corrida.
 
 Cada caso tiene su evidencia con el mismo número. Los defectos son los del registro (`docs/testing/registro-de-defectos.md`) que nombran el criterio, o la historia si no nombran ningún criterio.
@@ -109,4 +109,4 @@ Cada caso tiene su evidencia con el mismo número. Los defectos son los del regi
 
 Criterios con casos de cada fuente: escenarios.mjs 56, JUnit 81, Newman 51, Playwright 25.
 
-12 de los 80 defectos del registro nombran una historia o un criterio y quedan en 15 criterios; los demás no nombran ninguno (seguridad, infraestructura, documentación).
+12 de los 81 defectos del registro nombran una historia o un criterio y quedan en 15 criterios; los demás no nombran ninguno (seguridad, infraestructura, documentación).
