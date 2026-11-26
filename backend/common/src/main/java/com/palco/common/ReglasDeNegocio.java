@@ -53,9 +53,12 @@ public final class ReglasDeNegocio {
         return Math.ceilDiv(precioDeLista * MINIMO_REVENTA_PORCENTAJE, 100);
     }
 
-    /** Cargo de servicio sobre un subtotal, redondeado al peso más cercano. */
+    /**
+     * Cargo de servicio sobre un subtotal, redondeado al peso más cercano (medio peso redondea hacia arriba). La
+     * cuenta es entera, como todo lo que es dinero: sumar 50 antes de dividir por 100 es redondear al más cercano.
+     */
     public static long cargoServicio(long subtotal) {
-        return Math.round(subtotal * TASA_SERVICIO_PORCENTAJE / 100.0);
+        return Math.floorDiv(subtotal * TASA_SERVICIO_PORCENTAJE + 50, 100);
     }
 
     /**
