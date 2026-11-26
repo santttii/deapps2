@@ -9,6 +9,11 @@ reserva, los 2 MB de una foto, los 5 intentos de login en 15 minutos, los 5 segu
 modelo. También hay casos de dos compras a la vez, que las reglas entre compras resuelven con un candado por comprador
 y por DNI en cada evento.
 
+Los mismos casos, con su estado, su responsable y el vínculo a su HU, están en la base
+[Casos de prueba](https://www.notion.so/41ef71443ad481e583b2d8182901c8ce) del tablero del grupo en Notion
+([Tablero de Tareas D Apps 2](https://www.notion.so/3caf71443ad4807d8749c3543f74c075)), que es donde el grupo lleva
+lo que la cátedra pide en Jira.
+
 ## Cómo leer las tablas
 
 | Columna | Qué dice |
