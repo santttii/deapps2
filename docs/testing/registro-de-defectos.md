@@ -1,6 +1,6 @@
 # Registro de defectos de Palco
 
-Corte: 26/11/2026, con la corrida sobre `c5d3fd8`, el último commit de código antes del tag `v1.0-final`. Cada
+Corte: 26/11/2026, con la corrida sobre `70242ce`, el último commit de código antes del tag `v1.0-final`. Cada
 defecto tiene su ID `DEF-xx`, severidad y prioridad, pasos para reproducirlo, resultado esperado y obtenido,
 evidencia, estado y dueño; los cerrados, además, su causa raíz y el commit que los corrige. Los
 DEF-01 a DEF-04 son los del informe del 30/10 (`docs/testing/informe-condiciones-eliminatorias.md`); los
@@ -132,20 +132,21 @@ contra el máximo.
 | DEF-77 | `GET /v1/pagos?claveIdempotencia=` responde 500 si la clave trae el carácter nulo U+0000 | Menor | Alta | Cerrado el 26/11 | Valentina Frisoli | 25/11 | `a33194d` |
 | DEF-78 | La imagen web sobre `nginxinc/nginx-unprivileged:1.30-alpine` traía nginx 1.30.6, con cuatro CVE críticas y dos altas, y el Trivy de la imagen dejó en rojo el workflow Seguridad (SEC-E02) | Menor | Alta | Cerrado el 26/11 | Valentina Frisoli | 26/11 | Corrección del 26/11 |
 | DEF-79 | Dos code smells BLOCKER más de SonarCloud (`java:S1845`) en el asistente: `AsistenteIA.instrucciones` y `CatalogoDeEventos.vigencia` difieren solo en mayúsculas de una constante | Cosmética | Baja | Cerrado el 26/11 | Valentina Frisoli | 26/11 | Corrección del 26/11 |
+| DEF-80 | `GET /v1/resumenes?eventoId=` responde 504 si el id trae el carácter nulo U+0000 | Menor | Alta | Cerrado el 26/11 | Julián Zuchowicki | 26/11 | `70242ce` |
 
-Totales: 79 defectos. 73 cerrados, 1 corregido que falta verificar (DEF-02, en una máquina lenta), ninguno nuevo ni en
+Totales: 80 defectos. 74 cerrados, 1 corregido que falta verificar (DEF-02, en una máquina lenta), ninguno nuevo ni en
 corrección, y 5 aceptados (DEF-39, DEF-41, DEF-58, DEF-68 y DEF-75). Por severidad: 1 bloqueante, 8 críticos, 16
-mayores, 43 menores y 11 cosméticos. De los cerrados, 44 se cerraron el 26/11 con la corrida sobre `c5d3fd8`
+mayores, 44 menores y 11 cosméticos. De los cerrados, 45 se cerraron el 26/11 con la corrida sobre `70242ce`
 (sección 3): DEF-14, DEF-30, DEF-32 a DEF-38, DEF-40, DEF-42 a DEF-50, DEF-52 a DEF-57, DEF-59 a DEF-67, DEF-69 a
-DEF-74 y DEF-76 a DEF-79.
+DEF-74 y DEF-76 a DEF-80.
 
 ## 3. Defectos desde DEF-30
 
-Desde DEF-30, en orden. Los corregidos entre el 20/11 y el 26/11 se cerraron el 26/11 con la corrida sobre `c5d3fd8`,
+Desde DEF-30, en orden. Los corregidos entre el 20/11 y el 26/11 se cerraron el 26/11 con la corrida sobre `70242ce`,
 el último commit de código antes del tag `v1.0-final` (plan de pruebas, sección 8): cada uno lleva su viñeta
 "Verificación (26/11)", con el run y el job o el test que pasó, y la salida está en
-`docs/testing/evidencia/final/defectos-sobre-c5d3fd8.txt`, por punto. Las comprobaciones contra el compose corrieron
-con el backend armado con el código de `c5d3fd8`. DEF-31 y DEF-51 se cerraron antes, el 20/11 y el 21/11, y los
+`docs/testing/evidencia/final/defectos-sobre-70242ce.txt`, por punto. Las comprobaciones contra el compose corrieron
+con el backend armado con el código de `70242ce`. DEF-31 y DEF-51 se cerraron antes, el 20/11 y el 21/11, y los
 cinco aceptados tienen su riesgo y su alternativa escritos (sección 6). DEF-02 y DEF-14, de antes del 20/11, están
 en la sección 5 con los demás menores.
 
@@ -188,10 +189,10 @@ en la sección 5 con los demás menores.
   `#laEntradaQueSeRevendeNoCuentaParaElDniPeroLasOtrasDeEsaVentaSi`, contra H2 con las consultas reales) y
   `ServicioDeReventaTest` (409 sin tomar la publicación ni llamar a Pagos). El escenario 23 recorre las mismas reglas
   por la compra del catálogo. La carrera entre dos compras a la vez queda aparte, en DEF-46.
-- **Verificación (26/11):** en el job "Backend (mvn verify)" del CI de `c5d3fd8` (run 45866572543), los tres casos de
+- **Verificación (26/11):** en el job "Backend (mvn verify)" del CI de `70242ce` (run 45880936756), los tres casos de
   `ReventaDeEntradasEnH2Test` y los 38 de `ServicioDeReventaTest`, entre ellos
   `#elReintentoConOtroDniSeControlaYSiVentasDiceQueNoLaTomaQuedaComoEstaba`, en PASA; el escenario 23, 17 de 17
-  comprobaciones en el job "Integración: general" (`defectos-sobre-c5d3fd8.txt`, puntos 2 y 5).
+  comprobaciones en el job "Integración: general" (`defectos-sobre-70242ce.txt`, puntos 2 y 5).
 
 ### DEF-31 · Menor · Prioridad Media · Cerrado el 20/11
 
@@ -233,10 +234,10 @@ en la sección 5 con los demás menores.
 - **Prueba que lo va a cubrir:** el escenario 16 comprueba que cada renglón del registro trae
   `escaneadoPorEmail = puerta@palco.test` y el mismo id que la respuesta del escaneo; la colección de Postman, que el
   registro trae ese email.
-- **Verificación (26/11):** el escenario 16 pasa (12 de 12) en el job "Integración: general" del CI de `c5d3fd8` (run
-  45866572543), con "cada renglón trae el email de la cuenta que escaneó, además de su id: puerta@palco.test con su
+- **Verificación (26/11):** el escenario 16 pasa (12 de 12) en el job "Integración: general" del CI de `70242ce` (run
+  45880936756), con "cada renglón trae el email de la cuenta que escaneó, además de su id: puerta@palco.test con su
   id"; en la colección de Postman (job "API"), "incluye el escaneo VALIDA con el email de quien escaneó" pasa
-  (`defectos-sobre-c5d3fd8.txt`, puntos 5 y 6).
+  (`defectos-sobre-70242ce.txt`, puntos 5 y 6).
 
 ### DEF-33 · Menor · Prioridad Baja · Cerrado el 26/11
 
@@ -278,8 +279,8 @@ en la sección 5 con los demás menores.
   local. Contra el compose, con el frontend armado sin este cambio, la del rechazo pasa y la de la demora falla en el
   aviso de demora, que es lo esperado sin `compradaISO`. Con el frontend que trae el cambio (`npm run dev` contra el
   mismo backend) pasan las dos. Falta la corrida del job E2E sobre el tag.
-- **Verificación (26/11):** las dos pruebas de `factura-rechazada.spec.ts` pasan en el job "E2E" del CI de `c5d3fd8`
-  (run 45866572543), contra el compose armado en el job con ese código: 39 de 39 (`defectos-sobre-c5d3fd8.txt`, punto
+- **Verificación (26/11):** las dos pruebas de `factura-rechazada.spec.ts` pasan en el job "E2E" del CI de `70242ce`
+  (run 45880936756), contra el compose armado en el job con ese código: 39 de 39 (`defectos-sobre-70242ce.txt`, punto
   4).
 
 ### DEF-34 · Cosmética · Prioridad Baja · Cerrado el 26/11
@@ -303,7 +304,7 @@ en la sección 5 con los demás menores.
   caracteres responde `errores.telefono` = "El teléfono tiene hasta 30 caracteres.".
 - **Verificación (26/11):** contra el compose, `POST /api/usuarios/registro` con un teléfono de 31 caracteres y sin
   `Accept-Language` responde 400 con `errores.telefono` = "El teléfono tiene hasta 30 caracteres."
-  (`defectos-sobre-c5d3fd8.txt`, punto 13).
+  (`defectos-sobre-70242ce.txt`, punto 13).
 
 ### DEF-35 · Menor · Prioridad Baja · Cerrado el 26/11
 
@@ -325,11 +326,11 @@ en la sección 5 con los demás menores.
 - **Prueba que lo va a cerrar:** "PUT /v1/validacion/puertas/{eventoId}/{email} de una cuenta que no es de puerta
   (422)", en la carpeta 5 de la colección de Postman, y la corrida de Schemathesis (workflow "Contrato"), que falla con
   un código que la operación no documenta.
-- **Verificación (26/11):** en el job "API" del CI de `c5d3fd8` (run 45866572543), "PUT
+- **Verificación (26/11):** en el job "API" del CI de `70242ce` (run 45880936756), "PUT
   /v1/validacion/puertas/{eventoId}/{email} de una cuenta que no es de puerta (422)" responde 422
-  `/problemas/no-es-de-puerta` y pasan sus tres aserciones; el Contrato de `c5d3fd8` (run 45866572396) prueba esa
-  operación con la cuenta organizadora y no encuentra ningún código sin documentar: 1162 de 1162 casos
-  (`defectos-sobre-c5d3fd8.txt`, puntos 6 y 7).
+  `/problemas/no-es-de-puerta` y pasan sus tres aserciones; el Contrato de `70242ce` (run 45880936904) prueba esa
+  operación con la cuenta organizadora y no encuentra ningún código sin documentar: 1164 de 1164 casos
+  (`defectos-sobre-70242ce.txt`, puntos 6 y 7).
 
 ### DEF-36 · Mayor · Prioridad Alta · Cerrado el 26/11
 
@@ -373,12 +374,12 @@ en la sección 5 con los demás menores.
   El control de logs del CI no busca emails ni DNI (DEF-40). Esos pasos corrieron el 24/11 contra el compose armado
   con el código corregido y el backend sin la variable (`docs/testing/evidencia/final/correo-en-el-log.txt`): 0
   emails enteros y 0 códigos en el log. Falta repetirlos sobre el tag.
-- **Verificación (26/11):** contra el compose con el código de `c5d3fd8` y el backend sin `PALCO_CORREO_LOG_COMPLETO`
+- **Verificación (26/11):** contra el compose con el código de `70242ce` y el backend sin `PALCO_CORREO_LOG_COMPLETO`
   (`printenv` da `false`), un registro nuevo, una pregunta al asistente con sesión de `titular@palco.test` y una
   compra suya dejan en el log `d***@palco.test` y `t***@palco.test`, el asistente con `usuario=user-titular` y la
   pregunta con "[email oculto]": 0 emails enteros y 0 códigos (`docs/testing/evidencia/final/correo-en-el-log.txt`,
   punto 6). En el mismo commit, el "Control de logs" de Contrato y de ZAP, que corren con el valor por defecto, da
-  "ok: sin emails @palco.test enteros" (runs 45866572396 y 45866572404).
+  "ok: sin emails @palco.test enteros" (runs 45880936904 y 45880936855).
 
 ### DEF-37 · Mayor · Prioridad Media · Cerrado el 26/11
 
@@ -424,10 +425,10 @@ en la sección 5 con los demás menores.
 - **Prueba que lo va a cerrar:** sobre el tag, pagar una compra y leer `cuerpo` de la última fila de
   `notificaciones.registro_auditoria`: no tiene `dni`; `select count(*) ... where cuerpo like '%"dni"%'` da 0, también
   para las filas anteriores al despliegue; los escenarios 7, 9, 11, 15 y 17 siguen en verde.
-- **Verificación (26/11):** contra el compose, una compra pagada de `titular@palco.test` (V-26484be4) deja en la
+- **Verificación (26/11):** contra el compose, una compra pagada de `titular@palco.test` (V-129e9099) deja en la
   última fila de `notificaciones.registro_auditoria` un `cuerpo` cuyo titular es solo `{"nombre":"Verificacion Def"}`;
-  `count(*) ... where cuerpo like '%"dni"%'` da 0 en las 110 filas, también en las del 25/11; los escenarios 7, 9, 11,
-  15 y 17 pasan en el job "Integración: general" del run 45866572543 (`defectos-sobre-c5d3fd8.txt`, puntos 5 y 13).
+  `count(*) ... where cuerpo like '%"dni"%'` da 0 en las 116 filas, también en las del 25/11; los escenarios 7, 9, 11,
+  15 y 17 pasan en el job "Integración: general" del run 45880936756 (`defectos-sobre-70242ce.txt`, puntos 5 y 13).
 
 ### DEF-38 · Mayor · Prioridad Baja · Cerrado el 26/11
 
@@ -454,9 +455,9 @@ en la sección 5 con los demás menores.
 - **Pruebas de la corrección:** Newman, «SEC-W05c Login: la sesión dura 15 minutos» (`exp - iat` = 900 s), 682
   aserciones sin fallas contra el compose (25/11); la E2E, 39 de 39 en Edge.
 - **Prueba que lo va a cerrar:** la colección de Postman en el CI del tag.
-- **Verificación (26/11):** en el job "API" del CI de `c5d3fd8` (run 45866572543), «SEC-W05c Login: la sesión dura 15
+- **Verificación (26/11):** en el job "API" del CI de `70242ce` (run 45880936756), «SEC-W05c Login: la sesión dura 15
   minutos» pasa ("exp - iat = 15 min (900 s)"), con 682 aserciones y 0 fallas en la colección
-  (`defectos-sobre-c5d3fd8.txt`, punto 6).
+  (`defectos-sobre-70242ce.txt`, punto 6).
 
 ### DEF-39 · Menor · Prioridad Baja · Aceptado (riesgo aceptado el 16/10)
 
@@ -499,10 +500,10 @@ en la sección 5 con los demás menores.
 - **Pruebas de la corrección:** contra el compose (25/11), después de los escenarios, Newman, la E2E, `seguridad.mjs`
   y el broker apagado: "Control de logs: logs/server.log está limpio (3181 renglones)". Con un log armado con un
   token, un `"dni":"31234567"` y un email de prueba, falla y nombra los tres renglones, sin mostrarlos.
-- **Verificación (26/11):** el paso "Control de logs" pasa en los cuatro workflows de `c5d3fd8` que lo corren: la
-  integración del CI (2823 renglones), Contrato (1221), Pruebas de seguridad (1392) y ZAP (1250).
+- **Verificación (26/11):** el paso "Control de logs" pasa en los cuatro workflows de `70242ce` que lo corren: la
+  integración del CI (2823 renglones), Contrato (1208), Pruebas de seguridad (1392) y ZAP (1250).
   `scripts/qa/control-de-logs.sh` sobre 200 renglones del log del compose termina con 0 y, con un renglón más con
-  `"dni":"31234567"`, termina con 1 y nombra el renglón 201 sin mostrarlo (`defectos-sobre-c5d3fd8.txt`, puntos 5, 7,
+  `"dni":"31234567"`, termina con 1 y nombra el renglón 201 sin mostrarlo (`defectos-sobre-70242ce.txt`, puntos 5, 7,
   8, 9 y 13).
 
 ### DEF-41 · Menor · Prioridad Baja · Aceptado (decisión de diseño, CA-02.3)
@@ -553,7 +554,7 @@ en la sección 5 con los demás menores.
 - **Verificación (26/11):** contra el compose, `GET https://localhost/api/eventos` con `Origin: http://localhost:5173`
   responde 200 sin ninguna cabecera `Access-Control-*`, y con `Origin: https://localhost` trae
   `Access-Control-Allow-Origin: https://localhost`; `PALCO_CORS_ORIGENES` del backend vale `https://localhost`. El
-  bloque E de `seguridad.mjs` pasa, 21 de 21, en Pruebas de seguridad (run 45866572514) (`defectos-sobre-c5d3fd8.txt`,
+  bloque E de `seguridad.mjs` pasa, 21 de 21, en Pruebas de seguridad (run 45880936865) (`defectos-sobre-70242ce.txt`,
   puntos 8 y 13).
 
 ### DEF-43 · Menor · Prioridad Alta · Cerrado el 26/11
@@ -587,7 +588,7 @@ en la sección 5 con los demás menores.
   servicios con `mvn verify` (24/11). Sin el `@RolesAllowed("organizer")` del alta de eventos y sin el `@PermitAll` del
   login, falla en los dos y nombra `EventosResource#crear` y `UsuariosResource#login`.
 - **Verificación (26/11):** `SeguridadDeclarativaTest#cadaOperacionDiceQuienLaPuedeLlamar` en PASA en los 9 servicios,
-  en el job "Backend (mvn verify)" del CI de `c5d3fd8` (run 45866572543) (`defectos-sobre-c5d3fd8.txt`, punto 2).
+  en el job "Backend (mvn verify)" del CI de `70242ce` (run 45880936756) (`defectos-sobre-70242ce.txt`, punto 2).
 
 ### DEF-44 · Menor · Prioridad Baja · Cerrado el 26/11
 
@@ -616,7 +617,7 @@ en la sección 5 con los demás menores.
   Sin la línea nueva del login, el primero falla. `mvn verify` de Usuarios (24/11): 96 tests y 9 IT, 0 fallas.
 - **Verificación (26/11):** los tres casos de `IteracionesAlIniciarSesionEnH2Test` y
   `ContrasenasTest#tieneMenosIteracionesSoloUnHashConMenosDe600Mil` en PASA en el job "Backend (mvn verify)" del CI de
-  `c5d3fd8` (run 45866572543) (`defectos-sobre-c5d3fd8.txt`, punto 2).
+  `70242ce` (run 45880936756) (`defectos-sobre-70242ce.txt`, punto 2).
 
 ### DEF-45 · Menor · Prioridad Baja · Cerrado el 26/11
 
@@ -641,8 +642,8 @@ en la sección 5 con los demás menores.
   (XXE en el canal SOAP), 6 de 6 por el puerto del backend.
 - **Verificación (26/11):** contra el compose, `GET https://localhost/legado/arca?wsdl` y un `POST` SOAP sin
   credenciales a `https://localhost/legado/arca` responden 404, y `http://localhost:8080/legado/arca?wsdl`, 200; en
-  `c5d3fd8`, el bloque D de `seguridad.mjs` (XXE en el canal SOAP, por el puerto del backend) pasa 6 de 6 en Pruebas
-  de seguridad (run 45866572514) y el escenario 15 (factura con CAE), 10 de 10 (`defectos-sobre-c5d3fd8.txt`, puntos
+  `70242ce`, el bloque D de `seguridad.mjs` (XXE en el canal SOAP, por el puerto del backend) pasa 6 de 6 en Pruebas
+  de seguridad (run 45880936865) y el escenario 15 (factura con CAE), 10 de 10 (`defectos-sobre-70242ce.txt`, puntos
   5, 8 y 13).
 
 ### DEF-46 · Mayor · Prioridad Alta · Cerrado el 26/11
@@ -722,13 +723,13 @@ de un DNI por evento**
   `mvn test` de Ventas: 393 tests, y de Reventa: 98, 0 fallas (24/11).
 - **Prueba que lo va a cerrar:** los tests de arriba en el CI del tag, y los escenarios 17 y 23 contra el compose del
   tag.
-- **Verificación (26/11):** en el job "Backend (mvn verify)" del CI de `c5d3fd8` (run 45866572543) pasan los 9 casos
+- **Verificación (26/11):** en el job "Backend (mvn verify)" del CI de `70242ce` (run 45880936756) pasan los 9 casos
   de `ReglasEntreComprasEnH2Test`, los dos de `ServicioDeVentasTest` y los dos de `ReventaDeEntradasEnH2Test` de la
   carrera, y los de Reventa (`ServicioDeReventaTest`, `ConciliacionDeReventasTest`, `ClientesTest` y
   `DevolucionDeCobrosTest`); los escenarios 17 (24 de 24) y 23 (17 de 17) pasan en el job "Integración: general",
   contra el compose del job. Contra el compose con PostgreSQL, los pasos del catálogo en cinco eventos nuevos: de las
   dos compras de 6 a la vez, una responde 201 y la otra 409 `tope-por-evento` en las cinco vueltas, y de los dos pagos
-  a la vez con el mismo DNI, uno 201 y el otro 409 `dni-con-entrada` en las cinco (`defectos-sobre-c5d3fd8.txt`,
+  a la vez con el mismo DNI, uno 201 y el otro 409 `dni-con-entrada` en las cinco (`defectos-sobre-70242ce.txt`,
   puntos 2, 5 y 13).
 
 ### DEF-47 · Mayor · Prioridad Alta · Cerrado el 26/11
@@ -746,7 +747,7 @@ de un DNI por evento**
 - **Prueba que lo va a cerrar:** `frontend/e2e/recuperar.spec.ts` (CP-03.1.1, CP-03.2.1, CP-03.3.1 y los anchos de
   360, 768 y 1280 px) en el job "E2E" del CI sobre el tag.
 - **Verificación (26/11):** las cuatro pruebas de `recuperar.spec.ts` (CP-03.1.1, CP-03.2.1, CP-03.3.1 y los tres
-  anchos) pasan en el job "E2E" del CI de `c5d3fd8` (run 45866572543), 39 de 39 (`defectos-sobre-c5d3fd8.txt`, punto
+  anchos) pasan en el job "E2E" del CI de `70242ce` (run 45880936756), 39 de 39 (`defectos-sobre-70242ce.txt`, punto
   4).
 
 ### DEF-48 · Menor · Prioridad Baja · Cerrado el 26/11
@@ -776,8 +777,8 @@ de un DNI por evento**
   pantalla con una compra real: axe WCAG A/AA sin violaciones serias ni críticas y sin desborde a 360, 768 y 1280 px.
   La suite E2E, 39 de 39 en Edge, el 24/11.
 - **Verificación (26/11):** «organizador: ve las ventas por día y la liquidación de su evento (HU-12)» y la prueba de
-  accesibilidad del panel con las ventas por día pasan en el job "E2E" del CI de `c5d3fd8` (run 45866572543)
-  (`defectos-sobre-c5d3fd8.txt`, punto 4).
+  accesibilidad del panel con las ventas por día pasan en el job "E2E" del CI de `70242ce` (run 45880936756)
+  (`defectos-sobre-70242ce.txt`, punto 4).
 
 ### DEF-49 · Menor · Prioridad Baja · Cerrado el 26/11
 
@@ -801,9 +802,9 @@ de un DNI por evento**
 - **Pruebas de la corrección:** `npm run build` sin el aviso de 500 kB, en el job "Frontend (lint y build)";
   `frontend/e2e/carga-diferida.spec.ts`: el archivo de una pantalla no llega, se ve el aviso y, al recargar, la
   pantalla abre; la suite E2E entera, contra el build, 39 de 39 el 24/11.
-- **Verificación (26/11):** en el job "Frontend (lint y build)" del CI de `c5d3fd8` (run 45866572543), el build
+- **Verificación (26/11):** en el job "Frontend (lint y build)" del CI de `70242ce` (run 45880936756), el build
   termina sin el aviso de 500 kB y el archivo más grande es `index-*.js`, de 247,10 kB; `carga-diferida.spec.ts` pasa
-  en el job "E2E" (`defectos-sobre-c5d3fd8.txt`, puntos 3 y 4).
+  en el job "E2E" (`defectos-sobre-70242ce.txt`, puntos 3 y 4).
 
 ### DEF-50 · Cosmética · Prioridad Baja · Cerrado el 26/11
 
@@ -825,8 +826,8 @@ de un DNI por evento**
   `SesionContext.tsx` y `AppContext.tsx` exportan solo el proveedor; `public/tema-inicial.js` usa `catch` sin
   parámetro. No se desactivó ninguna regla.
 - **Pruebas de la corrección:** `npm run lint` con 0 avisos y 0 errores el 24/11, en el job "Frontend (lint y build)".
-- **Verificación (26/11):** `npm run lint` en el job "Frontend (lint y build)" del CI de `c5d3fd8` (run 45866572543):
-  "Found 0 warnings and 0 errors." (`defectos-sobre-c5d3fd8.txt`, punto 3).
+- **Verificación (26/11):** `npm run lint` en el job "Frontend (lint y build)" del CI de `70242ce` (run 45880936756):
+  "Found 0 warnings and 0 errors." (`defectos-sobre-70242ce.txt`, punto 3).
 
 ### DEF-51 · Menor · Prioridad Alta · Cerrado el 21/11
 
@@ -868,10 +869,9 @@ de un DNI por evento**
   `FacturacionDeComprasMDBTest#unComprobanteRechazadoQuedaAnotadoYNoVuelveAlBroker`. Todos los tests que cita esa fila
   existen en el código.
 - **Prueba que lo va a cerrar:** la matriz regenerada sobre el tag, con CA-06.3 en verde.
-- **Verificación (26/11):** la matriz armada con `scripts/qa/matriz.mjs` y los reportes del CI de `c5d3fd8` (run
-  45866572543) da los 89 criterios en PASA, y CA-06.3 en PASA con sus 18 casos en "pasa" (16 de JUnit y 2 de
-  Playwright); `docs/testing/evidencia/matriz-de-trazabilidad.md` (26/11, 17:28 UTC) da lo mismo
-  (`defectos-sobre-c5d3fd8.txt`, punto 12).
+- **Verificación (26/11):** la matriz armada con `scripts/qa/matriz.mjs` y los reportes del CI de `70242ce` (run
+  45880936756) da los 89 criterios en PASA, y CA-06.3 en PASA con sus 18 casos en "pasa" (16 de JUnit y 2 de
+  Playwright) (`defectos-sobre-70242ce.txt`, punto 12).
 
 ### DEF-53 · Cosmética · Prioridad Media · Cerrado el 26/11
 
@@ -891,10 +891,10 @@ enmascarado**
 - **Corrección (20/11):** los cuatro esperan "No se pudo mandar el email a n***@palco.test. Motivo: …", con la
   dirección enmascarada y sin la traza.
 - **Prueba que lo va a cerrar:** la revisión de los cuatro textos contra `CorreoSmtpTest` sobre el tag.
-- **Verificación (26/11):** en `c5d3fd8`, los cuatro textos esperan "No se pudo mandar el email a n***@palco.test.
+- **Verificación (26/11):** en `70242ce`, los cuatro textos esperan "No se pudo mandar el email a n***@palco.test.
   Motivo: …", como escribe `CorreoSmtp.java:89` y exige
   `CorreoSmtpTest#elWarningDeUnEnvioQueFallaNoTraeElEmailDeNadieNiLaTraza`, que pasa en el job "Backend (mvn verify)"
-  del run 45866572543 (`defectos-sobre-c5d3fd8.txt`, puntos 2 y 12).
+  del run 45880936756 (`defectos-sobre-70242ce.txt`, puntos 2 y 12).
 
 ### DEF-54 · Cosmética · Prioridad Baja · Cerrado el 26/11
 
@@ -917,9 +917,9 @@ enmascarado**
 - **Pruebas de la corrección:** `frontend/e2e/catalogo.spec.ts`: el 502 de nginx, un 503 que no viene de la API y un
   corte de red muestran el mensaje y se recuperan con "Reintentar"; un 500 sigue con "Ocurrió un error inesperado" sin
   el detalle técnico. La suite E2E, 39 de 39 en Edge, el 24/11.
-- **Verificación (26/11):** en el job "E2E" del CI de `c5d3fd8` (run 45866572543) pasan las tres pruebas de
+- **Verificación (26/11):** en el job "E2E" del CI de `70242ce` (run 45880936756) pasan las tres pruebas de
   `catalogo.spec.ts` de la caída (502 de nginx, 503 sin cuerpo y corte de red) y la del 500, que sigue con "Ocurrió un
-  error inesperado" (`defectos-sobre-c5d3fd8.txt`, punto 4).
+  error inesperado" (`defectos-sobre-70242ce.txt`, punto 4).
 
 ### DEF-55 · Cosmética · Prioridad Baja · Cerrado el 26/11
 
@@ -931,8 +931,8 @@ enmascarado**
 - **Obtenido:** `example: user-puerta` en `master`.
 - **Corrección (20/11):** `example: user-staff`.
 - **Prueba que lo va a cerrar:** la revisión del contrato del tag.
-- **Verificación (26/11):** en el `docs/api/openapi.yaml` de `c5d3fd8`, `ResultadoDeEscaneo.escaneadoPor` tiene
-  `example: user-staff` y `user-puerta` no aparece (`defectos-sobre-c5d3fd8.txt`, punto 12).
+- **Verificación (26/11):** en el `docs/api/openapi.yaml` de `70242ce`, `ResultadoDeEscaneo.escaneadoPor` tiene
+  `example: user-staff` y `user-puerta` no aparece (`defectos-sobre-70242ce.txt`, punto 12).
 
 ### DEF-56 · Cosmética · Prioridad Baja · Cerrado el 26/11
 
@@ -963,7 +963,7 @@ enmascarado**
   (`GET /api/notificaciones/auditoria`, 200) y el guion sale con 0. Su compra de `ev-1` responde 409
   `dni-con-entrada`, porque el guion usa siempre los mismos dos DNI y ya tienen entrada de ese evento; sus pasos de
   jboss-cli y del log de `backend/dev.sh` no tienen contra qué correr en el compose, que no publica la consola de
-  administración (`defectos-sobre-c5d3fd8.txt`, punto 13).
+  administración (`defectos-sobre-70242ce.txt`, punto 13).
 
 ### DEF-57 · Menor · Prioridad Media · Cerrado el 26/11
 
@@ -982,9 +982,9 @@ solo con Supabase**
   cuenta cómo elige `FabricaDeAlmacen` dónde guardar (`PALCO_IMAGENES`).
 - **Prueba que lo va a cerrar:** la corrida de Schemathesis del tag (workflow "Contrato"): la de servicio llama a
   `GET /usuarios/cuentas` y la de comprador, a `GET /eventos/imagenes/{id}`.
-- **Verificación (26/11):** el Contrato de `c5d3fd8` (run 45866572396) pasa: la corrida de comprador prueba las 52
-  operaciones, entre ellas `GET /eventos/imagenes/{id}` (3004 de 3004 casos), y la de servicio incluye
-  `/usuarios/cuentas` (15 operaciones, 1036 de 1036) (`defectos-sobre-c5d3fd8.txt`, punto 7).
+- **Verificación (26/11):** el Contrato de `70242ce` (run 45880936904) pasa: la corrida de comprador prueba las 52
+  operaciones, entre ellas `GET /eventos/imagenes/{id}` (3007 de 3007 casos), y la de servicio incluye
+  `/usuarios/cuentas` (15 operaciones, 1043 de 1043) (`defectos-sobre-70242ce.txt`, punto 7).
 
 ### DEF-58 · Menor · Prioridad Baja · Aceptado (decisión de diseño)
 
@@ -1030,8 +1030,8 @@ carácter nulo U+0000**
 - **Prueba que lo cubre:** `ReinicioDePasswordTest` y `RegistroYVerificacionTest` (casos con el carácter nulo en el
   email, el teléfono y el id), y la corrida de Schemathesis del tag.
 - **Verificación (26/11):** los casos del carácter nulo de `RegistroYVerificacionTest` y `ReinicioDePasswordTest` en
-  PASA en el job "Backend (mvn verify)" del CI de `c5d3fd8` (run 45866572543), y el Contrato de `c5d3fd8` (run
-  45866572396) sin fallas: 5575 casos en las cuatro corridas, con `not_a_server_error` (`defectos-sobre-c5d3fd8.txt`,
+  PASA en el job "Backend (mvn verify)" del CI de `70242ce` (run 45880936756), y el Contrato de `70242ce` (run
+  45880936904) sin fallas: 5642 casos en las cuatro corridas, con `not_a_server_error` (`defectos-sobre-70242ce.txt`,
   puntos 2 y 7).
 
 ### DEF-60 · Menor · Prioridad Alta · Cerrado el 26/11
@@ -1053,8 +1053,8 @@ carácter nulo U+0000**
   `UsoDeEntradasTest`, y la corrida de Schemathesis del tag.
 - **Verificación (26/11):** los casos con caracteres de control de `ReventaDeEntradasEnH2Test` y
   `UsoDeEntradasTest#unCodigoConElCaracterNuloEsUn404SinBuscarlo` en PASA en el job "Backend (mvn verify)" del CI de
-  `c5d3fd8` (run 45866572543), y la corrida de servicio del Contrato de `c5d3fd8` (etiqueta `interno`, run
-  45866572396), 1036 de 1036 casos (`defectos-sobre-c5d3fd8.txt`, puntos 2 y 7).
+  `70242ce` (run 45880936756), y la corrida de servicio del Contrato de `70242ce` (etiqueta `interno`, run
+  45880936904), 1043 de 1043 casos (`defectos-sobre-70242ce.txt`, puntos 2 y 7).
 
 ### DEF-61 · Menor · Prioridad Alta · Cerrado el 26/11
 
@@ -1075,9 +1075,9 @@ carácter nulo U+0000**
 - **Prueba que lo cubre:** `ServicioDeValidacionTest` (código, evento, id y email con el carácter nulo) y la corrida
   de Schemathesis del tag.
 - **Verificación (26/11):** los cuatro casos del carácter nulo de `ServicioDeValidacionTest` en PASA en el job
-  "Backend (mvn verify)" del CI de `c5d3fd8` (run 45866572543), y las corridas del Contrato de `c5d3fd8` (run
-  45866572396) con la cuenta de puerta (373 de 373) y la organizadora (1162 de 1162) sin fallas
-  (`defectos-sobre-c5d3fd8.txt`, puntos 2 y 7).
+  "Backend (mvn verify)" del CI de `70242ce` (run 45880936756), y las corridas del Contrato de `70242ce` (run
+  45880936904) con la cuenta de puerta (428 de 428) y la organizadora (1164 de 1164) sin fallas
+  (`defectos-sobre-70242ce.txt`, puntos 2 y 7).
 
 ### DEF-62 · Menor · Prioridad Baja · Cerrado el 26/11
 
@@ -1104,8 +1104,8 @@ carácter nulo U+0000**
   `#sinCuerpoElMensajeVaEnElDetalleYNoHayErroresPorCampo`; con el recorrido anterior fallan los dos primeros. Se
   cierra también con el ZAP del tag: los tres falsos positivos 40018 de `.zap/reglas.tsv` no tendrían que volver a salir.
 - **Verificación (26/11):** los tres casos de `ErroresDeValidacionTest` en PASA en el job "Backend (mvn verify)" del
-  CI de `c5d3fd8` (run 45866572543); en el ZAP de `c5d3fd8` (run 45866572404) no aparece ninguno de los falsos
-  positivos 40018 de `.zap/reglas.tsv` y no hay alertas High (`defectos-sobre-c5d3fd8.txt`, puntos 2 y 9).
+  CI de `70242ce` (run 45880936756); en el ZAP de `70242ce` (run 45880936855) no aparece ninguno de los falsos
+  positivos 40018 de `.zap/reglas.tsv` y no hay alertas High (`defectos-sobre-70242ce.txt`, puntos 2 y 9).
 
 ### DEF-63 · Crítica · Prioridad Alta · Cerrado el 26/11
 
@@ -1130,10 +1130,10 @@ largo**
   menos de un segundo; con la expresión anterior tardaba más de 40) y
   `elEmailSeOcultaTambienEnMedioDeUnTexto`, y la corrida de Schemathesis del tag.
 - **Verificación (26/11):** `GuardrailsTest#unTextoEnormeSinArrobaSeEnmascaraEnMenosDeUnSegundo` y
-  `#elEmailSeOcultaTambienEnMedioDeUnTexto` en PASA en el job "Backend (mvn verify)" del CI de `c5d3fd8` (run
-  45866572543); el Contrato de `c5d3fd8` (run 45866572396), con `--request-timeout 15`, prueba `POST
-  /v1/asistente/preguntas` en la corrida de comprador: 3004 de 3004 casos, sin cortes por tiempo
-  (`defectos-sobre-c5d3fd8.txt`, puntos 2 y 7).
+  `#elEmailSeOcultaTambienEnMedioDeUnTexto` en PASA en el job "Backend (mvn verify)" del CI de `70242ce` (run
+  45880936756); el Contrato de `70242ce` (run 45880936904), con `--request-timeout 15`, prueba `POST
+  /v1/asistente/preguntas` en la corrida de comprador: 3007 de 3007 casos, sin cortes por tiempo
+  (`defectos-sobre-70242ce.txt`, puntos 2 y 7).
 
 ### DEF-64 · Crítica · Prioridad Alta · Cerrado el 26/11
 
@@ -1172,8 +1172,8 @@ largo**
 - **Prueba que lo va a cerrar:** `NombreYApellidoTest` en el CI del tag, y los `curl` de la evidencia contra el compose
   del tag: el de 1500 espacios responde el 400 en menos de un segundo.
 - **Verificación (26/11):** los 4 tests de `NombreYApellidoTest` en PASA en el job "Backend (mvn verify)" del CI de
-  `c5d3fd8` (run 45866572543); contra el compose, el registro con un nombre de 1500 espacios y un 1 responde el 400 en
-  0,209 s, y con 100.000 espacios, en 0,221 s, lo mismo que un nombre corto (0,213 s)
+  `70242ce` (run 45880936756); contra el compose, el registro con un nombre de 1500 espacios y un 1 responde el 400 en
+  0,209 s, y con 100.000 espacios, en 0,227 s, lo mismo que un nombre corto (0,222 s)
   (`docs/testing/evidencia/final/registro-nombre-largo.txt`, punto 7).
 
 ### DEF-65 · Menor · Prioridad Alta · Cerrado el 26/11
@@ -1195,9 +1195,9 @@ largo**
   (`common`), 5 de 5.
 - **Prueba que lo va a cerrar:** el análisis de SonarCloud del commit del tag, con `bugs` 0 y `reliability_rating` 1.0
   (A).
-- **Verificación (26/11):** el análisis de SonarCloud de `c5d3fd8` (17:21:42 UTC, publicado por el job SonarCloud del
-  run 45866572543) da `bugs` 0 y `reliability_rating` 1.0 (A); el `java:S5850` de `Textos.java` está cerrado como
-  FIXED (`defectos-sobre-c5d3fd8.txt`, punto 11).
+- **Verificación (26/11):** el análisis de SonarCloud de `70242ce` (19:09:16 UTC, publicado por el job SonarCloud del
+  run 45880936756) da `bugs` 0 y `reliability_rating` 1.0 (A); el `java:S5850` de `Textos.java` está cerrado como
+  FIXED (`defectos-sobre-70242ce.txt`, punto 11).
 
 ### DEF-66 · Menor · Prioridad Alta · Cerrado el 26/11
 
@@ -1219,10 +1219,10 @@ largo**
   de esa operación: con rol `servicio`, 204 sin cuerpo; a nombre de un DNI que ya tiene entrada del evento, 409
   `dni-con-entrada`; y con el token de un comprador, 403 `sin-permiso`.
 - **Prueba que lo va a cerrar:** la corrida de Newman del tag (job "API"), con las 52 operaciones cubiertas.
-- **Verificación (26/11):** en el Newman del job "API" del CI de `c5d3fd8` (run 45866572543), `POST
+- **Verificación (26/11):** en el Newman del job "API" del CI de `70242ce` (run 45880936756), `POST
   /v1/operaciones-de-reventa/controles-de-compra` responde 204, 409 `dni-con-entrada` y 403 `sin-permiso`, con sus
   aserciones en verde; las 52 operaciones del contrato tienen algún pedido, y todas tienen éxito y error salvo las dos
-  que explica `docs/api/GUIA_POSTMAN.md`, sección 9 (`defectos-sobre-c5d3fd8.txt`, punto 6).
+  que explica `docs/api/GUIA_POSTMAN.md`, sección 9 (`defectos-sobre-70242ce.txt`, punto 6).
 
 ### DEF-67 · Cosmética · Prioridad Baja · Cerrado el 26/11
 
@@ -1245,10 +1245,10 @@ largo**
   nombre (`puerto()`, `nombre()` de `PasarelaDePagos`, `aprobado()`).
 - **Pruebas de la corrección:** `mvn verify` (24/11), 0 fallas: Facturación 52 tests y 9 IT, Pagos 41, Ventas 396 y
   28 IT. Se cierra con el análisis de SonarCloud del tag, sin hallazgos Blocker.
-- **Verificación (26/11):** el análisis de SonarCloud de `c5d3fd8` (17:21:42 UTC, publicado por el job SonarCloud del
-  run 45866572543, con el Quality Gate en OK) no tiene ningún hallazgo Blocker sin resolver, y las siete `java:S1845`
+- **Verificación (26/11):** el análisis de SonarCloud de `70242ce` (19:09:16 UTC, publicado por el job SonarCloud del
+  run 45880936756, con el Quality Gate en OK) no tiene ningún hallazgo Blocker sin resolver, y las siete `java:S1845`
   del proyecto están cerradas como FIXED, entre ellas las de `ArcaSoap.java`, `PagosFake.java` y
-  `ResultadoDeCobro.java` (25/11) (`defectos-sobre-c5d3fd8.txt`, punto 11).
+  `ResultadoDeCobro.java` (25/11) (`defectos-sobre-70242ce.txt`, punto 11).
 
 ### DEF-68 · Menor · Prioridad Baja · Aceptado (vence el 31/12/2026)
 
@@ -1302,8 +1302,8 @@ SEC-E01)**
   catálogo, un evento, recuperar la contraseña, el panel del organizador, Mis entradas, la reventa y el asistente:
   ningún aviso de CSP en la consola. La E2E, 39 de 39 en Edge; `seguridad.mjs`, bloque E, 21 de 21.
 - **Prueba que lo va a cerrar:** el ZAP del tag, sin las dos alertas Medium de la CSP.
-- **Verificación (26/11):** el ZAP de `c5d3fd8` (run 45866572404) da "High: 0. Medium: 0 (0 justificadas)", sin
-  ninguna alerta 10055 de la CSP (`defectos-sobre-c5d3fd8.txt`, punto 9).
+- **Verificación (26/11):** el ZAP de `70242ce` (run 45880936855) da "High: 0. Medium: 0 (0 justificadas)", sin
+  ninguna alerta 10055 de la CSP (`defectos-sobre-70242ce.txt`, punto 9).
 
 ### DEF-70 · Menor · Prioridad Baja · Cerrado el 26/11
 
@@ -1325,10 +1325,10 @@ SEC-E01)**
 - **Prueba que lo va a cerrar:** sobre el tag, el bloque E de `seguridad.mjs` (workflow "Pruebas de seguridad"),
   `cabeceras.txt` y el baseline de ZAP con la CSP sin esos orígenes, y la suite E2E en verde con las fuentes del propio
   sitio.
-- **Verificación (26/11):** sobre `c5d3fd8`, el bloque E de `seguridad.mjs` (run 45866572514, 21 de 21) y
-  `cabeceras.txt` del job "Integración: general" (run 45866572543) muestran `style-src 'self'; font-src 'self'`, sin
-  `fonts.googleapis.com` ni `fonts.gstatic.com`; el ZAP (run 45866572404) no da ninguna alerta de la CSP y la suite
-  E2E pasa, 39 de 39 (`defectos-sobre-c5d3fd8.txt`, puntos 4, 5, 8 y 9).
+- **Verificación (26/11):** sobre `70242ce`, el bloque E de `seguridad.mjs` (run 45880936865, 21 de 21) y
+  `cabeceras.txt` del job "Integración: general" (run 45880936756) muestran `style-src 'self'; font-src 'self'`, sin
+  `fonts.googleapis.com` ni `fonts.gstatic.com`; el ZAP (run 45880936855) no da ninguna alerta de la CSP y la suite
+  E2E pasa, 39 de 39 (`defectos-sobre-70242ce.txt`, puntos 4, 5, 8 y 9).
 
 ### DEF-71 · Menor · Prioridad Baja · Cerrado el 26/11
 
@@ -1359,9 +1359,9 @@ SEC-E01)**
   procesos de nginx con el usuario nginx; la web por HTTPS, con su certificado, y la E2E, 39 de 39.
 - **Prueba que lo va a cerrar:** el análisis de SonarCloud y el Trivy de la imagen web sobre el tag.
 - **Verificación (26/11):** en SonarCloud, las dos `docker:S6471` de `frontend/Dockerfile` están cerradas como FIXED y
-  no queda ninguna issue aceptada; el job "Imagen: web (trivy image)" de `c5d3fd8` (run 45866572371) da 0
+  no queda ninguna issue aceptada; el job "Imagen: web (trivy image)" de `70242ce` (run 45880936851) da 0
   vulnerabilidades; en el compose, `id` en el contenedor web da `uid=101(nginx)` y `ps` muestra el proceso principal y
-  los workers con el usuario nginx (`defectos-sobre-c5d3fd8.txt`, puntos 10, 11 y 13).
+  los workers con el usuario nginx (`defectos-sobre-70242ce.txt`, puntos 10, 11 y 13).
 
 ### DEF-72 · Menor · Prioridad Baja · Cerrado el 26/11
 
@@ -1389,9 +1389,9 @@ SEC-E01)**
 - **Pruebas de la corrección:** después de las suites contra el compose (25/11), en el log de accesos de nginx ningún
   renglón tiene un `@` o un `%40` en la ruta, y 131 tienen `<email>`.
 - **Verificación (26/11):** contra el compose, asignar, quitar y volver a asignar `puerta@palco.test` por nginx (200,
-  204 y 200, la última con `%40`) deja en el log de accesos `/puertas/ev-26b2e8d4/<email>`; `grep -cE '/puertas/[^
+  204 y 200, la última con `%40`) deja en el log de accesos `/puertas/ev-c0a8166c/<email>`; `grep -cE '/puertas/[^
   ]+(@|%40)'` da 0, y en el log entero del contenedor web ningún pedido tiene un `@` o un `%40` en la ruta
-  (`defectos-sobre-c5d3fd8.txt`, punto 13).
+  (`defectos-sobre-70242ce.txt`, punto 13).
 
 ### DEF-73 · Menor · Prioridad Baja · Cerrado el 26/11
 
@@ -1411,9 +1411,9 @@ SEC-E01)**
   compose usa tal como se publica: se baja en lugar de armarse). Las CVE de esa imagen que no se alcanzan en Palco
   (libxml2 y la biblioteca estándar de Go de `gosu`) quedan en `.trivyignore` con su motivo y vencen el 31/12/2026.
 - **Prueba que lo va a cerrar:** el job "Imagen: db (trivy image)" del workflow Seguridad sobre el tag.
-- **Verificación (26/11):** el job "Imagen: db (trivy image)" de `c5d3fd8` (run 45866572371) termina en verde:
+- **Verificación (26/11):** el job "Imagen: db (trivy image)" de `70242ce` (run 45880936851) termina en verde:
   `postgres:17-alpine` y `gosu`, "Total: 0 (HIGH: 0, CRITICAL: 0)", con las suprimidas justificadas en `.trivyignore`
-  (`defectos-sobre-c5d3fd8.txt`, punto 10).
+  (`defectos-sobre-70242ce.txt`, punto 10).
 
 ### DEF-74 · Cosmética · Prioridad Baja · Cerrado el 26/11
 
@@ -1441,9 +1441,9 @@ SEC-E01)**
   que el Content-Type de las rutas de la app (regla 100001).
 - **Pruebas de la corrección:** contra el compose (25/11), `curl -I https://localhost/` trae las dos cabeceras.
 - **Prueba que lo va a cerrar:** el ZAP del tag, sin alertas Low sin justificar.
-- **Verificación (26/11):** el ZAP de `c5d3fd8` (run 45866572404) da "Low: 2 (0 sin justificar)":
+- **Verificación (26/11):** el ZAP de `70242ce` (run 45880936855) da "Low: 2 (0 sin justificar)":
   Cross-Origin-Embedder-Policy y Unexpected Content-Type, las dos justificadas en `.zap/reglas.tsv`; no aparecen
-  Cross-Origin-Resource-Policy ni Cross-Origin-Opener-Policy (`defectos-sobre-c5d3fd8.txt`, punto 9).
+  Cross-Origin-Resource-Policy ni Cross-Origin-Opener-Policy (`defectos-sobre-70242ce.txt`, punto 9).
 
 ### DEF-75 · Menor · Prioridad Baja · Aceptado (decisión de diseño, CA-01.2)
 
@@ -1486,9 +1486,9 @@ SEC-E01)**
   sábado, domingo y el lunes siguiente; pasa con el código anterior y con el nuevo (`ff12b59`). El Quality Gate de
   `ff12b59` y de `12a08f2` dio "passed", sin ningún bug abierto.
 - **Prueba que lo va a cerrar:** el Quality Gate del tag.
-- **Verificación (26/11):** el job SonarCloud del CI de `c5d3fd8` (run 45866572543) espera el Quality Gate: "QUALITY
+- **Verificación (26/11):** el job SonarCloud del CI de `70242ce` (run 45880936756) espera el Quality Gate: "QUALITY
   GATE STATUS: PASSED"; la API da `OK`, con `new_reliability_rating` 1 y el `java:S8696` de `AsistenteIA.java` cerrado
-  como FIXED (`defectos-sobre-c5d3fd8.txt`, punto 11).
+  como FIXED (`defectos-sobre-70242ce.txt`, punto 11).
 
 ### DEF-77 · Menor · Prioridad Alta · Cerrado el 26/11
 
@@ -1516,8 +1516,8 @@ SEC-E01)**
   cuatro (`12a08f2`). El Contrato de `12a08f2` pasó.
 - **Prueba que lo va a cerrar:** la corrida de Schemathesis del tag.
 - **Verificación (26/11):** los cuatro casos de `ServicioDePagosTest` en PASA en el job "Backend (mvn verify)" del CI
-  de `c5d3fd8` (run 45866572543), y la corrida de servicio del Contrato de `c5d3fd8` (etiqueta `pagos`, run
-  45866572396), 1036 de 1036 casos (`defectos-sobre-c5d3fd8.txt`, puntos 2 y 7).
+  de `70242ce` (run 45880936756), y la corrida de servicio del Contrato de `70242ce` (etiqueta `pagos`, run
+  45880936904), 1043 de 1043 casos (`defectos-sobre-70242ce.txt`, puntos 2 y 7).
 
 ### DEF-78 · Menor · Prioridad Alta · Cerrado el 26/11
 
@@ -1545,9 +1545,9 @@ SEC-E01)**
   (`--severity CRITICAL,HIGH`) y con el `.trivyignore` sin las seis: 0 vulnerabilidades (Alpine 3.24.4). En el
   contenedor, `id` da `uid=101(nginx)`.
 - **Prueba que lo va a cerrar:** el job "Imagen: web" del workflow Seguridad sobre el tag.
-- **Verificación (26/11):** el job "Imagen: web (trivy image)" de `c5d3fd8` (run 45866572371) termina en verde: la
+- **Verificación (26/11):** el job "Imagen: web (trivy image)" de `70242ce` (run 45880936851) termina en verde: la
   imagen parte de `nginx:1.30-alpine` y Trivy da `palco-web (alpine 3.24.4)`, 0 vulnerabilidades, sin suprimidas; el
-  contenedor web del compose arranca con nginx 1.30.8 (`defectos-sobre-c5d3fd8.txt`, puntos 10 y 13).
+  contenedor web del compose arranca con nginx 1.30.8 (`defectos-sobre-70242ce.txt`, puntos 10 y 13).
 
 ### DEF-79 · Cosmética · Prioridad Baja · Cerrado el 26/11
 
@@ -1568,11 +1568,39 @@ SEC-E01)**
   sin fallas.
 - **Prueba que lo va a cerrar:** el análisis de SonarCloud del último commit de código, sin hallazgos Blocker (cierra
   también DEF-67).
-- **Verificación (26/11):** en el análisis de SonarCloud de `c5d3fd8` (17:21:42 UTC, run 45866572543), las
-  `java:S1845` de `AsistenteIA.java` y `CatalogoDeEventos.java` quedaron cerradas como FIXED y no queda ningún
-  hallazgo Blocker sin resolver; `AsistenteIATest`, `RiesgosDelAsistenteTest` y `CatalogoDeEventosTest` pasan en el
-  job "Backend (mvn verify)" del mismo run, con los 207 tests del asistente sin fallas (`defectos-sobre-c5d3fd8.txt`,
-  puntos 2 y 11).
+- **Verificación (26/11):** en el análisis de SonarCloud de `70242ce` (19:09:16 UTC, run 45880936756), las
+  `java:S1845` de `AsistenteIA.java` y `CatalogoDeEventos.java` siguen cerradas como FIXED, como desde el análisis de
+  `c5d3fd8`, y no queda ningún hallazgo Blocker sin resolver; `AsistenteIATest`, `RiesgosDelAsistenteTest` y
+  `CatalogoDeEventosTest` pasan en el job "Backend (mvn verify)" del mismo run, con los 207 tests del asistente sin
+  fallas (`defectos-sobre-70242ce.txt`, puntos 2 y 11).
+
+### DEF-80 · Menor · Prioridad Alta · Cerrado el 26/11
+
+**`GET /v1/resumenes?eventoId=` responde 504 si el id trae el carácter nulo U+0000**
+
+- **Pasos:** el pedido de Schemathesis del workflow "Contrato" sobre `df7539b` (run 45877141563, caso OJTrt4, la
+  corrida con el rol organizador): `GET /api/v1/resumenes?eventoId=d%00G%C3%95+%C2%B4F%C3%B8...`.
+- **Esperado:** 400 en Problem Details (el contrato documenta 200, 400, 401, 403, 404 y 504).
+- **Obtenido:** 504 `/problemas/sin-respuesta`, "El servicio de eventos no responde", aunque Eventos estaba arriba.
+- **Causa raíz:** `ResumenDeVentas.delEvento` le pasaba el id del pedido a Eventos sin controlar los caracteres de
+  control; con el carácter nulo, la llamada a Eventos fallaba y el cliente lo contaba como falta de respuesta. Es el
+  caso de DEF-59 a DEF-61 y DEF-77 en otro punto de entrada: el resumen había quedado sin el control que ya tenían la
+  compra y la reventa.
+- **Por qué es Menor:** el pedido no cambia nada y solo lo puede hacer un organizador con su sesión; lo que está mal
+  es el código de respuesta. La prioridad es Alta porque hace fallar la prueba de contrato.
+- **Corrección (26/11):** `ResumenDeVentas.delEvento` rechaza con 400 `datos-invalidos` del campo `eventoId` un id
+  con un carácter de control (`Textos.esDeControl`, la regla de Ventas), antes de preguntarle a Eventos (`70242ce`).
+- **Pruebas de la corrección:** `ResumenDeVentasTest#unEventoIdConUnCaracterDeControlEsUn400SinConsultarAEventos`,
+  con el id del caso; Ventas, 397 tests sin fallas.
+- **Prueba que lo va a cerrar:** la corrida de Schemathesis de `70242ce`.
+- **Verificación (26/11):** el Contrato de `70242ce` (run 45880936904) pasa sin fallas: la corrida con la cuenta
+  organizadora, que incluye `/v1/resumenes`, 1164 de 1164 casos, y las cuatro corridas, 5642 de 5642, sin ningún
+  código que el contrato no documente;
+  `ResumenDeVentasTest#unEventoIdConUnCaracterDeControlEsUn400SinConsultarAEventos` pasa en el job "Backend (mvn
+  verify)" del run 45880936756. Contra el compose con el código de `70242ce`, con el token de
+  `organizador@palco.test`, `GET /api/v1/resumenes?eventoId=d%00G%C3%95` responde 400 `datos-invalidos` con
+  `errores.eventoId`, directo al backend y por nginx, y `?eventoId=ev-1`, 200 (`defectos-sobre-70242ce.txt`, puntos 2,
+  7 y 13).
 
 ## 4. Defectos hasta DEF-29: bloqueantes, críticos y mayores
 
@@ -1942,8 +1970,8 @@ chocaban en Pagos**
   falta en el backend porque las pruebas E2E corren por nginx, en el mismo origen que la API, y no pasan por CORS.
 - **Prueba que lo va a cerrar:** `CorsFilterTest` en el CI del tag.
 - **Verificación (26/11):** `CorsFilterTest#elFrontendPuedeLeerRetryAfterYLocation` en PASA en el job "Backend (mvn
-  verify)" del CI de `c5d3fd8` (run 45866572543); contra el compose, `GET https://localhost/api/eventos` con `Origin:
-  https://localhost` trae `Access-Control-Expose-Headers: Location, ETag, Retry-After` (`defectos-sobre-c5d3fd8.txt`,
+  verify)" del CI de `70242ce` (run 45880936756); contra el compose, `GET https://localhost/api/eventos` con `Origin:
+  https://localhost` trae `Access-Control-Expose-Headers: Location, ETag, Retry-After` (`defectos-sobre-70242ce.txt`,
   puntos 2 y 13).
 
 ### DEF-15 · Menor · Prioridad Media · Cerrado el 18/11
@@ -2003,7 +2031,7 @@ Mientras la cátedra no diga otra cosa, un riesgo aceptado cuenta como defecto a
 
 ## 7. Abiertos contra el máximo admitido
 
-Al 26/11/2026, después de la corrida sobre `c5d3fd8`, contra el máximo de la sección 9 de los Criterios de Testing de
+Al 26/11/2026, después de la corrida sobre `70242ce`, contra el máximo de la sección 9 de los Criterios de Testing de
 la cátedra, que se admite al cierre (27/11): 0 bloqueantes, 0 críticos y hasta 3 mayores con su alternativa escrita;
 menores y cosméticos sin límite. "Abiertos" son los nuevos, los que están en corrección y los aceptados. Los
 corregidos que falta verificar van aparte: se cierran si su prueba pasa y, si no, vuelven a contar como abiertos.
@@ -2013,20 +2041,21 @@ corregidos que falta verificar van aparte: se cierran si su prueba pasa y, si no
 | Bloqueante | 1 | 0 | 0 | 0 | Dentro del máximo |
 | Crítica | 8 | 0 | 0 | 0 | Dentro del máximo |
 | Mayor | 16 | 0 | 0 | 3, cada uno con su alternativa | Dentro del máximo |
-| Menor | 37 | 5, todos aceptados: DEF-39, DEF-41, DEF-58, DEF-68 y DEF-75 | 1: DEF-02, en una máquina lenta | Sin máximo | Dentro del máximo |
+| Menor | 38 | 5, todos aceptados: DEF-39, DEF-41, DEF-58, DEF-68 y DEF-75 | 1: DEF-02, en una máquina lenta | Sin máximo | Dentro del máximo |
 | Cosmética | 11 | 0 | 0 | Sin máximo | Dentro del máximo |
 
 No queda ningún bloqueante, crítico ni mayor abierto ni a verificar. Los dos críticos que faltaba verificar se
-cerraron el 26/11: DEF-63, con `GuardrailsTest` en el CI de `c5d3fd8` y la corrida de Schemathesis del mismo commit
-(run 45866572396), sin cortes por tiempo; y DEF-64, con `NombreYApellidoTest` en el CI y los `curl` de
+cerraron el 26/11: DEF-63, con `GuardrailsTest` en el CI de `70242ce` y la corrida de Schemathesis del mismo commit
+(run 45880936904), sin cortes por tiempo; y DEF-64, con `NombreYApellidoTest` en el CI y los `curl` de
 `docs/testing/evidencia/final/registro-nombre-largo.txt` contra el compose, donde el nombre de 1500 espacios
 responde el 400 en 0,209 s. Los seis mayores que faltaba verificar (DEF-30, DEF-36, DEF-37, DEF-38, DEF-46 y DEF-47)
 también se cerraron el 26/11, cada uno con su verificación en la sección 3.
 
 Queda un corregido sin cerrar, que no cuenta contra ningún máximo: DEF-02, menor, que se cierra con `./dev.sh` sobre
 H2 en una máquina lenta como la del 30/10; esa prueba no es parte de la corrida sobre el tag. DEF-67 y DEF-79,
-cosméticos, se cerraron con el análisis de SonarCloud de `c5d3fd8`, sin ningún hallazgo Blocker sin resolver
-(`defectos-sobre-c5d3fd8.txt`, punto 11).
+cosméticos, se cerraron con el análisis de SonarCloud de `70242ce`, sin ningún hallazgo Blocker sin resolver
+(`defectos-sobre-70242ce.txt`, punto 11), y DEF-80, menor, con la corrida de Schemathesis de `70242ce` (run
+45880936904), sin fallas.
 
 Los workflows del tag `v1.0-final` repiten esta corrida (plan de pruebas, sección 8): si alguna de esas pruebas falla,
 su defecto vuelve a abrirse.
