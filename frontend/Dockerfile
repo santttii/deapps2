@@ -17,15 +17,19 @@ RUN VITE_API_URL="$PALCO_URL_PUBLICA" npm run build
 # ni en la imagen); openssl se instala para eso. Antes se actualizan los paquetes de Alpine: la imagen
 # base puede salir con alguno que ya tiene un arreglo publicado, y el escaneo de Trivy lo marcaría.
 #
-# El proceso principal de nginx arranca como root, como en la imagen oficial, por dos motivos: escucha en los
-# puertos 80 y 443 (menores que 1024, que solo root puede abrir) y, al arrancar, certificado.sh escribe la clave
-# y el certificado en /etc/nginx/tls. Los pedidos no los atiende root sino los procesos worker, que nginx corre
-# con el usuario sin privilegios nginx (la directiva "user nginx" del nginx.conf de la imagen). Pasar todo a un
-# usuario sin privilegios pide cambiar los puertos que escucha nginx.conf y los que publica docker-compose.yml.
-FROM nginx:1.30-alpine
-RUN apk upgrade --no-cache && apk add --no-cache openssl
+# nginx corre entero sin root (DEF-71): la imagen nginx-unprivileged es la oficial de nginx con el proceso principal
+# como el usuario nginx (uid 101) y su pid y sus temporales en /tmp. Root se usa solo para armar la imagen: actualizar
+# los paquetes, instalar openssl y dejar /etc/nginx/tls con dueño nginx, donde certificado.sh escribe la clave y el
+# certificado al arrancar. Escucha en 80 y 443 igual que antes: Docker, desde la versión 20.10, deja abrir esos
+# puertos dentro del contenedor sin root (net.ipv4.ip_unprivileged_port_start=0), así que ni nginx.conf ni
+# docker-compose.yml cambian.
+FROM nginxinc/nginx-unprivileged:1.30-alpine
+USER root
+RUN apk upgrade --no-cache && apk add --no-cache openssl \
+ && mkdir -p /etc/nginx/tls && chown 101:101 /etc/nginx/tls
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/certificado.sh /docker-entrypoint.d/05-certificado.sh
 RUN chmod +x /docker-entrypoint.d/05-certificado.sh
 COPY --from=build /app/dist /usr/share/nginx/html
+USER 101
 EXPOSE 80 443
