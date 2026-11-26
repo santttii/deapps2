@@ -348,9 +348,9 @@ artefacto y `node scripts/qa/cobertura.mjs` arma el resumen, que el CI muestra e
 Primera medición (18/11/2026): 77,8 % de las líneas (3520 de 4522) y 73,6 % de las ramas. Medición del 3.er
 checkpoint (19/11/2026): 78,4 % de las líneas (3671 de 4683) y 74,1 % de las ramas
 (`docs/testing/evidencia/checkpoint-3/cobertura.md`). Sobre `fbd31dc` (CI del 21/11/2026): 81,5 % de las líneas
-(4008 de 4920) y 77,4 % de las ramas. Medición de la Entrega Final, sobre `c5d3fd8`, el código del tag (CI del
-26/11/2026, run 45866572543): **82,1 % de las líneas (4208 de 5123) y 78,7 % de las ramas** del backend, y 96,4 % y
-92,5 % en negocio y dominio (`docs/testing/evidencia/final/cobertura.txt`). Los módulos con menos cobertura son
+(4008 de 4920) y 77,4 % de las ramas. Medición de la Entrega Final, sobre `70242ce`, el código del tag (CI del
+26/11/2026, run 45880936756): **82,1 % de las líneas (4210 de 5125) y 78,6 % de las ramas** del backend, y 96,4 % y
+92,4 % en negocio y dominio (`docs/testing/evidencia/final/cobertura.txt`). Los módulos con menos cobertura son
 `common` (54,2 %) y Pagos (74,3 %); lo que no se cubre está fuera de negocio y dominio, en `api`, `datos` y los
 clientes de `negocio.externos`, que recorren los escenarios contra el compose.
 
@@ -376,7 +376,7 @@ bases [Casos de prueba](https://www.notion.so/41ef71443ad481e583b2d8182901c8ce) 
 [Defectos](https://www.notion.so/41ef71443ad48122af2dc11b444d3f4e). Cada caso y cada defecto tiene ahí su estado, su
 responsable y el vínculo a su HU, con el mismo estado que en el repositorio.
 
-Al 26/11/2026, con la corrida sobre `c5d3fd8` (sección 8), hay 79 registrados: 73 cerrados, 1 corregido a la espera de
+Al 26/11/2026, con la corrida sobre `70242ce` (sección 8), hay 80 registrados: 74 cerrados, 1 corregido a la espera de
 su verificación (DEF-02, que se verifica en una máquina lenta), 5 aceptados (DEF-39, el riesgo aceptado el 16/10;
 DEF-58, el token en `localStorage`; y DEF-41, DEF-68 y DEF-75, del informe de seguridad) y ninguno nuevo ni en
 corrección. Contra el máximo que se admite al cierre (27/11):
@@ -386,7 +386,7 @@ corrección. Contra el máximo que se admite al cierre (27/11):
 | Bloqueante | 1 | 0 | 0 | 0 | Dentro del máximo |
 | Crítica | 8 | 0 | 0 | 0 | Dentro del máximo |
 | Mayor | 16 | 0 | 0 | 3, cada uno con su alternativa | Dentro del máximo |
-| Menor | 37 | 5, todos aceptados | 1: DEF-02 | Sin máximo | Dentro del máximo |
+| Menor | 38 | 5, todos aceptados | 1: DEF-02 | Sin máximo | Dentro del máximo |
 | Cosmética | 11 | 0 | 0 | Sin máximo | Dentro del máximo |
 
 Los workflows del tag `v1.0-final` repiten la corrida (sección 8): si una prueba falla, su defecto vuelve a abrirse, y
