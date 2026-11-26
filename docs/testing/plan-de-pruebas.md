@@ -361,20 +361,20 @@ y el commit que lo corrige. Ahí están también la escala de severidades (la de
 de Testing), la de prioridades y el ciclo de vida de un defecto, con los estados *Corregido, a verificar* y
 *Aceptado*.
 
-Al 25/11/2026 hay 77 registrados: 29 cerrados, 40 corregidos a la espera de su verificación sobre el tag, 8 aceptados
-(los dos riesgos aceptados el 16/10, el token en `localStorage` y los cinco del informe de seguridad) y ninguno nuevo
-ni en corrección. Contra el máximo que se admite al cierre (27/11):
+Al 25/11/2026 hay 77 registrados: 29 cerrados, 43 corregidos a la espera de su verificación sobre el tag, 5 aceptados
+(DEF-39, el riesgo aceptado el 16/10; DEF-58, el token en `localStorage`; y DEF-41, DEF-68 y DEF-75, del informe de
+seguridad) y ninguno nuevo ni en corrección. Contra el máximo que se admite al cierre (27/11):
 
 | Severidad | Abiertos | Corregidos, a verificar sobre el tag | Máximo al cierre | Situación |
 |---|---|---|---|---|
 | Bloqueante | 0 | 0 | 0 | Dentro del máximo |
 | Crítica | 0 | 2: DEF-63 y DEF-64 | 0 | Dentro del máximo, si las dos correcciones pasan sobre el tag |
-| Mayor | 1: DEF-38 (la sesión de 8 horas, aceptado), con su alternativa | 5: DEF-30, DEF-36, DEF-37, DEF-46 y DEF-47 | 3, cada uno con su alternativa | Dentro del máximo, con margen de dos |
-| Menor | 7, todos aceptados | 25 | Sin máximo | Dentro del máximo |
+| Mayor | 0 | 6: DEF-30, DEF-36 a DEF-38, DEF-46 y DEF-47 | 3, cada uno con su alternativa | Dentro del máximo |
+| Menor | 5, todos aceptados | 27 | Sin máximo | Dentro del máximo |
 | Cosmética | 0 | 8 | Sin máximo | Dentro del máximo |
 
 Si una corrección crítica no pasa su prueba sobre el tag, el defecto vuelve a abrirse y la entrega no cumple el "0
-críticos"; si no pasan tres de las mayores, los mayores pasan el máximo. Cada falla de la corrida sobre el tag (sección 8)
+críticos"; si no pasan cuatro de las mayores, los mayores pasan el máximo. Cada falla de la corrida sobre el tag (sección 8)
 se registra con su DEF antes de la entrega.
 
 ## 8. Resultados de esta versión
