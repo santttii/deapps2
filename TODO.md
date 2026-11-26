@@ -926,7 +926,7 @@ en una máquina con `docker compose`, que es también lo que prueba la CI.
       pantallas principales a 360, 768 y 1280 px sin desborde horizontal, y
       `temas.spec.ts`, en los tres temas. Lighthouse dio 100 en accesibilidad
       en las 5 pantallas públicas, en teléfono y escritorio (`lighthouse.yml`,
-      sobre `fbd31dc`, run 44867187212: `docs/testing/evidencia/final/lighthouse.txt`).
+      sobre `c5d3fd8`, run 45866572601: `docs/testing/evidencia/final/lighthouse.txt`).
 - [x] Code splitting por ruta (24/11, DEF-49): cada pantalla, menos el
       catálogo, con `React.lazy` en `App.tsx`; si el archivo no llega, la
       pantalla avisa y ofrece recargar (`carga-diferida.spec.ts`).
