@@ -104,3 +104,22 @@ CVE-2026-56862 exp:2026-12-31
 CVE-2026-78667 exp:2026-12-31
 CVE-2026-78669 exp:2026-12-31
 CVE-2026-97031 exp:2026-12-31
+
+# nginx 1.30.6-r1, imagen web (nginxinc/nginx-unprivileged:1.30-alpine; Alpine 3.24.2). Las seis las arregla nginx
+# 1.30.7: la imagen oficial nginx:1.30.7-alpine salió el 20/11, pero nginx-unprivileged, la que usa Palco para que
+# nginx corra sin root (DEF-71), todavía no publicó la 1.30.7 (al 26/11 su última es 1.30.6, del 19/10). apk upgrade
+# no la sube: la imagen instala nginx desde el repositorio de nginx.org con la versión fija. Se vuelve a revisar
+# cuando salga nginxinc/nginx-unprivileged:1.30.7-alpine; la fecha de vencimiento lo obliga.
+# Cuáles aplican a Palco, según frontend/docker/nginx.conf:
+#   - No aplican: CVE-2026-113425 (proxy de mail: Palco no tiene bloque mail), CVE-2026-121810 (HTTP/3: ningún
+#     listen usa quic) y CVE-2026-123634 (resolver de nginx: no hay directiva resolver; "backend" se resuelve al
+#     arrancar, por la red del compose).
+#   - Sí aplican: CVE-2026-123007 y CVE-2026-123633 (HTTP/2, que está activo con "http2 on" en el 443) y
+#     CVE-2026-118899 (denegación de servicio con una conexión TLS armada). Son riesgos aceptados hasta que salga la
+#     imagen: Palco corre en un entorno de prueba, nginx no corre como root y el impacto es caerse un worker.
+CVE-2026-113425 exp:2026-12-11
+CVE-2026-121810 exp:2026-12-11
+CVE-2026-123634 exp:2026-12-11
+CVE-2026-123007 exp:2026-12-11
+CVE-2026-123633 exp:2026-12-11
+CVE-2026-118899 exp:2026-12-11
