@@ -1,26 +1,26 @@
-Estabilidad de la suite del backend sobre 70242ce (3 corridas seguidas)
-Fuente: run 45880970863, workflow "Estabilidad" (workflow_dispatch sobre master en 70242ce, 26/11/2026, 19:05:21 a
-19:11:44 UTC, success), artefactos estabilidad-resumen (estabilidad.md, duraciones.md y pipeline.md, abajo con las
+Estabilidad de la suite del backend sobre 9caa865 (3 corridas seguidas)
+Fuente: run 45889523519, workflow "Estabilidad" (workflow_dispatch sobre master en 9caa865, 26/11/2026, 20:14:00 a
+20:18:15 UTC, success), artefactos estabilidad-resumen (estabilidad.md, duraciones.md y pipeline.md, abajo con las
 mismas cifras; en pipeline.md, el enlace de cada workflow va como número de run) y estabilidad-reportes (surefire de
 cada corrida y su código de salida). Compila una vez, corre "mvn test" tres veces
 y scripts/qa/estabilidad.mjs compara los reportes test por test.
 
 --- estabilidad.md ---
-Cada test se compara con su resultado en las demás corridas: 1274 tests distintos en total.
+Cada test se compara con su resultado en las demás corridas: 1277 tests distintos en total.
 
 | Corrida | Carpeta | Tests | Pasan | Fallan | Con error | Saltados | Inestables | No corrieron | Tiempo en los tests |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | corridas/corrida-1 | 1274 | 1274 | 0 | 0 | 0 | 0 | 0 | 95.6 s |
-| 2 | corridas/corrida-2 | 1274 | 1274 | 0 | 0 | 0 | 0 | 0 | 94.7 s |
-| 3 | corridas/corrida-3 | 1274 | 1274 | 0 | 0 | 0 | 0 | 0 | 95.1 s |
+| 1 | corridas/corrida-1 | 1277 | 1277 | 0 | 0 | 0 | 0 | 0 | 63.1 s |
+| 2 | corridas/corrida-2 | 1277 | 1277 | 0 | 0 | 0 | 0 | 0 | 65.1 s |
+| 3 | corridas/corrida-3 | 1277 | 1277 | 0 | 0 | 0 | 0 | 0 | 65.4 s |
 
 | Módulo | Tests | Cambian entre corridas |
 |---|---:|---:|
 | common | 89 | 0 |
 | servicios/arca | 18 | 0 |
 | servicios/asistente | 207 | 0 |
-| servicios/eventos | 115 | 0 |
-| servicios/facturacion | 52 | 0 |
+| servicios/eventos | 117 | 0 |
+| servicios/facturacion | 53 | 0 |
 | servicios/notificaciones | 94 | 0 |
 | servicios/pagos | 45 | 0 |
 | servicios/reventa | 99 | 0 |
@@ -28,7 +28,7 @@ Cada test se compara con su resultado en las demás corridas: 1274 tests distint
 | servicios/validacion | 62 | 0 |
 | servicios/ventas | 397 | 0 |
 
-Ninguno: los 1274 tests dan el mismo resultado en las 3 corridas.
+Ninguno: los 1277 tests dan el mismo resultado en las 3 corridas.
 
 Resultado: estable. Todas las corridas dan idéntico resultado.
 --- fin de estabilidad.md ---
@@ -36,34 +36,29 @@ Resultado: estable. Todas las corridas dan idéntico resultado.
 --- duraciones.md ---
 | Corrida | Duración | Código de salida de mvn |
 |---|---:|---:|
-| corrida-1 | 1 min 56 s | 0 |
-| corrida-2 | 1 min 54 s | 0 |
-| corrida-3 | 1 min 55 s | 0 |
+| corrida-1 | 1 min 15 s | 0 |
+| corrida-2 | 1 min 18 s | 0 |
+| corrida-3 | 1 min 18 s | 0 |
 
-Las corridas suman 5 min 45 s.
+Las corridas suman 3 min 51 s.
 --- fin de duraciones.md ---
 
 --- pipeline.md (duración de los workflows del commit) ---
 | Workflow | Disparado por | Resultado | Duración | Hasta 15 min |
 |---|---|---|---:|---|
-| Seguridad (run 45880936851) | push master | success | 2 min 19 s | sí |
-| Pruebas de seguridad (run 45880936865) | push master | success | 3 min 00 s | sí |
-| ZAP (run 45880936855) | push master | success | 4 min 21 s | sí |
-| Mutación (run 45880936817) | push master | success | 5 min 55 s | sí |
-| Contrato (run 45880936904) | push master | success | 3 min 06 s | sí |
-| Lighthouse (run 45880936872) | push master | success | 4 min 27 s | sí |
-| Carga (run 45880966198) | workflow_dispatch master | failure | 5 min 49 s | sí |
+| Pruebas de seguridad (run 45889484808) | push master | success | 3 min 01 s | sí |
+| Contrato (run 45889485045) | push master | success | 3 min 19 s | sí |
+| Lighthouse (run 45889484906) | push master | success | 4 min 24 s | sí |
 
-El más largo es Mutación (push master): 5 min 55 s.
+El más largo es Lighthouse (push master): 4 min 24 s.
 --- fin de pipeline.md ---
 
-pipeline.md lista los workflows que ya habían terminado cuando corrió ese paso: Estabilidad se disparó mientras
-corrían los del push y terminó a las 19:11:44. El CI (run 45880936756, 6 min 36 s, success) terminó a las 19:11:43,
-después de ese paso; con él, el pipeline del push duró 6 min 36 s ("gh run view <id> --json"; ci-70242ce.txt,
-sección 1). La Carga que figura en failure es el primer intento del run 45880966198, que falló al armar la imagen
-porque Maven Central no respondió al bajar jacoco-maven-plugin y no llegó a correr k6; el segundo intento del mismo
-run es el de k6.txt.
+pipeline.md lista los workflows que ya habían terminado en verde cuando corrió ese paso: Estabilidad se disparó
+mientras corrían los del push y terminó a las 20:18:15. Los demás terminaron en success después ("gh run view <id>
+--json"; ci-9caa865.txt, sección 1): Seguridad (run 45889484934) a las 20:18:17, en el intento 2, que volvió a correr
+el job "Dependencias del repo" después de un 429 de Maven Central; ZAP (45889484996) a las 20:18:46; Mutación
+(45889484994) a las 20:19:35, y CI (45889485001) a las 20:20:45. Con el CI, el pipeline del push duró 7 min 03 s.
 
 "mvn test" corre surefire: las tres corridas no incluyen los 61 *IT de failsafe, que corrieron una vez en el job
-"Backend (mvn verify)" del run 45880936756 (ci-70242ce.txt, sección 2). Las suites de sistema (escenarios, E2E y
+"Backend (mvn verify)" del run 45889485001 (ci-9caa865.txt, sección 2). Las suites de sistema (escenarios, E2E y
 Newman) tampoco entran en esta comparación: corrieron una vez, en el mismo run.

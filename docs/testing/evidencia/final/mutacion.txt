@@ -1,5 +1,5 @@
-Pruebas de mutación (PIT 1.30.2) sobre 70242ce
-Fuente: run 45880936817, workflow "Mutación" (26/11/2026, 19:05:07 a 19:11:02 UTC, success), artefacto
+Pruebas de mutación (PIT 1.30.2) sobre 9caa865
+Fuente: run 45889484994, workflow "Mutación" (26/11/2026, 20:13:42 a 20:19:35 UTC, success), artefacto
 reportes-mutacion: target/pit-reports/mutations.xml de cada módulo. La tabla es la salida de
 "node scripts/qa/mutacion.mjs" sobre esos reportes, con el mínimo de backend/pom.xml (mutacion.minimo = 60).
 Clases mutadas: com.palco.*.dominio.* (mutacion.clases en backend/pom.xml). Asistente y el ARCA simulado no tienen

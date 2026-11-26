@@ -1,8 +1,8 @@
-SonarCloud sobre 70242ce (proyecto santttii_deapps2, rama master)
-Fuente: API pública de SonarCloud, consultada el 26/11/2026 a las 19:15 UTC; captura de la página del proyecto
-(quality-gate-70242ce.png, en esta carpeta, tomada a las 19:16 UTC).
-El último análisis es el de 70242ce: api/project_analyses/search da revision 70242cea96ee4453f687e443e4ba4ef310bd5734,
-fecha 2026-11-26T19:09:16+0000, publicado por el job "SonarCloud (análisis estático y cobertura)" del run 45880936756,
+SonarCloud sobre 9caa865 (proyecto santttii_deapps2, rama master)
+Fuente: API pública de SonarCloud, consultada el 26/11/2026 a las 20:26 UTC; captura de la página del proyecto
+(quality-gate-9caa865.png, en esta carpeta, tomada a las 20:27 UTC).
+El último análisis es el de 9caa865: api/project_analyses/search da revision 9caa865bb0e8c1663661c3d4e2266a1a0e8afbda,
+fecha 2026-11-26T20:17:55+0000, publicado por el job "SonarCloud (análisis estático y cobertura)" del run 45889485001,
 que corre con sonar.qualitygate.wait=true ("QUALITY GATE STATUS: PASSED" y "EXECUTION SUCCESS" en el log). El check
 run "SonarCloud Code Analysis" del commit dice "Quality Gate passed".
 Enlace: https://sonarcloud.io/summary/overall?id=santttii_deapps2
@@ -12,17 +12,17 @@ Enlace: https://sonarcloud.io/summary/overall?id=santttii_deapps2
    new_reliability_rating      GT 1     valor 1      OK
    new_security_rating         GT 1     valor 1      OK
    new_maintainability_rating  GT 1     valor 1      OK
-   new_coverage                LT 80    valor 92.6   OK
+   new_coverage                LT 80    valor 92.7   OK
    new_duplicated_lines_density GT 3    valor 0.0    OK
    new_security_hotspots_reviewed LT 100 valor 100.0 OK
 
 2. Medidas del código total (api/measures/component)
    bugs 0; vulnerabilities 0; code_smells 125; security_hotspots 0; security_hotspots_reviewed 100.0
    reliability_rating 1.0 (A); security_rating 1.0 (A); sqale_rating 1.0 (A)
-   duplicated_lines_density 0.7; coverage 81.3; line_coverage 82.2; branch_coverage 78.6; ncloc 23378
+   duplicated_lines_density 0.7; coverage 81.3; line_coverage 82.2; branch_coverage 78.7; ncloc 23406
    blocker_violations 0; critical_violations 0
    Código nuevo: new_bugs 0; new_vulnerabilities 0; new_reliability_rating 1.0 (A); new_security_rating 1.0 (A);
-   new_code_smells 4; new_blocker_violations 0; new_lines 4743
+   new_code_smells 4; new_blocker_violations 0; new_lines 4788
 
 3. Hallazgos abiertos (api/issues/search, resolved=false): 125
    Por tipo: 125 code smells, 0 bugs, 0 vulnerabilidades.
@@ -41,7 +41,7 @@ Enlace: https://sonarcloud.io/summary/overall?id=santttii_deapps2
    - Los 2 BLOCKER java:S1845 de Asistente que aparecieron después de fbd31dc (DEF-79: asistente/negocio/AsistenteIA.java,
      el método instrucciones y la constante INSTRUCCIONES, y asistente/negocio/externos/CatalogoDeEventos.java, el campo
      vigencia y la constante VIGENCIA) están cerrados como FIXED desde el 2026-11-26T17:21:42+0000, el análisis de
-     c5d3fd8, y siguen cerrados en el de 70242ce.
+     c5d3fd8, y siguen cerrados en el de 9caa865.
    - Los java:S8786 de usuarios/api/Dtos.java:44 y 48 (nombre y apellido, DEF-64) están cerrados como FIXED desde el
      2026-11-24T19:32:26+0000.
    - El bug java:S8696 de asistente/negocio/AsistenteIA.java (DEF-76), que había dejado el Quality Gate en rojo el

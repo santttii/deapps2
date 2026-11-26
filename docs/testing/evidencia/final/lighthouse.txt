@@ -1,7 +1,7 @@
-Lighthouse 13.6.0 (@lhci/cli 0.16.0) sobre 70242ce
-Fuente: run 45880936872, workflow "Lighthouse" (26/11/2026, 19:05:08 a 19:09:35 UTC, success), artefacto
+Lighthouse 13.6.0 (@lhci/cli 0.16.0) sobre 9caa865
+Fuente: run 45889484906, workflow "Lighthouse" (26/11/2026, 20:13:42 a 20:18:06 UTC, success), artefacto
 reportes-lighthouse: <perfil>/manifest.json y los .report.json de cada pantalla. Contra el docker compose del job, por
-https://localhost ("Levantado en 26 segundos"). Categorías medidas (.lighthouserc.cjs): accesibilidad y buenas
+https://localhost ("Levantado en 28 segundos"). Categorías medidas (.lighthouserc.cjs): accesibilidad y buenas
 prácticas.
 
 Perfil    Pantalla                                            Accesibilidad   Buenas prácticas
@@ -20,4 +20,4 @@ desktop   https://localhost/recuperar                         100             10
 no son categorías de la configuración. La carga se mide con k6 (k6.txt).
 
 axe-core (WCAG 2.0, 2.1 y 2.2 A y AA, a 360, 768 y 1280 px): frontend/e2e/accesibilidad.spec.ts, 5 de 5, y
-temas.spec.ts ("el catálogo y el ingreso pasan axe en los tres temas"), en el job "E2E" del run 45880936756.
+temas.spec.ts ("el catálogo y el ingreso pasan axe en los tres temas"), en el job "E2E" del run 45889485001.

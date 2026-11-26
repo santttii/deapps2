@@ -1,15 +1,17 @@
-Dependencias e imágenes (Trivy v0.76.2) sobre 70242ce
-Fuente: run 45880936851, workflow "Seguridad" (26/11/2026, 19:05:07 a 19:07:26 UTC, success), artefactos
+Dependencias e imágenes (Trivy v0.76.2) sobre 9caa865
+Fuente: run 45889484934, workflow "Seguridad" (26/11/2026, 20:13:42 a 20:18:17 UTC, success en el intento 2: en el
+intento 1, "Dependencias del repo" falló porque Maven Central respondió 429 Too Many Requests al bajar un pom, y el
+intento 2 volvió a correr ese job), artefactos
 trivy-dependencias, trivy-imagen-web, trivy-imagen-backend y trivy-imagen-db. Severidades buscadas: CRITICAL y HIGH,
 con o sin arreglo; excepciones en .trivyignore, cada una con su motivo y su vencimiento (exp:).
 
-1. Dependencias del repo (trivy fs, job "Dependencias del repo", 25 s)
+1. Dependencias del repo (trivy fs, job "Dependencias del repo", intento 2, 18 s)
    15 objetivos: los 14 pom.xml del backend y frontend/package-lock.json. Vulnerabilidades: 0 en cada uno.
 
-2. Imagen web (trivy image, job "Imagen: web", 40 s)
+2. Imagen web (trivy image, job "Imagen: web", 45 s)
    palco-web (alpine 3.24.4): 0.
 
-3. Imagen backend (trivy image, job "Imagen: backend", 2 min 15 s)
+3. Imagen backend (trivy image, job "Imagen: backend", 2 min 11 s)
    palco-backend (ubuntu 26.04) y los jar de WildFly: "Total: 0 (HIGH: 0, CRITICAL: 0)".
    "Suppressed Vulnerabilities (Total: 6)", todas HIGH, todas por .trivyignore:
      com.fasterxml.jackson.core:jackson-core      CVE-2026-89407, CVE-2026-89425
@@ -19,7 +21,7 @@ con o sin arreglo; excepciones en .trivyignore, cada una con su motivo y su venc
    cómo se comprobó que no aplican (Palco lee el JSON con JSON-B, no importa Jackson ni Guava, la mensajería es solo
    TextMessage) está escrito en .trivyignore.
 
-4. Imagen de la base (trivy image, job "Imagen: db", 27 s)
+4. Imagen de la base (trivy image, job "Imagen: db", 29 s)
    postgres:17-alpine (alpine 3.24.4): "Total: 0 (HIGH: 0, CRITICAL: 0)"; "Suppressed Vulnerabilities (Total: 1)":
      libxml2  CVE-2026-86144 (HIGH)
    usr/local/bin/gosu (gobinary): "Total: 0 (HIGH: 0, CRITICAL: 0)"; "Suppressed Vulnerabilities (Total: 26)", las 26

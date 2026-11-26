@@ -61,15 +61,15 @@ Evidencia de DEF-64 (docs/testing/informe-de-ejecucion.md, sección 9).
    nombre con 100000 espacios y un 1: HTTP 400 en 0.215960s
    Las cuatro respuestas son el 400 datos-invalidos, en el mismo tiempo que un nombre corto.
 
-7. Sobre 70242ce (26/11/2026)
-   NombreYApellidoTest en el job "Backend (mvn verify)" del run 45880936756 (70242ce): los 4 tests en PASA
+7. Sobre 9caa865 (26/11/2026)
+   NombreYApellidoTest en el job "Backend (mvn verify)" del run 45889485001 (9caa865): los 4 tests en PASA
    (#unNombreLlenoDeEspaciosSeRechazaEnMenosDeUnSegundo, #unApellidoLlenoDeEspaciosSeRechazaEnMenosDeUnSegundo,
    #ochentaCaracteresEsElLargoDeLaColumnaYOchentaYUnoNo y #aceptaLoMismoQueElFrontend).
-   Contra el docker compose con la imagen backend armada a las 19:06:30 UTC con el código de 70242ce
-   (http://localhost:8080, contenedor backend creado a las 19:06:42 UTC, medido a las 19:16 UTC), el mismo curl que
+   Contra el docker compose con la imagen backend armada a las 20:07:24 UTC con el código de 9caa865
+   (http://localhost:8080, contenedor backend creado a las 20:07:36 UTC, medido a las 20:26 UTC), el mismo curl que
    el punto 3, sin sesión:
-   nombre con 0 espacios y un 1: HTTP 400 en 0.221937s (cuerpo 158 bytes)
-   nombre con 1000 espacios y un 1: HTTP 400 en 0.217868s (cuerpo 1161 bytes)
-   nombre con 1500 espacios y un 1: HTTP 400 en 0.209416s (cuerpo 1661 bytes)
-   nombre con 100000 espacios y un 1: HTTP 400 en 0.226834s (cuerpo 100163 bytes)
+   nombre con 0 espacios y un 1: HTTP 400 en 0.214160s (cuerpo 158 bytes)
+   nombre con 1000 espacios y un 1: HTTP 400 en 0.216728s (cuerpo 1161 bytes)
+   nombre con 1500 espacios y un 1: HTTP 400 en 0.216997s (cuerpo 1661 bytes)
+   nombre con 100000 espacios y un 1: HTTP 400 en 0.207210s (cuerpo 100163 bytes)
    Las cuatro respuestas son el 400 datos-invalidos, en el mismo tiempo que un nombre corto.
