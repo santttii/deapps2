@@ -106,10 +106,11 @@ export interface Orden {
   sePuedePagar: boolean;
 }
 
-// Copia de common/ReglasDeNegocio: la reventa va del 50% al 110% del precio de lista del sector.
-export const TOPE_REVENTA = 0.1;
-export const MINIMO_REVENTA = 0.5;
-export const TASA_SERVICIO = 0.1;
+// Copia de common/ReglasDeNegocio, en porcentajes enteros como allá: la reventa va del 50% al 110% del precio de
+// lista del sector y el cargo de servicio es el 10% del subtotal.
+export const TOPE_REVENTA_PORCENTAJE = 10;
+export const MINIMO_REVENTA_PORCENTAJE = 50;
+export const TASA_SERVICIO_PORCENTAJE = 10;
 export const MAX_ENTRADAS_POR_ORDEN = 6;
 export const HORAS_LIMITE_REVENTA = 3;
 export const MINUTOS_RESERVA = 10;

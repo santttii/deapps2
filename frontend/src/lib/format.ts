@@ -1,4 +1,4 @@
-import { MINIMO_REVENTA, TASA_SERVICIO, TOPE_REVENTA, type Rol, type Sector } from '../types';
+import { MINIMO_REVENTA_PORCENTAJE, TASA_SERVICIO_PORCENTAJE, TOPE_REVENTA_PORCENTAJE, type Rol, type Sector } from '../types';
 
 export function money(value: number): string {
   return `$${Math.round(value).toLocaleString('es-AR')}`;
@@ -43,18 +43,21 @@ export function fechaHora(iso: string): string {
   return `${fecha(iso)} · ${hora(iso)} hs`;
 }
 
-export function calcularTope(precioPagado: number): number {
-  return Math.floor(precioPagado * (1 + TOPE_REVENTA));
+// Los montos son pesos enteros y las cuentas, como en common/ReglasDeNegocio: se multiplica por el porcentaje
+// entero y se divide por 100 al final, sin fracciones en el medio. El tope y el mínimo salen del precio de lista
+// del sector, no del que pagó quien revende.
+export function calcularTope(precioDeLista: number): number {
+  return Math.floor((precioDeLista * (100 + TOPE_REVENTA_PORCENTAJE)) / 100);
 }
 
-export function calcularMinimoReventa(precioPagado: number): number {
-  return Math.ceil(precioPagado * MINIMO_REVENTA);
+export function calcularMinimoReventa(precioDeLista: number): number {
+  return Math.ceil((precioDeLista * MINIMO_REVENTA_PORCENTAJE) / 100);
 }
 
 // Cargo por servicio estimado, para el detalle del evento y el resumen del checkout antes de
 // reservar. El importe que vale es el que calcula el backend al iniciar la compra.
 export function calcularServicio(subtotal: number): number {
-  return Math.round(subtotal * TASA_SERVICIO);
+  return Math.floor((subtotal * TASA_SERVICIO_PORCENTAJE + 50) / 100);
 }
 
 // Vencimiento de tarjeta: solo dígitos, con la barra después del mes. Así se puede tipear con el

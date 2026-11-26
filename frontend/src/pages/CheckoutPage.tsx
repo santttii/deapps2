@@ -26,7 +26,7 @@ import {
 } from '../lib/validate';
 import {
   MINUTOS_RESERVA,
-  TASA_SERVICIO,
+  TASA_SERVICIO_PORCENTAJE,
   type EstadoOrden,
   type Evento,
   type MedioPago,
@@ -40,10 +40,11 @@ import Modal from '../components/Modal';
 import StatusMessage from '../components/StatusMessage';
 import PageTransition from '../components/PageTransition';
 
-// El checkout contra ServicioDeVentas, en dos pasos:
+// El checkout contra ServicioDeVentas, en los tres pasos del Stepper:
 //   1. Titulares: todavía no hay nada en el backend. "Continuar" inicia la compra, que reserva el
 //      cupo por 10 minutos. Los titulares viajan en ese pedido y después no se pueden cambiar.
 //   2. Pago: con la reserva hecha corre la cuenta regresiva. Se paga o se cancela.
+//   3. Confirmación: con el pago aprobado, las entradas emitidas.
 // El id de la venta queda en el carrito (carrito.ordenId): por eso recargar la página, o irse y
 // volver, retoma la misma compra en el paso de pago.
 //
@@ -891,7 +892,7 @@ export default function CheckoutPage() {
               <span>{money(subtotal)}</span>
             </div>
             <div className="mt-2 flex justify-between text-sm text-muted">
-              <span>Cargo por servicio ({Math.round(TASA_SERVICIO * 100)}%)</span>
+              <span>Cargo por servicio ({TASA_SERVICIO_PORCENTAJE}%)</span>
               <span>{money(servicio)}</span>
             </div>
             <div className="mt-3 flex justify-between border-t border-line pt-3 text-lg font-semibold">

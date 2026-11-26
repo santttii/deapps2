@@ -5,7 +5,7 @@ import { useApp } from '../store/useApp';
 import { ErrorApi, mensajeDeError } from '../lib/api';
 import { calcularServicio, fechaHora, money, nombreDelRol } from '../lib/format';
 import { obtenerEvento } from '../servicios/eventos';
-import { MAX_ENTRADAS_POR_ORDEN, TASA_SERVICIO } from '../types';
+import { MAX_ENTRADAS_POR_ORDEN, TASA_SERVICIO_PORCENTAJE } from '../types';
 import { useAnimatedNumber } from '../lib/useAnimatedNumber';
 import { useReventas } from '../lib/useReventas';
 import { AVISO_REVENTA_CERRADA, reventaCerrada } from '../servicios/reventa';
@@ -368,7 +368,7 @@ export default function EventPage() {
                 <dd>{money(subtotal)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt>Cargo por servicio ({Math.round(TASA_SERVICIO * 100)}%)</dt>
+                <dt>Cargo por servicio ({TASA_SERVICIO_PORCENTAJE}%)</dt>
                 <dd>{money(servicio)}</dd>
               </div>
             </dl>
