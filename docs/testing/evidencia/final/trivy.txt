@@ -1,15 +1,15 @@
-Dependencias e imágenes (Trivy v0.76.2) sobre c5d3fd8
-Fuente: run 45866572371, workflow "Seguridad" (26/11/2026, 17:18:12 a 17:20:49 UTC, success), artefactos
+Dependencias e imágenes (Trivy v0.76.2) sobre 70242ce
+Fuente: run 45880936851, workflow "Seguridad" (26/11/2026, 19:05:07 a 19:07:26 UTC, success), artefactos
 trivy-dependencias, trivy-imagen-web, trivy-imagen-backend y trivy-imagen-db. Severidades buscadas: CRITICAL y HIGH,
 con o sin arreglo; excepciones en .trivyignore, cada una con su motivo y su vencimiento (exp:).
 
-1. Dependencias del repo (trivy fs, job "Dependencias del repo", 21 s)
+1. Dependencias del repo (trivy fs, job "Dependencias del repo", 25 s)
    15 objetivos: los 14 pom.xml del backend y frontend/package-lock.json. Vulnerabilidades: 0 en cada uno.
 
-2. Imagen web (trivy image, job "Imagen: web", 37 s)
+2. Imagen web (trivy image, job "Imagen: web", 40 s)
    palco-web (alpine 3.24.4): 0.
 
-3. Imagen backend (trivy image, job "Imagen: backend", 2 min 34 s)
+3. Imagen backend (trivy image, job "Imagen: backend", 2 min 15 s)
    palco-backend (ubuntu 26.04) y los jar de WildFly: "Total: 0 (HIGH: 0, CRITICAL: 0)".
    "Suppressed Vulnerabilities (Total: 6)", todas HIGH, todas por .trivyignore:
      com.fasterxml.jackson.core:jackson-core      CVE-2026-89407, CVE-2026-89425

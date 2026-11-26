@@ -1,33 +1,34 @@
-Verificación de los defectos corregidos sobre c5d3fd8
+Verificación de los defectos corregidos sobre 70242ce
 Evidencia de las viñetas "Verificación (26/11)" de docs/testing/registro-de-defectos.md.
-Commit: c5d3fd86ee99d3b4520d7fd047429aec951baca3 (master, 26/11/2026), el último commit de código antes del tag
+Commit: 70242cea96ee4453f687e443e4ba4ef310bd5734 (master, 26/11/2026), el último commit de código antes del tag
 v1.0-final. Fuente: "gh run view <id> --json", "gh run view --job <id> --log" y los artefactos de cada run; la API
-pública de SonarCloud; el docker compose levantado con el código de c5d3fd8 (proyecto palco: https://localhost y
+pública de SonarCloud; el docker compose levantado con el código de 70242ce (proyecto palco: https://localhost y
 http://localhost:8080; punto 13). Enlace de cada run: https://github.com/santttii/deapps2/actions/runs/<id>. Horas en
-UTC. c5d3fd8 cambia, respecto de 9383028, solo cinco archivos del asistente (git diff --stat 9383028 c5d3fd8: 5 files
-changed, 8 insertions, 8 deletions): AsistenteIA.instrucciones pasa a armarInstrucciones y CatalogoDeEventos.vigencia
-a vigenciaDelCache, con sus tests (DEF-79).
+UTC. Desde 9383028 hay dos commits de código: c5d3fd8 cambia cinco archivos del asistente (AsistenteIA.instrucciones
+pasa a armarInstrucciones y CatalogoDeEventos.vigencia a vigenciaDelCache, con sus tests; DEF-79) y 70242ce,
+ResumenDeVentas.java y ResumenDeVentasTest.java (un eventoId con un carácter de control es un 400; DEF-80).
 
-1. Runs (los dispara el push de c5d3fd8 a master)
+1. Runs (los dispara el push de 70242ce a master)
 
 Run          Workflow               Desde                   Hasta                   Resultado
-45866572543  CI                     2026-11-26T17:18:12Z    2026-11-26T17:24:36Z    success
-45866572371  Seguridad (Trivy)      2026-11-26T17:18:12Z    2026-11-26T17:20:49Z    success
-45866572514  Pruebas de seguridad   2026-11-26T17:18:12Z    2026-11-26T17:21:15Z    success
-45866572396  Contrato               2026-11-26T17:18:12Z    2026-11-26T17:21:05Z    success
-45866572404  ZAP                    2026-11-26T17:18:12Z    2026-11-26T17:22:59Z    success
+45880936756  CI                     2026-11-26T19:05:07Z    2026-11-26T19:11:43Z    success
+45880936851  Seguridad (Trivy)      2026-11-26T19:05:07Z    2026-11-26T19:07:26Z    success
+45880936865  Pruebas de seguridad   2026-11-26T19:05:07Z    2026-11-26T19:08:07Z    success
+45880936904  Contrato               2026-11-26T19:05:08Z    2026-11-26T19:08:14Z    success
+45880936855  ZAP                    2026-11-26T19:05:07Z    2026-11-26T19:09:28Z    success
 
-Jobs del CI que se citan: Backend (mvn verify) 140070808022, Frontend (lint y build) 140070808151, E2E (Playwright
-contra docker compose) 140070808149, Integración: general 140070808243, API (Postman con Newman contra docker
-compose) 140070807689 y SonarCloud (análisis estático y cobertura) 140070808218, los seis en success. El checkout del
-job Backend trae c5d3fd86ee99d3b4520d7fd047429aec951baca3.
+Jobs del CI que se citan: Backend (mvn verify) 140119810083, Frontend (lint y build) 140119810084, E2E (Playwright
+contra docker compose) 140119810894, Integración: general 140119810120, API (Postman con Newman contra docker
+compose) 140119810101 y SonarCloud (análisis estático y cobertura) 140119809719, los seis en success. El checkout del
+job Backend trae 70242cea96ee4453f687e443e4ba4ef310bd5734.
 
 2. Backend (job Backend, artefacto reportes-backend: surefire y failsafe de cada módulo)
 
-"Tests run" por módulo: common 89, Usuarios 96 y 9 IT, Eventos 115 y 14 IT, Ventas 396 y 28 IT, Pagos 45,
-Validación 62, Reventa 99, Notificaciones 94 y 1 IT, Facturación 52 y 9 IT, Asistente 207, ARCA simulado 18: 1334
-casos, 0 fallas, 0 errores, 0 saltados; BUILD SUCCESS. Son los mismos 1334 casos, por clase y método, que en el
-run 45854688362 de 9383028. Los casos de cada defecto, los 1334 en PASA:
+"Tests run" por módulo: common 89, Usuarios 96 y 9 IT, Eventos 115 y 14 IT, Ventas 397 y 28 IT, Pagos 45,
+Validación 62, Reventa 99, Notificaciones 94 y 1 IT, Facturación 52 y 9 IT, Asistente 207, ARCA simulado 18: 1335
+casos, 0 fallas, 0 errores, 0 saltados; BUILD SUCCESS. Son los mismos casos, por clase y método, que en el run
+45866572543 de c5d3fd8, más ResumenDeVentasTest#unEventoIdConUnCaracterDeControlEsUn400SinConsultarAEventos. Los
+casos de cada defecto, los 1335 en PASA:
 
 DEF-14  CorsFilterTest#elFrontendPuedeLeerRetryAfterYLocation
 DEF-30  ReventaDeEntradasEnH2Test#conSeisEntradasParaElEventoNoCompraOtraEnLaReventa,
@@ -75,6 +76,7 @@ DEF-64  NombreYApellidoTest, los 4: #unNombreLlenoDeEspaciosSeRechazaEnMenosDeUn
         #aceptaLoMismoQueElFrontend
 DEF-36  AsistenteIATest#laLineaDeRegistroLlevaElIdDeQuienPreguntaYNingunEmail
 DEF-79  AsistenteIATest (18 casos), RiesgosDelAsistenteTest (60) y CatalogoDeEventosTest (8), los tests que toca c5d3fd8
+DEF-80  ResumenDeVentasTest#unEventoIdConUnCaracterDeControlEsUn400SinConsultarAEventos
 DEF-77  ServicioDePagosTest#buscarConLaClaveDelContratoEsUn400SinConsultarLaBase,
         #unCobroConUnCaracterDeControlEsUn400SinCobrarNiGuardar,
         #unIdDePagoConElCaracterNuloEsUn404SinConsultarLaBase,
@@ -83,7 +85,7 @@ DEF-77  ServicioDePagosTest#buscarConLaClaveDelContratoEsUn400SinConsultarLaBase
 3. Frontend (job Frontend (lint y build))
 
 npm run lint: "Found 0 warnings and 0 errors. Finished in 120ms on 82 files with 116 rules using 4 threads." (DEF-50)
-npm run build (tsc -b && vite build): "✓ built in 559ms", sin el aviso de Vite de archivos de más de 500 kB. El
+npm run build (tsc -b && vite build): "✓ built in 762ms", sin el aviso de Vite de archivos de más de 500 kB. El
 archivo más grande es dist/assets/index-C9H_JQmH.js, 247.10 kB; le sigue PageTransition-Cigollrt.js, 174.80 kB; cada
 pantalla, entre 2.78 kB (AssistantPage) y 31.27 kB (OrganizerPage). (DEF-49)
 
@@ -104,7 +106,7 @@ DEF-54  catalogo.spec.ts:71 con el 502 de nginx, el 503 sin cuerpo de la API y e
 DEF-70  la suite entera por https://localhost, con la CSP del punto 7 (style-src 'self'; font-src 'self')
 DEF-71  la suite entera por https://localhost, servida por el nginx sin root del punto 13
 
-5. Escenarios (job Integración: general, contra el docker compose levantado en el job, "Levantado en 20 segundos")
+5. Escenarios (job Integración: general, contra el docker compose levantado en el job, "Levantado en 26 segundos")
 
 node scripts/pruebas/escenarios.mjs 1 2 3 4 5 6 7 8 9 10 11 12 13 15 16 17 18 21 22 23 24, "TODO BIEN":
   PASA   7. Al confirmarse un pago sale UN mensaje a la cola y UNO al tópico, con el tipoEvento del contrato  (12/12)
@@ -134,7 +136,7 @@ coleccion.txt: requests 219 ejecutados, 0 fallidos; test-scripts 214, 0 fallidos
   ↳ SEC-W05c Login: la sesión dura 15 minutos: POST /api/usuarios/login [200 OK]; ✓ responde 200; ✓ exp - iat = 15
     min (900 s). (DEF-38)
   ↳ PUT /v1/validacion/puertas/{eventoId}/{email} de una cuenta que no es de puerta (422):
-    PUT .../puertas/ev-7bb3e311/titular@palco.test [422 Unprocessable Entity]; ✓ responde 422; ✓ el error viene como
+    PUT .../puertas/ev-38987efe/titular@palco.test [422 Unprocessable Entity]; ✓ responde 422; ✓ el error viene como
     application/problem+json; ✓ type es /problemas/no-es-de-puerta. (DEF-35)
   ✓ incluye el escaneo VALIDA con el email de quien escaneó, sin el código completo. (DEF-32)
   ↳ POST /v1/operaciones-de-reventa/controles-de-compra, rol servicio (204): [204 No Content]; ✓ responde 204; ✓ no
@@ -143,28 +145,30 @@ coleccion.txt: requests 219 ejecutados, 0 fallidos; test-scripts 214, 0 fallidos
     ✓ type es /problemas/dni-con-entrada.
   ↳ POST /v1/operaciones-de-reventa/controles-de-compra con rol user (403): [403 Forbidden]; ✓ type es
     /problemas/sin-permiso. (DEF-66)
-Operaciones de docs/api/openapi.yaml en c5d3fd8 (52) contra los 221 pedidos de coleccion.txt, verificacion.txt y
+Operaciones de docs/api/openapi.yaml en 70242ce (52) contra los 221 pedidos de coleccion.txt, verificacion.txt y
   reenvio.txt, por método y ruta: 50 con al menos un pedido 2xx o 3xx y uno 4xx; POST
   /v1/operaciones-de-reventa/controles-de-compra con 204, 409 y 403. Las otras dos son las que explica
   docs/api/GUIA_POSTMAN.md, sección 9: POST /usuarios/password/reinicio, solo el 400 (el éxito está en los pasos
   manuales), y GET /usuarios/jwks, solo el 200 (su error es el 405 de POST). (DEF-66)
 
-7. Contrato (run 45866572396, job 140070807193: Schemathesis 4.32.7 contra docs/api/openapi.yaml, checks
+7. Contrato (run 45880936904, job 140119811921: Schemathesis 4.32.7 contra docs/api/openapi.yaml, checks
    not_a_server_error, status_code_conformance y response_schema_conformance, --mode all --max-examples 25
    --request-timeout 15)
 
-  comprador:    Selected 52/52, Tested 52; 3004 generated, 3004 passed
-  organizador:  Selected 18/52 (etiquetas eventos y validacion, y /v1/resumenes), Tested 18; 1162 generated, 1162 passed
-  puerta:       Selected 7/52 (etiqueta validacion), Tested 7; 373 generated, 373 passed
+  comprador:    Selected 52/52, Tested 52; 3007 generated, 3007 passed
+  organizador:  Selected 18/52 (etiquetas eventos y validacion, y /v1/resumenes), Tested 18; 1164 generated, 1164 passed
+  puerta:       Selected 7/52 (etiqueta validacion), Tested 7; 428 generated, 428 passed
   servicio:     Selected 15/52 (etiquetas interno y pagos, y /usuarios/cuentas, /usuarios/{usuarioId},
                 /eventos/{eventoId}/organizador, /eventos/{eventoId}/sectores/{sectorId}/cupo y
-                /v1/facturas/{ventaId}), Tested 15; 1036 generated, 1036 passed
-  Las cuatro corridas, con las fases Examples, Coverage, Fuzzing y Stateful en verde. En el contrato de c5d3fd8 están
-  /usuarios/cuentas (renglón 276), /eventos/imagenes (441) y /eventos/imagenes/{id} (503).
+                /v1/facturas/{ventaId}), Tested 15; 1043 generated, 1043 passed
+  Las cuatro corridas, con las fases Examples, Coverage, Fuzzing y Stateful en verde. En el contrato de 70242ce están
+  /usuarios/cuentas (renglón 276), /eventos/imagenes (441) y /eventos/imagenes/{id} (503). La corrida de organizador
+  incluye GET /v1/resumenes (--include-path /v1/resumenes), la operación de DEF-80: 1164 de 1164 casos, ninguno con
+  un código que el contrato no documenta. (DEF-80)
 Paso "Control de logs" (el compose del job corre con el valor por defecto de PALCO_CORREO_LOG_COMPLETO): los cinco
-  "ok", entre ellos "ok: sin emails @palco.test enteros"; "logs/server.log está limpio (1221 renglones)".
+  "ok", entre ellos "ok: sin emails @palco.test enteros"; "logs/server.log está limpio (1208 renglones)".
 
-8. Pruebas de seguridad (run 45866572514, job 140070807255)
+8. Pruebas de seguridad (run 45880936865, job 140119810378)
 
   PASA   A. Tokens JWT manipulados: 401 en cada servicio  (11/11 comprobaciones)
   PASA   B. Mass assignment: los campos que fija el servidor no los cambia el cliente  (20/20 comprobaciones)
@@ -177,11 +181,11 @@ Paso "Control de logs" (el compose del job corre con el valor por defecto de PAL
   style-src 'self'; font-src 'self'; img-src 'self' data: blob: https://picsum.photos; ...". (DEF-70)
   Paso "Control de logs": "logs/server.log está limpio (1392 renglones)". (DEF-40)
 
-9. ZAP (run 45866572404, job 140070806921, ZAP 2.17.0, logs/zap/resumen.md en el log del paso)
+9. ZAP (run 45880936855, job 140119809943, ZAP 2.17.0, logs/zap/resumen.md en el log del paso)
 
   Baseline: FAIL-NEW 0, WARN-NEW 4, INFO 1, PASS 63. Alertas: Low Cross-Origin-Embedder-Policy (90004, 3, justificada
   en .zap/reglas.tsv); Info 10027, 10109, 10015 y 10049.
-  API: FAIL-NEW 0, WARN-NEW 1, PASS 120. Alertas: Low Unexpected Content-Type was returned (100001, 14, justificada en
+  API: FAIL-NEW 0, WARN-NEW 1, PASS 119. Alertas: Low Unexpected Content-Type was returned (100001, 14, justificada en
   .zap/reglas.tsv); Info 100000, 10111, 10024, 10049 y 10015.
   "Falsos positivos de .zap/reglas.tsv que no aparecieron en esta corrida: SQL Injection (40018) en POST
   https://web/api/usuarios/registro, parámetro apellido; ... parámetro dni; ... parámetro telefono; SQL Injection
@@ -191,25 +195,25 @@ Paso "Control de logs" (el compose del job corre con el valor por defecto de PAL
   Paso "Control de logs" (compose con el valor por defecto): "ok: sin emails @palco.test enteros"; "logs/server.log
   está limpio (1250 renglones)". (DEF-40)
 
-10. Seguridad (run 45866572371; artefactos trivy-imagen-web y trivy-imagen-db; Trivy v0.76.2, severity
+10. Seguridad (run 45880936851; artefactos trivy-imagen-web y trivy-imagen-db; Trivy v0.76.2, severity
     CRITICAL,HIGH, ignore-unfixed false, trivyignores .trivyignore, exit-code 1)
 
-  Imagen: web (trivy image), job 140070807221, success. La etapa 2 parte de
+  Imagen: web (trivy image), job 140119810604, success. La etapa 2 parte de
   docker.io/library/nginx:1.30-alpine@sha256:8eb04fe3b385090e9aa02961f77398ad09b6bf33ab07f6669a5bb7acce22c0d3.
     Report Summary: palco-web (alpine 3.24.4) | alpine | 0. Sin vulnerabilidades suprimidas. El .trivyignore de
-    c5d3fd8 no tiene ninguna de las seis CVE de DEF-78. (DEF-71 y DEF-78)
-  Imagen: db (trivy image), job 140070807264, success.
+    70242ce no tiene ninguna de las seis CVE de DEF-78. (DEF-71 y DEF-78)
+  Imagen: db (trivy image), job 140119810284, success.
     Report Summary: postgres:17-alpine (alpine 3.24.4) | alpine | 0; usr/local/bin/gosu | gobinary | 0.
     "Total: 0 (HIGH: 0, CRITICAL: 0)" en los dos; suprimidas con su motivo en .trivyignore: 1 de libxml2
     (CVE-2026-86144) y 26 de la biblioteca estándar de Go de gosu. (DEF-73)
 
-11. SonarCloud (proyecto santttii_deapps2, rama master; API pública consultada el 26/11/2026 a las 17:31 UTC)
+11. SonarCloud (proyecto santttii_deapps2, rama master; API pública consultada el 26/11/2026 a las 19:15 UTC)
 
-  api/project_analyses/search: último análisis 2026-11-26T17:21:42+0000, revision
-    c5d3fd86ee99d3b4520d7fd047429aec951baca3. Lo publicó el job SonarCloud del run 45866572543, que espera el Quality
+  api/project_analyses/search: último análisis 2026-11-26T19:09:16+0000, revision
+    70242cea96ee4453f687e443e4ba4ef310bd5734. Lo publicó el job SonarCloud del run 45880936756, que espera el Quality
     Gate (-Dsonar.qualitygate.wait=true): "QUALITY GATE STATUS: PASSED".
   api/qualitygates/project_status: OK. new_reliability_rating 1, new_security_rating 1, new_maintainability_rating 1,
-    new_coverage 92.7, new_duplicated_lines_density 0.0, new_security_hotspots_reviewed 100.0, las seis en OK. (DEF-76)
+    new_coverage 92.6, new_duplicated_lines_density 0.0, new_security_hotspots_reviewed 100.0, las seis en OK. (DEF-76)
   api/measures/component: bugs 0, reliability_rating 1.0 (A), vulnerabilities 0, security_rating 1.0, sqale_rating
     1.0, coverage 81.3. (DEF-65)
   api/issues/search: java:S5850 en Textos.java, CLOSED FIXED (24/11); java:S8696 en AsistenteIA.java, CLOSED FIXED
@@ -217,21 +221,19 @@ Paso "Control de logs" (el compose del job corre con el valor por defecto de PAL
   api/issues/search?rules=docker:S6471: 2, las dos en frontend/Dockerfile, CLOSED FIXED (21/11 y 26/11);
     issueStatuses=ACCEPTED: 0; resolutions=WONTFIX,FALSE-POSITIVE: 0. (DEF-71)
   api/issues/search?rules=java:S1845: 7, las 7 CLOSED FIXED: las de ArcaSoap.java, PagosFake.java y
-    ResultadoDeCobro.java (25/11), las de AsistenteIA.java y CatalogoDeEventos.java (en el análisis de c5d3fd8,
+    ResultadoDeCobro.java (25/11), las de AsistenteIA.java y CatalogoDeEventos.java (desde el análisis de c5d3fd8,
     2026-11-26T17:21:42) y dos de tests (21/11). (DEF-67 y DEF-79)
   api/issues/search?severities=BLOCKER&resolved=false: 0; con impactSeverities=BLOCKER&resolved=false: 0. (DEF-67 y
     DEF-79)
 
-12. Documentos de c5d3fd8 (git show c5d3fd8:<archivo>; iguales a los de 9383028)
+12. Documentos de 70242ce (git show 70242ce:<archivo>; iguales a los de 9383028)
 
-  node scripts/qa/matriz.mjs con los artefactos del run 45866572543 (los surefire y failsafe de reportes-backend,
+  node scripts/qa/matriz.mjs con los artefactos del run 45880936756 (los surefire y failsafe de reportes-backend,
     coleccion.xml, reenvio.xml y verificacion.xml de reporte-api, playwright-report de reporte-e2e y la salida de
     escenarios.mjs de los jobs de integración): "89 criterios de 16 historias: 89 pasan, 0 fallan, 0 sin caso."
     CA-06.3 en PASA, con sus 18 casos en "pasa" (16 de JUnit y 2 de Playwright), entre ellos
     ServicioDeFacturacionTest#siArcaRechazaElComprobanteSeAnotaElRechazoConElMotivoYNoUnaFactura y
-    FacturacionDeComprasMDBTest#unComprobanteRechazadoQuedaAnotadoYNoVuelveAlBroker.
-    docs/testing/evidencia/matriz-de-trazabilidad.md (generada el 2026-11-26 a las 17:28 UTC) da lo mismo: los 89
-    criterios y CA-06.3 en PASA. (DEF-52)
+    FacturacionDeComprasMDBTest#unComprobanteRechazadoQuedaAnotadoYNoVuelveAlBroker. (DEF-52)
   docs/documentacion/historias-de-usuario.md, renglones 122 (CA-01.6) y 198 (CA-03.4), y
     docs/testing/especificacion-de-casos.md, renglones 93 (CP-01.6.1) y 129 (CP-03.4.1): "No se pudo mandar el email
     a n***@palco.test. Motivo: …". backend/common/.../CorreoSmtp.java:89 escribe "No se pudo mandar el email a " con
@@ -240,13 +242,23 @@ Paso "Control de logs" (el compose del job corre con el valor por defecto de PAL
   docs/api/openapi.yaml, esquema ResultadoDeEscaneo: "escaneadoPor: { type: string, example: user-staff }";
     "user-puerta" no aparece en el archivo. (DEF-55)
 
-13. Contra el docker compose (26/11/2026; imagen backend armada a las 17:38:50 UTC con el código de c5d3fd8, imagen
-    web de las 15:31 UTC, que c5d3fd8 no cambia)
+13. Contra el docker compose (26/11/2026; imagen backend armada a las 19:06:30 UTC con el código de 70242ce,
+    contenedor creado a las 19:06:42; imagen web de las 15:31 UTC, que ni c5d3fd8 ni 70242ce cambian)
 
-El asistente desplegado es el de c5d3fd8: en WEB-INF/classes de palco-asistente.war, AsistenteIA.class tiene
-armarInstrucciones y CatalogoDeEventos.class tiene vigenciaDelCache.
+El backend desplegado es el de 70242ce: en WEB-INF/classes de palco-ventas, ResumenDeVentas.class llama a
+esDeControl, y en palco-asistente, AsistenteIA.class tiene armarInstrucciones.
 
-DEF-34 (17:41:08)
+DEF-80 (19:15:57), con el token de organizador@palco.test
+  GET http://localhost:8080/api/v1/resumenes?eventoId=d%00G%C3%95 -> HTTP 400
+    {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"El id no puede tener
+     caracteres de control.","instance":"/api/v1/resumenes","errores":{"eventoId":"El id no puede tener caracteres
+     de control."}}
+  GET https://localhost/api/v1/resumenes?eventoId=d%00G%C3%95 (por nginx) -> HTTP 400, el mismo cuerpo
+  GET http://localhost:8080/api/v1/resumenes?eventoId=ev-1 -> HTTP 200 {"eventoId":"ev-1","liquidacion":{...},
+    "porDia":[...]}
+  GET https://localhost/api/v1/resumenes?eventoId=ev-1 (por nginx) -> HTTP 200, el mismo cuerpo
+
+DEF-34 (19:16:10)
   POST http://localhost:8080/api/usuarios/registro con un teléfono de 31 caracteres, sin Accept-Language -> HTTP 400
   {"type":"/problemas/datos-invalidos","title":"Datos inválidos","status":400,"detail":"Hay datos inválidos.",
    "instance":"/api/usuarios/registro","errores":{"telefono":"El teléfono tiene hasta 30 caracteres."}}
@@ -271,28 +283,28 @@ DEF-71
   docker compose exec -T web ps -o user,pid,args -> nginx 1 "nginx: master process nginx -g daemon off;" y los
     workers (25, 26, 27, ...) también con el usuario nginx. El log de arranque del contenedor dice "nginx/1.30.8".
 
-DEF-37 (17:41:12)
-  Compra de titular@palco.test en un evento nuevo (ev-26b2e8d4): POST /api/v1/ventas -> 201 V-26484be4; POST
-    /api/v1/ventas/V-26484be4/pagos -> 201; GET /api/v1/ventas/V-26484be4 -> EMITIDA.
+DEF-37 (19:16:14)
+  Compra de titular@palco.test en un evento nuevo (ev-c0a8166c): POST /api/v1/ventas -> 201 V-129e9099; POST
+    /api/v1/ventas/V-129e9099/pagos -> 201; GET /api/v1/ventas/V-129e9099 -> EMITIDA.
   docker compose exec -T db psql -U palco -d palco, en notificaciones.registro_auditoria:
-    última fila: V-26484be4 | 2026-11-26 17:41:14 | {"compradorId":"user-titular","entradas":[{"entradaId":
-      "T-98747ded","sector":"Platea","titular":{"nombre":"Verificacion Def"}}],"eventoId":"ev-26b2e8d4",
-      "montoTotal":30250,"timestamp":"2026-11-26T17:41:14Z","ventaId":"V-26484be4"}
-    select count(*) -> 110 filas, la más vieja del 2026-11-25 23:23:32
+    última fila: V-129e9099 | 2026-11-26 19:16:16 | {"compradorId":"user-titular","entradas":[{"entradaId":
+      "T-c4c36979","sector":"Platea","titular":{"nombre":"Verificacion Def"}}],"eventoId":"ev-c0a8166c",
+      "montoTotal":30250,"timestamp":"2026-11-26T19:16:16Z","ventaId":"V-129e9099"}
+    select count(*) -> 116 filas, la más vieja del 2026-11-25 23:23:32
     select count(*) ... where cuerpo like '%"dni"%' -> 0
     flyway_schema_history de notificaciones: 1, 2 y 3, las tres con success.
 
-DEF-72 (17:41:20)
-  Con el token de organizador@palco.test, por nginx: PUT https://localhost/api/v1/validacion/puertas/ev-26b2e8d4/
+DEF-72 (19:16:22)
+  Con el token de organizador@palco.test, por nginx: PUT https://localhost/api/v1/validacion/puertas/ev-c0a8166c/
     puerta@palco.test -> 200; DELETE de la misma ruta -> 204; PUT con puerta%40palco.test -> 200.
-  docker compose logs web desde las 17:41:12, los tres renglones de esos pedidos:
-    172.18.0.1 - - [26/Nov/2026:17:41:20 +0000] "PUT /api/v1/validacion/puertas/ev-26b2e8d4/<email> HTTP/1.1" 200 137 "-" "curl/8.6.0" "-"
-    172.18.0.1 - - [26/Nov/2026:17:41:20 +0000] "DELETE /api/v1/validacion/puertas/ev-26b2e8d4/<email> HTTP/1.1" 204 0 "-" "curl/8.6.0" "-"
-    172.18.0.1 - - [26/Nov/2026:17:41:20 +0000] "PUT /api/v1/validacion/puertas/ev-26b2e8d4/<email> HTTP/1.1" 200 137 "-" "curl/8.6.0" "-"
-  grep -cE '/puertas/[^ ]+(@|%40)' -> 0. En el log entero del contenedor web (14819 renglones): 0 pedidos con @ o %40
-    en la ruta y 10 con <email>.
+  docker compose logs web desde las 19:16:14, los tres renglones de esos pedidos:
+    172.18.0.1 - - [26/Nov/2026:19:16:22 +0000] "PUT /api/v1/validacion/puertas/ev-c0a8166c/<email> HTTP/1.1" 200 137 "-" "curl/8.6.0" "-"
+    172.18.0.1 - - [26/Nov/2026:19:16:22 +0000] "DELETE /api/v1/validacion/puertas/ev-c0a8166c/<email> HTTP/1.1" 204 0 "-" "curl/8.6.0" "-"
+    172.18.0.1 - - [26/Nov/2026:19:16:22 +0000] "PUT /api/v1/validacion/puertas/ev-c0a8166c/<email> HTTP/1.1" 200 137 "-" "curl/8.6.0" "-"
+  grep -cE '/puertas/[^ ]+(@|%40)' -> 0. En el log entero del contenedor web (18210 renglones): 0 pedidos con @ o %40
+    en la ruta y 13 con <email>.
 
-DEF-56 (17:41:23 a 17:41:45)
+DEF-56 (19:16:25 a 19:16:48)
   Sin PALCO_SECRETO_SERVICIOS, sin backend/.env y sin backend/servidor/target/secreto-servicios:
     bash docs/entrega3/evidencia/reproducir.sh -> "No está el secreto entre servicios: definí
     PALCO_SECRETO_SERVICIOS con el del servidor, ponelo en backend/.env o levantá el servidor con backend/dev.sh, que
@@ -300,22 +312,20 @@ DEF-56 (17:41:23 a 17:41:45)
   Con PALCO_SECRETO_SERVICIOS, el secreto con el que arrancó el compose: el mismo guion contra http://localhost:8080
     pide el token de servicio con ese secreto y lo usa:
     9. GET /api/notificaciones/auditoria, token de rol servicio: 200 (se espera 200); sin token 401; comprador 403.
-    Salida 0. Su compra de ev-1 (paso 2) responde 409 /problemas/dni-con-entrada ("Los DNI 30123456, 31234567 ya
-    tienen una entrada para este evento."): el guion usa siempre esos dos DNI, que ya tienen entrada de ev-1. Los pasos
-    que leen el broker con jboss-cli y el server.log de backend/dev.sh (0, 1, 5, 6 y 8) no tienen contra qué correr:
-    el compose no publica la consola de administración (localhost:9990).
+    Salida 0. Su compra de ev-1 (paso 2) responde 409 /problemas/dni-con-entrada: el guion usa siempre los DNI
+    30123456 y 31234567, que ya tienen entrada de ev-1. Los pasos que leen el broker con jboss-cli y el server.log de
+    backend/dev.sh (0, 1, 5, 6 y 8) no tienen contra qué correr: el compose no publica la consola de administración
+    (localhost:9990).
 
-DEF-46 (17:41:45 a 17:41:49, PostgreSQL del compose, cinco vueltas de cada caso, cada una en un evento nuevo)
+DEF-46 (19:16:48 a 19:16:52, PostgreSQL del compose, cinco vueltas de cada caso, cada una en un evento nuevo)
   Tope: otro.titular@palco.test manda a la vez dos POST /api/v1/ventas de 6 entradas, con distinta Idempotency-Key y
   DNI distintos:
-    vueltas 1 a 5: 409 /problemas/tope-por-evento | 201
+    vueltas 1, 2, 3 y 5: 409 /problemas/tope-por-evento | 201
+    vuelta 4: 201 | 409 /problemas/tope-por-evento
     En las cinco, una sola compra del comprador en el evento.
   DNI: dos compras de 1 entrada con el mismo DNI (las dos abren con 201) y los dos pagos a la vez:
-    vuelta 1: 201 | 409 /problemas/dni-con-entrada
+    vueltas 1, 3, 4 y 5: 409 /problemas/dni-con-entrada | 201
     vuelta 2: 201 | 409 /problemas/dni-con-entrada
-    vuelta 3: 201 | 409 /problemas/dni-con-entrada
-    vuelta 4: 409 /problemas/dni-con-entrada | 201
-    vuelta 5: 201 | 409 /problemas/dni-con-entrada
 
 DEF-40
   bash scripts/qa/control-de-logs.sh, sin PALCO_CORREO_LOG_COMPLETO, sobre 200 renglones del server.log del compose:

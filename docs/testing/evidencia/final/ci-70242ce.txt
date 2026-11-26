@@ -1,5 +1,5 @@
-Corrida del CI sobre c5d3fd8 (master)
-Commit: c5d3fd86ee99d3b4520d7fd047429aec951baca3
+Corrida del CI sobre 70242ce (master)
+Commit: 70242cea96ee4453f687e443e4ba4ef310bd5734
 Los workflows los disparó el push a master del 26/11/2026; Carga y Estabilidad se corrieron a mano
 (workflow_dispatch) el mismo día sobre el mismo commit, mientras corrían los del push.
 Fuente: "gh run view <id> --json" y "gh run view <id> --log", y los artefactos de cada run.
@@ -8,37 +8,39 @@ Enlace de cada run: https://github.com/santttii/deapps2/actions/runs/<id>
 1. Workflows y jobs (horas en UTC; en Argentina, 3 horas menos)
 
 Run          Workflow               Desde                   Hasta                   Duración      Resultado
-45866572543  CI                     2026-11-26T17:18:12Z    2026-11-26T17:24:36Z    6 min 24 s    success
-45866572514  Pruebas de seguridad   2026-11-26T17:18:12Z    2026-11-26T17:21:15Z    3 min 03 s    success
-45866572586  Mutación               2026-11-26T17:18:12Z    2026-11-26T17:25:04Z    6 min 52 s    success
-45866572371  Seguridad (Trivy)      2026-11-26T17:18:12Z    2026-11-26T17:20:49Z    2 min 37 s    success
-45866572396  Contrato               2026-11-26T17:18:12Z    2026-11-26T17:21:05Z    2 min 53 s    success
-45866572601  Lighthouse             2026-11-26T17:18:12Z    2026-11-26T17:22:42Z    4 min 30 s    success
-45866572404  ZAP                    2026-11-26T17:18:12Z    2026-11-26T17:22:59Z    4 min 47 s    success
-45866630293  Carga                  2026-11-26T17:18:36Z    2026-11-26T17:26:37Z    8 min 01 s    success
-45866634983  Estabilidad            2026-11-26T17:18:38Z    2026-11-26T17:23:42Z    5 min 04 s    success
+45880936756  CI                     2026-11-26T19:05:07Z    2026-11-26T19:11:43Z    6 min 36 s    success
+45880936865  Pruebas de seguridad   2026-11-26T19:05:07Z    2026-11-26T19:08:07Z    3 min 00 s    success
+45880936817  Mutación               2026-11-26T19:05:07Z    2026-11-26T19:11:02Z    5 min 55 s    success
+45880936851  Seguridad (Trivy)      2026-11-26T19:05:07Z    2026-11-26T19:07:26Z    2 min 19 s    success
+45880936904  Contrato               2026-11-26T19:05:08Z    2026-11-26T19:08:14Z    3 min 06 s    success
+45880936872  Lighthouse             2026-11-26T19:05:08Z    2026-11-26T19:09:35Z    4 min 27 s    success
+45880936855  ZAP                    2026-11-26T19:05:07Z    2026-11-26T19:09:28Z    4 min 21 s    success
+45880966198  Carga                  2026-11-26T19:12:37Z    2026-11-26T19:21:11Z    8 min 34 s    success
+             (intento 2; el intento 1, de 19:05:19 a 19:11:08, falló al armar la imagen porque Maven Central no
+             respondió al bajar jacoco-maven-plugin, y no llegó a correr k6)
+45880970863  Estabilidad            2026-11-26T19:05:21Z    2026-11-26T19:11:44Z    6 min 23 s    success
 
-Los 7 workflows del push corren en paralelo: el pipeline duró 6 min 52 s de reloj (17:18:12 a 17:25:04 UTC), lo que
-tardó el más largo (Mutación). Check runs del commit (API de GitHub, commits/c5d3fd8/check-runs): 22, los 22 en success.
+Los 7 workflows del push corren en paralelo: el pipeline duró 6 min 36 s de reloj (19:05:07 a 19:11:43 UTC), lo que
+tardó el más largo (CI). Check runs del commit (API de GitHub, commits/70242ce/check-runs): 22, los 22 en success.
 Son los 19 jobs de los workflows del push (10 de CI, 4 de Seguridad y uno de cada uno de los otros cinco), el
 análisis de SonarCloud ("SonarCloud Code Analysis", "Quality Gate passed") y los jobs de Carga y Estabilidad.
 
-Jobs del workflow CI (run 45866572543):
-  Backend (mvn verify)                                  3 min 50 s   success
-  SonarCloud (análisis estático y cobertura)            4 min 38 s   success
-  Frontend (lint y build)                               0 min 14 s   success
-  Secretos (gitleaks)                                   0 min 10 s   success
-  Integración: general                                  6 min 21 s   success
-  Integración: conciliacion-pagos                       4 min 39 s   success
-  Integración: conciliacion-reventa-19                  4 min 48 s   success
-  Integración: conciliacion-reventa-20                  4 min 49 s   success
-  API (Postman con Newman contra docker compose)        3 min 20 s   success
-  E2E (Playwright contra docker compose)                4 min 16 s   success
+Jobs del workflow CI (run 45880936756):
+  Backend (mvn verify)                                  4 min 00 s   success
+  SonarCloud (análisis estático y cobertura)            5 min 30 s   success
+  Frontend (lint y build)                               0 min 13 s   success
+  Secretos (gitleaks)                                   0 min 09 s   success
+  Integración: general                                  6 min 32 s   success
+  Integración: conciliacion-pagos                       5 min 42 s   success
+  Integración: conciliacion-reventa-19                  4 min 54 s   success
+  Integración: conciliacion-reventa-20                  4 min 52 s   success
+  API (Postman con Newman contra docker compose)        2 min 56 s   success
+  E2E (Playwright contra docker compose)                4 min 13 s   success
 
-Jobs del workflow Seguridad (run 45866572371):
-  Dependencias del repo (trivy fs)                      0 min 21 s   success
-  Imagen: web (trivy image)                             0 min 37 s   success
-  Imagen: backend (trivy image)                         2 min 34 s   success
+Jobs del workflow Seguridad (run 45880936851):
+  Dependencias del repo (trivy fs)                      0 min 25 s   success
+  Imagen: web (trivy image)                             0 min 40 s   success
+  Imagen: backend (trivy image)                         2 min 15 s   success
   Imagen: db (trivy image)                              0 min 27 s   success
 
 2. Tests JUnit (job "Backend (mvn verify)": "Tests run" de surefire y failsafe por módulo y artefacto reportes-backend)
@@ -47,7 +49,7 @@ Módulo                     Tests   Unitarias   Con H2 (*EnH2Test)   IT (failsaf
 common                        89          89                    0               0        0         0          0
 servicios/usuarios            96          81                   15               9        0         0          0
 servicios/eventos            115         101                   14              14        0         0          0
-servicios/ventas             396         335                   61              28        0         0          0
+servicios/ventas             397         336                   61              28        0         0          0
 servicios/pagos               45          45                    0               0        0         0          0
 servicios/validacion          62          54                    8               0        0         0          0
 servicios/reventa             99          85                   14               0        0         0          0
@@ -55,25 +57,26 @@ servicios/notificaciones      94          88                    6               
 servicios/facturacion         52          46                    6               9        0         0          0
 servicios/asistente          207         207                    0               0        0         0          0
 servicios/arca                18          18                    0               0        0         0          0
-Total                       1273        1149                  124              61        0         0          0
+Total                       1274        1150                  124              61        0         0          0
 
 "Tests" es lo que corre surefire (unitarias y con H2); la columna IT, lo que corre failsafe en la fase
 integration-test, contra PostgreSQL 17 (postgres:17-alpine) y Artemis (apache/artemis:2.54.0) en contenedores, con
 Testcontainers: 10 clases *EnPostgresIT (usuarios RepositoriosEnPostgresIT 6 y MigracionesEnPostgresIT 3; eventos
 CupoEnPostgresIT 14; ventas ConciliacionEnPostgresIT 13, DevolucionPendienteEnPostgresIT 6, EmisionEnPostgresIT 1,
 ReembolsoPendienteEnPostgresIT 5 y UsoEnPostgresIT 3; notificaciones MigracionesEnPostgresIT 1; facturacion
-FacturaEnPostgresIT 6) y FacturacionDeComprasEnArtemisIT 3. En total, 1334 tests.
+FacturaEnPostgresIT 6) y FacturacionDeComprasEnArtemisIT 3. En total, 1335 tests.
 
-Ningún reporte de surefire ni de failsafe tiene flakes mayor que 0. mvn verify: BUILD SUCCESS, "Total time: 03:21
+Ningún reporte de surefire ni de failsafe tiene flakes mayor que 0. mvn verify: BUILD SUCCESS, "Total time: 03:40
 min". La regla umbral-de-negocio-y-dominio de JaCoCo dio "All coverage checks have been met." en los 11 módulos con
 código.
 Incluidos en el total: ContratoDelWsdlTest (contrato SOAP) 7 de 7; EstadoDeVentaTest (patrón State) 13 de 13;
 EvaluacionDelAsistenteTest, que imprime "26 de 26 bien; adversariales: 11 de 11"; SeguridadDeclarativaTest, 1 en
-cada uno de los 9 servicios con recursos JAX-RS.
+cada uno de los 9 servicios con recursos JAX-RS; ResumenDeVentasTest 10 de 10, con
+#unEventoIdConUnCaracterDeControlEsUn400SinConsultarAEventos (DEF-80).
 
 3. Integración de punta a punta (jobs "Integración", scripts/pruebas/escenarios.mjs contra docker compose)
 
-En cada job el compose quedó levantado en 20 a 26 segundos; antes de los escenarios, los 9 health respondieron 200 por
+En cada job el compose quedó levantado en 26 segundos; antes de los escenarios, los 9 health respondieron 200 por
 HTTPS y nginx mandó las cabeceras Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options y
 Referrer-Policy (cabeceras.txt del artefacto integracion-general: la CSP con style-src 'self' e img-src 'self' data:
 blob: https://picsum.photos, y Cross-Origin-Opener-Policy y Cross-Origin-Resource-Policy en same-origin). El paso
@@ -129,13 +132,13 @@ coleccion.txt (las carpetas automáticas de docs/api/palco-api.postman_collectio
   test-scripts        214 ejecutados, 0 fallidos
   prerequest-scripts   20 ejecutados, 0 fallidos
   assertions          682 ejecutadas, 0 fallidas
-  total run duration: 19.3s; average response time: 47ms [min: 3ms, max: 749ms, s.d.: 80ms]
+  total run duration: 18.9s; average response time: 46ms [min: 2ms, max: 620ms, s.d.: 74ms]
 
 reenvio.txt y verificacion.txt (los dos pasos manuales que el job corre con el código leído del log):
   reenvio:       1 request, 1 aserción, 0 fallas
   verificacion:  1 request, 2 aserciones, 0 fallas
 
-Operaciones del contrato (docs/api/openapi.yaml en c5d3fd8: 52) contra los 221 pedidos de las tres corridas, por
+Operaciones del contrato (docs/api/openapi.yaml en 70242ce: 52) contra los 221 pedidos de las tres corridas, por
 método y ruta, con el código de cada respuesta:
   50 operaciones con al menos un pedido 2xx o 3xx y uno 4xx.
   POST /v1/operaciones-de-reventa/controles-de-compra: 204 con rol servicio, 409 dni-con-entrada y 403 con rol user.
@@ -164,7 +167,7 @@ El log del job no tiene ninguna prueba "flaky" ni ningún reintento (en el CI re
 
 7. Secretos (job "Secretos (gitleaks)": gitleaks 8.28.0, checkout con fetch-depth 0 y --log-opts="--all")
 
-  "282 commits scanned." y "no leaks found"; gitleaks.sarif con 0 resultados.
+  "291 commits scanned." y "no leaks found"; gitleaks.sarif con 0 resultados.
 
 8. PMD 7.17.0 (artefacto analisis-estatico: target/pmd.xml de cada módulo, resumen de scripts/qa/analisis-estatico.mjs)
 

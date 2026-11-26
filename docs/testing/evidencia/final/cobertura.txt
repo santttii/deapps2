@@ -1,5 +1,5 @@
-Cobertura del backend (JaCoCo 0.8.16) sobre c5d3fd8
-Fuente: artefacto reportes-backend del run 45866572543 (job "Backend (mvn verify)", 26/11/2026), el jacoco.csv de cada
+Cobertura del backend (JaCoCo 0.8.16) sobre 70242ce
+Fuente: artefacto reportes-backend del run 45880936756 (job "Backend (mvn verify)", 26/11/2026), el jacoco.csv de cada
 módulo (target/site/jacoco/jacoco.csv). Mide los tests de surefire (unitarias y con H2); los *IT de failsafe corren
 sin el agente de JaCoCo (backend/pom.xml, ejecución umbral-de-negocio-y-dominio).
 
@@ -17,19 +17,19 @@ sin el agente de JaCoCo (backend/pom.xml, ejecución umbral-de-negocio-y-dominio
 | servicios/reventa | 84.7 % | 81.5 % | 592 / 699 |
 | servicios/usuarios | 82.0 % | 81.9 % | 382 / 466 |
 | servicios/validacion | 80.0 % | 78.0 % | 296 / 370 |
-| servicios/ventas | 86.0 % | 79.4 % | 1311 / 1525 |
-| **Total** | **82.1 %** | **78.7 %** | **4208 / 5123** |
+| servicios/ventas | 86.0 % | 79.3 % | 1313 / 1527 |
+| **Total** | **82.1 %** | **78.6 %** | **4210 / 5125** |
 
 2. Por capa: suma de las columnas LINE_* y BRANCH_* del jacoco.csv de todos los módulos, por paquete
 
 Capa (paquetes)                                    Líneas                   Ramas
-negocio (com.palco.*.negocio)                      1818 / 1894 = 96.0 %     676 / 732 = 92.3 %
+negocio (com.palco.*.negocio)                      1820 / 1896 = 96.0 %     677 / 734 = 92.2 %
 dominio (com.palco.*.dominio y dominio.estado)      556 /  569 = 97.7 %      37 /  39 = 94.9 %
-negocio y dominio juntos                           2374 / 2463 = 96.4 %     713 / 771 = 92.5 %
+negocio y dominio juntos                           2376 / 2465 = 96.4 %     714 / 773 = 92.4 %
 negocio.externos (clientes REST, SOAP y JMS)        730 / 1071 = 68.2 %     393 / 558 = 70.4 %
-negocio, negocio.externos y dominio juntos         3104 / 3534 = 87.8 %    1106 / 1329 = 83.2 %
+negocio, negocio.externos y dominio juntos         3106 / 3536 = 87.8 %    1107 / 1331 = 83.2 %
 resto (api, datos, common y otros)                 1104 / 1589 = 69.5 %     252 / 397 = 63.5 %
-total                                              4208 / 5123 = 82.1 %    1358 / 1726 = 78.7 %
+total                                              4210 / 5125 = 82.1 %    1359 / 1728 = 78.6 %
 
 3. Negocio y dominio por servicio (com.palco.<servicio>.negocio y com.palco.<servicio>.dominio, sin negocio.externos)
 
@@ -42,15 +42,15 @@ pagos             109 / 118 = 92.4 %    28 /  30 = 93.3 %
 reventa           344 / 367 = 93.7 %    99 / 110 = 90.0 %
 usuarios          279 / 300 = 93.0 %    78 /  92 = 84.8 %
 validacion        161 / 166 = 97.0 %    49 /  52 = 94.2 %
-ventas            814 / 828 = 98.3 %   264 / 275 = 96.0 %
+ventas            816 / 830 = 98.3 %   265 / 277 = 95.7 %
 
 Contando también negocio.externos, Validación queda en 249 / 309 = 80.6 % de líneas y 98 / 124 = 79.0 % de ramas,
-y Ventas en 998 / 1151 = 86.7 % y 350 / 438 = 79.9 %; el resto de los servicios, en 84 % de líneas o más.
+y Ventas en 1000 / 1153 = 86.7 % y 351 / 440 = 79.8 %; el resto de los servicios, en 84 % de líneas o más.
 
 Umbral de la cátedra (eje B) y del plan (sección 4): negocio y dominio con 80 % de líneas y 70 % de ramas o más. Lo
 controla el build: la regla umbral-de-negocio-y-dominio de JaCoCo (goal check, fase verify) dio "All coverage checks
 have been met." en los 11 módulos con código (log del job "Backend (mvn verify)").
 
-4. SonarCloud, con los mismos reportes de JaCoCo (api/measures/component, análisis de c5d3fd8)
+4. SonarCloud, con los mismos reportes de JaCoCo (api/measures/component, análisis de 70242ce)
 
-coverage 81.3, line_coverage 82.2, branch_coverage 78.7; new_coverage 92.7 (código nuevo desde el 20/11).
+coverage 81.3, line_coverage 82.2, branch_coverage 78.6; new_coverage 92.6 (código nuevo desde el 20/11).

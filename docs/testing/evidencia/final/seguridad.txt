@@ -1,9 +1,9 @@
-Pruebas de seguridad (scripts/pruebas/seguridad.mjs y frontend/e2e/xss.spec.ts) sobre c5d3fd8
-Fuente: run 45866572514, workflow "Pruebas de seguridad" (26/11/2026, 17:18:12 a 17:21:15 UTC, success), artefacto
+Pruebas de seguridad (scripts/pruebas/seguridad.mjs y frontend/e2e/xss.spec.ts) sobre 70242ce
+Fuente: run 45880936865, workflow "Pruebas de seguridad" (26/11/2026, 19:05:07 a 19:08:07 UTC, success), artefacto
 pruebas-seguridad: resultados-seguridad/seguridad.txt. Contra el docker compose del job ("Levantado en 26 segundos"),
 por nginx (https://localhost) y directo al backend (http://localhost:8080), con la clave JWT de la corrida.
 
-RESUMEN de seguridad.mjs (26/11/2026, desde las 17:20:43):
+RESUMEN de seguridad.mjs (26/11/2026, desde las 19:07:34):
 PASA   A. Tokens JWT manipulados: 401 en cada servicio  (11/11 comprobaciones)
 PASA   B. Mass assignment: los campos que fija el servidor no los cambia el cliente  (20/20 comprobaciones)
 PASA   C. XSS almacenado: el HTML de un evento y de un titular se guarda y se devuelve como texto  (6/6 comprobaciones)
@@ -18,12 +18,12 @@ servicio agregado, firmado con otra clave RSA y con HS256 y la clave pública (c
 token-invalido en Problem Details, sin stack trace, en Usuarios, Eventos, Ventas, Reventa y Validación.
 
 frontend/e2e/xss.spec.ts en el navegador (Chromium):
-  ok 1 XSS almacenado: el HTML que el organizador carga en su evento se ve como texto en el panel, el catálogo y el detalle (4.3s)
-  ok 2 XSS sin pasar por el formulario: un título con HTML guardado por la API y una búsqueda con HTML se ven como texto, sin sesión (2.7s)
-  2 passed (7.9s)
+  ok 1 XSS almacenado: el HTML que el organizador carga en su evento se ve como texto en el panel, el catálogo y el detalle (4.4s)
+  ok 2 XSS sin pasar por el formulario: un título con HTML guardado por la API y una búsqueda con HTML se ven como texto, sin sesión (2.6s)
+  2 passed (8.1s)
 
 Control de logs del job: "logs/server.log está limpio (1392 renglones)".
 
-Las mismas dos pruebas pasaron también en el job "E2E" del run 45866572543 (39 de 39).
-Fuerza bruta (429), BOLA y BFLA: carpeta 4 de la colección de Postman, en el job "API" del run 45866572543 (219
+Las mismas dos pruebas pasaron también en el job "E2E" del run 45880936756 (39 de 39).
+Fuerza bruta (429), BOLA y BFLA: carpeta 4 de la colección de Postman, en el job "API" del run 45880936756 (219
 requests, 682 aserciones, 0 fallas), y escenarios 5 y 21 de escenarios.mjs (PASA).

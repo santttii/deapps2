@@ -1,33 +1,35 @@
-Prueba de carga (k6) sobre c5d3fd8
-Fuente: run 45866630293, workflow "Carga" (workflow_dispatch sobre master en c5d3fd8, 26/11/2026, 17:18:36 a 17:26:37
-UTC, success), artefacto reporte-carga: carga-k6.txt (copiado abajo tal cual), carga-k6.json (umbrales) y pool.txt.
-Sistema: el docker compose levantado de cero en el runner de GitHub ("Levantado en 19 segundos"), por nginx y HTTPS.
+Prueba de carga (k6) sobre 70242ce
+Fuente: run 45880966198, workflow "Carga" (workflow_dispatch sobre master en 70242ce, intento 2: 26/11/2026, 19:12:37 a
+19:21:11 UTC, success), artefacto reporte-carga: carga-k6.txt (copiado abajo tal cual), carga-k6.json (umbrales) y
+pool.txt. El intento 1 del mismo run (19:05:19 a 19:11:08 UTC) falló al armar la imagen del backend: Maven Central no
+respondió al bajar jacoco-maven-plugin 0.8.16 ("could not be resolved" en el log) y k6 no llegó a correr.
+Sistema: el docker compose levantado de cero en el runner de GitHub ("Levantado en 26 segundos"), por nginx y HTTPS.
 Antes de la carga, scripts/carga/cuentas.mjs creó 50 cuentas, una por usuario virtual ("50 de 50 cuentas creadas").
 
 --- carga-k6.txt ---
 Prueba de carga de Palco (k6)
-Fecha: 2026-11-26 14:26 (hora de Argentina) · grafana/k6:2.3.0
+Fecha: 2026-11-26 16:20 (hora de Argentina) · grafana/k6:2.3.0
 Sistema: https://localhost
 Carga: 50 usuarios virtuales durante 5m, cada uno con su cuenta y su sesión, después de 30 s de calentamiento con 5. Pausa de 0,5 a 1,5 s entre página y página.
 Criterio: en cada endpoint, p95 < 500 ms y menos de 1 % de errores (solo cuenta el escenario de carga).
 
 Endpoint                                 pedidos   errores       p50       p90       p95       p99       máx   p95<500  err<1%
-GET /api/eventos (catálogo)                 3735    0.00 %    1.8 ms    3.6 ms    5.0 ms   37.4 ms   84.4 ms        sí      sí
-GET /api/eventos/{slug} (detalle)           3735    0.00 %    1.6 ms    3.3 ms    4.2 ms    8.2 ms   25.2 ms        sí      sí
-POST /api/v1/ventas (abrir compra)          3735    0.00 %    8.4 ms   15.8 ms   21.1 ms   32.6 ms    115 ms        sí      sí
-DELETE /api/v1/ventas/{id} (cancelar)       3735    0.00 %    5.1 ms    9.5 ms   13.2 ms   21.2 ms   86.5 ms        sí      sí
-Todos los pedidos medidos                  14940    0.00 %    3.3 ms   10.1 ms   13.7 ms   26.3 ms    115 ms        sí      sí
+GET /api/eventos (catálogo)                 3698    0.00 %    1.8 ms    2.7 ms    3.4 ms   60.0 ms    510 ms        sí      sí
+GET /api/eventos/{slug} (detalle)           3698    0.00 %    1.6 ms    2.4 ms    3.0 ms    6.3 ms    636 ms        sí      sí
+POST /api/v1/ventas (abrir compra)          3698    0.00 %    8.7 ms   39.6 ms   86.4 ms    227 ms    912 ms        sí      sí
+DELETE /api/v1/ventas/{id} (cancelar)       3698    0.00 %    5.3 ms   41.2 ms   93.1 ms    242 ms    931 ms        sí      sí
+Todos los pedidos medidos                  14792    0.00 %    3.8 ms   14.8 ms   46.8 ms    178 ms    931 ms        sí      sí
 
-Pedidos medidos: 14940, unos 50 por segundo.
-Comprobaciones del cuerpo de las respuestas: 100.00 % bien (14940 de 14940).
-Login (una vez por usuario virtual, en setup, sin umbral): 50 sesiones, de a 6 a la vez. Promedio 253 ms, p95 366 ms, máximo 371 ms.
+Pedidos medidos: 14792, unos 49 por segundo.
+Comprobaciones del cuerpo de las respuestas: 100.00 % bien (14792 de 14792).
+Login (una vez por usuario virtual, en setup, sin umbral): 50 sesiones, de a 6 a la vez. Promedio 302 ms, p95 395 ms, máximo 429 ms.
 Duración total de la corrida, con la preparación: 347 s.
 
 Resultado: se cumplen todos los umbrales.
 --- fin de carga-k6.txt ---
 
 Escenarios de k6 (log del run): "calentamiento: 5 looping VUs for 30s" y "carga: 50 looping VUs for 5m0s (startTime:
-40s)". Al terminar: "3775 complete and 0 interrupted iterations".
+40s)". Al terminar: "3736 complete and 0 interrupted iterations".
 
 Umbrales de carga-k6.json (thresholds de k6; los 11 con "ok": true):
   http_req_duration p(95)<500 en catalogo, detalle, abrir_compra, cancelar_compra y en todo el escenario carga
@@ -35,8 +37,8 @@ Umbrales de carga-k6.json (thresholds de k6; los 11 con "ok": true):
   checks rate>0.99 en el escenario carga
 
 Pool de conexiones de la base después de la carga (pool.txt, PalcoDS, máximo 10 conexiones):
-  MaxUsedCount 10, MaxWaitCount 21, MaxWaitTime 139 ms, TimedOut 0, BlockingFailureCount 0.
-  El pool llegó a usar las 10 conexiones y hubo pedidos que esperaron hasta 139 ms por una, sin ninguno vencido.
+  MaxUsedCount 10, MaxWaitCount 36, MaxWaitTime 654 ms, TimedOut 0, BlockingFailureCount 0.
+  El pool llegó a usar las 10 conexiones y hubo pedidos que esperaron hasta 654 ms por una, sin ninguno vencido.
 
 Criterio de la cátedra (eje C): 50 usuarios, 5 minutos, los 3 endpoints críticos, p95 < 500 ms y error < 1 %.
-Cumple: el p95 más alto es 21.1 ms (abrir una compra) y no hubo errores.
+Cumple: el p95 más alto es 93.1 ms (cancelar una compra) y no hubo errores.

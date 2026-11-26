@@ -1,8 +1,8 @@
-OWASP ZAP 2.17.0 sobre c5d3fd8
-Fuente: run 45866572404, workflow "ZAP" (26/11/2026, 17:18:12 a 17:22:59 UTC, success), artefacto reporte-zap:
+OWASP ZAP 2.17.0 sobre 70242ce
+Fuente: run 45880936855, workflow "ZAP" (26/11/2026, 19:05:07 a 19:09:28 UTC, success), artefacto reporte-zap:
 logs/zap/resumen.md, que arma scripts/qa/zap-resumen.mjs con baseline.json y api.json. Baseline (pasivo) contra la
 app por nginx y escaneo de la API autenticada (pasivo y activo, política API-Minimal) con el token de
-titular@palco.test. Justificaciones y falsos positivos: .zap/reglas.tsv. Compose del job: "Levantado en 25 segundos".
+titular@palco.test. Justificaciones y falsos positivos: .zap/reglas.tsv. Compose del job: "Levantado en 19 segundos".
 
 Baseline (https://web):
 | Riesgo | Alerta | Regla | Instancias | Estado |
@@ -11,7 +11,7 @@ Baseline (https://web):
 | Info | Information Disclosure - Suspicious Comments | 10027 | 1 | Informativa |
 | Info | Modern Web Application | 10109 | 3 | Informativa |
 | Info | Re-examine Cache-control Directives | 10015 | 4 | Informativa |
-| Info | Storable and Cacheable Content | 10049 | 4 | Informativa |
+| Info | Storable and Cacheable Content | 10049 | 3 | Informativa |
 
 API autenticada (https://web):
 | Riesgo | Alerta | Regla | Instancias | Estado |
