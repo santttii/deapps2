@@ -25,3 +25,25 @@ Evidencia de DEF-36 (docs/testing/registro-de-defectos.md).
 
 5. Después se volvió a levantar el backend con PALCO_CORREO_LOG_COMPLETO=true, el modo que usan los guiones que leen
    el código del log (README, "Todo junto, con un solo comando (Docker)").
+
+6. Sobre c5d3fd8 (26/11/2026, 17:40 UTC; docker compose con la imagen backend armada a las 17:38:50 UTC con el código
+   de c5d3fd8, backend recreado a las 17:40:07 sin la variable, http://localhost:8080)
+   docker compose exec -T backend printenv PALCO_CORREO_LOG_COMPLETO  ->  false
+   - Un registro sin sesión con un email nuevo (def36.2009710369@palco.test) -> 201; el email con el código de
+     verificación sale por CorreoAlLog.
+   - Una pregunta al asistente con sesión de titular@palco.test: "Mi email es titular@palco.test, hasta cuando puedo
+     revender?" -> 200.
+   - Una compra de titular@palco.test en un evento nuevo (ev-27506442), pagada con tok_test -> 201, V-ba16f089
+     EMITIDA; el aviso de compra sale por el tópico.
+   Los renglones del log de ese tramo (logs/server.log, desde las 17:40:22 UTC: 22 renglones):
+   2026-11-26 17:40:23,963 INFO  [com.palco.common.email.CorreoAlLog] (default task-3) Email para d***@palco.test (Tu código de Palco), sin el cuerpo: lo escribe PALCO_CORREO_LOG_COMPLETO=true.
+   2026-11-26 17:40:28,171 INFO  [com.palco.asistente.negocio.AsistenteIA] (default task-3) Asistente: usuario=user-titular modelo=openai-compatible/gpt-4o-mini origen=MODELO motivo=null ms=3289 pregunta="Mi email es [email oculto], hasta cuando puedo revender?"
+   2026-11-26 17:40:29,727 INFO  [com.palco.common.email.CorreoAlLog] (Thread-1 (activemq-client-global)) Email para t***@palco.test (Tu compra en Palco está confirmada), sin el cuerpo: lo escribe PALCO_CORREO_LOG_COMPLETO=true.
+   Búsquedas en esos 22 renglones:
+   grep -cE "def36.2009710369@palco.test|titular@palco\.test|organizador@palco\.test"  ->  0
+   grep -cE "[A-Za-z0-9._%+-]{2,}@palco\.test"                                         ->  0 (ningún email entero)
+   grep -ciE "c[oó]digo[^0-9]{0,40}[0-9]{6}"                                           ->  0 (ningún código)
+   A las 17:40:33 el backend se volvió a levantar con PALCO_CORREO_LOG_COMPLETO=true, el modo de los guiones que leen
+   el código del log.
+   En los workflows de c5d3fd8 que corren el compose con el valor por defecto, el paso "Control de logs" dio
+   "ok: sin emails @palco.test enteros": Contrato (run 45866572396, 1221 renglones) y ZAP (run 45866572404, 1250).

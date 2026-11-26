@@ -1,22 +1,32 @@
-Dependencias e imágenes (Trivy v0.76.2) sobre fbd31dc
-Fuente: run 44867187171, workflow "Seguridad" (21/11/2026, 04:39:41 a 04:41:45 UTC, success), artefactos
-trivy-dependencias, trivy-imagen-backend y trivy-imagen-web. Severidades buscadas: CRITICAL y HIGH, con o sin arreglo;
-excepciones en .trivyignore, cada una con su motivo y su vencimiento (exp:).
+Dependencias e imágenes (Trivy v0.76.2) sobre c5d3fd8
+Fuente: run 45866572371, workflow "Seguridad" (26/11/2026, 17:18:12 a 17:20:49 UTC, success), artefactos
+trivy-dependencias, trivy-imagen-web, trivy-imagen-backend y trivy-imagen-db. Severidades buscadas: CRITICAL y HIGH,
+con o sin arreglo; excepciones en .trivyignore, cada una con su motivo y su vencimiento (exp:).
 
-1. Dependencias del repo (trivy fs, job "Dependencias del repo", 28 s)
+1. Dependencias del repo (trivy fs, job "Dependencias del repo", 21 s)
    15 objetivos: los 14 pom.xml del backend y frontend/package-lock.json. Vulnerabilidades: 0 en cada uno.
 
-2. Imagen web (trivy image, job "Imagen: web", 40 s)
+2. Imagen web (trivy image, job "Imagen: web", 37 s)
    palco-web (alpine 3.24.4): 0.
 
-3. Imagen backend (trivy image, job "Imagen: backend", 2 min 01 s)
+3. Imagen backend (trivy image, job "Imagen: backend", 2 min 34 s)
    palco-backend (ubuntu 26.04) y los jar de WildFly: "Total: 0 (HIGH: 0, CRITICAL: 0)".
    "Suppressed Vulnerabilities (Total: 6)", todas HIGH, todas por .trivyignore:
      com.fasterxml.jackson.core:jackson-core      CVE-2026-89407, CVE-2026-89425
-     com.fasterxml.jackson.core:jackson-databind  CVE-2026-91776, CVE-2026-91777, CVE-2026-68497
+     com.fasterxml.jackson.core:jackson-databind  CVE-2026-68497, CVE-2026-91777, CVE-2026-91776
      com.google.guava:guava                       CVE-2026-102554
    Vienen dentro de los módulos de WildFly 41.0.1, no de una dependencia de Palco. Vencen el 2026-12-31. El motivo y
    cómo se comprobó que no aplican (Palco lee el JSON con JSON-B, no importa Jackson ni Guava, la mensajería es solo
    TextMessage) está escrito en .trivyignore.
 
-Resultado: 0 CVE críticas o altas fuera de .trivyignore; 6 altas aceptadas con su motivo y su vencimiento.
+4. Imagen de la base (trivy image, job "Imagen: db", 27 s)
+   postgres:17-alpine (alpine 3.24.4): "Total: 0 (HIGH: 0, CRITICAL: 0)"; "Suppressed Vulnerabilities (Total: 1)":
+     libxml2  CVE-2026-86144 (HIGH)
+   usr/local/bin/gosu (gobinary): "Total: 0 (HIGH: 0, CRITICAL: 0)"; "Suppressed Vulnerabilities (Total: 26)", las 26
+   de la biblioteca estándar de Go con la que viene compilado gosu.
+   Las 27 vencen el 2026-12-31. El motivo de cada grupo (ninguna migración ni código de Palco usa el tipo xml ni la
+   extensión xml2, y el servicio db no publica ningún puerto; gosu corre una sola vez al arrancar el contenedor y no
+   tiene adentro los paquetes de las 26) está escrito en .trivyignore.
+
+Resultado: 0 CVE críticas o altas fuera de .trivyignore en los cuatro escaneos; las aceptadas, cada una con su motivo
+y su vencimiento.

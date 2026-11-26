@@ -1,15 +1,16 @@
-Contrato REST (Schemathesis 4.32.7) y contrato SOAP sobre fbd31dc
-Fuente: run 44867187179, workflow "Contrato" (21/11/2026, 04:39:41 a 04:42:53 UTC, success), artefacto
+Contrato REST (Schemathesis 4.32.7) y contrato SOAP sobre c5d3fd8
+Fuente: run 45866572396, workflow "Contrato" (26/11/2026, 17:18:12 a 17:21:05 UTC, success), artefacto
 reporte-contrato: contrato/<rol>/salida.txt y contrato/<rol>/junit.xml. Contra docs/api/openapi.yaml (OpenAPI 3.1.0),
-http://localhost:8080/api del docker compose levantado en el job. Checks: not_a_server_error,
-status_code_conformance y response_schema_conformance; --mode all --max-examples 25 --request-timeout 15.
+http://localhost:8080/api del docker compose levantado en el job ("Levantado en 26 segundos"). Checks:
+not_a_server_error, status_code_conformance y response_schema_conformance; --mode all --max-examples 25
+--request-timeout 15.
 
-Rol           Operaciones   Examples                 Coverage    Fuzzing     Stateful (escenarios)   Casos generados   Fallas
-comprador     52 de 52      44 passed, 8 skipped     52 passed   52 passed   32 passed               3003              0
-organizador   18 de 52      16 passed, 2 skipped     18 passed   18 passed   37 passed               1127              0
-puerta         7 de 52       6 passed, 1 skipped      7 passed    7 passed   35 passed                430              0
-servicio      15 de 52      13 passed, 2 skipped     15 passed   15 passed   25 passed               1014              0
-Total                                                                                               5574              0
+Rol           Operaciones   Examples                 Coverage    Fuzzing     Stateful (escenarios)   Casos generados   Fallas   Duración
+comprador     52 de 52      44 passed, 8 skipped     52 passed   52 passed   32 passed               3004              0        16.61 s
+organizador   18 de 52      16 passed, 2 skipped     18 passed   18 passed   38 passed               1162              0         5.89 s
+puerta         7 de 52       6 passed, 1 skipped      7 passed    7 passed   18 passed                373              0         1.72 s
+servicio      15 de 52      13 passed, 2 skipped     15 passed   15 passed   30 passed               1036              0         4.00 s
+Total                                                                                               5575              0
 
 Cada salida termina con "Test cases: N generated, N passed". junit.xml de cada rol: errors="0" failures="0"
 skipped="0" (53, 19, 8 y 16 tests).
@@ -18,12 +19,15 @@ Avisos de Schemathesis (no son fallas; dicen hasta dónde llegaron los casos gen
 - "Authentication failed": 27 operaciones en la corrida del comprador, 4 en la del organizador y 3 en la de puerta
   respondieron solo 401/403. Son las de otro rol: la corrida del comprador recorre las 52 operaciones con el token de
   titular@palco.test, y el 403 es lo que el contrato documenta para ellas.
-- "Missing test data": 5 operaciones (comprador), 2 (organizador) y 8 (servicio) respondieron siempre 404, porque los
-  ids generados no existen; esos casos comprueban el 404 y no llegan a la lógica de negocio.
+- "Missing test data": 6 operaciones (comprador), 2 (organizador) y 7 (servicio) respondieron siempre 404, porque
+  los ids generados no existen; esos casos comprueban el 404 y no llegan a la lógica de negocio.
 - "Schema validation mismatch": 8 operaciones (comprador), 2 (organizador), 1 (puerta) y 9 (servicio) rechazaron con
   400 la mayoría de los datos generados (la validación del servidor es más estricta que el esquema).
 
-Contrato SOAP: ContratoDelWsdlTest, 7 de 7 (servicios/arca, job "Backend (mvn verify)" del run 44867187162).
+Control de logs del job, con PALCO_CORREO_LOG_COMPLETO en su valor por defecto: "logs/server.log está limpio (1221
+renglones)".
+
+Contrato SOAP: ContratoDelWsdlTest, 7 de 7 (servicios/arca, job "Backend (mvn verify)" del run 45866572543).
 Compara el WSDL publicado con docs/api/arca.wsdl y valida contra su XSD el pedido de Facturación y las respuestas
 aprobada y rechazada.
 

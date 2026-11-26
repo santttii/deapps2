@@ -1,5 +1,5 @@
-Pruebas de mutación (PIT 1.30.2) sobre fbd31dc
-Fuente: run 44867187143, workflow "Mutación" (21/11/2026, 04:39:40 a 04:44:46 UTC, success), artefacto
+Pruebas de mutación (PIT 1.30.2) sobre c5d3fd8
+Fuente: run 45866572586, workflow "Mutación" (26/11/2026, 17:18:12 a 17:25:04 UTC, success), artefacto
 reportes-mutacion: target/pit-reports/mutations.xml de cada módulo. La tabla es la salida de
 "node scripts/qa/mutacion.mjs" sobre esos reportes, con el mínimo de backend/pom.xml (mutacion.minimo = 60).
 Clases mutadas: com.palco.*.dominio.* (mutacion.clases en backend/pom.xml). Asistente y el ARCA simulado no tienen
@@ -15,9 +15,9 @@ Paquete de dominio de cada servicio. Mínimo por módulo: 60 % de mutantes muert
 | servicios/pagos | 88.2 % | 15 / 17 | 2 | 0 |
 | servicios/reventa | 85.2 % | 23 / 27 | 2 | 2 |
 | servicios/usuarios | 81.8 % | 27 / 33 | 1 | 5 |
-| servicios/validacion | 75.0 % | 15 / 20 | 1 | 4 |
+| servicios/validacion | 100.0 % | 20 / 20 | 0 | 0 |
 | servicios/ventas | 100.0 % | 68 / 68 | 0 | 0 |
-| **Total** | **91.7 %** | **221 / 241** | | |
+| **Total** | **93.8 %** | **226 / 241** | | |
 
 El guion terminó con código 0: ningún módulo debajo del 60 %.
 Umbral de la cátedra (eje B): mutation score sobre el dominio de 60 % o más.

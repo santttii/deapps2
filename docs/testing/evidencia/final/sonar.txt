@@ -1,45 +1,58 @@
-SonarCloud sobre fbd31dc (proyecto santttii_deapps2, rama master)
-Fuente: API pública de SonarCloud, consultada el 24/11/2026 a las 17:17 UTC; capturas de la página del proyecto
-(quality-gate-fbd31dc-codigo-total.png y quality-gate-fbd31dc-codigo-nuevo.png, en esta carpeta).
-El último análisis es el de fbd31dc: api/project_analyses/search da revision fbd31dc9ecbc6f4e57e9646a992a204142154bfd,
-fecha 2026-11-21T04:43:24+0000, publicado por el job "SonarCloud (análisis estático y cobertura)" del run 44867187162
-("ANALYSIS SUCCESSFUL" y "EXECUTION SUCCESS" en el log). Enlace: https://sonarcloud.io/summary/overall?id=santttii_deapps2
+SonarCloud sobre c5d3fd8 (proyecto santttii_deapps2, rama master)
+Fuente: API pública de SonarCloud, consultada el 26/11/2026 a las 17:31 UTC; captura de la página del proyecto
+(quality-gate-c5d3fd8.png, en esta carpeta, tomada a las 17:32 UTC).
+El último análisis es el de c5d3fd8: api/project_analyses/search da revision c5d3fd86ee99d3b4520d7fd047429aec951baca3,
+fecha 2026-11-26T17:21:42+0000, publicado por el job "SonarCloud (análisis estático y cobertura)" del run 45866572543,
+que corre con sonar.qualitygate.wait=true ("QUALITY GATE STATUS: PASSED" y "EXECUTION SUCCESS" en el log). El check
+run "SonarCloud Code Analysis" del commit dice "Quality Gate passed".
+Enlace: https://sonarcloud.io/summary/overall?id=santttii_deapps2
 
 1. Quality Gate (api/qualitygates/project_status?projectKey=santttii_deapps2): status OK ("Passed")
    Las condiciones son sobre el código nuevo (período: previous_version, desde el 2026-11-20T17:43:24+0000):
    new_reliability_rating      GT 1     valor 1      OK
    new_security_rating         GT 1     valor 1      OK
    new_maintainability_rating  GT 1     valor 1      OK
-   new_coverage                LT 80    valor 95.0   OK
+   new_coverage                LT 80    valor 92.7   OK
    new_duplicated_lines_density GT 3    valor 0.0    OK
    new_security_hotspots_reviewed LT 100 valor 100.0 OK
 
 2. Medidas del código total (api/measures/component)
-   bugs 1; vulnerabilities 0; code_smells 127; security_hotspots 0; security_hotspots_reviewed 100.0
-   reliability_rating 3.0 (C); security_rating 1.0 (A); sqale_rating 1.0 (A)
-   duplicated_lines_density 0.7; coverage 80.5; line_coverage 81.5; branch_coverage 77.4; ncloc 22677
-   Código nuevo: new_bugs 0; new_vulnerabilities 0; new_reliability_rating 1.0 (A); new_security_rating 1.0 (A)
+   bugs 0; vulnerabilities 0; code_smells 125; security_hotspots 0; security_hotspots_reviewed 100.0
+   reliability_rating 1.0 (A); security_rating 1.0 (A); sqale_rating 1.0 (A)
+   duplicated_lines_density 0.7; coverage 81.3; line_coverage 82.2; branch_coverage 78.7; ncloc 23374
+   blocker_violations 0; critical_violations 0
+   Código nuevo: new_bugs 0; new_vulnerabilities 0; new_reliability_rating 1.0 (A); new_security_rating 1.0 (A);
+   new_code_smells 4; new_blocker_violations 0; new_lines 4734
 
-3. Hallazgos abiertos (api/issues/search, resolved=false): 128
-   Por tipo: 127 code smells, 1 bug, 0 vulnerabilidades.
-   Por severidad: 125 MAJOR, 3 BLOCKER, 0 CRITICAL.
-   - El bug: java:S5850, MAJOR, backend/common/src/main/java/com/palco/common/Textos.java:63, "Group parts of the
-     regex together to make the intended operator precedence explicit." (la expresión "^-+|-+$" de Textos.slug).
-     Es el que deja la confiabilidad del código total en C.
-   - Los 3 BLOCKER son code smells de mantenibilidad (java:S1845, nombres que solo difieren en mayúsculas):
-     facturacion/negocio/externos/ArcaSoap.java:78, pagos/pasarela/PagosFake.java:29 y
-     ventas/negocio/externos/ResultadoDeCobro.java:24.
-   - Con impacto en confiabilidad (impactSoftwareQualities=RELIABILITY), 125: java:S6813 118, java:S8786 5,
-     shell:S7688 1 y java:S5850 1. Los S8786 ("super-linear performance due to backtracking") marcan
-     usuarios/api/Dtos.java:44, 48 y 58, asistente/negocio/Guardrails.java:45 y common/Textos.java:63.
-   Hallazgos aceptados (issueStatuses=ACCEPTED): 1, docker:S6471 (vulnerabilidad, MINOR) en frontend/Dockerfile:25,
-   "The nginx image runs with root as the default user", marcado como aceptado (WONTFIX) el 2026-11-21 04:25 UTC.
+3. Hallazgos abiertos (api/issues/search, resolved=false): 125
+   Por tipo: 125 code smells, 0 bugs, 0 vulnerabilidades.
+   Por severidad: 125 MAJOR, 0 BLOCKER, 0 CRITICAL.
+   - Con impacto en confiabilidad (impactSoftwareQualities=RELIABILITY), los 125: java:S6813 121, java:S8786 3 y
+     shell:S7688 1. Los S8786 ("super-linear performance due to backtracking") marcan usuarios/api/Dtos.java:77 (la
+     expresión del email de RegistroDto), asistente/negocio/Guardrails.java:45 y common/Textos.java:63.
+   Hallazgos aceptados (issueStatuses=ACCEPTED o FALSE_POSITIVE): 0.
    Security hotspots (api/hotspots/search): 0, revisados y por revisar.
 
-4. Contra el criterio de la cátedra (eje B)
+4. Respecto del análisis de fbd31dc (21/11/2026, consultado el 24/11)
+   - El bug java:S5850 de common/Textos.java:63 (DEF-65) está cerrado como FIXED desde el 2026-11-24T19:32:26+0000:
+     bugs pasa de 1 a 0 y reliability_rating de C a A.
+   - Los 3 BLOCKER java:S1845 de DEF-67 (facturacion/negocio/externos/ArcaSoap.java, pagos/pasarela/PagosFake.java y
+     ventas/negocio/externos/ResultadoDeCobro.java) están cerrados como FIXED desde el 2026-11-25T00:14:10+0000.
+   - Los 2 BLOCKER java:S1845 de Asistente que aparecieron después de fbd31dc (DEF-79: asistente/negocio/AsistenteIA.java,
+     el método instrucciones y la constante INSTRUCCIONES, y asistente/negocio/externos/CatalogoDeEventos.java, el campo
+     vigencia y la constante VIGENCIA) están cerrados como FIXED desde el 2026-11-26T17:21:42+0000, el análisis de
+     c5d3fd8.
+   - Los java:S8786 de usuarios/api/Dtos.java:44 y 48 (nombre y apellido, DEF-64) están cerrados como FIXED desde el
+     2026-11-24T19:32:26+0000.
+   - El bug java:S8696 de asistente/negocio/AsistenteIA.java (DEF-76), que había dejado el Quality Gate en rojo el
+     24/11, está cerrado como FIXED desde el 2026-11-25T14:41:14+0000.
+   - La vulnerabilidad docker:S6471 de frontend/Dockerfile (DEF-71), que estaba aceptada, está cerrada como FIXED
+     desde el 2026-11-26T01:35:12+0000: ya no hay hallazgos aceptados.
+
+5. Contra el criterio de la cátedra (eje B)
    Quality Gate aprobado                          sí (OK)
-   0 bugs Blocker o Critical                      sí (el único bug es MAJOR)
-   0 vulnerabilidades                             sí (0 abiertas; 1 Minor aceptada)
+   0 bugs Blocker o Critical                      sí (0 bugs)
+   0 vulnerabilidades                             sí (0 abiertas y 0 aceptadas)
    duplicación de 3 % o menos                     sí (0.7 % total, 0.0 % en el código nuevo)
-   rating A en confiabilidad y en seguridad       seguridad A; confiabilidad A en el código nuevo y C en el total
+   rating A en confiabilidad y en seguridad       sí, en el código total y en el nuevo
    100 % de security hotspots revisados           sí (no hay hotspots)
