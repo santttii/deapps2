@@ -322,14 +322,22 @@ El resto no necesita el compose. Cada línea se corre desde la raíz del repo:
 node scripts/qa/cobertura.mjs backend                   # resumen de cobertura
 (cd frontend && npm run lint && npm run build)
 
-# Matriz, con la salida de escenarios.mjs y los reportes de mvn verify:
+# Matriz, con la salida de escenarios.mjs, los reportes de mvn verify, los de Newman (artefacto reporte-api del CI)
+# y el de Playwright (artefacto reporte-e2e del CI, o el de npm run e2e):
 node scripts/qa/matriz.mjs --escenarios escenarios.txt \
-  $(for d in backend/common/target/surefire-reports backend/servicios/*/target/surefire-reports; do printf -- '--junit %s ' "$d"; done) \
+  $(for d in backend/common/target/surefire-reports backend/servicios/*/target/surefire-reports backend/servicios/*/target/failsafe-reports; do printf -- '--junit %s ' "$d"; done) \
+  --newman newman/coleccion.xml --newman newman/reenvio.xml --newman newman/verificacion.xml \
+  --playwright frontend/playwright-report \
   --salida docs/testing/evidencia/matriz-de-trazabilidad.md
 ```
 
-`matriz.mjs` acepta también `--newman <reporte.json>` y `--playwright <reporte.json>`: los casos con un id
-`CP-xx.y.z` en el nombre se suman al criterio que les corresponde.
+La matriz sigue la cadena historia, criterio, caso, evidencia y defecto. Cada fila es un criterio con sus casos, el
+resultado de cada uno, la evidencia (la clase de JUnit, el spec de Playwright con su línea, el pedido de la colección
+de Postman o el escenario de `escenarios.mjs`) y los defectos del registro que nombran ese criterio o su historia, con
+su severidad y su estado. Los casos con un id `CP-xx.y.z` en el nombre se suman solos al criterio que les corresponde;
+los pedidos de Postman y las pruebas de Playwright que no lo llevan se vinculan en las tablas `CRITERIOS_DE_NEWMAN` y
+`CRITERIOS_DE_PLAYWRIGHT` del generador. `--newman` acepta el reporte JUnit XML o el JSON de Newman, y `--playwright`,
+la carpeta `playwright-report`, su `index.html` o el reporte JSON.
 
 ## 6. Cobertura
 
@@ -361,7 +369,13 @@ y el commit que lo corrige. Ahí están también la escala de severidades (la de
 de Testing), la de prioridades y el ciclo de vida de un defecto, con los estados *Corregido, a verificar* y
 *Aceptado*.
 
-Al 25/11/2026 hay 77 registrados: 29 cerrados, 43 corregidos a la espera de su verificación sobre el tag, 5 aceptados
+Los casos y los defectos se siguen además en el tablero del grupo en Notion, que es donde el grupo lleva lo que la
+cátedra pide en Jira: [Tablero de Tareas D Apps 2](https://www.notion.so/3caf71443ad4807d8749c3543f74c075), con las
+bases [Casos de prueba](https://www.notion.so/41ef71443ad481e583b2d8182901c8ce) y
+[Defectos](https://www.notion.so/41ef71443ad48122af2dc11b444d3f4e). Cada caso y cada defecto tiene ahí su estado, su
+responsable y el vínculo a su HU, con el mismo estado que en el repositorio.
+
+Al 26/11/2026 hay 78 registrados: 29 cerrados, 44 corregidos a la espera de su verificación sobre el tag, 5 aceptados
 (DEF-39, el riesgo aceptado el 16/10; DEF-58, el token en `localStorage`; y DEF-41, DEF-68 y DEF-75, del informe de
 seguridad) y ninguno nuevo ni en corrección. Contra el máximo que se admite al cierre (27/11):
 
@@ -370,7 +384,7 @@ seguridad) y ninguno nuevo ni en corrección. Contra el máximo que se admite al
 | Bloqueante | 0 | 0 | 0 | Dentro del máximo |
 | Crítica | 0 | 2: DEF-63 y DEF-64 | 0 | Dentro del máximo, si las dos correcciones pasan sobre el tag |
 | Mayor | 0 | 6: DEF-30, DEF-36 a DEF-38, DEF-46 y DEF-47 | 3, cada uno con su alternativa | Dentro del máximo |
-| Menor | 5, todos aceptados | 27 | Sin máximo | Dentro del máximo |
+| Menor | 5, todos aceptados | 28 | Sin máximo | Dentro del máximo |
 | Cosmética | 0 | 8 | Sin máximo | Dentro del máximo |
 
 Si una corrección crítica no pasa su prueba sobre el tag, el defecto vuelve a abrirse y la entrega no cumple el "0
@@ -411,11 +425,14 @@ ERROR en el `server.log` (`docs/testing/evidencia/final/cancelacion-con-reventa.
 
 ### Corrida sobre el tag `v1.0-final`
 
-Es la que da los resultados de la Entrega Final. Se hace sobre el commit del tag, con el sistema levantado de cero
-(criterios de entrada, sección 4): la sección 5 completa contra el compose, y los workflows del commit (CI, Contrato,
-Pruebas de seguridad, ZAP, Seguridad, Mutación, Lighthouse, Carga y Estabilidad), con el enlace a cada corrida. La
-salida de cada prueba va a `docs/testing/evidencia/final/`, la matriz se regenera con esos reportes y cada falla entra
-al registro de defectos con su DEF. Los corregidos a la espera de su verificación (sección 7) se cierran o se vuelven a
+Es la que da los resultados de la Entrega Final. Como los commits posteriores al tag no cuentan, la corrida se hace
+sobre el último commit de código antes del tag, con el sistema levantado de cero (criterios de entrada, sección 4): la
+sección 5 completa contra el compose, y los workflows de ese commit (CI, Contrato, Pruebas de seguridad, ZAP,
+Seguridad, Mutación, Lighthouse, Carga y Estabilidad), con el enlace a cada corrida. La salida de cada prueba va a
+`docs/testing/evidencia/final/`, la matriz se regenera con esos reportes, cada falla entra al registro de defectos con
+su DEF y los informes se actualizan en un commit de documentación, que es el que lleva el tag. El código del tag es el
+mismo de la corrida, y todos los workflows vuelven a correr con el tag `v*`: esas corridas, con su enlace en el
+entregable de Teams, confirman los resultados sobre el tag. Los corregidos a la espera de su verificación (sección 7) se cierran o se vuelven a
 abrir con esta corrida.
 
 Los resultados de la corrida sobre el commit candidato `fbd31dc` (todos los workflows, más Carga y Estabilidad del
