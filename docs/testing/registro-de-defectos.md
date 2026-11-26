@@ -1,12 +1,17 @@
 # Registro de defectos de Palco
 
-Corte: 24/11/2026. Cada defecto tiene su ID `DEF-xx`, severidad y prioridad, pasos para reproducirlo, resultado
+Corte: 26/11/2026. Cada defecto tiene su ID `DEF-xx`, severidad y prioridad, pasos para reproducirlo, resultado
 esperado y obtenido, evidencia, estado y dueño; los cerrados, además, su causa raíz y el commit que los corrige. Los
 DEF-01 a DEF-04 son los del informe del 30/10 (`docs/testing/informe-condiciones-eliminatorias.md`); los
 siguientes se suman con la fecha de su corrección o, si siguen abiertos, la de su registro. Los que salen del informe
 de seguridad llevan entre paréntesis su criterio (SEC-xx). El dueño es quien lo corrigió o quien lo tiene que
 corregir, según el reparto de la sección 18.1 del documento único. El plan de pruebas
 (`docs/testing/plan-de-pruebas.md`, sección 7) remite a este registro.
+
+Los mismos defectos, con su estado, su dueño y el vínculo a su HU, están en la base
+[Defectos](https://www.notion.so/41ef71443ad48122af2dc11b444d3f4e) del tablero del grupo en Notion
+([Tablero de Tareas D Apps 2](https://www.notion.so/3caf71443ad4807d8749c3543f74c075)), que es donde el grupo lleva
+lo que la cátedra pide en Jira.
 
 ## 1. Cómo se clasifica
 
@@ -124,11 +129,12 @@ contra el máximo.
 | DEF-75 | El registro dice si un email o un DNI ya tienen cuenta y no cuenta intentos (SEC-W03) | Menor | Baja | Aceptado (decisión de diseño, CA-01.2) | Santiago Loto | 24/11 | Riesgo aceptado |
 | DEF-76 | El bug `java:S8696` de SonarCloud en `AsistenteIA` dejaba la confiabilidad del código nuevo en D y el Quality Gate en rojo | Menor | Alta | Corregido, a verificar sobre el tag (análisis de SonarCloud) | Valentina Frisoli | 25/11 | `1bab37a` |
 | DEF-77 | `GET /v1/pagos?claveIdempotencia=` responde 500 si la clave trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Valentina Frisoli | 25/11 | `a33194d` |
+| DEF-78 | La imagen web sobre `nginxinc/nginx-unprivileged:1.30-alpine` traía nginx 1.30.6, con cuatro CVE críticas y dos altas, y el Trivy de la imagen dejó en rojo el workflow Seguridad (SEC-E02) | Menor | Alta | Corregido, a verificar sobre el tag (Trivy de la imagen web) | Valentina Frisoli | 26/11 | Corrección del 26/11 |
 
-Totales: 77 defectos. 29 cerrados, 43 corregidos que falta verificar sobre el tag (DEF-02, DEF-14, DEF-30, DEF-32 a
-DEF-38, DEF-40, DEF-42 a DEF-50, DEF-52 a DEF-57, DEF-59 a DEF-67, DEF-69 a DEF-74, DEF-76 y DEF-77), ninguno nuevo
+Totales: 78 defectos. 29 cerrados, 44 corregidos que falta verificar sobre el tag (DEF-02, DEF-14, DEF-30, DEF-32 a
+DEF-38, DEF-40, DEF-42 a DEF-50, DEF-52 a DEF-57, DEF-59 a DEF-67, DEF-69 a DEF-74 y DEF-76 a DEF-78), ninguno nuevo
 ni en corrección, y 5 aceptados (DEF-39, DEF-41, DEF-58, DEF-68 y DEF-75). Por
-severidad: 1 bloqueante, 8 críticos, 16 mayores, 42 menores y 10 cosméticos.
+severidad: 1 bloqueante, 8 críticos, 16 mayores, 43 menores y 10 cosméticos.
 
 ## 3. Defectos abiertos y corregidos que falta verificar
 
@@ -1167,7 +1173,9 @@ SEC-E01)**
 - **Prueba que lo va a cubrir:** el análisis de SonarCloud sin issues aceptadas y la suite E2E por
   `https://localhost`.
 - **Corrección (25/11):** la imagen web parte de `nginxinc/nginx-unprivileged:1.30-alpine` y termina con
-  `USER 101`: el proceso principal y los workers de nginx corren con el usuario nginx. Root se usa solo para armar la
+  `USER 101`: el proceso principal y los workers de nginx corren con el usuario nginx. Desde el 26/11 parte de la
+  oficial `nginx:1.30-alpine` con los mismos ajustes (sin `user`, el pid y los temporales en `/tmp`), porque
+  `nginx-unprivileged` había quedado con un nginx vulnerable (DEF-78). Root se usa solo para armar la
   imagen (los paquetes, openssl y `/etc/nginx/tls` con dueño nginx). Sigue escuchando en 80 y 443 dentro del
   contenedor, porque Docker deja abrir esos puertos sin root desde la versión 20.10: `nginx.conf` y el compose no
   cambian.
@@ -1314,6 +1322,33 @@ SEC-E01)**
   con `PagoRepositoryEnMemoria`, que ahora falla como PostgreSQL con el carácter nulo. Sin la corrección fallan los
   cuatro (`12a08f2`). El Contrato de `12a08f2` pasó.
 - **Prueba que lo va a cerrar:** la corrida de Schemathesis del tag.
+
+### DEF-78 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
+
+**La imagen web traía nginx 1.30.6, con cuatro CVE críticas y dos altas, y el workflow Seguridad quedó en rojo (SEC-E02)**
+
+- **Dónde:** `frontend/Dockerfile`, etapa 2, desde la corrección de DEF-71 del 25/11 (`FROM
+  nginxinc/nginx-unprivileged:1.30-alpine`).
+- **Pasos:** el job "Imagen: web (trivy image)" del workflow Seguridad sobre `0971e5f` (run 45736300510) y sobre
+  `ebbb325` (run 45846174852).
+- **Esperado:** ninguna vulnerabilidad crítica o alta sin justificar en `.trivyignore`.
+- **Obtenido:** el paquete `nginx 1.30.6-r1` con CVE-2026-113425, CVE-2026-121810, CVE-2026-123007 y CVE-2026-123633
+  (críticas) y CVE-2026-118899 y CVE-2026-123634 (altas), las seis corregidas en `1.30.7-r0`. El job falla y el
+  workflow Seguridad queda en rojo.
+- **Causa raíz:** `nginx-unprivileged` publica las versiones nuevas de nginx con atraso: al 26/11 su última imagen
+  seguía en 1.30.6, cuando la oficial ya tenía la 1.30.7. `apk upgrade` no la sube, porque nginx viene del
+  repositorio de nginx.org con la versión fija. La corrida local del 25/11 no escaneó la imagen nueva con Trivy.
+- **Por qué es Menor:** no rompe ningún criterio de aceptación, como DEF-51. Tres de las seis no aplican a Palco
+  (el proxy de mail, HTTP/3 y el resolver de nginx no se usan) y las otras tres son de HTTP/2 y TLS en el 443, con
+  nginx sin root. La prioridad es Alta porque deja el CI en rojo.
+- **Corrección (26/11):** la etapa 2 vuelve a la imagen oficial `nginx:1.30-alpine` (hoy, nginx 1.30.8) y le aplica
+  los mismos ajustes que hace `nginx-unprivileged`: sin la directiva `user`, con el pid y los temporales en `/tmp` y
+  `USER 101`. nginx sigue entero sin root (DEF-71). La aceptación temporal de las seis CVE en `.trivyignore`
+  (`dc847b0`) se saca, porque ya no hacen falta.
+- **Pruebas de la corrección:** Trivy 0.76.2 sobre la imagen armada el 26/11, con las mismas opciones que el job
+  (`--severity CRITICAL,HIGH`) y con el `.trivyignore` sin las seis: 0 vulnerabilidades (Alpine 3.24.4). En el
+  contenedor, `id` da `uid=101(nginx)`.
+- **Prueba que lo va a cerrar:** el job "Imagen: web" del workflow Seguridad sobre el tag.
 
 ## 4. Defectos cerrados: bloqueantes, críticos y mayores
 
@@ -1773,7 +1808,7 @@ Mientras la cátedra no diga otra cosa, un riesgo aceptado cuenta como defecto a
 
 ## 7. Abiertos contra el máximo admitido
 
-Al 25/11/2026, contra el máximo de la sección 9 de los Criterios de Testing de la cátedra, que se admite al cierre
+Al 26/11/2026, contra el máximo de la sección 9 de los Criterios de Testing de la cátedra, que se admite al cierre
 (27/11): 0 bloqueantes, 0 críticos y hasta 3 mayores con su alternativa escrita; menores y cosméticos sin límite.
 "Abiertos" son los nuevos, los que están en corrección y los aceptados. Los corregidos que falta verificar van aparte:
 se cierran si su prueba pasa sobre el tag y, si no, vuelven a contar como abiertos.
@@ -1783,7 +1818,7 @@ se cierran si su prueba pasa sobre el tag y, si no, vuelven a contar como abiert
 | Bloqueante | 0 | 0 | 0 | Dentro del máximo |
 | Crítica | 0 | 2: DEF-63 y DEF-64 | 0 | Dentro del máximo, si las dos correcciones pasan sobre el tag |
 | Mayor | 0 | 6: DEF-30, DEF-36 a DEF-38, DEF-46 y DEF-47 | 3, cada uno con su alternativa | Dentro del máximo |
-| Menor | 5, todos aceptados: DEF-39, DEF-41, DEF-58, DEF-68 y DEF-75 | 27: DEF-02, DEF-14, DEF-32, DEF-33, DEF-35, DEF-40, DEF-42 a DEF-45, DEF-48, DEF-49, DEF-52, DEF-57, DEF-59 a DEF-62, DEF-65, DEF-66, DEF-69 a DEF-73, DEF-76 y DEF-77 | Sin máximo | Dentro del máximo |
+| Menor | 5, todos aceptados: DEF-39, DEF-41, DEF-58, DEF-68 y DEF-75 | 28: DEF-02, DEF-14, DEF-32, DEF-33, DEF-35, DEF-40, DEF-42 a DEF-45, DEF-48, DEF-49, DEF-52, DEF-57, DEF-59 a DEF-62, DEF-65, DEF-66, DEF-69 a DEF-73 y DEF-76 a DEF-78 | Sin máximo | Dentro del máximo |
 | Cosmética | 0 | 8: DEF-34, DEF-50, DEF-53 a DEF-56, DEF-67 y DEF-74 | Sin máximo | Dentro del máximo |
 
 No queda ningún bloqueante ni ningún crítico abierto: los dos críticos que siguen sin cerrar están corregidos y falta
