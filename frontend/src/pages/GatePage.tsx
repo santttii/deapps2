@@ -12,7 +12,6 @@ import {
   type Escaneo,
   type ResultadoDeEscaneo,
 } from '../servicios/validacion';
-import ImagePlaceholder from '../components/ImagePlaceholder';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import PageTransition from '../components/PageTransition';
@@ -200,18 +199,8 @@ export default function GatePage() {
         {eventosDeLaPuerta.length > 0 && (
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
             <div>
-              {/* En el celular no se muestra el visor, que es una imagen fija: así el resultado entra en la pantalla. */}
-              <div className="relative hidden h-[320px] overflow-hidden border border-wire md:mb-4 md:block">
-                <ImagePlaceholder etiqueta="visor de cámara" className="h-full w-full" />
-                <div className="absolute left-1/2 top-1/2 h-[200px] w-[200px] -translate-x-1/2 -translate-y-1/2 overflow-hidden border-2 border-ink">
-                  <motion.div
-                    className="absolute left-0 right-0 h-0.5 bg-accent"
-                    animate={{ top: ['0%', '100%'] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
-                  />
-                </div>
-              </div>
-
+              {/* La puerta no usa la cámara: el código del QR se escribe en el campo. Un lector de QR de mano hace
+                  lo mismo, porque se conecta como un teclado: escribe el código y manda Enter, que envía el formulario. */}
               <form ref={formulario} onSubmit={enviar} className="flex flex-col gap-3">
                 <label className="flex flex-col gap-1.5">
                   <span className="font-mono-label text-[11px] text-muted">Evento de esta puerta</span>
