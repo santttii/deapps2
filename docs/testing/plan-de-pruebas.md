@@ -347,11 +347,12 @@ artefacto y `node scripts/qa/cobertura.mjs` arma el resumen, que el CI muestra e
 
 Primera medición (18/11/2026): 77,8 % de las líneas (3520 de 4522) y 73,6 % de las ramas. Medición del 3.er
 checkpoint (19/11/2026): 78,4 % de las líneas (3671 de 4683) y 74,1 % de las ramas
-(`docs/testing/evidencia/checkpoint-3/cobertura.md`). Medición de la Entrega Final, sobre `fbd31dc` (CI del
-21/11/2026): **81,5 % de las líneas (4008 de 4920) y 77,4 % de las ramas** del backend, y 96,1 % y 91,4 % en negocio y
-dominio (`docs/testing/evidencia/final/cobertura.txt`). Los módulos con menos cobertura son `common` (52,3 %) y Pagos
-(72,5 %); lo que no se cubre está fuera de negocio y dominio, en `api`, `datos` y los clientes de `negocio.externos`,
-que recorren los escenarios contra el compose.
+(`docs/testing/evidencia/checkpoint-3/cobertura.md`). Sobre `fbd31dc` (CI del 21/11/2026): 81,5 % de las líneas
+(4008 de 4920) y 77,4 % de las ramas. Medición de la Entrega Final, sobre `c5d3fd8`, el código del tag (CI del
+26/11/2026, run 45866572543): **82,1 % de las líneas (4208 de 5123) y 78,7 % de las ramas** del backend, y 96,4 % y
+92,5 % en negocio y dominio (`docs/testing/evidencia/final/cobertura.txt`). Los módulos con menos cobertura son
+`common` (54,2 %) y Pagos (74,3 %); lo que no se cubre está fuera de negocio y dominio, en `api`, `datos` y los
+clientes de `negocio.externos`, que recorren los escenarios contra el compose.
 
 La meta de la Entrega Final es la de la sección 4: 80 % de líneas y 70 % de ramas en negocio y dominio, medida sobre
 el tag. La controla el build: la ejecución `umbral-de-negocio-y-dominio` de JaCoCo en `backend/pom.xml` corre en
@@ -375,21 +376,21 @@ bases [Casos de prueba](https://www.notion.so/41ef71443ad481e583b2d8182901c8ce) 
 [Defectos](https://www.notion.so/41ef71443ad48122af2dc11b444d3f4e). Cada caso y cada defecto tiene ahí su estado, su
 responsable y el vínculo a su HU, con el mismo estado que en el repositorio.
 
-Al 26/11/2026 hay 78 registrados: 29 cerrados, 44 corregidos a la espera de su verificación sobre el tag, 5 aceptados
-(DEF-39, el riesgo aceptado el 16/10; DEF-58, el token en `localStorage`; y DEF-41, DEF-68 y DEF-75, del informe de
-seguridad) y ninguno nuevo ni en corrección. Contra el máximo que se admite al cierre (27/11):
+Al 26/11/2026, con la corrida sobre `c5d3fd8` (sección 8), hay 79 registrados: 73 cerrados, 1 corregido a la espera de
+su verificación (DEF-02, que se verifica en una máquina lenta), 5 aceptados (DEF-39, el riesgo aceptado el 16/10;
+DEF-58, el token en `localStorage`; y DEF-41, DEF-68 y DEF-75, del informe de seguridad) y ninguno nuevo ni en
+corrección. Contra el máximo que se admite al cierre (27/11):
 
-| Severidad | Abiertos | Corregidos, a verificar sobre el tag | Máximo al cierre | Situación |
-|---|---|---|---|---|
-| Bloqueante | 0 | 0 | 0 | Dentro del máximo |
-| Crítica | 0 | 2: DEF-63 y DEF-64 | 0 | Dentro del máximo, si las dos correcciones pasan sobre el tag |
-| Mayor | 0 | 6: DEF-30, DEF-36 a DEF-38, DEF-46 y DEF-47 | 3, cada uno con su alternativa | Dentro del máximo |
-| Menor | 5, todos aceptados | 28 | Sin máximo | Dentro del máximo |
-| Cosmética | 0 | 8 | Sin máximo | Dentro del máximo |
+| Severidad | Cerrados | Abiertos | Corregidos, a verificar | Máximo al cierre | Situación |
+|---|---|---|---|---|---|
+| Bloqueante | 1 | 0 | 0 | 0 | Dentro del máximo |
+| Crítica | 8 | 0 | 0 | 0 | Dentro del máximo |
+| Mayor | 16 | 0 | 0 | 3, cada uno con su alternativa | Dentro del máximo |
+| Menor | 37 | 5, todos aceptados | 1: DEF-02 | Sin máximo | Dentro del máximo |
+| Cosmética | 11 | 0 | 0 | Sin máximo | Dentro del máximo |
 
-Si una corrección crítica no pasa su prueba sobre el tag, el defecto vuelve a abrirse y la entrega no cumple el "0
-críticos"; si no pasan cuatro de las mayores, los mayores pasan el máximo. Cada falla de la corrida sobre el tag (sección 8)
-se registra con su DEF antes de la entrega.
+Los workflows del tag `v1.0-final` repiten la corrida (sección 8): si una prueba falla, su defecto vuelve a abrirse, y
+cada falla nueva se registra con su DEF antes de la entrega.
 
 ## 8. Resultados de esta versión
 
@@ -481,7 +482,7 @@ Prioridad Alta: R-01 a R-09 y R-21. Media: R-10 a R-18, R-20 y R-22 a R-26. Baja
 | R-18 | Pruebas que detienen consumidores o sacan de servicio a Eventos (escenarios 8, 10, 11, 12, 14 y 18) molestan a quien comparte el servidor | Media | Medio | Media | Ninguna | **Sin prueba.** Propuesta: al final de `escenarios.mjs`, comprobar con `jboss-cli` que todos los MDB quedaron entregando y que los 9 `health` responden 200; si no, la corrida termina en rojo | Cada integrante corre contra su propio compose, o solo los escenarios que no tocan el servidor (lista en el encabezado de `escenarios.mjs`) |
 | R-19 | El proveedor real del modelo de IA tarda o no contesta | Media | Bajo | Baja | `asistente.mjs` (sección C), `AsistenteIATest`, `ModeloCompatibleOpenAITest` | Cubierto | El gateway responde el fallback a los 5 s; la demo y el set de evaluación usan el modelo simulado |
 | R-20 | Datos personales de más en el log, en un mensaje o en una tabla (pasó con DEF-36, DEF-37 y DEF-72) | Media | Medio | Media | `CorreoAlLogTest`, `CorreoSmtpTest`, `AsistenteIATest#laLineaDeRegistroLlevaElIdDeQuienPreguntaYNingunEmail`, `ServicioDeNotificacionesTest#elAvisoNoLlevaElDniDeNingunTitular`; `PagoConfirmadoMensajeTest#elMensajeNoLlevaElDniDeNingunTitular` y `ServicioDeAuditoriaTest#unPagoConfirmadoPublicadoConElDniSeGuardaSinElDniDeNingunTitular` (DEF-37); `scripts/qa/control-de-logs.sh` en los pasos "Control de logs" de `ci.yml`, `contrato.yml`, `pruebas-seguridad.yml` y `zap.yml`: tokens, contraseñas de prueba y DNI, y en `contrato.yml` y `zap.yml`, que corren con `PALCO_CORREO_LOG_COMPLETO` en `false`, emails `@palco.test` enteros (DEF-40); `seguridad.mjs` (bloque E) | **Parcial:** el control de logs lee el `server.log`; el log de accesos de nginx, que desde la corrección de DEF-72 escribe `<email>` en lugar del email, lo comprueba solo un `grep` a mano sobre `docker compose logs web` (registro, DEF-72). Propuesta: correr también `control-de-logs.sh` sobre el log del contenedor web en esos pasos | Fuera de desarrollo, `PALCO_CORREO_LOG_COMPLETO` no se define; la API de Notificaciones no devuelve el cuerpo de la auditoría |
-| R-21 | Una dependencia o una imagen base trae una CVE crítica o alta (pasó con DEF-51, la imagen web sobre `nginx:1.27-alpine`, cerrado el 21/11) | Media | Alto | Alta | Trivy (workflow "Seguridad"): `trivy fs` sobre los `pom.xml` y el `package-lock.json`, y `trivy image` sobre las imágenes backend, web y db (`postgres:17-alpine`, desde la corrección de DEF-73) | Cubierto (la imagen db, a verificar sobre el tag) | Se sube la versión que trae el arreglo; si no hay arreglo, la excepción va a `.trivyignore` con su motivo y su vencimiento |
+| R-21 | Una dependencia o una imagen base trae una CVE crítica o alta (pasó con DEF-51, la imagen web sobre `nginx:1.27-alpine`, cerrado el 21/11, y con DEF-78, la imagen sobre `nginx-unprivileged` con nginx 1.30.6, cerrado el 26/11) | Media | Alto | Alta | Trivy (workflow "Seguridad"): `trivy fs` sobre los `pom.xml` y el `package-lock.json`, y `trivy image` sobre las imágenes backend, web y db (`postgres:17-alpine`, desde la corrección de DEF-73) | Cubierto (la imagen db, a verificar sobre el tag) | Se sube la versión que trae el arreglo; si no hay arreglo, la excepción va a `.trivyignore` con su motivo y su vencimiento |
 | R-22 | Una vulnerabilidad web: un token manipulado que pasa, un XSS almacenado, un XXE en el SOAP o una alerta High de ZAP | Baja | Alto | Media | `seguridad.mjs` (bloques A, C y D), `frontend/e2e/xss.spec.ts`, ZAP (workflow "ZAP"), `ErrorDeAutenticacionServletTest`, `FabricaDeArcaTest#conElParserInseguroDeCxfActivadoNoSeCreaElCliente` | Cubierto | Cada respuesta inesperada de esas pruebas se registra como defecto; MicroProfile JWT valida la firma, el emisor y el vencimiento; React escapa el texto y la CSP solo deja correr scripts propios. Un XSS podría leer el token, que queda en `localStorage` (riesgo aceptado, DEF-58) |
 | R-23 | Los tests no detectan un cambio del código: la cátedra invierte una condición, cambia un límite o borra una validación en vivo (pasó con DEF-43) | Media | Medio | Media | PIT sobre el dominio de cada servicio (workflow "Mutación", 60 % o más por módulo); los tests de borde de la sección 2; `SeguridadDeclarativaTest#cadaOperacionDiceQuienLaPuedeLlamar` en cada servicio con recursos JAX-RS, que falla si una operación pierde su anotación de rol (DEF-43) | **Parcial:** PIT muta solo `com.palco.*.dominio.*`: las reglas de `ServicioDeVentas`, `ServicioDeReventa` y `common/ReglasDeNegocio` quedan afuera. Propuesta: correr PIT también sobre el negocio de Ventas y Reventa (`-Dmutacion.clases=com.palco.*.negocio.*`, ver `backend/pom.xml`) | Antes de la entrega, cada dueño invierte a mano una condición de su módulo y comprueba qué test falla |
 | R-24 | Una prueba inestable da resultados distintos entre corridas | Media | Medio | Media | Workflow "Estabilidad": la suite del backend 3 veces seguidas, comparada test por test (`scripts/qa/estabilidad.mjs`) | **Parcial:** las suites de sistema (escenarios, E2E y Newman) no se comparan entre corridas, y Playwright reintenta una vez en el CI (`retries: 1` en `frontend/playwright.config.ts`), lo que puede tapar una prueba inestable. Propuesta: revisar en el reporte del job "E2E" del tag que ninguna figure como *flaky* | Una prueba inestable se registra como defecto y se corrige |
