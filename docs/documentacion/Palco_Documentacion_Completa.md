@@ -2620,8 +2620,8 @@ node scripts/pruebas/escenarios.mjs 14                                # uno solo
 | 24 | Cuenta y catálogo | Registro (un DNI inválido y un rol que el cliente no puede elegir), login y el 429 después de 5 fallidos, contraseña olvidada, mis compras, catálogo y detalle, alta de un evento y el resumen de ventas de su dueña |
 
 **Corridas.** Desde el 3.er check point los corre el CI en cada push contra el `docker compose`: en la corrida del
-26/11 sobre `c5d3fd8`, el código del tag `v1.0-final`, 24 de 24 escenarios y 389 de 389 comprobaciones
-(`docs/testing/evidencia/final/ci-c5d3fd8.txt`, sección 3), lo mismo que en la del 21/11 sobre `fbd31dc`
+26/11 sobre `70242ce`, el código del tag `v1.0-final`, 24 de 24 escenarios y 389 de 389 comprobaciones
+(`docs/testing/evidencia/final/ci-70242ce.txt`, sección 3), lo mismo que en la del 21/11 sobre `fbd31dc`
 (`ci-fbd31dc.txt`). La del 18/11 está en `docs/testing/evidencia/checkpoint-3/escenarios.txt`. **La del 16/10/2026, desde las
 11:04, con el servidor armado desde cero con Facturación, Validación, Reventa y la conciliación de pagos: 17 de 17
 escenarios.** Del 1 al 13 pasaron en la primera corrida. El 12, el 14,
