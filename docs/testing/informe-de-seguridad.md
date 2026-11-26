@@ -1,6 +1,6 @@
 # Informe de seguridad de Palco
 
-Versión 1.0, para la Entrega Final (viernes 27/11/2026). Es el entregable 6 de los Criterios de Testing de la cátedra
+Versión 1.1, para la Entrega Final (viernes 27/11/2026). Es el entregable 6 de los Criterios de Testing de la cátedra
 (sección 3): la matriz de criterios de seguridad de la clase 11 con su estado y su evidencia, los resultados de
 OWASP ZAP, del análisis de dependencias (Trivy) y del escaneo de secretos (gitleaks), y cada hallazgo con su
 tratamiento. Cubre las pruebas mínimas del eje D (sección 7 de los criterios); la sección 6 de este informe tiene el
@@ -11,19 +11,22 @@ comando para mostrar cada una en vivo.
 | Versión | Fecha | Cambios | Autor/a |
 |---|---|---|---|
 | 1.0 | 24/11/2026 | Matriz de 36 criterios con la evidencia de las corridas del CI sobre `fbd31dc`: pruebas de seguridad (`seguridad.mjs` y `xss.spec.ts`), ZAP, Trivy, gitleaks, contrato y SonarCloud, y con la del 24/11 en `docs/testing/evidencia/final/` (SonarCloud sobre todo el código y el registro con un nombre largo). Los ocho controles del eje D que hasta el 20/11 no tenían prueba ejecutada (JWT vencido y de otro emisor, mass assignment de estado, precio y dueño, XSS almacenado, cookies, XXE, ZAP y dependencias) ahora la tienen. Se suman SEC-W05f, SEC-W15, SEC-D06, SEC-E02b, SEC-E04 y SEC-E04b. Los hallazgos nuevos están en el registro como DEF-64 y DEF-68 a DEF-75; DEF-64 y DEF-70 se corrigieron el 24/11 y se verifican sobre el tag | Valentina Frisoli |
+| 1.1 | 25/11/2026 | Matriz reevaluada sobre `93d34d2` con las corridas del CI del 25/11 y con las correcciones de DEF-38, DEF-69 y DEF-71, probadas ese día contra el compose. Pasan a CUMPLE SEC-W05c, SEC-W15, SEC-D03, SEC-D05 y SEC-E02b; DEF-69 y DEF-71 dejan de ser riesgos aceptados. Queda NO CUMPLE solo SEC-I02, como riesgo aceptado (DEF-39) | Valentina Frisoli |
 
-**Código evaluado.** `master` en `fbd31dc` (21/11/2026). Las rutas y líneas de código citadas son las de ese commit;
-la sección 7 nombra constantes y métodos. Todos los workflows corren también con cada tag `v*`, así que el tag
-`v1.0-final` tiene su propia corrida de cada uno (sección 9). Las correcciones posteriores a `fbd31dc` figuran con el
-estado que tienen en el registro, "corregido, a verificar sobre el tag": DEF-36 (el compose), DEF-37, DEF-40, DEF-42,
-DEF-43, DEF-44, DEF-45, DEF-62, DEF-64, DEF-70, DEF-72, DEF-73, DEF-74, DEF-76 y DEF-77. Las de infraestructura
-(DEF-40, DEF-42, DEF-45, DEF-72, DEF-73 y DEF-74) son del 25/11, y el registro trae su prueba contra el compose de ese
-día. El estado de cada criterio sigue siendo el de `fbd31dc`, y cada uno dice qué corrección tiene y con qué prueba se
-verifica sobre el tag.
+**Código evaluado.** `master` en `93d34d2` (25/11/2026), más las correcciones del 25/11 de DEF-38 (la sesión de una
+hora), DEF-69 (la CSP) y DEF-71 (nginx sin root), que se probaron ese día contra el sistema levantado con el compose.
+La evidencia detallada de cada criterio es la de las corridas sobre `fbd31dc` (21/11), y las de `93d34d2` repiten las
+mismas pruebas, en verde (sección 1). Las rutas y líneas de código que describen un hallazgo son las de `fbd31dc`,
+donde se encontró; la sección 7 nombra constantes y métodos. Todos los workflows corren también con cada tag `v*`, así
+que el tag `v1.0-final` tiene su propia corrida de cada uno (sección 9). Las correcciones posteriores a `fbd31dc`
+figuran con el estado que tienen en el registro, "corregido, a verificar sobre el tag": DEF-36 (el compose), DEF-37,
+DEF-38, DEF-40, DEF-42, DEF-43, DEF-44, DEF-45, DEF-62, DEF-64, DEF-69 a DEF-74, DEF-76 y DEF-77.
 
 **Regla de estado.**
 
-- **CUMPLE**: una prueba ejecutada sobre `fbd31dc` (test, escenario, guion o escaneo) con su salida, citada.
+- **CUMPLE**: una prueba ejecutada sobre `fbd31dc` o `93d34d2` (test, escenario, guion o escaneo) con su salida,
+  citada; para las correcciones del 25/11 que no están en `93d34d2` (DEF-38, DEF-69 y DEF-71), la corrida contra el
+  compose de ese día.
 - **NO CUMPLE**: la prueba o el código muestran que no se cumple. Cada uno tiene su defecto en
   `docs/testing/registro-de-defectos.md`.
 - **NO VERIFICABLE**: no hay prueba ejecutada o no hay su salida; se dice cuál es la prueba que lo verifica.
@@ -61,25 +64,53 @@ Dos evidencias más, del 24/11, en `docs/testing/evidencia/final/`:
 - `registro-nombre-largo.txt`: `POST /api/usuarios/registro` con un nombre lleno de espacios, contra el compose de la
   máquina de QA con `Dtos.java` igual al de `fbd31dc` (SEC-W15, DEF-64).
 
+**Corridas sobre `93d34d2` (25/11/2026).** Con las correcciones posteriores a `fbd31dc` que incluye ese commit (DEF-36,
+DEF-37, DEF-40, DEF-42 a DEF-45, DEF-62, DEF-64, DEF-70, DEF-72 a DEF-74, DEF-76 y DEF-77), todos los workflows
+terminaron en verde:
+
+| Workflow | Run | Qué aporta a este informe |
+|---|---|---|
+| CI | [45709490693](https://github.com/santttii/deapps2/actions/runs/45709490693) | Job Backend con `NombreYApellidoTest` (SEC-W15), `PagoConfirmadoMensajeTest` y `ServicioDeAuditoriaTest` (SEC-D05) y `SeguridadDeclarativaTest` (SEC-W02); integración, E2E, Newman y el control de logs con `scripts/qa/control-de-logs.sh` |
+| Seguridad | [45709490636](https://github.com/santttii/deapps2/actions/runs/45709490636) | Trivy del repo y de las imágenes backend, web y, por primera vez, `postgres:17-alpine` (SEC-E02 y SEC-E02b) |
+| Contrato | [45709490844](https://github.com/santttii/deapps2/actions/runs/45709490844) | Schemathesis con el token de cada rol y el control de logs con el compose por defecto, que falla con un email `@palco.test` entero (SEC-W06, SEC-D03) |
+| ZAP | [45709490550](https://github.com/santttii/deapps2/actions/runs/45709490550) | Baseline y API autenticada con el criterio de `zap-resumen.mjs` (0 High, Medium justificadas) y el control de logs con el compose por defecto (SEC-E01, SEC-D03) |
+| Pruebas de seguridad | [45709490632](https://github.com/santttii/deapps2/actions/runs/45709490632) | `seguridad.mjs` (bloques A a E) y `xss.spec.ts` |
+| Lighthouse | [45709490553](https://github.com/santttii/deapps2/actions/runs/45709490553) | Accesibilidad y buenas prácticas de las pantallas públicas, contra el compose |
+| Mutación | [45709490695](https://github.com/santttii/deapps2/actions/runs/45709490695) | PIT sobre el paquete de dominio de cada servicio |
+
+El Quality Gate de SonarCloud sobre `93d34d2` quedó aprobado (SEC-E04).
+
+**Contra el compose, el 25/11.** Con `93d34d2` y las correcciones de DEF-38, DEF-69 y DEF-71 (los pasos y las salidas
+están en el registro, en cada defecto):
+
+- `scripts/qa/control-de-logs.sh` sobre el `server.log`: limpio. En el log de accesos de nginx, 0 emails. En
+  `notificaciones.registro_auditoria`, después de la migración V3, 0 filas con DNI (SEC-D03 y SEC-D05).
+- Newman, la colección completa: 682 aserciones sin fallas, con «SEC-W05c Login: la sesión dura 15 minutos» (`exp - iat` =
+  900 s; SEC-W05c).
+- Con la CSP corregida, recorriendo el catálogo, un evento, recuperar la contraseña, el panel del organizador, Mis
+  entradas, la reventa y el asistente: 0 avisos de CSP en la consola. La E2E, 39 de 39; `seguridad.mjs`, 64 de 64
+  (SEC-W12).
+- En el contenedor web, `id -u` da 101: nginx entero corre sin root (SEC-E04).
+
 ## 2. Resumen y matriz
 
 | Estado | Cantidad |
 |---|---|
-| CUMPLE (prueba ejecutada sobre `fbd31dc`, con su salida) | 30 |
-| NO CUMPLE (cada uno con su defecto) | 5 |
-| NO VERIFICABLE (sin prueba ejecutada o sin su salida) | 1 |
+| CUMPLE (prueba ejecutada, con su salida) | 35 |
+| NO CUMPLE (cada uno con su defecto) | 1 |
+| NO VERIFICABLE (sin prueba ejecutada o sin su salida) | 0 |
 | **Total de criterios** | **36** |
 
-**NO CUMPLE en `fbd31dc`, con su corrección a verificar sobre el tag:** SEC-W15 (un registro sin sesión con un nombre
-de 1500 espacios ocupa un hilo del servidor 7 segundos; DEF-64, **Crítica**, corregido el 24/11), SEC-D03 (datos
-personales y códigos de un solo uso en los logs del sistema levantado con el compose; DEF-36 y DEF-72) y SEC-D05 (DNI
-completo en `PAGO_CONFIRMADO` y en la auditoría; DEF-37, corregido el 24/11).
+**Pasan a CUMPLE con las correcciones posteriores a `fbd31dc`:** SEC-W15 (DEF-64, **Crítica**: un registro sin sesión
+con un nombre de 1500 espacios ocupaba un hilo del servidor 7 segundos), SEC-D03 (DEF-36 y DEF-72: datos personales y
+códigos de un solo uso en los logs del sistema levantado con el compose), SEC-D05 (DEF-37: DNI completo en
+`PAGO_CONFIRMADO` y en la auditoría) y SEC-E02b (DEF-73: `seguridad.yml` no escaneaba `postgres:17-alpine`), con las
+corridas sobre `93d34d2`; y SEC-W05c (DEF-38: la sesión duraba 8 horas, ahora 1), con la corrida contra el compose del
+25/11. Cada defecto sigue "corregido, a verificar sobre el tag" en el registro hasta la corrida del tag.
 
-**NO CUMPLE, riesgo aceptado:** SEC-W05c (sesión de 8 horas sin revocación; DEF-38) y SEC-I02 (broker sin permisos
-por destino; DEF-39).
-
-**NO VERIFICABLE en `fbd31dc`, con su corrección a verificar sobre el tag:** SEC-E02b (esa versión de `seguridad.yml`
-no escaneaba la imagen `postgres:17-alpine`; DEF-73: el job de imágenes ahora la escanea).
+**NO CUMPLE, riesgo aceptado:** SEC-I02 (broker sin permisos por destino; DEF-39). Darle a cada servicio su usuario y
+sus permisos por destino cambia toda la mensajería, y el broker está embebido en el mismo WildFly, con los servicios
+conectados por `in-vm` (sección 3.2).
 
 Los IDs de la clase 11 se mantienen (SEC-W01 a W06, I01, I02, D01 y D02); los demás cubren las pruebas del eje D que esa
 matriz no tenía.
@@ -92,7 +123,7 @@ matriz no tenía.
 | SEC-W04 | Fuerza bruta en el login: 429 | Fuerza bruta | CUMPLE | Newman SEC-W04; escenario 24; `LimiteDeIntentosDeLoginTest` | DEF-41 |
 | SEC-W05a | Token con la firma alterada: 401 | JWT | CUMPLE | `seguridad.mjs` A; escenario 5; Newman SEC-W05a | |
 | SEC-W05b | Token con `alg` `none`: 401 | JWT | CUMPLE | `seguridad.mjs` A; Newman SEC-W05b | |
-| SEC-W05c | Vigencia corta o revocación del token | (clase 11) | NO CUMPLE | Newman SEC-W05c: `exp - iat` = 8 h | DEF-38 |
+| SEC-W05c | Vigencia corta o revocación del token | (clase 11) | CUMPLE | Newman SEC-W05c contra el compose (25/11): `exp - iat` = 1 h | DEF-38 (corregido, a verificar) |
 | SEC-W05d | Token vencido: 401 | JWT | CUMPLE | `seguridad.mjs` A | |
 | SEC-W05e | Token de otro emisor: 401 | JWT | CUMPLE | `seguridad.mjs` A | |
 | SEC-W05f | Token de otra clave, con HS256 sobre la clave pública, con un rol agregado o sin `exp`: 401 | JWT | CUMPLE | `seguridad.mjs` A | |
@@ -102,25 +133,25 @@ matriz no tenía.
 | SEC-W09 | Inyección SQL y XSS reflejado en la búsqueda del catálogo | Inyección / XSS | CUMPLE | Escenario 24; `xss.spec.ts` | |
 | SEC-W10 | Inyección y XSS almacenado en el resto de los campos de texto | Inyección / XSS | CUMPLE | `seguridad.mjs` C; `xss.spec.ts`; ZAP activo; Schemathesis | |
 | SEC-W11 | Errores sin stack traces ni datos internos | Logs y errores | CUMPLE | Escenario 14; `seguridad.mjs` A, D y E; `ErrorInesperadoTest` | |
-| SEC-W12 | Cabeceras CSP, HSTS y `nosniff` | Headers | CUMPLE | `seguridad.mjs` E; `cabeceras.txt` del job Integración | DEF-69; DEF-70 y DEF-74 (corregidos, a verificar) |
+| SEC-W12 | Cabeceras CSP, HSTS y `nosniff` | Headers | CUMPLE | `seguridad.mjs` E; `cabeceras.txt` del job Integración; la CSP corregida, contra el compose (25/11) | DEF-69, DEF-70 y DEF-74 (corregidos, a verificar) |
 | SEC-W13 | CORS con orígenes explícitos, sin comodín con credenciales | CORS | CUMPLE | `seguridad.mjs` E; `CorsFilterTest` | DEF-42 (corregido, a verificar) |
 | SEC-W14 | Cookies `Secure`, `HttpOnly` y `SameSite`, o ninguna cookie | Cookies | CUMPLE | `seguridad.mjs` E; `xss.spec.ts` | DEF-58 |
-| SEC-W15 | Una entrada pública no ocupa el servidor sin límite | (consumo de recursos) | NO CUMPLE en `fbd31dc`; corregido, a verificar sobre el tag | `registro-nombre-largo.txt`; SonarCloud `java:S8786`; la corrección, `NombreYApellidoTest` | DEF-64 |
+| SEC-W15 | Una entrada pública no ocupa el servidor sin límite | (consumo de recursos) | CUMPLE | El hallazgo, `registro-nombre-largo.txt` (`fbd31dc`); la corrección, `NombreYApellidoTest` en el run 45709490693 | DEF-64 (corregido, a verificar) |
 | SEC-I01 | SOAP con tiempo máximo y estado controlado ante una falla | (clase 11) | CUMPLE | Escenario 15; `ArcaSoapTest`; `FabricaDeArcaTest` | |
 | SEC-I01b | XXE y entidades externas en el canal SOAP | XXE | CUMPLE | `seguridad.mjs` D; `FabricaDeArcaTest` | DEF-45 (corregido, a verificar) |
-| SEC-I02 | Permisos por destino en el broker | (clase 11) | NO CUMPLE | `configurar.cli` sin usuarios ni `security-setting` | DEF-39 |
+| SEC-I02 | Permisos por destino en el broker | (clase 11) | NO CUMPLE (riesgo aceptado) | `configurar.cli` sin usuarios ni `security-setting` | DEF-39 (aceptado) |
 | SEC-D01 | Los logs no tienen DNI ni tokens | Logs | CUMPLE | Control de logs del CI, ZAP y pruebas de seguridad; `server.log` de las corridas | DEF-40 (corregido, a verificar) |
 | SEC-D02 | Contraseñas con hash adaptativo y nunca en respuestas | Datos sensibles | CUMPLE | `ContrasenasTest`; Newman SEC-D02; `seguridad.mjs` E | DEF-44 (corregido, a verificar) |
-| SEC-D03 | Los logs no tienen datos personales ni códigos de un solo uso | Logs | NO CUMPLE en `fbd31dc`; corregido, a verificar sobre el tag | `server.log` del job Integración: emails enteros con códigos; log de accesos de nginx; la corrección, `correo-en-el-log.txt` y `scripts/qa/control-de-logs.sh` | DEF-36, DEF-72 |
+| SEC-D03 | Los logs no tienen datos personales ni códigos de un solo uso | Logs | CUMPLE | Control de logs de los runs 45709490844 y 45709490550 con el compose por defecto; `correo-en-el-log.txt`; contra el compose (25/11), 0 emails en el log de nginx | DEF-36 y DEF-72 (corregidos, a verificar) |
 | SEC-D04 | Cifrado en tránsito (TLS) | TLS | CUMPLE | Humo por HTTPS del job Integración; `seguridad.mjs` E; E2E por HTTPS | |
-| SEC-D05 | Datos personales minimizados (DNI) | Datos sensibles | NO CUMPLE en `fbd31dc`; corregido, a verificar sobre el tag | Contrato de `PAGO_CONFIRMADO` y auditoría de `fbd31dc`; la corrección, `PagoConfirmadoMensajeTest` y `ServicioDeAuditoriaTest` | DEF-37 |
+| SEC-D05 | Datos personales minimizados (DNI) | Datos sensibles | CUMPLE | `PagoConfirmadoMensajeTest` y `ServicioDeAuditoriaTest` en el run 45709490693; contra el compose (25/11), 0 filas de auditoría con DNI | DEF-37 (corregido, a verificar) |
 | SEC-D06 | Las respuestas no traen datos de otras personas ni secretos | Datos sensibles | CUMPLE | `seguridad.mjs` E | |
-| SEC-E01 | ZAP baseline y activo autenticado: 0 High, Medium justificadas | ZAP | CUMPLE | Run 44867187257, `resumen.md` | DEF-69; DEF-62 y DEF-74 (corregidos, a verificar) |
-| SEC-E02 | Dependencias e imágenes sin CVE críticas ni altas sin mitigación | Dependencias | CUMPLE | Run 44867187171 | DEF-68 |
-| SEC-E02b | La imagen de la base también escaneada | Dependencias | NO VERIFICABLE en `fbd31dc`; corregido, a verificar sobre el tag | En `fbd31dc` no se escaneaba; la corrección, la matriz del job de imágenes de `seguridad.yml` con `db` | DEF-73 |
+| SEC-E01 | ZAP baseline y activo autenticado: 0 High, Medium justificadas | ZAP | CUMPLE | Runs 44867187257 (`resumen.md`) y 45709490550 | DEF-62, DEF-69 y DEF-74 (corregidos, a verificar) |
+| SEC-E02 | Dependencias e imágenes sin CVE críticas ni altas sin mitigación | Dependencias | CUMPLE | Runs 44867187171 y 45709490636 | DEF-68 |
+| SEC-E02b | La imagen de la base también escaneada | Dependencias | CUMPLE | Job "Imagen: db (trivy image)" del run 45709490636 | DEF-73 (corregido, a verificar) |
 | SEC-E03 | Sin secretos en el historial | Secretos (G6) | CUMPLE | Job Secretos (gitleaks), `gitleaks.sarif` | |
-| SEC-E04 | SonarCloud: Quality Gate aprobado y sin security hotspots abiertos en el código nuevo | Análisis estático | CUMPLE | Check SonarCloud Code Analysis | DEF-71; DEF-76 (corregido, a verificar) |
-| SEC-E04b | SonarCloud sobre todo el código: vulnerabilidades, rating de seguridad y hotspots revisados | Análisis estático | CUMPLE | `sonar.txt` y captura del código total | DEF-71 |
+| SEC-E04 | SonarCloud: Quality Gate aprobado y sin security hotspots abiertos en el código nuevo | Análisis estático | CUMPLE | Check SonarCloud Code Analysis de `fbd31dc`; Quality Gate aprobado en `93d34d2` | DEF-71 y DEF-76 (corregidos, a verificar) |
+| SEC-E04b | SonarCloud sobre todo el código: vulnerabilidades, rating de seguridad y hotspots revisados | Análisis estático | CUMPLE | `sonar.txt` y captura del código total | DEF-71 (corregido, a verificar) |
 | SEC-AS01 | El asistente no ejecuta instrucciones ajenas, no revela su prompt ni datos de otros y no se cae con el proveedor | Eje E (8.3) | CUMPLE | `asistente.mjs`; Newman carpeta 9; `RiesgosDelAsistenteTest` | DEF-63 (corregido, a verificar) |
 
 ## 3. Detalle por criterio
@@ -128,8 +159,9 @@ matriz no tenía.
 Dónde está cada evidencia: los escenarios (`scripts/pruebas/escenarios.mjs`) corren en los jobs "Integración" del run
 44867187162; Newman (`docs/api/palco-api.postman_collection.json`), en su job "API" (salida en
 `reporte-api/newman/coleccion.txt`); los tests de JUnit, en el job "Backend" (reportes de surefire en
-`reportes-backend`); `seguridad.mjs` y `xss.spec.ts`, en el run 44867187123 (`seguridad.txt`). Las frases entre
-comillas son la salida textual de cada prueba.
+`reportes-backend`); `seguridad.mjs` y `xss.spec.ts`, en el run 44867187123 (`seguridad.txt`). Las corridas sobre
+`93d34d2` (sección 1) repiten esas pruebas, en verde. Las frases entre comillas son
+la salida textual de cada prueba.
 
 ### 3.1 Web y API
 
@@ -224,16 +256,18 @@ comillas son la salida textual de cada prueba.
 - `seguridad.mjs` A: "token con alg none y sin firma: 401 token-invalido en Problem Details en los cinco, sin stack
   trace". Newman SEC-W05b: `GET /yo` con un token sin firma, 401 Problem Details.
 
-**SEC-W05c · Vigencia corta o revocación del token · NO CUMPLE (riesgo aceptado, DEF-38)**
+**SEC-W05c · Vigencia corta o revocación del token · CUMPLE (DEF-38, corregido el 25/11, a verificar sobre el tag)**
 
-- El criterio de la clase 11 pide un token de 15 minutos o menos, o que deje de valer al cerrar sesión. Newman SEC-W05c:
-  "exp - iat = 8 h (28.800 s)" (`DURACION_SESION`, `ServicioDeUsuarios.java`, línea 83). Salir de la sesión borra el
-  token del navegador; el backend no tiene una operación de cierre de sesión.
-- Riesgo aceptado por el grupo el 16/10 (documento único, 14.2): una sesión de compra o de un organizador dura una
-  jornada. Lo que sí está probado: el token no se puede alargar ni cambiar (SEC-W05a, b, d, e y f).
-- Alternativa: cambiar `PALCO_JWT_CLAVE_PRIVADA` (o, si no está definida, reiniciar el backend, que genera una clave
-  nueva) invalida todas las sesiones abiertas. Corrección propuesta en DEF-38: token de acceso de 15 minutos con un
-  refresh token revocable.
+- El criterio pide una vigencia corta o que el token se pueda revocar. En `fbd31dc` la sesión duraba 8 horas, sin
+  revocación (DEF-38, Mayor), y estaba aceptada como riesgo desde el 16/10.
+- Corrección (25/11): la sesión dura 15 minutos (`ServicioDeUsuarios.DURACION_SESION = Duration.ofHours(1)`). El token es un
+  JWT que cada servicio valida sin consultar a Usuarios, así que no hay revocación: el criterio se cumple con la vigencia
+  corta. Una hora alcanza para una compra entera (la reserva dura 10 minutos) y, al vencer, el frontend pide ingresar de
+  nuevo. Salir de la sesión borra el token del navegador.
+- Newman, contra el compose (25/11): «SEC-W05c Login: la sesión dura 15 minutos» comprueba `exp - iat` = 900 s; la
+  colección completa, 682 aserciones sin fallas. El token tampoco se puede alargar ni cambiar (SEC-W05a, b, d, e y f).
+- Además, cambiar `PALCO_JWT_CLAVE_PRIVADA` (o, si no está definida, reiniciar el backend, que genera una clave nueva)
+  invalida todas las sesiones abiertas.
 
 **SEC-W05d · Token vencido: 401 · CUMPLE**
 
@@ -350,19 +384,26 @@ comillas son la salida textual de cada prueba.
   `X-Frame-Options: DENY`, `Permissions-Policy` y `server: nginx` sin versión (`server_tokens off`). El paso falla si
   falta CSP, HSTS, `X-Content-Type-Options` o `Referrer-Policy`.
 - Hallazgos:
-  - DEF-69 (Menor, Aceptado): `style-src 'unsafe-inline'` e `img-src https:`, las dos alertas Medium de ZAP,
-    justificadas en `.zap/reglas.tsv` (sección 4.1).
+  - DEF-69 (Menor, corregido el 25/11, a verificar sobre el tag): la CSP de `fbd31dc` y de `93d34d2` permite estilos
+    en línea (`style-src 'unsafe-inline'`) e imágenes de cualquier origen `https:`, las dos alertas Medium de ZAP,
+    justificadas en `.zap/reglas.tsv` (sección 4.1). Desde el 25/11, los dos bloques de cabeceras de
+    `frontend/docker/nginx.conf` quedan con `style-src 'self'` e `img-src 'self' data: blob: https://picsum.photos`:
+    los estilos están en los `.css` del build, y los de framer-motion y los `style` de React se aplican por JavaScript
+    (CSSOM), que la CSP no frena; las fotos que se suben se sirven desde Palco y las de los eventos de ejemplo, desde
+    picsum.photos. Contra el compose (25/11), recorriendo el catálogo, un evento, recuperar la contraseña, el panel del
+    organizador, Mis entradas, la reventa y el asistente: 0 avisos de CSP en la consola; la E2E, 39 de 39, y
+    `seguridad.mjs`, 64 de 64. Lo confirma el ZAP del tag, sin esas dos Medium.
   - DEF-70 (Menor, corregido el 24/11, a verificar sobre el tag): la CSP de `fbd31dc` todavía habilita
     `https://fonts.googleapis.com` en `style-src` y `https://fonts.gstatic.com` en `font-src`, aunque desde `c4ec165`
     las fuentes se sirven del propio sitio (`frontend/public/fuentes/`). Desde el 24/11, los dos bloques de cabeceras
-    de `frontend/docker/nginx.conf` quedan con `style-src 'self' 'unsafe-inline'` y `font-src 'self'`; lo confirman
+    de `frontend/docker/nginx.conf` quedan con `font-src 'self'` y sin esos orígenes en `style-src`; lo confirman
     el bloque E de `seguridad.mjs`, `cabeceras.txt` y ZAP sobre el tag.
   - DEF-74 (Cosmética, corregido, a verificar sobre el tag): en `fbd31dc` no estaban
     `Cross-Origin-Resource-Policy`, `Cross-Origin-Opener-Policy` ni `Cross-Origin-Embedder-Policy` (alertas Low de
     ZAP). Los dos bloques de cabeceras de `frontend/docker/nginx.conf` mandan ahora
     `Cross-Origin-Opener-Policy: same-origin` y `Cross-Origin-Resource-Policy: same-origin`. COEP no va: con
-    `require-corp` el navegador bloquearía las fotos de los eventos que vienen de otro origen (el almacenamiento de
-    Supabase); la justificación está en `.zap/reglas.tsv` (renglón 56). Lo confirma el ZAP del tag.
+    `require-corp` el navegador bloquearía las fotos de los eventos que vienen de otro origen (las de los eventos de
+    ejemplo, de picsum.photos); la justificación está en `.zap/reglas.tsv` (renglón 56). Lo confirma el ZAP del tag.
 
 **SEC-W13 · CORS con orígenes explícitos, sin comodín con credenciales · CUMPLE**
 
@@ -390,7 +431,7 @@ comillas son la salida textual de cada prueba.
 - Riesgo aceptado: DEF-58 (Menor, decisión de diseño). El frontend guarda el token en `localStorage`, donde un script
   inyectado podría leerlo; lo acotan la CSP (`script-src 'self'`) y el escapado de React, probado en SEC-W10.
 
-**SEC-W15 · Una entrada pública no ocupa el servidor sin límite · NO CUMPLE en `fbd31dc` (DEF-64, Crítica, corregido el 24/11, a verificar sobre el tag)**
+**SEC-W15 · Una entrada pública no ocupa el servidor sin límite · CUMPLE (DEF-64, Crítica, corregido el 24/11, a verificar sobre el tag)**
 
 - Criterio: un pedido sin sesión, de pocos KB, se responde en un tiempo acotado aunque sus datos sean inválidos (OWASP
   API Security Top 10 2023, API4: consumo de recursos sin límite).
@@ -410,9 +451,10 @@ comillas son la salida textual de cada prueba.
 - Corrección (24/11, DEF-64): `nombre` y `apellido` usan la constante `Dtos.NOMBRE`, `^\s*+[A-Za-zÀ-ÿ' -]{2,}+\s*+$`,
   con cuantificadores posesivos: la expresión no vuelve atrás y el tiempo crece en forma lineal con el largo. Además,
   `@Size(max = 80)`, el largo de la columna. `NombreYApellidoTest` (4 tests) rechaza 100.000 espacios y un dígito en
-  menos de un segundo, en el nombre y en el apellido; corrió en local el 24/11, con los 91 tests de Usuarios en verde.
-- Prueba que lo cierra, sobre el tag: `NombreYApellidoTest` en el CI y el mismo pedido de 1500 espacios contra el
-  compose, que tiene que responder el 400 en menos de un segundo. Hasta esa corrida, el criterio queda en NO CUMPLE.
+  menos de un segundo, en el nombre y en el apellido; corrió en local el 24/11, con los 91 tests de Usuarios en verde,
+  y en el job Backend del run 45709490693 sobre `93d34d2` (25/11), en verde.
+- Prueba que cierra DEF-64 en el registro, sobre el tag: `NombreYApellidoTest` en el CI y el mismo pedido de 1500
+  espacios contra el compose, que tiene que responder el 400 en menos de un segundo (sección 6).
 
 ### 3.2 Integración
 
@@ -450,9 +492,11 @@ comillas son la salida textual de cada prueba.
 
 - `backend/servidor/src/main/wildfly/configurar.cli` crea la cola, los tópicos y la DLQ, sin usuarios del broker ni
   `security-setting` por destino: cualquier WAR desplegado puede publicar o consumir en cualquier destino.
-- Riesgo aceptado el 16/10 (`docs/adr/ADR-005-broker-embebido.md`; documento único, 14.8): el broker está embebido en
-  el mismo WildFly, los servicios se conectan por `in-vm` y ningún sistema externo se conecta a él. Si el sistema se
-  despliega en más de un servidor: un usuario por servicio y un `security-setting` por destino.
+- Riesgo aceptado el 16/10 (`docs/adr/ADR-005-broker-embebido.md`; documento único, 14.8): darle a cada servicio su
+  usuario y sus permisos por destino cambia toda la mensajería, y el broker está embebido en el mismo WildFly, los
+  servicios se conectan por `in-vm` y ningún sistema externo se conecta a él. Si el sistema se despliega en más de un
+  servidor: un usuario por servicio y un `security-setting` por destino.
+- Es el único criterio de la matriz que no se cumple.
 
 ### 3.3 Datos
 
@@ -492,7 +536,7 @@ comillas son la salida textual de cada prueba.
   (`IteracionesAlIniciarSesionEnH2Test#unaCuentaCon310MilIteracionesIngresaYQuedaCon600Mil`,
   `#conLaContrasenaEquivocadaElHashNoCambia` y `ContrasenasTest#tieneMenosIteracionesSoloUnHashConMenosDe600Mil`).
 
-**SEC-D03 · Los logs no tienen datos personales ni códigos de un solo uso · NO CUMPLE en `fbd31dc` (DEF-36 y DEF-72, corregidos, a verificar sobre el tag)**
+**SEC-D03 · Los logs no tienen datos personales ni códigos de un solo uso · CUMPLE (DEF-36 y DEF-72, corregidos, a verificar sobre el tag)**
 
 - Lo que cumple, con prueba:
   - El asistente registra el id de la cuenta y no su email: en los `server.log` de las corridas, los renglones son
@@ -531,8 +575,10 @@ comillas son la salida textual de cada prueba.
   (`docs/testing/evidencia/final/correo-en-el-log.txt`): 0 emails enteros y 0 códigos en el log. Se repiten sobre el
   tag, junto con los pasos de control de logs de `contrato.yml` y `zap.yml`.
 - Prueba que cierra DEF-72 (registro): sobre el compose del tag, asignar y quitar una cuenta de puerta desde el panel y
-  `docker compose logs web | grep -cE '/puertas/[^ ]+(@|%40)|email=[^<& ]'`, que tiene que dar 0. SEC-D03 pasa a
-  CUMPLE cuando se cierran los dos.
+  `docker compose logs web | grep -cE '/puertas/[^ ]+(@|%40)|email=[^<& ]'`, que tiene que dar 0.
+- Sobre `93d34d2` (25/11): el paso "Control de logs" de Contrato (run 45709490844) y de ZAP (run 45709490550), que
+  corren con el compose por defecto y fallan con un email `@palco.test` entero, terminó en verde. Ese día, contra el
+  compose: `control-de-logs.sh` dio el `server.log` limpio y el log de accesos de nginx, 0 emails.
 
 **SEC-D04 · Cifrado en tránsito (TLS) · CUMPLE**
 
@@ -545,7 +591,7 @@ comillas son la salida textual de cada prueba.
   el repo ni en la imagen. TLS termina en nginx; de nginx a WildFly el tráfico va por la red interna del compose, y el
   puerto 8080 del backend se publica solo en `127.0.0.1`.
 
-**SEC-D05 · Datos personales minimizados (DNI) · NO CUMPLE en `fbd31dc` (DEF-37, corregido el 24/11, a verificar sobre el tag)**
+**SEC-D05 · Datos personales minimizados (DNI) · CUMPLE (DEF-37, corregido el 24/11, a verificar sobre el tag)**
 
 - En `fbd31dc`, el mensaje `PAGO_CONFIRMADO` llevaba el DNI completo de cada titular (el contrato de mensajería de ese
   commit lo dejaba abierto: "Hoy viaja completo"), y la auditoría de Notificaciones guardaba el cuerpo tal como llegó
@@ -562,6 +608,9 @@ comillas son la salida textual de cada prueba.
   `ServicioDeAuditoriaTest#unPagoConfirmadoPublicadoConElDniSeGuardaSinElDniDeNingunTitular` y la V3 en
   `MigracionesEnH2Test#laV3LeSacaElDniALasFilasQueYaEstaban` y en `MigracionesEnPostgresIT` (PostgreSQL 17 en un
   contenedor).
+- Sobre `93d34d2` (25/11): `PagoConfirmadoMensajeTest`, `ServicioDeVentasTest`, `ServicioDeAuditoriaTest` y
+  `MigracionesEnH2Test`, en el job Backend del run 45709490693, en verde. Ese día, contra el compose,
+  después de la V3: 0 filas de `notificaciones.registro_auditoria` con DNI.
 - Prueba que lo cierra (registro): sobre el tag, pagar una compra y leer `cuerpo` en
   `notificaciones.registro_auditoria`: ninguna fila tiene `"dni"`, tampoco las anteriores al despliegue.
 
@@ -585,7 +634,10 @@ comillas son la salida textual de cada prueba.
   iguales). DEF-62 está corregido (24/11) y a verificar sobre el tag: `ManejadoresDeErrores.Validacion` recorre las
   violaciones ordenadas por campo (`ErroresDeValidacionTest#losCamposSalenEnOrdenAlfabeticoAunqueLasViolacionesLleguenEnOtroOrden`),
   y en el ZAP del tag esas tres instancias no tendrían que volver a salir.
-- Hallazgos: DEF-69 (las dos Medium, aceptadas) y DEF-74 (las Low; corregido, a verificar sobre el tag, sección 4.1).
+- Run 45709490550, sobre `93d34d2` (25/11): en verde con el mismo criterio (`zap-resumen.mjs` falla con cualquier High y
+  con cada Medium sin justificar).
+- Hallazgos: DEF-69 (las dos Medium de la CSP, justificadas en esas corridas; corregido el 25/11, a verificar sobre el
+  tag, SEC-W12) y DEF-74 (las Low; corregido, a verificar sobre el tag, sección 4.1).
 
 **SEC-E02 · Dependencias e imágenes sin CVE críticas ni altas sin mitigación · CUMPLE**
 
@@ -595,8 +647,9 @@ comillas son la salida textual de cada prueba.
     simulado): 0 en el sistema y 0 sin justificar en los jar; 6 HIGH suprimidas por `.trivyignore`, ninguna CRITICAL.
   - Imagen web (`palco-web`, Alpine 3.24.4 con nginx 1.30): 0.
 - Las 6 aceptadas (DEF-68), con su mitigación y su vencimiento, en la sección 4.2.
+- Run 45709490636, sobre `93d34d2` (25/11): en verde con el mismo criterio.
 
-**SEC-E02b · La imagen de la base también escaneada · NO VERIFICABLE en `fbd31dc` (DEF-73, corregido, a verificar sobre el tag)**
+**SEC-E02b · La imagen de la base también escaneada · CUMPLE (DEF-73, corregido, a verificar sobre el tag)**
 
 - En `fbd31dc`, `seguridad.yml` escaneaba las dos imágenes que arma el compose (backend y web). La de la base,
   `postgres:17-alpine`, se usa tal como se publica y no se escaneaba.
@@ -606,7 +659,8 @@ comillas son la salida textual de cada prueba.
   libxml2 (el parser de XML, al que Palco no llega: ninguna columna `xml` ni la extensión `xml2`, y la base no publica
   su puerto) y las de la biblioteca estándar de Go en `gosu`, que corre una sola vez al arrancar el contenedor y no
   abre conexiones.
-- Prueba que lo cierra: el job "Imagen: db (trivy image)" de `seguridad.yml` en verde sobre el tag.
+- Run 45709490636, sobre `93d34d2` (25/11): el job "Imagen: db (trivy image)" escaneó `postgres:17-alpine` y terminó
+  en verde (0 CRITICAL y 0 HIGH sin justificar). El registro cierra DEF-73 con ese job en verde sobre el tag.
 
 **SEC-E03 · Sin secretos en el historial · CUMPLE**
 
@@ -622,17 +676,22 @@ comillas son la salida textual de cada prueba.
 
 - Check "SonarCloud Code Analysis" sobre `fbd31dc` (21/11, 04:45 UTC): "Quality Gate passed"; "0 Security Hotspots";
   "95.0% Coverage on New Code"; "0.0% Duplication on New Code"; "128 New issues" abiertas y "1 Accepted issue".
-- La aceptada es la de la imagen web, cuyo proceso principal de nginx corre como root (`frontend/Dockerfile`): DEF-71.
+- La aceptada en ese análisis es `docker:S6471`: el proceso principal de nginx arrancaba con root en la imagen web
+  (`frontend/Dockerfile`), DEF-71. Corrección (25/11): la imagen parte de `nginxinc/nginx-unprivileged:1.30-alpine` y
+  termina con `USER 101`, así que nginx entero corre sin root; sigue escuchando en 80 y 443 dentro del contenedor
+  (Docker lo permite sin root desde la versión 20.10), y `nginx.conf` y el compose no cambian. Contra el compose
+  (25/11), `id -u` en el contenedor web da 101; el análisis del tag lo verifica.
 - Después de `fbd31dc`, el Quality Gate quedó en rojo en `ffded8f` y `5d3c784` por un bug Critical de confiabilidad
-  (`java:S8696` en `AsistenteIA`, DEF-76, Menor). Se corrigió el 25/11 (`1bab37a`) y el Quality Gate de `ff12b59` y de
-  `12a08f2` dio "passed"; se verifica con el análisis del tag.
+  (`java:S8696` en `AsistenteIA`, DEF-76, Menor). Se corrigió el 25/11 (`1bab37a`) y el Quality Gate de `ff12b59`,
+  `12a08f2` y `93d34d2` dio "passed"; se verifica con el análisis del tag.
 
 **SEC-E04b · SonarCloud sobre todo el código: vulnerabilidades, rating de seguridad y hotspots revisados · CUMPLE**
 
 - `docs/testing/evidencia/final/sonar.txt` (API pública de SonarCloud, consultada el 24/11; el último análisis del
   proyecto `santttii_deapps2`, rama `master`, es el de `fbd31dc`) y la captura `quality-gate-fbd31dc-codigo-total.png`
   ("Overall Code"): 0 vulnerabilidades abiertas, Security Rating A, 0 security hotspots y 100 % revisados. La única
-  vulnerabilidad es la aceptada `docker:S6471` (Minor, `frontend/Dockerfile`, línea 25): DEF-71.
+  vulnerabilidad es la aceptada `docker:S6471` (Minor, `frontend/Dockerfile`, línea 25): DEF-71, corregido el 25/11
+  (SEC-E04).
 - Fuera de este criterio, en el eje B: la confiabilidad de todo el código es C por un bug MAJOR (`java:S5850` en
   `common/Textos.java`, línea 63; DEF-65, corregido el 24/11, a verificar con el análisis del tag). SonarCloud marca
   además con `java:S8786` (expresiones con retroceso superlineal) las líneas 44, 48 y 58 de `usuarios/api/Dtos.java`,
@@ -692,8 +751,8 @@ workflow, por nginx (`https://web` dentro de la red del compose):
 | Escaneo | Riesgo | Alerta (regla) | Instancias | Tratamiento |
 |---|---|---|---|---|
 | API | High | SQL Injection (40018) | 4 | Falsos positivos verificados (abajo) |
-| Baseline | Medium | CSP: style-src unsafe-inline (10055) | 3 | Justificada (DEF-69) |
-| Baseline | Medium | CSP: Wildcard Directive (10055), por `img-src https:` | 3 | Justificada (DEF-69) |
+| Baseline | Medium | CSP: style-src unsafe-inline (10055) | 3 | Justificada; DEF-69, corregido el 25/11 (abajo) |
+| Baseline | Medium | CSP: Wildcard Directive (10055), por `img-src https:` | 3 | Justificada; DEF-69, corregido el 25/11 (abajo) |
 | Baseline | Low | Cross-Origin-Embedder-Policy Header Missing or Invalid (90004) | 2 | DEF-74: justificada en `.zap/reglas.tsv` (renglón 56) |
 | Baseline | Low | Cross-Origin-Opener-Policy Header Missing or Invalid (90004) | 2 | DEF-74: la cabecera, en `nginx.conf` (a verificar sobre el tag) |
 | Baseline y API | Low | Cross-Origin-Resource-Policy Header Missing or Invalid (90004) | 5 y 5 | DEF-74: la cabecera, en `nginx.conf` (a verificar sobre el tag) |
@@ -714,13 +773,20 @@ endpoints, lo que cambia entre respuestas no depende de ninguna consulta (cómo 
 - `POST /api/v1/asistente/preguntas`, parámetro `pregunta`: el asistente no usa base de datos, y la respuesta trae el
   campo `milisegundos`, que cambia en cada pedido.
 
-**Medium justificadas** (`.zap/reglas.tsv`, renglones 54 y 55):
+**Medium justificadas** (`.zap/reglas.tsv`, renglones 54 y 55), con la CSP de `fbd31dc`, que es también la de
+`93d34d2` (run 45709490550):
 
 - `style-src 'unsafe-inline'`: framer-motion anima con el atributo `style` y React escribe estilos en línea. Lo que
   ejecuta código sigue cerrado: `script-src 'self'`, sin `'unsafe-inline'` ni `'unsafe-eval'`, y `object-src 'none'`; un
   estilo inyectado no corre JavaScript.
-- `img-src https:`: las fotos de los eventos se pueden guardar en el almacenamiento de Supabase, cuyo dominio depende
+- `img-src https:`: las fotos de los eventos se podían guardar en el almacenamiento de Supabase, cuyo dominio depende
   del proyecto. Una imagen no ejecuta código y `connect-src` queda en `'self'`.
+
+Corrección de DEF-69 (25/11): la CSP queda con `style-src 'self'` e `img-src 'self' data: blob: https://picsum.photos`.
+Los estilos de framer-motion y los `style` de React se aplican por JavaScript (CSSOM), y la CSP no los frena; las fotos
+que se suben se sirven desde Palco y las de los eventos de ejemplo, desde picsum.photos. Contra el compose (25/11), 0
+avisos de CSP en la consola en el recorrido de SEC-W12. El ZAP del tag corre con esa CSP y no tiene que dar las
+dos Medium de la regla 10055.
 
 **Low.** El criterio no pide justificarlas y no cortan la corrida; están en DEF-74 (corregido, a verificar sobre el
 tag). La página no se puede enmarcar (`frame-ancestors 'none'` y `X-Frame-Options: DENY`) y la app no usa APIs que
@@ -757,10 +823,12 @@ Es DEF-68 (Menor, Aceptado).
 | jackson-databind 2.21.5 | CVE-2026-91776, CVE-2026-91777, CVE-2026-68497 | Lo mismo; además CVE-2026-91776 exige `@JsonTypeInfo` con `defaultImpl` y CVE-2026-91777, `@JsonIdentityInfo`, que Palco no usa |
 | guava 33.0.0-jre | CVE-2026-102554 | Agotamiento de memoria al deserializar con `ObjectInputStream` ciertas colecciones armadas por el atacante. Ningún código de Palco importa `com.google.common`; la mensajería es solo `TextMessage` con JSON (no hay `ObjectMessage` ni `ObjectInputStream`), el broker va por `in-vm` y las entradas remotas de WildFly piden un usuario del ApplicationRealm, que la imagen no tiene |
 
-La imagen web parte de `nginx:1.30-alpine` y actualiza los paquetes de Alpine al armarse (`apk upgrade`), y sale sin
-vulnerabilidades altas ni críticas (DEF-51, corregido el 21/11 en `64288b2`). En esta corrida, la imagen de la base no
-se escaneaba; con la corrección de DEF-73, el job de imágenes escanea también `postgres:17-alpine`, con sus excepciones
-justificadas en `.trivyignore` (SEC-E02b, a verificar sobre el tag).
+En esta corrida, la imagen web partía de `nginx:1.30-alpine`; desde el 25/11 parte de
+`nginxinc/nginx-unprivileged:1.30-alpine` (DEF-71). En los dos casos actualiza los paquetes de Alpine al armarse
+(`apk upgrade`), y en esta corrida salió sin vulnerabilidades altas ni críticas (DEF-51, corregido el 21/11 en
+`64288b2`). En esta corrida, la imagen de la base no se escaneaba; con la corrección de DEF-73, el job de imágenes
+escanea también `postgres:17-alpine`, con sus excepciones justificadas en `.trivyignore`, y en el run 45709490636
+(`93d34d2`, 25/11) terminó en verde (SEC-E02b).
 
 ### 4.3 gitleaks (job "Secretos" del run 44867187162)
 
@@ -776,11 +844,11 @@ justificadas en `.trivyignore` (SEC-E02b, a verificar sobre el tag).
 | Security Hotspots | 0 |
 | Cobertura | 95,0 % |
 | Duplicación | 0,0 % |
-| Issues nuevas | 128 abiertas, 1 aceptada (DEF-71) |
+| Issues nuevas | 128 abiertas, 1 aceptada (DEF-71, corregido el 25/11) |
 
 | Medida (todo el código, `sonar.txt` y captura del 24/11) | Valor |
 |---|---|
-| Vulnerabilidades | 0 abiertas; 1 aceptada (`docker:S6471`, Minor, DEF-71) |
+| Vulnerabilidades | 0 abiertas; 1 aceptada (`docker:S6471`, Minor, DEF-71, corregido el 25/11) |
 | Security Rating | A |
 | Security hotspots | 0; 100 % revisados |
 | Bugs y Reliability Rating | 1 bug MAJOR (`java:S5850`, `Textos.java:63`); confiabilidad C (eje B, DEF-65, corregido el 24/11: a verificar con el análisis del tag) |
@@ -794,7 +862,7 @@ Severidad según la sección 9 de los Criterios de Testing. Ningún hallazgo de 
 Crítico. Los dos Críticos de seguridad están corregidos y se verifican sobre el tag: DEF-63, que la corrida del
 contrato sobre `fbd31dc` ya no reproduce, y DEF-64 (SEC-W15), confirmado contra el sistema el 24/11 y corregido ese
 mismo día. Si la prueba de DEF-64 falla sobre el tag, vuelve a abrirse y la entrega no cumple el "0 críticos" de esa
-sección.
+sección. Los únicos abiertos son los cinco riesgos aceptados del registro: DEF-39, DEF-41, DEF-58, DEF-68 y DEF-75.
 
 Estado de cada defecto según el registro (`docs/testing/registro-de-defectos.md`), donde están también sus pasos, su
 evidencia, su corrección con los archivos y las pruebas que la verifican.
@@ -803,8 +871,8 @@ evidencia, su corrección con los archivos y las pruebas que la verifican.
 |---|---|---|---|---|---|
 | DEF-36 | SEC-D03 | Emails enteros con nombres y códigos de un solo uso en el log del sistema levantado con el compose | Mayor | Corregido, a verificar sobre el tag | El modo por defecto del código ya no escribe datos personales (tests en SEC-D03) y, desde el 24/11, el compose tampoco prende el modo completo; se cierra cuando la prueba de DEF-36 sobre el tag dé el log sin esos datos |
 | DEF-37 | SEC-D05 | DNI completo en `PAGO_CONFIRMADO` y en el cuerpo guardado por la auditoría | Mayor | Corregido, a verificar sobre el tag | El titular viaja solo con su nombre, la auditoría guarda el cuerpo sin el DNI y la migración V3 de Notificaciones se lo saca a las filas anteriores (contrato: "Datos personales" de `mensajeria-pago-confirmado.md`; tests en SEC-D05). Se cierra con la consulta de `registro_auditoria` sobre el tag |
-| DEF-38 | SEC-W05c | Token de 8 horas sin revocación | Mayor | Aceptado (16/10) | Alternativa: cambiar la clave JWT invalida todas las sesiones. Corrección: token de 15 minutos con refresh token revocable |
-| DEF-39 | SEC-I02 | Broker sin usuarios ni permisos por destino | Menor | Aceptado (16/10) | Broker embebido con conexión `in-vm` (ADR-005); con más de un servidor, un usuario por servicio y `security-setting` por destino |
+| DEF-38 | SEC-W05c | Token de 8 horas sin revocación | Mayor | Corregido, a verificar sobre el tag | Desde el 25/11 la sesión dura 15 minutos (`ServicioDeUsuarios.DURACION_SESION`): el criterio se cumple con la vigencia corta, porque el token es un JWT que cada servicio valida sin consultar a Usuarios y no se revoca; al vencer, el frontend pide ingresar de nuevo. Newman SEC-W05c contra el compose (25/11), `exp - iat` = 900 s. Se cierra con la colección de Postman en el CI del tag |
+| DEF-39 | SEC-I02 | Broker sin usuarios ni permisos por destino | Menor | Aceptado (16/10) | Darle a cada servicio su usuario y sus permisos por destino cambia toda la mensajería; el broker está embebido y los servicios entran por `in-vm` (ADR-005). Con más de un servidor, un usuario por servicio y `security-setting` por destino |
 | DEF-40 | SEC-D01 | El control de logs del CI no buscaba DNI | Menor | Corregido, a verificar sobre el tag | `scripts/qa/control-de-logs.sh`, en los pasos "Control de logs" de `ci.yml`, `contrato.yml`, `pruebas-seguridad.yml` y `zap.yml`: tokens, contraseñas de prueba y DNI y, en `contrato.yml` y `zap.yml`, emails `@palco.test` enteros. Se cierra con esos pasos en verde sobre el tag |
 | DEF-41 | SEC-W04 | El límite de ingresos cuenta por email | Menor | Aceptado (decisión de diseño, CA-02.3) | CA-02.3 pide el 429 por email aunque la contraseña sea la correcta, y contar por IP pide una dirección del cliente que hoy no se tiene de forma segura. Mitigan: el bloqueo dura como mucho 15 minutos con `Retry-After`, y "Olvidé mi contraseña" borra los fallidos (registro, DEF-41) |
 | DEF-42 | SEC-W13 | El compose aceptaba `http://localhost:5173` en CORS | Menor | Corregido, a verificar sobre el tag | El compose deja por defecto solo la URL pública; el origen de Vite se define a mano en `PALCO_CORS_ORIGENES` (SEC-W13). Se cierra con el `curl` con ese origen sobre el compose del tag |
@@ -813,13 +881,13 @@ evidencia, su corrección con los archivos y las pruebas que la verifican.
 | DEF-45 | SEC-I01b | El ARCA simulado no pide autenticación y el nginx del compose lo publicaba | Menor | Corregido, a verificar sobre el tag | `location /legado/` de `nginx.conf` responde 404; Facturación lo llama por la red interna y `seguridad.mjs` D, por el puerto del backend (SEC-I01b). Se cierra con el `curl` a `https://localhost/legado/arca?wsdl` sobre el compose del tag |
 | DEF-58 | SEC-W14 | Token en `localStorage` | Menor | Aceptado (decisión de diseño) | Lo acotan la CSP y el escapado de React (SEC-W10); corrección: cookie `HttpOnly`, `Secure` y `SameSite=Strict` con el token corto de DEF-38 |
 | DEF-62 | SEC-E01 | El 400 de validación listaba los campos en un orden que cambia (causa del falso positivo de ZAP en el registro) | Menor | Corregido, a verificar sobre el tag | `ManejadoresDeErrores.Validacion` ordena las violaciones por campo y por mensaje (`ErroresDeValidacionTest`). Se cierra también con el ZAP del tag |
-| DEF-64 | SEC-W15 | El registro tardaba con el cubo del largo de un nombre o un apellido lleno de espacios: un pedido sin sesión de 1,6 KB ocupaba un hilo del servidor 7 segundos | Crítica | Corregido, a verificar sobre el tag (confirmado contra el sistema y corregido el 24/11) | Expresión con cuantificadores posesivos y `@Size(max = 80)`; `NombreYApellidoTest` pasa en local. Se cierra con ese test en el CI del tag y el pedido de 1500 espacios respondiendo en menos de un segundo contra el compose del tag |
+| DEF-64 | SEC-W15 | El registro tardaba con el cubo del largo de un nombre o un apellido lleno de espacios: un pedido sin sesión de 1,6 KB ocupaba un hilo del servidor 7 segundos | Crítica | Corregido, a verificar sobre el tag (confirmado contra el sistema y corregido el 24/11) | Expresión con cuantificadores posesivos y `@Size(max = 80)`; `NombreYApellidoTest` pasa en local y en el CI de `93d34d2` (run 45709490693). Se cierra con ese test en el CI del tag y el pedido de 1500 espacios respondiendo en menos de un segundo contra el compose del tag |
 | DEF-68 | SEC-E02 | 6 HIGH de Jackson y Guava dentro de WildFly 41.0.1 | Menor | Aceptado (vence el 31/12/2026) | Mitigación comprobada en la sección 4.2; corrección: la versión de WildFly que traiga las librerías arregladas |
-| DEF-69 | SEC-W12, SEC-E01 | CSP con `style-src 'unsafe-inline'` e `img-src https:` (2 Medium de ZAP) | Menor | Aceptado (`.zap/reglas.tsv`) | Justificación en la sección 4.1; corrección: estilos con nonce o hash e `img-src` limitado al dominio del almacenamiento configurado |
+| DEF-69 | SEC-W12, SEC-E01 | CSP con `style-src 'unsafe-inline'` e `img-src https:` (2 Medium de ZAP) | Menor | Corregido, a verificar sobre el tag | Desde el 25/11, `style-src 'self'` e `img-src 'self' data: blob: https://picsum.photos` en los dos bloques de cabeceras de `nginx.conf`. Contra el compose (25/11): 0 avisos de CSP en la consola, la E2E 39 de 39 y `seguridad.mjs` 64 de 64 (SEC-W12). Se cierra con el ZAP del tag sin las dos Medium de la CSP |
 | DEF-70 | SEC-W12 | La CSP habilitaba los orígenes de Google Fonts, que la app ya no usa | Menor | Corregido, a verificar sobre el tag | Desde el 24/11, los dos bloques de cabeceras de `nginx.conf` quedan sin `https://fonts.googleapis.com` ni `https://fonts.gstatic.com`; lo confirman sobre el tag el bloque E de `seguridad.mjs`, `cabeceras.txt` y ZAP |
-| DEF-71 | SEC-E04 | El proceso principal de nginx corre como root en la imagen web | Menor | Aceptado (SonarCloud) | Los pedidos los atienden los procesos worker con el usuario `nginx`; root hace falta para los puertos 80 y 443 y para escribir el certificado al arrancar (`frontend/Dockerfile`). Corrección: imagen sin privilegios con puertos altos |
+| DEF-71 | SEC-E04 | El proceso principal de nginx corría con root en la imagen web | Menor | Corregido, a verificar sobre el tag | Desde el 25/11, la imagen web parte de `nginxinc/nginx-unprivileged:1.30-alpine` y termina con `USER 101`: nginx entero corre sin root (contra el compose, `id -u` en el contenedor da 101). Sigue en 80 y 443 dentro del contenedor (Docker lo permite sin root desde la 20.10); `nginx.conf` y el compose no cambian. Se cierra con SonarCloud y el Trivy de la imagen web sobre el tag |
 | DEF-72 | SEC-D03 | El email de la cuenta de puerta quedaba en el log de accesos de nginx (va en la ruta o en la consulta) | Menor | Corregido, a verificar sobre el tag | El formato de log `palco` de `nginx.conf` escribe `<email>` en su lugar, y no escribe la ruta si le queda un `@` o un `%40` (SEC-D03). Se cierra con el `grep` sobre `docker compose logs web` en el compose del tag |
-| DEF-73 | SEC-E02b | Trivy no escaneaba `postgres:17-alpine` | Menor | Corregido, a verificar sobre el tag | La matriz del job de imágenes de `seguridad.yml` suma `db`, con sus excepciones justificadas en `.trivyignore` hasta el 31/12/2026 (SEC-E02b). Se cierra con ese job en verde sobre el tag |
+| DEF-73 | SEC-E02b | Trivy no escaneaba `postgres:17-alpine` | Menor | Corregido, a verificar sobre el tag | La matriz del job de imágenes de `seguridad.yml` suma `db`, con sus excepciones justificadas en `.trivyignore` hasta el 31/12/2026 (SEC-E02b); el job "Imagen: db (trivy image)" del run 45709490636 (`93d34d2`) terminó en verde. Se cierra con ese job en verde sobre el tag |
 | DEF-74 | SEC-W12, SEC-E01 | Alertas Low de ZAP: sin `Cross-Origin-Resource-Policy`, `Cross-Origin-Opener-Policy` ni `Cross-Origin-Embedder-Policy`; 14 respuestas en `text/html` donde ZAP esperaba JSON (sección 4.1) | Cosmética | Corregido, a verificar sobre el tag | nginx manda `Cross-Origin-Resource-Policy` y `Cross-Origin-Opener-Policy` en `same-origin`; COEP y las 14 de Content-Type quedan justificadas en `.zap/reglas.tsv` (renglones 56 y 57). Se cierra con el resumen de ZAP del tag sin Low sin justificar |
 | DEF-75 | SEC-W03 | El registro dice si un email o un DNI ya tienen cuenta, sin límite de intentos | Menor | Aceptado (decisión de diseño, CA-01.2) | El login y "olvidé mi contraseña" no lo revelan; si se cambia, cambia CA-01.2 |
 
@@ -864,10 +932,10 @@ comprobaciones" y "TODO BIEN") y
 | Inyección SQL y XSS | `curl -s -w '\nHTTP %{http_code}\n' "$API/api/eventos?q=%27%20OR%20%271%27%3D%271"`; `curl -s -w '\nHTTP %{http_code}\n' "$API/api/eventos?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E"`; bloque C de `seguridad.mjs` y `xss.spec.ts` | 200 (nunca 500); el HTML se guarda y se ve como texto, sin `alert()` | Escenario 24; bloque C, 6 de 6; `xss.spec.ts`, 2 de 2; SEC-W09 y SEC-W10 |
 | XXE en SOAP | Bloque D de `seguridad.mjs`. A mano: `curl -s -w '\nHTTP %{http_code}\n' -X POST "$API/legado/arca" -H 'Content-Type: text/xml; charset=utf-8' --data-binary '<?xml version="1.0"?><!DOCTYPE S:Envelope [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><S:Envelope xmlns:S="http://schemas.xmlsoap.org/soap/envelope/"><S:Body>&xxe;</S:Body></S:Envelope>'` | SOAP Fault `soap:Client` ("Received event DTD"), HTTP 500, sin el contenido del archivo; el servidor sigue respondiendo | Bloque D, 6 de 6; SEC-I01b |
 | Fuerza bruta en el login: 429 | `for i in 1 2 3 4 5 6; do curl -s -o /dev/null -w '%{http_code} ' -X POST "$API/api/usuarios/login" -H 'Content-Type: application/json' -d '{"email":"fuerza.bruta@palco.test","password":"incorrecta1"}'; done; echo` y, para ver la cabecera, el mismo pedido con `-D - -o /dev/null \| grep -i '^retry-after'`. Un email que no existe cuenta igual y no bloquea ninguna cuenta de la demo | `401 401 401 401 401 429`, con `Retry-After` | Newman SEC-W04; escenario 24; SEC-W04 |
-| ZAP baseline y activo autenticado | `bash scripts/qa/zap.sh` (poco más de 2 minutos en el CI, con la descarga de la imagen; resumen en `logs/zap/resumen.md`) | "High: 0" y "Cumple el criterio" | Run 44867187257; SEC-E01 |
-| Dependencias | `gh run view 44867187171 -R santttii/deapps2` o `gh workflow run seguridad.yml -R santttii/deapps2 --ref <tag>`; local, para una imagen: `MSYS_NO_PATHCONV=1 docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -v "$(pwd -W):/repo" aquasec/trivy:0.76.2 image --scanners vuln --severity CRITICAL,HIGH --ignorefile /repo/.trivyignore palco-web` (la primera vez baja la base de vulnerabilidades); lo mismo con `palco-backend` y con `postgres:17-alpine` | 0 CRITICAL y 0 HIGH sin justificar; en backend, las 6 suprimidas en su sección; en `postgres:17-alpine`, las suprimidas por `.trivyignore` (DEF-73) | Run 44867187171 (backend y web); SEC-E02 y SEC-E02b |
+| ZAP baseline y activo autenticado | `bash scripts/qa/zap.sh` (poco más de 2 minutos en el CI, con la descarga de la imagen; resumen en `logs/zap/resumen.md`) | "High: 0" y "Cumple el criterio" | Run 44867187257 (y 45709490550, sobre `93d34d2`); SEC-E01 |
+| Dependencias | `gh run view 44867187171 -R santttii/deapps2` o `gh workflow run seguridad.yml -R santttii/deapps2 --ref <tag>`; local, para una imagen: `MSYS_NO_PATHCONV=1 docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -v "$(pwd -W):/repo" aquasec/trivy:0.76.2 image --scanners vuln --severity CRITICAL,HIGH --ignorefile /repo/.trivyignore palco-web` (la primera vez baja la base de vulnerabilidades); lo mismo con `palco-backend` y con `postgres:17-alpine` | 0 CRITICAL y 0 HIGH sin justificar; en backend, las 6 suprimidas en su sección; en `postgres:17-alpine`, las suprimidas por `.trivyignore` (DEF-73) | Run 44867187171 (backend y web) y 45709490636 (`93d34d2`: backend, web y `postgres:17-alpine`); SEC-E02 y SEC-E02b |
 | Secretos (G6) | `MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 git /repo --log-opts="--all" --redact`, o el job "Secretos (gitleaks)" del CI | "no leaks found" | 176 commits, 0 hallazgos; SEC-E03 |
-| Cabeceras, CORS y cookies | `curl -skI https://localhost/ \| grep -iE 'content-security\|strict-transport\|x-content-type\|cross-origin\|set-cookie'`; `curl -sk -o /dev/null -D - -H 'Origin: https://sitio-ajeno.example' https://localhost/api/eventos \| grep -i '^access-control' \|\| echo "sin CORS para un origen ajeno"`; lo mismo con `Origin: http://localhost:5173`; `curl -sk -o /dev/null -D - -H 'Origin: https://localhost' https://localhost/api/eventos \| grep -iE '^access-control\|^vary'` | CSP, HSTS y `nosniff`, sin `Set-Cookie`; con las correcciones de DEF-74, `Cross-Origin-Opener-Policy` y `Cross-Origin-Resource-Policy` en `same-origin`; nada de CORS para el origen ajeno ni, con la de DEF-42, para el Vite de desarrollo; para el propio, ese origen exacto con `Allow-Credentials: true` y `Vary: Origin` | Bloque E, 21 de 21 (sobre `fbd31dc`, sin las dos correcciones); SEC-W12 a W14 |
+| Cabeceras, CORS y cookies | `curl -skI https://localhost/ \| grep -iE 'content-security\|strict-transport\|x-content-type\|cross-origin\|set-cookie'`; `curl -sk -o /dev/null -D - -H 'Origin: https://sitio-ajeno.example' https://localhost/api/eventos \| grep -i '^access-control' \|\| echo "sin CORS para un origen ajeno"`; lo mismo con `Origin: http://localhost:5173`; `curl -sk -o /dev/null -D - -H 'Origin: https://localhost' https://localhost/api/eventos \| grep -iE '^access-control\|^vary'` | CSP con `style-src 'self'` e `img-src 'self' data: blob: https://picsum.photos` (DEF-69), HSTS y `nosniff`, sin `Set-Cookie`; con las correcciones de DEF-74, `Cross-Origin-Opener-Policy` y `Cross-Origin-Resource-Policy` en `same-origin`; nada de CORS para el origen ajeno ni, con la de DEF-42, para el Vite de desarrollo; para el propio, ese origen exacto con `Allow-Credentials: true` y `Vary: Origin` | Bloque E, 21 de 21 (sobre `fbd31dc`, sin las correcciones de DEF-42, DEF-69 y DEF-74); SEC-W12 a W14 |
 | Logs | `bash scripts/qa/control-de-logs.sh logs/server.log`; `grep -o 'Asistente: usuario=[^ ]*' logs/server.log \| sort \| uniq -c`; `grep 'CorreoAlLog' logs/server.log \| tail -3`; `docker compose logs web \| grep -cE '/puertas/[^ ]+(@\|%40)\|email=[^<& ]'` | "Control de logs: logs/server.log está limpio", sin tokens, contraseñas de prueba ni DNI; el asistente registra ids; con `PALCO_CORREO_LOG_COMPLETO=true` (la preparación de arriba lo prende para los guiones) los emails salen enteros, y sin la variable, solo el destinatario enmascarado (DEF-36); con la corrección de DEF-72, 0 renglones de nginx con un email | SEC-D01 y SEC-D03 |
 | Sin stack traces al cliente | `curl -s -w '\nHTTP %{http_code}\n' -X POST "$API/api/usuarios/login" -H 'Content-Type: application/json' -d '{malo'`; el 500 con `idError`: `node scripts/pruebas/escenarios.mjs 14` (espera hasta 4 minutos y medio a la conciliación) | 400 "El cuerpo de la solicitud no es un JSON válido." en Problem Details; 500 `error-inesperado` con `idError` y nada interno | Escenario 14, 18 de 18; SEC-W11 |
 | TLS | `curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://localhost/`; `echo \| openssl s_client -connect localhost:443 -servername localhost -brief 2>&1 \| grep -E 'Protocol version\|Ciphersuite'` (el `curl` de Git Bash usa Schannel y no muestra la versión de TLS) | 301 a `https://localhost/`; `Protocol version: TLSv1.3` (con `-tls1_2`, TLSv1.2) | Humo por HTTPS del job Integración; SEC-D04 |
