@@ -24,6 +24,19 @@ El repo tiene dos partes:
   solo por REST, SOAP o JMS. El estado de cada fase está en [`TODO.md`](TODO.md), y el detalle, en
   [`docs/documentacion/Palco_Documentacion_Completa.md`](docs/documentacion/Palco_Documentacion_Completa.md).
 
+Los documentos de la Entrega Final:
+
+- [Documentación final](docs/final/documentacion-final.md) y
+  [declaración de uso de IA](docs/final/declaracion-uso-ia.md).
+- [Manual de usuario](docs/manual/manual-de-usuario.md).
+- Decisiones de arquitectura: [`docs/adr/`](docs/adr/).
+- Pruebas: [plan](docs/testing/plan-de-pruebas.md), [especificación de casos](docs/testing/especificacion-de-casos.md),
+  [matriz de trazabilidad](docs/testing/evidencia/matriz-de-trazabilidad.md),
+  [informe de ejecución](docs/testing/informe-de-ejecucion.md), [registro de defectos](docs/testing/registro-de-defectos.md)
+  e [informe de seguridad](docs/testing/informe-de-seguridad.md).
+- API: [`docs/api/`](docs/api/), con la OpenAPI, el WSDL, los contratos de mensajería y la colección de Postman.
+- Tablero del grupo en Notion: [Tablero de Tareas D Apps 2](https://www.notion.so/3caf71443ad4807d8749c3543f74c075).
+
 ## Levantar todo desde cero
 
 Con Docker alcanza: el sistema completo (la app, la base PostgreSQL, el broker JMS embebido en WildFly, el ARCA
@@ -52,7 +65,7 @@ sin configurar nada.
 En cualquier terminal (PowerShell, cmd, la Terminal de macOS o Bash: los comandos son los mismos):
 
 ```
-git clone <dirección del repositorio> palco
+git clone https://github.com/santttii/deapps2.git palco
 cd palco
 docker compose up --build --wait
 ```
