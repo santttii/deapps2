@@ -26,6 +26,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import com.palco.eventos.api.Dtos.CambioCupoDto;
 import com.palco.eventos.api.Dtos.CancelacionDto;
 import com.palco.eventos.api.Dtos.EditarEventoDto;
 import com.palco.eventos.api.Dtos.NuevoEventoDto;
@@ -113,6 +114,39 @@ class MensajesDeValidacionTest {
                 List.of(new SectorEditadoDto("s".repeat(41), "Campo", 50_000, 100)));
 
         assertEquals(Map.of("sectores[0].id", "El id del sector tiene hasta 40 caracteres."), errores(cambios));
+    }
+
+    /**
+     * DEF-81: Schemathesis mandó un alta con el carácter nulo y PostgreSQL la rechazó con un 500. Cada texto del
+     * evento lo rechaza ahora con un 400 que nombra el campo.
+     */
+    @Test
+    void unTextoConElCaracterNuloSeRechazaCampoPorCampo() {
+        String nulo = "a\u0000b";
+        NuevoEventoDto alta = new NuevoEventoDto(nulo, "M\u00fasica" + "\u0000", nulo, FECHA, nulo, nulo,
+                List.of(new NuevoSectorDto(nulo, 1, 1)));
+
+        assertEquals(Map.of(
+                "titulo", "El título no puede tener caracteres de control.",
+                "categoria", "La categoría no puede tener caracteres de control.",
+                "venue", "El lugar no puede tener caracteres de control.",
+                "descripcion", "La descripción no puede tener caracteres de control.",
+                "imagenUrl", "La URL de la imagen no puede tener caracteres de control.",
+                "sectores[0].nombre", "El nombre del sector no puede tener caracteres de control."), errores(alta));
+        assertEquals(Map.of("motivo", "El motivo no puede tener caracteres de control."),
+                errores(new CancelacionDto(nulo)));
+        assertEquals(Map.of("clave", "La clave de devolución no puede tener caracteres de control."),
+                errores(new CambioCupoDto(-1, nulo)));
+    }
+
+    /** La descripción y el motivo pueden tener varios renglones; el título no. */
+    @Test
+    void laDescripcionYElMotivoAdmitenSaltosDeLineaYElTituloNo() {
+        EditarEventoDto cambios = new EditarEventoDto("Show\nfalso", "M\u00fasica", "Estadio", FECHA,
+                "Primer renglón.\r\nSegundo,\tcon tabulador.", null, List.of(new SectorEditadoDto(null, "Campo", 50_000, 100)));
+
+        assertEquals(Map.of("titulo", "El título no puede tener caracteres de control."), errores(cambios));
+        assertEquals(Map.of(), errores(new CancelacionDto("Se suspende por lluvia.\nSe reprograma.")));
     }
 
     @Test
