@@ -6,7 +6,8 @@ criterios describen el estado de entonces. Después se corrigieron DEF-01, DEF-0
 verificar con `dev.sh`. El estado vigente de los defectos está en la sección 7 de `docs/testing/plan-de-pruebas.md`;
 los resultados del 3.er checkpoint, en su sección 8 y en `docs/testing/evidencia/checkpoint-3/`. D-2 (sección 8, punto
 5) quedó decidido en `docs/adr/ADR-005-broker-embebido.md`: el broker sigue embebido en WildFly y su journal va en el
-volumen `datos-servidor` del compose.
+volumen `datos-servidor` del compose. El tag de INF-09 quedó como `v1.0-final`, el de la Entrega Final, y no
+`v1.0-testing`.
 
 - **Fecha:** 30/10/2026
 - **Rama:** `testing/condiciones-eliminatorias`, creada desde `master` en `f655139`
