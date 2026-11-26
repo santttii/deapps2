@@ -214,8 +214,8 @@ hotspots, duplicación 0,7 %, seguridad A, mantenibilidad A y **confiabilidad C*
 smells BLOCKER son de nombres (`java:S1845`, DEF-67, corregido el 24/11 en `276bd87`, a verificar con el análisis del
 tag). En ese análisis hay una vulnerabilidad Minor aceptada en SonarCloud
 (`docker:S6471`: el proceso principal de nginx arrancaba con root en la imagen web; DEF-71). Desde el 25/11, la imagen
-web parte de `nginxinc/nginx-unprivileged:1.30-alpine` y termina con `USER 101`: nginx entero corre sin root (contra el
-compose, `id -u` en el contenedor da 101) y sigue en 80 y 443 dentro del contenedor. Se verifica con el análisis del
+web termina con `USER 101` y, desde el 26/11, parte de la oficial `nginx:1.30-alpine` con los ajustes de
+`nginx-unprivileged` (DEF-78): nginx entero corre sin root (contra el compose, `id -u` en el contenedor da 101) y sigue en 80 y 443 dentro del contenedor. Se verifica con el análisis del
 tag.
 SonarCloud marca además con `java:S8786` (expresiones con retroceso superlineal), como code smells, cinco líneas. Las
 44 y 48 de `usuarios/api/Dtos.java` son DEF-64 (sección 9, corregido el 24/11). Las otras tres se midieron y no
@@ -256,10 +256,10 @@ minutos que pide la cátedra.
 ## 9. Defectos
 
 La línea de totales de `docs/testing/registro-de-defectos.md` (ya incluye los defectos de esta corrida, los del
-informe de seguridad y los del 25/11) dice: "Totales: 77 defectos. 29 cerrados, 43 corregidos que falta verificar
-sobre el tag (DEF-02, DEF-14, DEF-30, DEF-32 a DEF-38, DEF-40, DEF-42 a DEF-50, DEF-52 a DEF-57, DEF-59 a DEF-67,
-DEF-69 a DEF-74, DEF-76 y DEF-77), ninguno nuevo ni en corrección, y 5 aceptados (DEF-39, DEF-41, DEF-58, DEF-68 y
-DEF-75). Por severidad: 1 bloqueante, 8 críticos, 16 mayores, 42 menores y 10 cosméticos." Los que no están
+informe de seguridad y los del 25 y el 26/11) dice: "Totales: 78 defectos. 29 cerrados, 44 corregidos que falta
+verificar sobre el tag (DEF-02, DEF-14, DEF-30, DEF-32 a DEF-38, DEF-40, DEF-42 a DEF-50, DEF-52 a DEF-57, DEF-59 a
+DEF-67, DEF-69 a DEF-74 y DEF-76 a DEF-78), ninguno nuevo ni en corrección, y 5 aceptados (DEF-39, DEF-41, DEF-58,
+DEF-68 y DEF-75). Por severidad: 1 bloqueante, 8 críticos, 16 mayores, 43 menores y 10 cosméticos." Los que no están
 cerrados, por severidad, según la sección 7 del registro:
 
 | Severidad | Nuevos, en corrección o aceptados | Corregidos, a verificar sobre el tag | Máximo al cierre |
@@ -346,6 +346,9 @@ Las correcciones del 24/11, después de esta corrida:
   DEF-45 (nginx no publica el ARCA simulado), DEF-56 (los guiones de `docs/entrega3/evidencia/` sin secreto por
   defecto), DEF-72 (el log de nginx sin emails), DEF-73 (Trivy escanea `postgres:17-alpine`) y DEF-74 (COOP y CORP en
   nginx). El registro trae la prueba de cada uno contra el compose del 25/11.
+- **26/11:** DEF-78 (la imagen web sobre `nginx-unprivileged` traía nginx 1.30.6, con cuatro CVE críticas y dos altas,
+  y dejó en rojo el job de la imagen web del workflow Seguridad): la imagen vuelve a la oficial `nginx:1.30-alpine`
+  con los ajustes para correr sin root, y Trivy 0.76.2 sobre la imagen da 0 críticas y 0 altas.
 - Corrida local de los módulos tocados por DEF-64 y DEF-65, el 24/11:
   `mvn -o -f backend/pom.xml -pl common,servicios/usuarios -am test`, con `common` en 82 tests y Usuarios en 91, 0
   fallas.
