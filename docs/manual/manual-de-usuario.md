@@ -166,6 +166,8 @@ email**, que lleva al segundo paso.
 
 ### Recuperar la contraseña
 
+![Recuperar la contraseña](img/16-recuperar.png)
+
 Quien olvidó la contraseña toca **¿Olvidaste tu contraseña?**, debajo del botón **Ingresar**. Son dos
 pasos:
 
@@ -401,6 +403,8 @@ puede comprar. Las publicaciones de ese evento en la reventa se retiran.
 ![Cancelar evento](img/14-cancelar-evento.png)
 
 ### Ventas y liquidación
+
+![Ventas y liquidación](img/17-ventas-y-liquidacion.png)
 
 En **Detalle por evento** se elige el evento, y en **Ventas y liquidación** se ven tres cifras:
 
