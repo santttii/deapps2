@@ -84,7 +84,7 @@ contra el máximo.
 | DEF-35 | El contrato de la asignación de puerta decía que no controla el rol de la cuenta, y la API responde 422 `no-es-de-puerta` | Menor | Baja | Corregido, a verificar sobre el tag (contrato y Postman) | Joaquin Molina | 20/11 | Corrección del 20/11 |
 | DEF-36 | El log guardaba el email de quien usa el asistente y, sin SMTP, cada email completo con sus códigos (SEC-D03) | Mayor | Alta | Corregido, a verificar sobre el tag | Sebastian Deya y Valentina Frisoli | 20/11 | Corrección del 20/11 y del 24/11 (el compose, por defecto, sin el email entero) |
 | DEF-37 | El DNI de cada titular viaja completo en `PAGO_CONFIRMADO` y queda completo en la auditoría (SEC-D05) | Mayor | Media | Corregido, a verificar sobre el tag | Julián Zuchowicki | 20/11 | Corrección del 24/11 |
-| DEF-38 | La sesión dura 8 horas y cerrar sesión no revoca el token (SEC-W05c) | Mayor | Baja | Aceptado (riesgo aceptado el 16/10) | Santiago Loto | 20/11 | Riesgo aceptado |
+| DEF-38 | La sesión dura 8 horas y cerrar sesión no revoca el token (SEC-W05c) | Mayor | Baja | Corregido, a verificar sobre el tag | Sebastian Deya | 20/11 | Corrección del 25/11 |
 | DEF-39 | El broker no tiene usuarios ni permisos por destino (SEC-I02) | Menor | Baja | Aceptado (riesgo aceptado el 16/10) | Julián Zuchowicki | 20/11 | Riesgo aceptado |
 | DEF-40 | El paso del CI "Control de logs (sin tokens ni DNI de prueba)" no busca DNI (SEC-D01) | Menor | Media | Corregido, a verificar sobre el tag | Sebastian Deya | 20/11 | Corrección del 25/11 |
 | DEF-41 | El límite de ingresos cuenta por email: cualquiera puede bloquearle el ingreso a otra persona 15 minutos (SEC-W04) | Menor | Baja | Aceptado (decisión de diseño, CA-02.3) | Santiago Loto | 20/11 | Riesgo aceptado |
@@ -115,9 +115,9 @@ contra el máximo.
 | DEF-66 | La colección de Postman no tenía ningún pedido para `POST /v1/operaciones-de-reventa/controles-de-compra` | Menor | Alta | Corregido, a verificar sobre el tag (Newman) | Julián Zuchowicki | 24/11 | Corrección del 24/11 |
 | DEF-67 | Tres code smells BLOCKER de SonarCloud (`java:S1845`): nombres que solo difieren en mayúsculas en `ArcaSoap`, `PagosFake` y `ResultadoDeCobro` | Cosmética | Baja | Corregido, a verificar sobre el tag | Santiago Loto, Valentina Frisoli y Julián Zuchowicki | 24/11 | Corrección del 24/11 |
 | DEF-68 | La imagen backend lleva seis vulnerabilidades altas de Jackson 2.21.5 y Guava 33.0.0 que vienen en los módulos de WildFly 41.0.1, aceptadas en `.trivyignore` hasta el 31/12/2026 (SEC-E02) | Menor | Baja | Aceptado (riesgo aceptado el 21/11, vence el 31/12/2026) | Santiago Loto | 24/11 | Riesgo aceptado |
-| DEF-69 | La CSP permite estilos en línea (`style-src 'unsafe-inline'`) e imágenes de cualquier origen `https:`: dos alertas Medium de ZAP, justificadas (SEC-W12, SEC-E01) | Menor | Baja | Aceptado (justificado en `.zap/reglas.tsv`) | Valentina Frisoli | 24/11 | Riesgo aceptado |
+| DEF-69 | La CSP permite estilos en línea (`style-src 'unsafe-inline'`) e imágenes de cualquier origen `https:`: dos alertas Medium de ZAP, justificadas (SEC-W12, SEC-E01) | Menor | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 24/11 | Corrección del 25/11 |
 | DEF-70 | La CSP habilitaba `https://fonts.googleapis.com` y `https://fonts.gstatic.com`, aunque las fuentes se sirven desde el propio sitio (SEC-W12) | Menor | Baja | Corregido, a verificar sobre el tag (ZAP y pruebas de seguridad) | Valentina Frisoli | 24/11 | Corrección del 24/11 |
-| DEF-71 | El proceso principal de nginx corre como root en la imagen web (hallazgo de SonarCloud aceptado) (SEC-E04) | Menor | Baja | Aceptado (en SonarCloud, 21/11) | Joaquin Molina | 24/11 | Riesgo aceptado |
+| DEF-71 | El proceso principal de nginx corre como root en la imagen web (hallazgo de SonarCloud aceptado) (SEC-E04) | Menor | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 24/11 | Corrección del 25/11 |
 | DEF-72 | El email de la cuenta de puerta viaja en la ruta (`PUT` y `DELETE /api/v1/validacion/puertas/{eventoId}/{email}`) o en la consulta (`GET /api/usuarios/cuentas?email=`) y queda en el log de accesos de nginx (SEC-D03) | Menor | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 24/11 | Corrección del 25/11 |
 | DEF-73 | El análisis de dependencias no escanea la imagen `postgres:17-alpine` del compose (SEC-E02b) | Menor | Baja | Corregido, a verificar sobre el tag | Sebastian Deya | 24/11 | Corrección del 25/11 |
 | DEF-74 | ZAP informa 5 alertas Low sin justificar: faltan las cabeceras `Cross-Origin-Resource-Policy`, `Cross-Origin-Opener-Policy` y `Cross-Origin-Embedder-Policy`, y 14 respuestas salen en `text/html` donde ZAP esperaba JSON (SEC-W12, SEC-E01) | Cosmética | Baja | Corregido, a verificar sobre el tag | Valentina Frisoli | 24/11 | Corrección del 25/11 |
@@ -125,9 +125,9 @@ contra el máximo.
 | DEF-76 | El bug `java:S8696` de SonarCloud en `AsistenteIA` dejaba la confiabilidad del código nuevo en D y el Quality Gate en rojo | Menor | Alta | Corregido, a verificar sobre el tag (análisis de SonarCloud) | Valentina Frisoli | 25/11 | `1bab37a` |
 | DEF-77 | `GET /v1/pagos?claveIdempotencia=` responde 500 si la clave trae el carácter nulo U+0000 | Menor | Alta | Corregido, a verificar sobre el tag (contrato) | Valentina Frisoli | 25/11 | `a33194d` |
 
-Totales: 77 defectos. 29 cerrados, 40 corregidos que falta verificar sobre el tag (DEF-02, DEF-14, DEF-30, DEF-32 a
-DEF-37, DEF-40, DEF-42 a DEF-50, DEF-52 a DEF-57, DEF-59 a DEF-67, DEF-70, DEF-72 a DEF-74, DEF-76 y DEF-77), ninguno
-nuevo ni en corrección, y 8 aceptados (DEF-38, DEF-39, DEF-41, DEF-58, DEF-68, DEF-69, DEF-71 y DEF-75). Por
+Totales: 77 defectos. 29 cerrados, 43 corregidos que falta verificar sobre el tag (DEF-02, DEF-14, DEF-30, DEF-32 a
+DEF-38, DEF-40, DEF-42 a DEF-50, DEF-52 a DEF-57, DEF-59 a DEF-67, DEF-69 a DEF-74, DEF-76 y DEF-77), ninguno nuevo
+ni en corrección, y 5 aceptados (DEF-39, DEF-41, DEF-58, DEF-68 y DEF-75). Por
 severidad: 1 bloqueante, 8 críticos, 16 mayores, 42 menores y 10 cosméticos.
 
 ## 3. Defectos abiertos y corregidos que falta verificar
@@ -371,7 +371,7 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
   `notificaciones.registro_auditoria`: no tiene `dni`; `select count(*) ... where cuerpo like '%"dni"%'` da 0, también
   para las filas anteriores al despliegue; los escenarios 7, 9, 11, 15 y 17 siguen en verde.
 
-### DEF-38 · Mayor · Prioridad Baja · Aceptado (riesgo aceptado el 16/10)
+### DEF-38 · Mayor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **La sesión dura 8 horas y cerrar sesión no revoca el token (SEC-W05c)**
 
@@ -389,6 +389,13 @@ Desde DEF-30, en orden. DEF-02 y DEF-14, de antes del 20/11, están en la secci�
   reiniciar el backend genera una clave nueva y todas las sesiones abiertas dejan de valer (`ClavesJwt.cargar`); con
   la clave definida, cambiarla hace lo mismo.
 - **Corrección propuesta:** un token de acceso de 15 minutos con un refresh token que se revoca al cerrar sesión.
+- **Corrección (25/11):** la sesión dura 15 minutos (`ServicioDeUsuarios.DURACION_SESION`), que cumple SEC-W05c
+  (vigencia corta o revocación). El token es un JWT que cada servicio valida sin consultar a Usuarios, así que no se
+  revoca: lo que acota una sesión robada es que dure 15 minutos. Alcanza para una compra entera (la reserva dura 10
+  minutos) y, al vencer, el frontend pide ingresar de nuevo (`frontend/src/lib/sesion.ts`, `expiraEn`).
+- **Pruebas de la corrección:** Newman, «SEC-W05c Login: la sesión dura 15 minutos» (`exp - iat` = 900 s), 682
+  aserciones sin fallas contra el compose (25/11); la E2E, 39 de 39 en Edge.
+- **Prueba que lo va a cerrar:** la colección de Postman en el CI del tag.
 
 ### DEF-39 · Menor · Prioridad Baja · Aceptado (riesgo aceptado el 16/10)
 
@@ -847,19 +854,19 @@ solo con Supabase**
   `SameSite`, o solo en memoria.
 - **Obtenido (del código):** la clave `palco.sesion` guarda el token, su vencimiento y el usuario
   (`frontend/src/lib/sesion.ts`, `guardarSesion`), para que la sesión sobreviva a recargar la página. Un script
-  inyectado podría leer el token y usarlo hasta que venza (8 horas, DEF-38).
+  inyectado podría leer el token y usarlo hasta que venza (15 minutos desde DEF-38).
 - **Por qué es Menor:** hace falta antes una inyección de script, que frenan la CSP y el escapado de React; ningún
   criterio de aceptación se incumple.
 - **Riesgo aceptado (decisión de diseño):** el documento único (sección 5.7) eligió `localStorage` frente a la
-  memoria, que no sobrevive a recargar, y a una cookie `HttpOnly`, que exigía cambiar el backend. El README lo cuenta
-  entre las limitaciones conocidas y el informe de seguridad, en SEC-W14. Lo acotan la CSP de nginx
+  memoria, que no sobrevive a recargar, y a una cookie `HttpOnly`, que exigía cambiar el backend. El informe de
+  seguridad lo cuenta en SEC-W14. Lo acotan la CSP de nginx
   (`script-src 'self'`), que el frontend no carga scripts de terceros y que React escapa el texto: el bloque C de
   `scripts/pruebas/seguridad.mjs` prueba que la API devuelve el HTML guardado como texto, en JSON, y
   `frontend/e2e/xss.spec.ts`, que el navegador lo muestra como texto. Sin cookies tampoco hay CSRF.
 - **Alternativa:** salir de la sesión borra el token del navegador (`borrarSesion`); para que dejen de valer todos
-  los tokens, la de DEF-38.
+  los tokens, que vencen a los 15 minutos (DEF-38).
 - **Corrección propuesta:** una cookie `HttpOnly`, `Secure` y `SameSite=Strict` que Usuarios emita al ingresar, junto
-  con el token corto y revocable que propone DEF-38.
+  con una lista de tokens revocados.
 
 ### DEF-59 · Menor · Prioridad Alta · Corregido, a verificar sobre el tag
 
@@ -1091,7 +1098,7 @@ WildFly 41.0.1 (SEC-E02)**
   de `.trivyignore`.
 - **Prueba que lo va a cubrir:** el job "Imagen: backend" sin vulnerabilidades suprimidas.
 
-### DEF-69 · Menor · Prioridad Baja · Aceptado (justificado en `.zap/reglas.tsv`)
+### DEF-69 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **La CSP permite estilos en línea e imágenes de cualquier origen `https:` (dos alertas Medium de ZAP) (SEC-W12,
 SEC-E01)**
@@ -1111,6 +1118,14 @@ SEC-E01)**
 - **Corrección propuesta:** estilos con nonce o hash en lugar de `'unsafe-inline'`, e `img-src` limitado al dominio
   del almacenamiento configurado.
 - **Prueba que lo va a cubrir:** el baseline de ZAP sin la alerta 10055.
+- **Corrección (25/11):** la CSP de `frontend/docker/nginx.conf` queda con `style-src 'self'`, sin
+  `'unsafe-inline'`, e `img-src 'self' data: blob: https://picsum.photos`. Los estilos están en los `.css` del build;
+  los de framer-motion y los `style` de React se aplican por JavaScript (CSSOM), y la CSP no los frena. Las fotos que
+  se suben se sirven desde Palco y las de los eventos de ejemplo, desde picsum.photos.
+- **Pruebas de la corrección:** contra el compose (25/11), recorriendo como visitante, organizador y comprador el
+  catálogo, un evento, recuperar la contraseña, el panel del organizador, Mis entradas, la reventa y el asistente:
+  ningún aviso de CSP en la consola. La E2E, 39 de 39 en Edge; `seguridad.mjs`, bloque E, 21 de 21.
+- **Prueba que lo va a cerrar:** el ZAP del tag, sin las dos alertas Medium de la CSP.
 
 ### DEF-70 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
@@ -1133,7 +1148,7 @@ SEC-E01)**
   `cabeceras.txt` y el baseline de ZAP con la CSP sin esos orígenes, y la suite E2E en verde con las fuentes del propio
   sitio.
 
-### DEF-71 · Menor · Prioridad Baja · Aceptado (en SonarCloud)
+### DEF-71 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
 **El proceso principal de nginx corre como root en la imagen web (SEC-E04)**
 
@@ -1151,6 +1166,14 @@ SEC-E01)**
   `docker-compose.yml` y el certificado en una carpeta del usuario.
 - **Prueba que lo va a cubrir:** el análisis de SonarCloud sin issues aceptadas y la suite E2E por
   `https://localhost`.
+- **Corrección (25/11):** la imagen web parte de `nginxinc/nginx-unprivileged:1.30-alpine` y termina con
+  `USER 101`: el proceso principal y los workers de nginx corren con el usuario nginx. Root se usa solo para armar la
+  imagen (los paquetes, openssl y `/etc/nginx/tls` con dueño nginx). Sigue escuchando en 80 y 443 dentro del
+  contenedor, porque Docker deja abrir esos puertos sin root desde la versión 20.10: `nginx.conf` y el compose no
+  cambian.
+- **Pruebas de la corrección:** contra el compose (25/11), `id -u` en el contenedor web da 101 y `ps` muestra los
+  procesos de nginx con el usuario nginx; la web por HTTPS, con su certificado, y la E2E, 39 de 39.
+- **Prueba que lo va a cerrar:** el análisis de SonarCloud y el Trivy de la imagen web sobre el tag.
 
 ### DEF-72 · Menor · Prioridad Baja · Corregido, a verificar sobre el tag
 
@@ -1730,11 +1753,9 @@ chocaban en Pagos**
 ## 6. Riesgos aceptados
 
 Las decisiones con riesgo aceptado se cuentan como defectos abiertos, en estado *Aceptado*, con su riesgo y su
-alternativa en la sección 3: las dos del 16/10, la del token en el navegador y las cinco que salen del informe de
-seguridad del 24/11 (`docs/testing/informe-de-seguridad.md`).
+alternativa en la sección 3. Quedan cinco: DEF-39, DEF-41, DEF-58, DEF-68 y DEF-75. DEF-38, DEF-69 y DEF-71, que
+estaban aceptadas, se corrigieron el 25/11.
 
-- **DEF-38 (SEC-W05c), la sesión dura 8 horas sin refresh token ni revocación.** Documento único, secciones 5.6, 9.4 y
-  14.2; la petición SEC-W05c de Postman comprueba esa vigencia.
 - **DEF-39 (SEC-I02), el broker no tiene permisos por destino.** El broker está embebido en el mismo WildFly y los
   servicios se conectan por in-vm. Documento único, secciones 10.3 y 14.8, y `docs/adr/ADR-005-broker-embebido.md`.
 - **DEF-41 (SEC-W04), el límite de ingresos cuenta por email.** Lo pide CA-02.3 de HU-02: con 5 fallidos en 15
@@ -1745,11 +1766,6 @@ seguridad del 24/11 (`docs/testing/informe-de-seguridad.md`).
   de React.
 - **DEF-68 (SEC-E02), seis CVE altas de Jackson y Guava dentro de WildFly 41.0.1.** Ninguna se alcanza en Palco
   (motivos en `.trivyignore`); cada una vence el 31/12/2026 y entonces el job de Trivy vuelve a fallar.
-- **DEF-69 (SEC-W12, SEC-E01), la CSP con `style-src 'unsafe-inline'` e `img-src https:`.** Las dos alertas Medium de
-  ZAP están justificadas en `.zap/reglas.tsv` (renglones 54 y 55): lo que ejecuta código sigue cerrado.
-- **DEF-71 (SEC-E04), el proceso principal de nginx corre como root.** Aceptado en SonarCloud: hace falta para los
-  puertos 80 y 443 y para escribir el certificado al arrancar; los pedidos los atienden los workers con el usuario
-  `nginx` (`frontend/Dockerfile`).
 - **DEF-75 (SEC-W03), el registro dice si un email o un DNI ya tienen cuenta.** Lo pide CA-01.2 de HU-01; el login y
   "olvidé mi contraseña" no lo revelan.
 
@@ -1766,8 +1782,8 @@ se cierran si su prueba pasa sobre el tag y, si no, vuelven a contar como abiert
 |---|---|---|---|---|
 | Bloqueante | 0 | 0 | 0 | Dentro del máximo |
 | Crítica | 0 | 2: DEF-63 y DEF-64 | 0 | Dentro del máximo, si las dos correcciones pasan sobre el tag |
-| Mayor | 1: DEF-38 (aceptado), con su alternativa en la sección 3 | 5: DEF-30, DEF-36, DEF-37, DEF-46 y DEF-47 | 3, cada uno con su alternativa | Dentro del máximo, con margen de dos |
-| Menor | 7, todos aceptados: DEF-39, DEF-41, DEF-58, DEF-68, DEF-69, DEF-71 y DEF-75 | 25: DEF-02, DEF-14, DEF-32, DEF-33, DEF-35, DEF-40, DEF-42 a DEF-45, DEF-48, DEF-49, DEF-52, DEF-57, DEF-59 a DEF-62, DEF-65, DEF-66, DEF-70, DEF-72, DEF-73, DEF-76 y DEF-77 | Sin máximo | Dentro del máximo |
+| Mayor | 0 | 6: DEF-30, DEF-36 a DEF-38, DEF-46 y DEF-47 | 3, cada uno con su alternativa | Dentro del máximo |
+| Menor | 5, todos aceptados: DEF-39, DEF-41, DEF-58, DEF-68 y DEF-75 | 27: DEF-02, DEF-14, DEF-32, DEF-33, DEF-35, DEF-40, DEF-42 a DEF-45, DEF-48, DEF-49, DEF-52, DEF-57, DEF-59 a DEF-62, DEF-65, DEF-66, DEF-69 a DEF-73, DEF-76 y DEF-77 | Sin máximo | Dentro del máximo |
 | Cosmética | 0 | 8: DEF-34, DEF-50, DEF-53 a DEF-56, DEF-67 y DEF-74 | Sin máximo | Dentro del máximo |
 
 No queda ningún bloqueante ni ningún crítico abierto: los dos críticos que siguen sin cerrar están corregidos y falta
@@ -1776,6 +1792,6 @@ reproduce), y DEF-64, corregido el 24/11, con `NombreYApellidoTest` en el CI del
 `docs/testing/evidencia/final/registro-nombre-largo.txt` contra el compose del tag. Si alguna de esas pruebas falla,
 el defecto vuelve a abrirse y la entrega no cumple el "0 críticos".
 
-Con DEF-38 aceptado como único mayor abierto, los mayores quedan dos debajo del máximo: si una o dos de las
-correcciones de DEF-30, DEF-36, DEF-37, DEF-46 o DEF-47 no pasan su prueba sobre el tag, esos defectos vuelven a
-abrirse y los mayores siguen dentro del máximo; con tres, la entrega queda fuera.
+No queda ningún mayor abierto: si una, dos o tres de las correcciones de DEF-30, DEF-36, DEF-37, DEF-38, DEF-46 o
+DEF-47 no pasan su prueba sobre el tag, esos defectos vuelven a abrirse y los mayores siguen dentro del máximo; con
+cuatro, la entrega queda fuera.
