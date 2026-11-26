@@ -153,7 +153,7 @@ Esquema del escenario: CA-02.4 Token inválido
     | token                                                             |
     | un token de Palco con los últimos 6 caracteres de la firma cambiados |
     | un token con alg "none" y sin firma                               |
-    | un token de Palco emitido hace más de 8 horas (vencido)           |
+    | un token de Palco emitido hace más de 1 hora (vencido)            |
     | un token firmado con otra clave RSA y emisor "otro"               |
 
 Escenario: CA-02.5 Email sin verificar

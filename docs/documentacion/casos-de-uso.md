@@ -84,7 +84,7 @@ trae el email entero: `Email para <email> (<asunto>): <cuerpo>`.
   1. Ingresa email y contraseña en `/ingresar`.
   2. El frontend llama a `POST /api/usuarios/login` (`@PermitAll`).
   3. Usuarios verifica la contraseña (PBKDF2) y responde 200 con un JWT firmado con RS256, con el rol en el claim
-     `groups` y 8 horas de vigencia.
+     `groups` y 15 minutos de vigencia.
   4. El frontend confirma el token con `GET /api/usuarios/yo` al abrir la aplicación.
 - **Flujos alternativos:**
   - 3a. Email o contraseña incorrectos: 401 `no-autenticado`. El intento fallido queda guardado.
