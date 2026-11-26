@@ -23,6 +23,10 @@ En el código, el ID va en el nombre del test, así la matriz se arma sola a par
 - **Playwright:** `test('CP-05.1.1 Compra completa y entrada en Mis entradas', …)`.
 - **scripts/pruebas/escenarios.mjs:** el título del escenario empieza con los `CA` que cubre.
 
+Los pedidos de Postman se agrupan por servicio y la mayoría de las pruebas de Playwright, por pantalla, así que no
+llevan el `CP` en el nombre: el criterio que cubre cada uno está en las tablas `CRITERIOS_DE_NEWMAN` y
+`CRITERIOS_DE_PLAYWRIGHT` de `scripts/qa/matriz.mjs`, que la matriz usa igual que el `CP` del nombre.
+
 Un criterio sin ningún `CP` aparece en rojo en la matriz.
 
 **Prioridad (MoSCoW).** Must: sin esto el producto no sirve y una falla bloquea la entrega. Should: importante,
