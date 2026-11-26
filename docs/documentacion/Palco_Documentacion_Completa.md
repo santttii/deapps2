@@ -2302,10 +2302,12 @@ las rutas de la puerta y de las consultas con `?email=` (DEF-72). Desde el 25/11
 (`style-src 'self'`) y limita las imágenes a `img-src 'self' data: blob: https://picsum.photos`: las fotos que se
 suben se sirven desde Palco y las de los eventos de ejemplo, desde picsum.photos (DEF-69). Contra el compose, ese día,
 el recorrido de catálogo, evento, recuperar, panel del organizador, Mis entradas, reventa y asistente dio 0 avisos de
-CSP en la consola, la E2E 39 de 39 y `seguridad.mjs` 64 de 64. Y la imagen web parte de
-`nginxinc/nginx-unprivileged:1.30-alpine` con `USER 101`: nginx entero corre sin root (en el contenedor, `id -u` da
+CSP en la consola, la E2E 39 de 39 y `seguridad.mjs` 64 de 64. Y la imagen web parte de la
+oficial `nginx:1.30-alpine` con los ajustes de `nginx-unprivileged` (sin la directiva `user`, el pid y los temporales en
+`/tmp`) y `USER 101`: nginx entero corre sin root (en el contenedor, `id -u` da
 101) y sigue en 80 y 443 dentro del contenedor, que Docker permite sin root desde la 20.10; `nginx.conf` y el compose
-no cambian (DEF-71).
+no cambian (DEF-71). Usa la imagen oficial y no `nginxinc/nginx-unprivileged` porque esta publica las versiones
+nuevas con atraso: el 26/11 seguía en un nginx con seis CVE críticas o altas ya corregidas en la oficial (DEF-78).
 
 # 15. Frontend
 
@@ -3165,9 +3167,13 @@ desde el 20/11 los cinco commitean en commits chicos (T.11 y 18.1).
 
 ## 18.5 Tablero de tareas en Notion
 
-Las tareas se siguen en un tablero de Notion ("Tablero de Tareas D Apps 2"): una tarjeta por tarea, que se
+Las tareas se siguen en un tablero de Notion
+([Tablero de Tareas D Apps 2](https://www.notion.so/3caf71443ad4807d8749c3543f74c075)): una tarjeta por tarea, que se
 corresponde con una rama. Los diez criterios de seguridad de la matriz de la clase 11 están cargados como tarjetas
-con la etiqueta "seguridad". El tablero no está en el repositorio. En el repositorio, el estado por fases está en
+con la etiqueta "seguridad". Los casos de prueba y los defectos están en dos bases del mismo tablero,
+[Casos de prueba](https://www.notion.so/41ef71443ad481e583b2d8182901c8ce) y
+[Defectos](https://www.notion.so/41ef71443ad48122af2dc11b444d3f4e), con su estado, su responsable y su HU. El tablero
+no está en el repositorio. En el repositorio, el estado por fases está en
 `TODO.md` y el de cada defecto, en `docs/testing/registro-de-defectos.md`. Para la cátedra, que pide el tablero en Jira, hay una exportación del
 tablero de Notion en el formato de Jira; tampoco está en el repositorio.
 
