@@ -189,7 +189,7 @@ class RiesgosDelAsistenteTest {
             assertTrue(modelo.preguntas.isEmpty(), c.id() + ": el modelo recibió una pregunta bloqueada");
         } else {
             // Las instrucciones fijas, la fecha y, sin catálogo en este test, el aviso de que no hay lista de eventos.
-            assertEquals(List.of(asistente.instrucciones(List.of())), modelo.instrucciones,
+            assertEquals(List.of(asistente.armarInstrucciones(List.of())), modelo.instrucciones,
                     c.id() + ": al modelo le llegaron otras instrucciones");
             assertEquals(List.of(Guardrails.enmascarar(c.pregunta().strip())), modelo.preguntas,
                     c.id() + ": al modelo le llegó algo más que la pregunta");
@@ -385,7 +385,7 @@ class RiesgosDelAsistenteTest {
 
         assertEquals(List.of("Soy Ana Pérez, DNI [dni oculto], mail [email oculto]: ¿hasta cuándo puedo revender mi entrada?",
                 deBruno), modelo.preguntas);
-        String fijas = asistente.instrucciones(List.of());
+        String fijas = asistente.armarInstrucciones(List.of());
         assertEquals(List.of(fijas, fijas), modelo.instrucciones);
         for (String datoDeAna : List.of("Ana", "Pérez", "28.765.432", "ana.perez")) {
             assertFalse(r.texto().contains(datoDeAna), "La respuesta a Bruno trae «" + datoDeAna + "»: " + r.texto());

@@ -90,7 +90,7 @@ public class CatalogoDeEventos {
     @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
     Clock reloj = Clock.system(ARGENTINA);
     @SuppressWarnings("java:S8983") // Se fija al crear el bean, no cambia entre llamadas y los tests lo reemplazan.
-    Duration vigencia = VIGENCIA;
+    Duration vigenciaDelCache = VIGENCIA;
 
     @PostConstruct
     void abrirCliente() {
@@ -112,7 +112,7 @@ public class CatalogoDeEventos {
     public List<EventoALaVenta> proximos() {
         Leida guardada = ultima;
         long ahora = System.nanoTime();
-        if (guardada != null && ahora - guardada.cuandoNanos() < vigencia.toNanos()) {
+        if (guardada != null && ahora - guardada.cuandoNanos() < vigenciaDelCache.toNanos()) {
             return guardada.eventos();
         }
         try {

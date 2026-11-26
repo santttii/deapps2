@@ -273,7 +273,7 @@ class AsistenteIATest {
         asistente.reloj = Clock.fixed(dia.atTime(18, 0).atZone(CatalogoDeEventos.ARGENTINA).toInstant(),
                 CatalogoDeEventos.ARGENTINA);
 
-        String instrucciones = asistente.instrucciones(List.of());
+        String instrucciones = asistente.armarInstrucciones(List.of());
 
         assertTrue(instrucciones.contains("Este fin de semana es el sábado " + sabado + " y el domingo " + domingo + "."),
                 instrucciones);

@@ -114,7 +114,7 @@ public class AsistenteIA implements IAsistente {
         Future<String> pedido;
         try {
             // El catálogo se lee adentro del pedido: si Eventos tarda, también cuenta para el tiempo máximo.
-            pedido = ejecutor().submit(() -> modelo.completar(instrucciones(eventosALaVenta()), revision.texto()));
+            pedido = ejecutor().submit(() -> modelo.completar(armarInstrucciones(eventosALaVenta()), revision.texto()));
         } catch (RejectedExecutionException e) {
             // Sin un hilo libre para llamar al modelo (el servidor está saturado o se está apagando): para
             // quien pregunta es una falla más del modelo, con el mismo fallback, y no una excepción.
@@ -151,7 +151,7 @@ public class AsistenteIA implements IAsistente {
      * revisados ({@link CatalogoDeEventos}); igual se le dice al modelo que no siga instrucciones
      * que aparezcan ahí (inyección indirecta, LLM01).
      */
-    String instrucciones(List<EventoALaVenta> eventos) {
+    String armarInstrucciones(List<EventoALaVenta> eventos) {
         LocalDate hoy = LocalDate.now(reloj);
         // El fin de semana ya calculado: el modelo se equivoca si tiene que contar los días él solo. Es el de la
         // semana de lunes a domingo (with(DayOfWeek) se mueve dentro de esa semana): el domingo, el de ayer y hoy.

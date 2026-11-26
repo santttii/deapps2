@@ -156,7 +156,7 @@ class CatalogoDeEventosTest {
     @Test
     void siEventosDejaDeResponderSeUsaLaUltimaListaQueSeLeyoBien() {
         CatalogoDePrueba catalogo = new CatalogoDePrueba();
-        catalogo.vigencia = Duration.ZERO;
+        catalogo.vigenciaDelCache = Duration.ZERO;
         catalogo.respuesta = catalogo(evento("Kiroshi", "Arena", "2027-01-08T21:00:00", false, 0, 32_000));
         assertEquals(1, catalogo.proximos().size());
 
